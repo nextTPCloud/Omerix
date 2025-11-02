@@ -1,7 +1,10 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface ICliente extends Document {
-  _id: Types.ObjectId; // ✅ Explícitamente tipado
+  _id: {
+      type: Types.ObjectId,
+      auto: true, // ✅ Mongoose lo genera automáticamente
+  },
   
   // Relación con empresa (multi-tenant)
   empresaId: Types.ObjectId;
