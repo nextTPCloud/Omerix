@@ -1,0 +1,53 @@
+// backend/src/utils/jwt.ts
+
+import jwt from 'jsonwebtoken';
+import { IUsuario } from '../models/Usuario';
+import config from '@/config/env';
+
+const JWT_SECRET = config.jwt.secret;
+const JWT_EXPIRES_IN = config.jwt.expiresIn;
+const JWT_REFRESH_EXPIRES_IN = config.jwt.refreshExpiresIn;
+
+export interface JWTPayload {
+  userId: string;
+  empresaId: string;
+  email: string;
+  rol: string;
+}
+
+// Generar Access Token
+export const generateAccessToken = (user: IUsuario): string => {
+  const payload: JWTPayload = {
+    userId: String(user._id),
+    empresaId: String(user.empresaId),
+    email: user.email,
+    rol: user.rol,
+  };
+ 
+  return jwt.sign(payload, JWT_SECRET, { 
+    expiresIn: JWT_EXPIRES_IN 
+  } as jwt.SignOptions);
+};
+
+// Generar Refresh Token
+export const generateRefreshToken = (user: IUsuario): string => {
+  const payload: JWTPayload = {
+    userId: String(user._id),
+    empresaId: String(user.empresaId),
+    email: user.email,
+    rol: user.rol,
+  };
+ 
+  return jwt.sign(payload, JWT_SECRET, { 
+    expiresIn: JWT_REFRESH_EXPIRES_IN 
+  } as jwt.SignOptions);
+};
+
+// Verificar Token
+export const verifyToken = (token: string): JWTPayload => {
+  try {
+    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+  } catch (error) {
+    throw new Error('Token inválido o expirado');
+  }
+};

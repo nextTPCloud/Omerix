@@ -1,0 +1,263 @@
+// backend/src/server.ts
+
+import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+import { connectDB } from './config/database';
+import { swaggerSpec, serveSwaggerJSON } from './config/swagger';
+import Empresa from './models/Empresa';
+
+// Importar rutas
+import authRoutes from './modules/auth/auth.routes';
+import logsRoutes from './modules/logs/logs.routes'; // 🆕 NUEVO
+import licenciasRoutes from './modules/licencias/licencias.routes'; 
+import pagosRoutes from './modules/pagos/pagos.routes'; // ← AÑADIR
+
+// Importar rutas de operatividad 
+import clientesRoutes from './modules/clientes/clientes.routes'; 
+import productosRoutes from './modules/productos/productos.routes';
+
+// Importar middlewares de logs
+import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
+import logger, { httpLoggerMiddleware, logStartup, logShutdown } from './utils/logger/winston.config'; // 🆕 NUEVO
+import config from './config/env';
+import { generalLimiter } from './middleware/rateLimiter.middleware';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.middleware';
+
+// Cargar variables de entorno
+dotenv.config();
+
+const app: Express = express();
+const PORT = config.port;
+
+// ============================================
+// MIDDLEWARES BÁSICOS
+// ============================================
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(generalLimiter);
+
+// ============================================
+// MIDDLEWARE DE LOGGING HTTP (WINSTON)
+// ============================================
+// 🆕 NUEVO: Logging HTTP con Winston
+app.use(httpLoggerMiddleware);
+
+// ============================================
+// SWAGGER DOCUMENTATION
+// ============================================
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Omerix ERP API Docs',
+}));
+
+// Endpoint para obtener el JSON de Swagger
+app.get('/api-docs.json', serveSwaggerJSON);
+
+// ============================================
+// RUTAS BÁSICAS
+// ============================================
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check del servidor
+ *     tags: [Test]
+ *     responses:
+ *       200:
+ *         description: Servidor funcionando correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 message:
+ *                   type: string
+ *                   example: Backend Omerix funcionando correctamente
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
+app.get('/health', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    message: 'Backend Omerix funcionando correctamente',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * @swagger
+ * /api/test:
+ *   get:
+ *     summary: Test de conexión a MongoDB
+ *     tags: [Test]
+ *     responses:
+ *       200:
+ *         description: Conexión exitosa
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 empresasEnDB:
+ *                   type: number
+ *                 timestamp:
+ *                   type: string
+ */
+app.get('/api/test', async (req: Request, res: Response) => {
+  try {
+    const count = await Empresa.countDocuments();
+    
+    res.json({
+      success: true,
+      message: '✅ Conexión a MongoDB exitosa',
+      empresasEnDB: count,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Error conectando a MongoDB',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/test:
+ *   post:
+ *     summary: Crear empresa de prueba
+ *     tags: [Test]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               nif:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Empresa creada
+ */
+app.post('/api/test', async (req: Request, res: Response) => {
+  try {
+    const empresa = await Empresa.create(req.body);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Empresa creada exitosamente',
+      data: empresa,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'Error creando empresa',
+      error: error.message,
+    });
+  }
+});
+
+// ============================================
+// RUTAS DE LA API
+// ============================================
+
+app.use('/api/auth', authRoutes);
+app.use('/api/licencias', licenciasRoutes); // ← AÑADIR
+app.use('/api/logs', logsRoutes); // 🆕 NUEVO: Rutas de logs
+app.use('/api/clientes', clientesRoutes); // ← AÑADIR
+app.use('/api/productos', productosRoutes);
+app.use('/api/pagos', pagosRoutes); // ← AÑADIR
+
+// ============================================
+// MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS
+// ============================================
+// 🆕 NUEVO: Este middleware debe ir DESPUÉS de las rutas
+// Captura automáticamente todas las operaciones
+app.use(logCaptureMiddleware);
+
+// ============================================
+// RUTA 404
+// ============================================
+app.use('*', (req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    message: 'Ruta no encontrada',
+    path: req.originalUrl,
+  });
+});
+
+// Manejo de errores 404
+app.use(notFoundHandler);
+
+// Manejo global de errores
+app.use(errorHandler);
+
+// ============================================
+// INICIAR SERVIDOR
+// ============================================
+const startServer = async () => {
+  try {
+    // Conectar a MongoDB
+    await connectDB();
+    
+    // Iniciar servidor Express
+    app.listen(PORT, () => {
+      const environment = process.env.NODE_ENV || 'development';
+      
+      logger.info(`🚀 Servidor backend corriendo en puerto ${PORT}`);
+      logger.info(`📍 URL: http://localhost:${PORT}`);
+      logger.info(`📚 Swagger Docs: http://localhost:${PORT}/api-docs`);
+      logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
+      logger.info(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
+      logger.info(`📋 Logs API: http://localhost:${PORT}/api/logs`); // 🆕 NUEVO
+      logger.info(`🧪 Test endpoint: http://localhost:${PORT}/api/test`);
+      logger.info(`🌍 Entorno: ${environment}\n`);
+      
+      // 🆕 NUEVO: Log de inicio con Winston
+      logStartup(Number(PORT), environment);
+    });
+  } catch (error) {
+    console.error('❌ Error iniciando servidor:', error);
+    process.exit(1);
+  }
+};
+
+// ============================================
+// MANEJO DE CIERRE GRACEFUL
+// ============================================
+// 🆕 NUEVO: Manejo de cierre del servidor
+process.on('SIGINT', async () => {
+  console.log('\n⏸️  Señal SIGINT recibida: cerrando servidor...');
+  logShutdown('SIGINT signal received');
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n⏸️  Señal SIGTERM recibida: cerrando servidor...');
+  logShutdown('SIGTERM signal received');
+  process.exit(0);
+});
+
+startServer();

@@ -1,0 +1,21 @@
+{
+  "name": "omerix",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema ERP Cloud Multi-negocio",
+  "scripts": {
+    "dev:backend": "cd apps/backend && npm run dev",
+    "dev:web": "cd apps/web && npm run dev",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:web\"",
+    "build:backend": "cd apps/backend && npm run build",
+    "build:web": "cd apps/web && npm run build",
+    "build:all": "npm run build:backend && npm run build:web"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

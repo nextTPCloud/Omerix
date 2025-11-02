@@ -1,0 +1,189 @@
+import mongoose, { Schema, Document } from 'mongoose';
+import bcrypt from 'bcryptjs';
+
+export interface IUsuario extends Document {
+  empresaId: mongoose.Types.ObjectId;
+  email: string;
+  password: string;
+  nombre: string;
+  apellidos: string;
+  telefono?: string;
+  avatar?: string;
+  
+  // Rol y permisos
+  rol: 'super_admin' | 'admin' | 'gerente' | 'vendedor' | 'tecnico' | 'almacenero' | 'visualizador';
+  permisos: any;
+  
+  // 2FA
+  twoFactorEnabled: boolean;
+  twoFactorSecret?: string;
+  twoFactorPhone?: string;
+  twoFactorMethod?: 'app' | 'sms' | null;
+  
+  // Estado
+  activo: boolean;
+  emailVerificado: boolean;
+  ultimoAcceso?: Date;
+    // Reset de contraseña ← AÑADIR AQUÍ
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
+  
+  // Preferencias
+  preferencias: {
+    idioma: string;
+    tema: 'light' | 'dark';
+    notificaciones: any;
+  };
+  
+  // Métodos
+  comparePassword(candidatePassword: string): Promise<boolean>;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const UsuarioSchema = new Schema<IUsuario>(
+  {
+    empresaId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Empresa',
+      required: [true, 'La empresa es obligatoria'],
+      index: true,
+    },
+    email: {
+      type: String,
+      required: [true, 'El email es obligatorio'],
+      unique: true,
+      trim: true,
+      lowercase: true,
+      match: [/^\S+@\S+\.\S+$/, 'Email no válido'],
+    },
+    password: {
+      type: String,
+      required: [true, 'La contraseña es obligatoria'],
+      minlength: [6, 'La contraseña debe tener al menos 6 caracteres'],
+      select: false,
+    },
+    nombre: {
+      type: String,
+      required: [true, 'El nombre es obligatorio'],
+      trim: true,
+    },
+    apellidos: {
+      type: String,
+      required: [true, 'Los apellidos son obligatorios'],
+      trim: true,
+    },
+    telefono: {
+      type: String,
+      trim: true,
+    },
+    avatar: {
+      type: String,
+    },
+    
+    // Rol y permisos
+    rol: {
+      type: String,
+      enum: ['super_admin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador'],
+      default: 'vendedor',
+    },
+    permisos: {
+      type: Schema.Types.Mixed,
+      default: {},
+    },
+    
+    // 2FA
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    twoFactorSecret: {
+      type: String,
+      select: false,
+    },
+    twoFactorPhone: {
+      type: String,
+    },
+    twoFactorMethod: {
+      type: String,
+      enum: ['app', 'sms', null],
+      default: null,
+    },
+    
+    // Estado
+    activo: {
+      type: Boolean,
+      default: true,
+    },
+    emailVerificado: {
+      type: Boolean,
+      default: false,
+    },
+    ultimoAcceso: {
+      type: Date,
+    },
+    // Después de ultimoAcceso, antes de preferencias:
+
+    // Reset de contraseña
+    resetPasswordToken: {
+      type: String,
+      select: false,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      select: false,
+    },
+    // Preferencias
+    preferencias: {
+      idioma: { type: String, default: 'es' },
+      tema: { type: String, enum: ['light', 'dark'], default: 'light' },
+      notificaciones: { type: Schema.Types.Mixed, default: {} },
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// Índices compuestos y adicionales
+UsuarioSchema.index({ empresaId: 1, email: 1 }, { unique: true });
+UsuarioSchema.index({ empresaId: 1, activo: 1 });
+// UsuarioSchema.index({ email: 1 }); // ← ELIMINAR (ya tiene unique: true arriba)
+
+// Middleware: Hashear password antes de guardar
+UsuarioSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) {
+    return next();
+  }
+  
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error: any) {
+    next(error);
+  }
+});
+
+// Método para comparar passwords
+UsuarioSchema.methods.comparePassword = async function (
+  candidatePassword: string
+): Promise<boolean> {
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    return false;
+  }
+};
+
+// No devolver password en JSON
+UsuarioSchema.set('toJSON', {
+  transform: function (doc, ret) {
+    delete (ret as any).password;
+    delete (ret as any).twoFactorSecret;
+    return ret;
+  },
+});
+
+export default mongoose.model<IUsuario>('Usuario', UsuarioSchema);
