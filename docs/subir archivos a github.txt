@@ -1,0 +1,4 @@
+git status                                    # Ver qué cambió
+git add .                                     # Agregar todo
+git commit -m "Agregué login y arreglé bugs"
+git push origin main    
