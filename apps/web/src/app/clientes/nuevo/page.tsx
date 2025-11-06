@@ -1,33 +1,46 @@
-"use client"
+'use client';
 
-import { DashboardLayout } from '@/components/layout/DashboardLayout'
-import { ClienteForm } from '@/components/clientes/ClienteForm'
-import { ArrowLeft } from 'lucide-react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import ClienteForm from '@/components/clientes/ClienteForm';
+import { clientesService, Cliente } from '@/services/clientes.service';
 
 export default function NuevoClientePage() {
-  return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Link href="/clientes">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Nuevo Cliente</h1>
-            <p className="text-muted-foreground">
-              Completa el formulario para crear un nuevo cliente
-            </p>
-          </div>
-        </div>
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
-        {/* Formulario */}
-        <ClienteForm />
+  const handleSubmit = async (data: Partial<Cliente>) => {
+    try {
+      setIsLoading(true);
+      await clientesService.crear(data);
+      alert('Cliente creado exitosamente');
+      router.push('/clientes');
+    } catch (error: any) {
+      console.error('Error al crear cliente:', error);
+      alert(error.response?.data?.message || 'Error al crear el cliente');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    router.push('/clientes');
+  };
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Nuevo Cliente</h1>
+        <p className="text-gray-600 mt-2">
+          Completa el formulario para crear un nuevo cliente
+        </p>
       </div>
-    </DashboardLayout>
-  )
+
+      <ClienteForm
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+        isLoading={isLoading}
+      />
+    </div>
+  );
 }

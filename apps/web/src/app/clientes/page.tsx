@@ -1,264 +1,544 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { DashboardLayout } from '@/components/layout/DashboardLayout'
-import { DataTable, Column } from '@/components/ui/data-table'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { clientesService } from '@/services/clientes.service'
-import { Cliente, ClientesFilters } from '@/types/cliente.types'
-import { toast } from 'sonner'
-import {
-  Plus,
-  Search,
-  MoreVertical,
-  Eye,
-  Pencil,
-  Trash2,
-  Download,
-} from 'lucide-react'
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { clientesService, Cliente, GetClientesParams, Estadisticas } from '@/services/clientes.service';
+import { 
+  PlusIcon, 
+  PencilIcon, 
+  TrashIcon, 
+  EyeIcon, 
+  ArrowUpIcon,
+  ArrowDownIcon,
+  FunnelIcon,
+  DocumentArrowDownIcon,
+  Cog6ToothIcon,
+} from '@heroicons/react/24/outline';
+
+// Columnas disponibles para mostrar
+const COLUMNAS_DISPONIBLES = [
+  { key: 'codigo', label: 'Código', sortable: true },
+  { key: 'nombre', label: 'Nombre', sortable: true },
+  { key: 'nif', label: 'NIF/CIF', sortable: true },
+  { key: 'email', label: 'Email', sortable: false },
+  { key: 'telefono', label: 'Teléfono', sortable: false },
+  { key: 'ciudad', label: 'Ciudad', sortable: true },
+  { key: 'formaPago', label: 'Forma Pago', sortable: true },
+  { key: 'riesgoActual', label: 'Riesgo', sortable: true },
+  { key: 'activo', label: 'Estado', sortable: true },
+];
 
 export default function ClientesPage() {
-  const router = useRouter()
-  const [clientes, setClientes] = useState<Cliente[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filters, setFilters] = useState<ClientesFilters>({
+  const router = useRouter();
+  
+  // Estado
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [estadisticas, setEstadisticas] = useState<Estadisticas | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  
+  // Filtros y paginación
+  const [params, setParams] = useState<GetClientesParams>({
     page: 1,
     limit: 10,
-    sortBy: 'createdAt',
+    sortBy: 'fechaCreacion',
     sortOrder: 'desc',
-  })
+  });
+  
   const [pagination, setPagination] = useState({
+    total: 0,
     page: 1,
     limit: 10,
-    total: 0,
-    pages: 0,
-  })
+    totalPages: 0,
+  });
+  
+  // UI
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [mostrarSelectorColumnas, setMostrarSelectorColumnas] = useState(false);
+  const [columnasVisibles, setColumnasVisibles] = useState<string[]>([
+    'codigo',
+    'nombre',
+    'nif',
+    'ciudad',
+    'telefono',
+    'activo',
+  ]);
 
-  // Cargar clientes
+  // ============================================
+  // CARGAR DATOS
+  // ============================================
+  
   useEffect(() => {
-    loadClientes()
-  }, [filters])
+    cargarDatos();
+    cargarEstadisticas();
+  }, [params]);
 
-  const loadClientes = async () => {
+  const cargarDatos = async () => {
     try {
-      setIsLoading(true)
-      const response = await clientesService.getAll(filters)
-      setClientes(response.data)
-      setPagination(response.pagination)
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al cargar clientes')
+      setLoading(true);
+      const response = await clientesService.obtenerTodos(params);
+      setClientes(response.data);
+      setPagination(response.pagination);
+    } catch (error) {
+      console.error('Error al cargar clientes:', error);
+      alert('Error al cargar clientes');
     } finally {
-      setIsLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  // Búsqueda
-  const handleSearch = () => {
-    setFilters({ ...filters, search: searchTerm, page: 1 })
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch()
+  const cargarEstadisticas = async () => {
+    try {
+      const stats = await clientesService.obtenerEstadisticas();
+      setEstadisticas(stats);
+    } catch (error) {
+      console.error('Error al cargar estadísticas:', error);
     }
-  }
+  };
 
-  // Cambiar página
-  const handlePageChange = (page: number) => {
-    setFilters({ ...filters, page })
-  }
+  // ============================================
+  // ORDENAMIENTO
+  // ============================================
+  
+  const handleSort = (column: string) => {
+    setParams(prev => ({
+      ...prev,
+      sortBy: column,
+      sortOrder: prev.sortBy === column && prev.sortOrder === 'asc' ? 'desc' : 'asc',
+    }));
+  };
 
-  // Ordenar
-  const handleSort = (column: string, order: 'asc' | 'desc') => {
-    setFilters({ ...filters, sortBy: column, sortOrder: order })
-  }
+  // ============================================
+  // SELECCIÓN MÚLTIPLE
+  // ============================================
+  
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(clientes.map(c => c._id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
 
-  // Eliminar cliente
-  const handleDelete = async (id: string, nombre: string) => {
-    if (!confirm(`¿Estás seguro de desactivar al cliente "${nombre}"?`)) {
-      return
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds([...selectedIds, id]);
+    } else {
+      setSelectedIds(selectedIds.filter(selectedId => selectedId !== id));
+    }
+  };
+
+  // ============================================
+  // ELIMINACIÓN
+  // ============================================
+  
+  const handleEliminar = async (id: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este cliente?')) {
+      return;
     }
 
     try {
-      await clientesService.delete(id)
-      toast.success('Cliente desactivado correctamente')
-      loadClientes()
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al desactivar cliente')
+      await clientesService.eliminar(id);
+      alert('Cliente eliminado exitosamente');
+      cargarDatos();
+      cargarEstadisticas();
+    } catch (error) {
+      console.error('Error al eliminar cliente:', error);
+      alert('Error al eliminar el cliente');
     }
-  }
+  };
 
-  // Exportar CSV
-  const handleExportCSV = async () => {
+  const handleEliminarMultiples = async () => {
+    if (selectedIds.length === 0) {
+      alert('Selecciona al menos un cliente');
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de que quieres eliminar ${selectedIds.length} cliente(s)?`)) {
+      return;
+    }
+
     try {
-      const blob = await clientesService.exportToCSV()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `clientes-${new Date().toISOString().split('T')[0]}.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-      toast.success('Clientes exportados correctamente')
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al exportar clientes')
+      await clientesService.eliminarMultiples(selectedIds);
+      alert(`${selectedIds.length} cliente(s) eliminado(s) exitosamente`);
+      setSelectedIds([]);
+      cargarDatos();
+      cargarEstadisticas();
+    } catch (error) {
+      console.error('Error al eliminar clientes:', error);
+      alert('Error al eliminar los clientes');
     }
-  }
+  };
 
-  // Definir columnas de la tabla
-  const columns: Column<Cliente>[] = [
-    {
-      key: 'codigo',
-      title: 'Código',
-      sortable: true,
-      render: (cliente) => (
-        <span className="font-medium">{cliente.codigo}</span>
-      ),
-    },
-    {
-      key: 'nombre',
-      title: 'Nombre',
-      sortable: true,
-      render: (cliente) => (
-        <div>
-          <div className="font-medium">{cliente.nombre}</div>
-          {cliente.nombreComercial && (
-            <div className="text-sm text-muted-foreground">
-              {cliente.nombreComercial}
+  // ============================================
+  // CAMBIAR ESTADO
+  // ============================================
+  
+  const handleCambiarEstado = async (id: string, activo: boolean) => {
+    try {
+      await clientesService.cambiarEstado(id, !activo);
+      alert(`Cliente ${!activo ? 'activado' : 'desactivado'} exitosamente`);
+      cargarDatos();
+      cargarEstadisticas();
+    } catch (error) {
+      console.error('Error al cambiar estado:', error);
+      alert('Error al cambiar el estado del cliente');
+    }
+  };
+
+  // ============================================
+  // EXPORTAR
+  // ============================================
+  
+  const handleExportar = async () => {
+    try {
+      const blob = await clientesService.exportarCSV(params);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `clientes-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error al exportar:', error);
+      alert('Error al exportar los datos');
+    }
+  };
+
+  // ============================================
+  // PAGINACIÓN
+  // ============================================
+  
+  const handlePageChange = (newPage: number) => {
+    setParams(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setParams(prev => ({ ...prev, limit: newLimit, page: 1 }));
+  };
+
+  // ============================================
+  // BÚSQUEDA
+  // ============================================
+  
+  const handleSearch = (search: string) => {
+    setParams(prev => ({ ...prev, search, page: 1 }));
+  };
+
+  // ============================================
+  // RENDER
+  // ============================================
+  
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {/* ============================================ */}
+      {/* ENCABEZADO */}
+      {/* ============================================ */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Clientes</h1>
+        <button
+          onClick={() => router.push('/clientes/nuevo')}
+          className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+        >
+          <PlusIcon className="w-5 h-5" />
+          <span>Nuevo Cliente</span>
+        </button>
+      </div>
+
+      {/* ============================================ */}
+      {/* ESTADÍSTICAS */}
+      {/* ============================================ */}
+      {estadisticas && (
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg shadow">
+            <div className="text-sm text-gray-600">Total Clientes</div>
+            <div className="text-2xl font-bold">{estadisticas.total}</div>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg shadow">
+            <div className="text-sm text-green-600">Activos</div>
+            <div className="text-2xl font-bold text-green-700">{estadisticas.activos}</div>
+          </div>
+          <div className="bg-red-50 p-4 rounded-lg shadow">
+            <div className="text-sm text-red-600">Inactivos</div>
+            <div className="text-2xl font-bold text-red-700">{estadisticas.inactivos}</div>
+          </div>
+          <div className="bg-yellow-50 p-4 rounded-lg shadow">
+            <div className="text-sm text-yellow-600">Exceden Crédito</div>
+            <div className="text-2xl font-bold text-yellow-700">{estadisticas.excedenCredito}</div>
+          </div>
+          <div className="bg-blue-50 p-4 rounded-lg shadow">
+            <div className="text-sm text-blue-600">Riesgo Total</div>
+            <div className="text-2xl font-bold text-blue-700">
+              {estadisticas.riesgoTotal.toLocaleString('es-ES', {
+                style: 'currency',
+                currency: 'EUR',
+              })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================ */}
+      {/* BARRA DE HERRAMIENTAS */}
+      {/* ============================================ */}
+      <div className="bg-white p-4 rounded-lg shadow mb-6">
+        <div className="flex flex-wrap gap-4 items-center">
+          {/* Búsqueda */}
+          <input
+            type="text"
+            placeholder="Buscar clientes..."
+            className="flex-1 min-w-[200px] border rounded-md px-3 py-2"
+            onChange={e => {
+              const value = e.target.value;
+              const timeoutId = setTimeout(() => handleSearch(value), 500);
+              return () => clearTimeout(timeoutId);
+            }}
+          />
+
+          {/* Botones */}
+          <button
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            className="flex items-center space-x-2 border rounded-md px-3 py-2 hover:bg-gray-50"
+          >
+            <FunnelIcon className="w-5 h-5" />
+            <span>Filtros</span>
+          </button>
+
+          <button
+            onClick={() => setMostrarSelectorColumnas(!mostrarSelectorColumnas)}
+            className="flex items-center space-x-2 border rounded-md px-3 py-2 hover:bg-gray-50"
+          >
+            <Cog6ToothIcon className="w-5 h-5" />
+            <span>Columnas</span>
+          </button>
+
+          <button
+            onClick={handleExportar}
+            className="flex items-center space-x-2 border rounded-md px-3 py-2 hover:bg-gray-50"
+          >
+            <DocumentArrowDownIcon className="w-5 h-5" />
+            <span>Exportar</span>
+          </button>
+
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleEliminarMultiples}
+              className="flex items-center space-x-2 bg-red-600 text-white rounded-md px-3 py-2 hover:bg-red-700"
+            >
+              <TrashIcon className="w-5 h-5" />
+              <span>Eliminar ({selectedIds.length})</span>
+            </button>
           )}
         </div>
-      ),
-    },
-    {
-      key: 'nif',
-      title: 'NIF/CIF',
-      sortable: true,
-    },
-    {
-      key: 'email',
-      title: 'Email',
-      render: (cliente) => (
-        <span className="text-sm">{cliente.email || '-'}</span>
-      ),
-    },
-    {
-      key: 'telefono',
-      title: 'Teléfono',
-      render: (cliente) => (
-        <span className="text-sm">{cliente.telefono || cliente.movil || '-'}</span>
-      ),
-    },
-    {
-      key: 'tipoCliente',
-      title: 'Tipo',
-      render: (cliente) => (
-        <Badge variant={cliente.tipoCliente === 'empresa' ? 'default' : 'secondary'}>
-          {cliente.tipoCliente === 'empresa' ? 'Empresa' : 'Particular'}
-        </Badge>
-      ),
-    },
-    {
-      key: 'activo',
-      title: 'Estado',
-      render: (cliente) => (
-        <Badge variant={cliente.activo ? 'success' : 'destructive'}>
-          {cliente.activo ? 'Activo' : 'Inactivo'}
-        </Badge>
-      ),
-    },
-    {
-      key: 'acciones',
-      title: 'Acciones',
-      render: (cliente) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => router.push(`/clientes/${cliente._id}`)}>
-              <Eye className="mr-2 h-4 w-4" />
-              Ver detalle
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push(`/clientes/${cliente._id}/editar`)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleDelete(cliente._id, cliente.nombre)}
-              className="text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Desactivar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ]
 
-  return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
-            <p className="text-muted-foreground">
-              Gestiona tus clientes y sus datos
-            </p>
+        {/* Selector de columnas */}
+        {mostrarSelectorColumnas && (
+          <div className="mt-4 p-4 border rounded-md bg-gray-50">
+            <h3 className="font-semibold mb-2">Columnas visibles:</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {COLUMNAS_DISPONIBLES.map(col => (
+                <label key={col.key} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={columnasVisibles.includes(col.key)}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setColumnasVisibles([...columnasVisibles, col.key]);
+                      } else {
+                        setColumnasVisibles(columnasVisibles.filter(k => k !== col.key));
+                      }
+                    }}
+                    className="rounded"
+                  />
+                  <span className="text-sm">{col.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleExportCSV}>
-              <Download className="mr-2 h-4 w-4" />
-              Exportar CSV
-            </Button>
-            <Button onClick={() => router.push('/clientes/nuevo')}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Cliente
-            </Button>
-          </div>
-        </div>
-
-        {/* Búsqueda y filtros */}
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre, NIF, email o código..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={handleKeyPress}
-            />
-          </div>
-          <Button onClick={handleSearch}>Buscar</Button>
-        </div>
-
-        {/* Tabla de clientes */}
-        <DataTable
-          data={clientes}
-          columns={columns}
-          pagination={pagination}
-          onPageChange={handlePageChange}
-          onSort={handleSort}
-          isLoading={isLoading}
-          emptyMessage="No se encontraron clientes"
-        />
+        )}
       </div>
-    </DashboardLayout>
-  )
+
+      {/* ============================================ */}
+      {/* TABLA */}
+      {/* ============================================ */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-4 py-3 text-left">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.length === clientes.length && clientes.length > 0}
+                    onChange={e => handleSelectAll(e.target.checked)}
+                    className="rounded"
+                  />
+                </th>
+                {COLUMNAS_DISPONIBLES.filter(col => columnasVisibles.includes(col.key)).map(col => (
+                  <th key={col.key} className="px-4 py-3 text-left text-sm font-semibold">
+                    {col.sortable ? (
+                      <button
+                        onClick={() => handleSort(col.key)}
+                        className="flex items-center space-x-1 hover:text-blue-600"
+                      >
+                        <span>{col.label}</span>
+                        {params.sortBy === col.key && (
+                          params.sortOrder === 'asc' ? 
+                            <ArrowUpIcon className="w-4 h-4" /> : 
+                            <ArrowDownIcon className="w-4 h-4" />
+                        )}
+                      </button>
+                    ) : (
+                      col.label
+                    )}
+                  </th>
+                ))}
+                <th className="px-4 py-3 text-right text-sm font-semibold">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {loading ? (
+                <tr>
+                  <td colSpan={columnasVisibles.length + 2} className="px-4 py-8 text-center text-gray-500">
+                    Cargando...
+                  </td>
+                </tr>
+              ) : clientes.length === 0 ? (
+                <tr>
+                  <td colSpan={columnasVisibles.length + 2} className="px-4 py-8 text-center text-gray-500">
+                    No se encontraron clientes
+                  </td>
+                </tr>
+              ) : (
+                clientes.map(cliente => (
+                  <tr key={cliente._id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(cliente._id)}
+                        onChange={e => handleSelectOne(cliente._id, e.target.checked)}
+                        className="rounded"
+                      />
+                    </td>
+                    {columnasVisibles.includes('codigo') && (
+                      <td className="px-4 py-3 text-sm">{cliente.codigo}</td>
+                    )}
+                    {columnasVisibles.includes('nombre') && (
+                      <td className="px-4 py-3 text-sm font-medium">{cliente.nombre}</td>
+                    )}
+                    {columnasVisibles.includes('nif') && (
+                      <td className="px-4 py-3 text-sm">{cliente.nif}</td>
+                    )}
+                    {columnasVisibles.includes('email') && (
+                      <td className="px-4 py-3 text-sm">{cliente.email || '-'}</td>
+                    )}
+                    {columnasVisibles.includes('telefono') && (
+                      <td className="px-4 py-3 text-sm">{cliente.telefono || '-'}</td>
+                    )}
+                    {columnasVisibles.includes('ciudad') && (
+                      <td className="px-4 py-3 text-sm">{cliente.direccion.ciudad}</td>
+                    )}
+                    {columnasVisibles.includes('formaPago') && (
+                      <td className="px-4 py-3 text-sm capitalize">{cliente.formaPago}</td>
+                    )}
+                    {columnasVisibles.includes('riesgoActual') && (
+                      <td className="px-4 py-3 text-sm">
+                        {cliente.riesgoActual.toLocaleString('es-ES', {
+                          style: 'currency',
+                          currency: 'EUR',
+                        })}
+                      </td>
+                    )}
+                    {columnasVisibles.includes('activo') && (
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleCambiarEstado(cliente._id, cliente.activo)}
+                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            cliente.activo
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {cliente.activo ? 'Activo' : 'Inactivo'}
+                        </button>
+                      </td>
+                    )}
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end space-x-2">
+                        <button
+                          onClick={() => router.push(`/clientes/${cliente._id}`)}
+                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                          title="Ver"
+                        >
+                          <EyeIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => router.push(`/clientes/${cliente._id}/editar`)}
+                          className="p-1 text-yellow-600 hover:bg-yellow-50 rounded"
+                          title="Editar"
+                        >
+                          <PencilIcon className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleEliminar(cliente._id)}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          title="Eliminar"
+                        >
+                          <TrashIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ============================================ */}
+        {/* PAGINACIÓN */}
+        {/* ============================================ */}
+        <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-700">Mostrar:</span>
+            <select
+              value={params.limit}
+              onChange={e => handleLimitChange(Number(e.target.value))}
+              className="border rounded-md px-2 py-1 text-sm"
+            >
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span className="text-sm text-gray-700">
+              de {pagination.total} registros
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => handlePageChange(pagination.page - 1)}
+              disabled={pagination.page === 1}
+              className="px-3 py-1 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+            >
+              Anterior
+            </button>
+            <span className="text-sm text-gray-700">
+              Página {pagination.page} de {pagination.totalPages}
+            </span>
+            <button
+              onClick={() => handlePageChange(pagination.page + 1)}
+              disabled={pagination.page === pagination.totalPages}
+              className="px-3 py-1 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

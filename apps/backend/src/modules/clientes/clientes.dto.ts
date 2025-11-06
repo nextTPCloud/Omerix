@@ -1,207 +1,142 @@
+import { FormaPago, TipoCliente } from '@/models/Cliente';
 import { z } from 'zod';
 
 // ============================================
-// SCHEMAS DE VALIDACIÓN
+// SUB-SCHEMAS
 // ============================================
 
-/**
- * Schema para dirección
- */
 export const DireccionSchema = z.object({
-  calle: z.string().min(1, 'La calle es obligatoria'),
+  calle: z.string().min(1, 'La calle es requerida'),
   numero: z.string().optional(),
   piso: z.string().optional(),
-  codigoPostal: z.string().min(4, 'Código postal inválido').max(10),
-  ciudad: z.string().min(1, 'La ciudad es obligatoria'),
-  provincia: z.string().min(1, 'La provincia es obligatoria'),
+  codigoPostal: z.string().min(1, 'El código postal es requerido'),
+  ciudad: z.string().min(1, 'La ciudad es requerida'),
+  provincia: z.string().min(1, 'La provincia es requerida'),
   pais: z.string().default('España'),
+  latitud: z.number().optional(),
+  longitud: z.number().optional(),
 });
 
-/**
- * Schema para persona de contacto
- */
 export const PersonaContactoSchema = z.object({
-  nombre: z.string().min(1, 'El nombre es obligatorio'),
+  nombre: z.string().min(1, 'El nombre es requerido'),
   cargo: z.string().optional(),
   telefono: z.string().optional(),
   email: z.string().email('Email inválido').optional(),
 });
 
-/**
- * Schema para crear cliente
- */
+// ============================================
+// CREATE SCHEMA
+// ============================================
+
 export const CreateClienteSchema = z.object({
-  // Tipo de cliente
-  tipoCliente: z.enum(['empresa', 'particular']).default('particular'),
-  
-  // Datos básicos
-  codigo: z.string().optional(), // Se genera automáticamente si no se proporciona
-  nombre: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
+  tipoCliente: z.nativeEnum(TipoCliente),
+  codigo: z.string().optional(),
+  nombre: z.string().min(1, 'El nombre es requerido'),
   nombreComercial: z.string().optional(),
-  
-  // Datos fiscales
-  nif: z.string()
-    .min(8, 'NIF/CIF inválido')
-    .max(12, 'NIF/CIF inválido')
-    .transform(val => val.toUpperCase()),
-  
-  // Contacto
+  nif: z.string().min(1, 'El NIF es requerido'),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   telefono: z.string().optional(),
   movil: z.string().optional(),
   web: z.string().url('URL inválida').optional().or(z.literal('')),
-  
-  // Dirección principal (obligatoria)
   direccion: DireccionSchema,
-  
-  // Dirección de envío (opcional)
   direccionEnvio: DireccionSchema.optional(),
-  
-  // Datos comerciales
-  formaPago: z.enum(['contado', 'transferencia', 'domiciliacion', 'confirming', 'pagare'])
-    .default('transferencia'),
-  diasPago: z.number().min(0).default(30),
+  formaPago: z.nativeEnum(FormaPago),
+  diasPago: z.number().min(0, 'Los días de pago no pueden ser negativos').default(0),
   descuentoGeneral: z.number().min(0).max(100).optional(),
   tarifaId: z.string().optional(),
-  
-  // Datos bancarios
-  iban: z.string()
-    .regex(/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/, 'IBAN inválido')
-    .optional()
-    .or(z.literal('')),
+  iban: z.string().optional(),
   swift: z.string().optional(),
-  
-  // Persona de contacto
   personaContacto: PersonaContactoSchema.optional(),
-  
-  // Clasificación
   categoriaId: z.string().optional(),
   zona: z.string().optional(),
   vendedorId: z.string().optional(),
-  
-  // Límites
   limiteCredito: z.number().min(0).optional(),
-  
-  // Estado
   activo: z.boolean().default(true),
-  observaciones: z.string().max(1000).optional(),
-  
-  // Tags
+  observaciones: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
 
-/**
- * Schema para actualizar cliente
- */
-export const UpdateClienteSchema = CreateClienteSchema.partial();
+// ============================================
+// UPDATE SCHEMA
+// ============================================
 
-/**
- * Schema para búsqueda/filtros
- */
-export const ClienteQuerySchema = z.object({
-  // Búsqueda general
-  search: z.string().optional(),
-  
-  // Filtros
-  tipoCliente: z.enum(['empresa', 'particular']).optional(),
-  activo: z.string().transform(val => val === 'true').optional(),
-  formaPago: z.enum(['contado', 'transferencia', 'domiciliacion', 'confirming', 'pagare']).optional(),
+export const UpdateClienteSchema = z.object({
+  tipoCliente: z.nativeEnum(TipoCliente).optional(),
+  nombre: z.string().min(1, 'El nombre es requerido').optional(),
+  nombreComercial: z.string().optional(),
+  nif: z.string().min(1, 'El NIF es requerido').optional(),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
+  telefono: z.string().optional(),
+  movil: z.string().optional(),
+  web: z.string().url('URL inválida').optional().or(z.literal('')),
+  direccion: DireccionSchema.optional(),
+  direccionEnvio: DireccionSchema.optional(),
+  formaPago: z.nativeEnum(FormaPago).optional(),
+  diasPago: z.number().min(0, 'Los días de pago no pueden ser negativos').optional(),
+  descuentoGeneral: z.number().min(0).max(100).optional(),
+  tarifaId: z.string().optional(),
+  iban: z.string().optional(),
+  swift: z.string().optional(),
+  personaContacto: PersonaContactoSchema.optional(),
   categoriaId: z.string().optional(),
-  vendedorId: z.string().optional(),
   zona: z.string().optional(),
-  
-  // Paginación
-  page: z.string().transform(Number).default('1'),
-  limit: z.string().transform(Number).default('10'),
-  
-  // Ordenamiento
-  sortBy: z.string().optional(),
-  sortOrder: z.enum(['asc', 'desc']).optional(),
+  vendedorId: z.string().optional(),
+  limiteCredito: z.number().min(0).optional(),
+  activo: z.boolean().optional(),
+  observaciones: z.string().optional(),
+  tags: z.array(z.string()).optional(),
 });
 
-/**
- * Schema para importar clientes
- */
-export const ImportClienteSchema = z.array(
-  z.object({
-    nombre: z.string(),
-    nif: z.string(),
-    email: z.string().email().optional(),
-    telefono: z.string().optional(),
-    direccion: z.string(),
-    ciudad: z.string(),
-    codigoPostal: z.string(),
-    provincia: z.string(),
-  })
-);
-
 // ============================================
-// TYPES (inferidos de los schemas)
+// QUERY SCHEMA
 // ============================================
 
-export type CreateClienteDTO = z.infer<typeof CreateClienteSchema>;
-export type UpdateClienteDTO = z.infer<typeof UpdateClienteSchema>;
-export type ClienteQueryDTO = z.infer<typeof ClienteQuerySchema>;
-export type ImportClienteDTO = z.infer<typeof ImportClienteSchema>;
+export const GetClientesQuerySchema = z.object({
+  search: z.string().optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+  page: z.coerce.number().min(1).optional(),
+  limit: z.coerce.number().min(1).max(100).optional(),
+  activo: z.coerce.boolean().optional(),
+  vendedorId: z.string().optional(),
+  categoriaId: z.string().optional(),
+  zona: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+});
 
 // ============================================
-// RESPUESTAS
+// BULK DELETE SCHEMA
 // ============================================
 
-export interface ClienteResponse {
-  _id: string;
-  empresaId: string;
-  tipoCliente: 'empresa' | 'particular';
-  codigo: string;
-  nombre: string;
-  nombreComercial?: string;
-  nif: string;
-  email?: string;
-  telefono?: string;
-  movil?: string;
-  web?: string;
-  direccion: {
-    calle: string;
-    numero?: string;
-    piso?: string;
-    codigoPostal: string;
-    ciudad: string;
-    provincia: string;
-    pais: string;
-  };
-  direccionEnvio?: {
-    calle: string;
-    numero?: string;
-    piso?: string;
-    codigoPostal: string;
-    ciudad: string;
-    provincia: string;
-    pais: string;
-  };
-  formaPago: string;
-  diasPago: number;
-  descuentoGeneral?: number;
-  limiteCredito?: number;
-  riesgoActual?: number;
-  activo: boolean;
-  observaciones?: string;
-  tags?: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+export const BulkDeleteClientesSchema = z.object({
+  ids: z.array(z.string()).min(1, 'Debe proporcionar al menos un ID'),
+});
 
-export interface ClientesListResponse {
-  success: boolean;
-  data: ClienteResponse[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
-}
+// ============================================
+// CHANGE STATUS SCHEMA
+// ============================================
 
-export interface ClienteDetailResponse {
-  success: boolean;
-  data: ClienteResponse;
-}
+export const ChangeStatusSchema = z.object({
+  activo: z.boolean(),
+});
+
+// ============================================
+// UPLOAD FILE SCHEMA
+// ============================================
+
+export const UploadArchivoSchema = z.object({
+  nombre: z.string(),
+  tipo: z.string(),
+  tamaño: z.number(),
+});
+
+// ============================================
+// TIPOS (para TypeScript)
+// ============================================
+
+export type CreateClienteDto = z.infer<typeof CreateClienteSchema>;
+export type UpdateClienteDto = z.infer<typeof UpdateClienteSchema>;
+export type GetClientesQueryDto = z.infer<typeof GetClientesQuerySchema>;
+export type BulkDeleteClientesDto = z.infer<typeof BulkDeleteClientesSchema>;
+export type ChangeStatusDto = z.infer<typeof ChangeStatusSchema>;
+export type UploadArchivoDto = z.infer<typeof UploadArchivoSchema>;

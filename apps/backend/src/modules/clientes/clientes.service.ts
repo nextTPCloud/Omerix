@@ -1,238 +1,292 @@
 import mongoose from 'mongoose';
-import { Cliente, ICliente } from '../../models/Cliente';
-import {
-  CreateClienteDTO,
-  UpdateClienteDTO,
-  ClienteQueryDTO,
-  ClienteResponse,
-} from './clientes.dto';
+import { CreateClienteDto, UpdateClienteDto, GetClientesQueryDto } from './clientes.dto';
+import { Cliente, ICliente } from '@/models/Cliente';
 
-export class ClienteService {
-  /**
-   * Crear un nuevo cliente
-   */
-  async create(
-    empresaId: string,
-    usuarioId: string,
-    data: CreateClienteDTO
+export class ClientesService {
+  
+  // ============================================
+  // CREAR CLIENTE
+  // ============================================
+  
+  async crear(
+    createClienteDto: CreateClienteDto,
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId
   ): Promise<ICliente> {
-    // Validar que el NIF no exista ya en la empresa
-    const existeNIF = await Cliente.findOne({
-      empresaId,
-      nif: data.nif.toUpperCase(),
-    });
-
-    if (existeNIF) {
-      throw new Error(`Ya existe un cliente con el NIF ${data.nif}`);
-    }
-
-    // Si no se proporciona código, se generará automáticamente en el pre-save hook
-    const cliente = new Cliente({
-      ...data,
+    const clienteData = {
+      ...createClienteDto,
       empresaId,
       creadoPor: usuarioId,
-      riesgoActual: 0, // Inicializar riesgo en 0
-    });
-
-    await cliente.save();
-    return cliente;
-  }
-
-  /**
-   * Obtener cliente por ID
-   */
-  async findById(empresaId: string, clienteId: string): Promise<ICliente | null> {
-    if (!mongoose.Types.ObjectId.isValid(clienteId)) {
-      throw new Error('ID de cliente inválido');
-    }
-
-    const cliente = await Cliente.findOne({
-      _id: clienteId,
-      empresaId,
-    })
-      .populate('categoriaId', 'nombre')
-      .populate('vendedorId', 'nombre email')
-      .populate('tarifaId', 'nombre');
-
-    return cliente;
-  }
-
-  /**
-   * Listar clientes con filtros y paginación
-   */
-  async findAll(
-    empresaId: string,
-    query: ClienteQueryDTO
-  ): Promise<{
-    clientes: ICliente[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      pages: number;
+      fechaCreacion: new Date(),
     };
-  }> {
+
+    const cliente = new Cliente(clienteData);
+    await cliente.save();
+    
+    return cliente;
+  }
+
+  // ============================================
+  // OBTENER TODOS CON FILTROS Y PAGINACIÓN
+  // ============================================
+  
+  async obtenerTodos(
+    empresaId: mongoose.Types.ObjectId,
+    query: Partial<GetClientesQueryDto>
+  ) {
     const {
       search,
-      tipoCliente,
-      activo,
-      formaPago,
-      categoriaId,
-      vendedorId,
-      zona,
-      page,
-      limit,
-      sortBy = 'createdAt',
+      sortBy = 'fechaCreacion',
       sortOrder = 'desc',
+      page = 1,
+      limit = 10,
+      activo,
+      vendedorId,
+      categoriaId,
+      zona,
+      tags,
     } = query;
 
-    // Construir filtro base
+    // Construir filtro
     const filter: any = { empresaId };
 
-    // Búsqueda general
+    // Búsqueda por texto
     if (search) {
       filter.$or = [
         { nombre: { $regex: search, $options: 'i' } },
         { nombreComercial: { $regex: search, $options: 'i' } },
-        { nif: { $regex: search, $options: 'i' } },
         { codigo: { $regex: search, $options: 'i' } },
+        { nif: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
       ];
     }
 
-    // Filtros específicos
-    if (tipoCliente) filter.tipoCliente = tipoCliente;
-    if (activo !== undefined) filter.activo = activo;
-    if (formaPago) filter.formaPago = formaPago;
-    if (categoriaId) filter.categoriaId = categoriaId;
-    if (vendedorId) filter.vendedorId = vendedorId;
-    if (zona) filter.zona = zona;
+    // Filtros adicionales
+    if (activo !== undefined) {
+      filter.activo = activo;
+    }
 
-    // Calcular skip
-    const skip = (page - 1) * limit;
+    if (vendedorId) {
+      filter.vendedorId = vendedorId;
+    }
 
-    // Construir ordenamiento
+    if (categoriaId) {
+      filter.categoriaId = categoriaId;
+    }
+
+    if (zona) {
+      filter.zona = zona;
+    }
+
+    if (tags && Array.isArray(tags) && tags.length > 0) {
+      filter.tags = { $in: tags };
+    }
+
+    // Ordenamiento
     const sort: any = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
-    // Ejecutar consulta con paginación
+    // Paginación
+    const skip = (page - 1) * limit;
+
+    // Ejecutar consulta
     const [clientes, total] = await Promise.all([
       Cliente.find(filter)
-        .populate('categoriaId', 'nombre')
-        .populate('vendedorId', 'nombre email')
         .sort(sort)
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .populate('vendedorId', 'nombre email')
+        .populate('categoriaId', 'nombre')
+        .lean(),
       Cliente.countDocuments(filter),
     ]);
 
     return {
       clientes,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
-  /**
-   * Actualizar cliente
-   */
-  async update(
-    empresaId: string,
-    clienteId: string,
-    usuarioId: string,
-    data: UpdateClienteDTO
+  // ============================================
+  // OBTENER POR ID
+  // ============================================
+  
+  async obtenerPorId(
+    id: string,
+    empresaId: mongoose.Types.ObjectId
   ): Promise<ICliente | null> {
-    if (!mongoose.Types.ObjectId.isValid(clienteId)) {
-      throw new Error('ID de cliente inválido');
-    }
+    const cliente = await Cliente.findOne({
+      _id: id,
+      empresaId,
+    })
+      .populate('vendedorId', 'nombre email')
+      .populate('categoriaId', 'nombre')
+      .populate('tarifaId', 'nombre');
 
-    // Si se actualiza el NIF, verificar que no exista otro cliente con ese NIF
-    if (data.nif) {
-      const existeNIF = await Cliente.findOne({
-        empresaId,
-        nif: data.nif.toUpperCase(),
-        _id: { $ne: clienteId },
-      });
+    return cliente;
+  }
 
-      if (existeNIF) {
-        throw new Error(`Ya existe otro cliente con el NIF ${data.nif}`);
-      }
-    }
-
+  // ============================================
+  // ACTUALIZAR
+  // ============================================
+  
+  async actualizar(
+    id: string,
+    updateClienteDto: UpdateClienteDto,
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId
+  ): Promise<ICliente | null> {
     const cliente = await Cliente.findOneAndUpdate(
+      { _id: id, empresaId },
       {
-        _id: clienteId,
-        empresaId,
-      },
-      {
-        ...data,
+        ...updateClienteDto,
         modificadoPor: usuarioId,
+        fechaModificacion: new Date(),
       },
-      {
-        new: true,
-        runValidators: true,
-      }
+      { new: true, runValidators: true }
     );
 
     return cliente;
   }
 
-  /**
-   * Eliminar cliente (soft delete)
-   */
-  async delete(empresaId: string, clienteId: string): Promise<boolean> {
-    if (!mongoose.Types.ObjectId.isValid(clienteId)) {
-      throw new Error('ID de cliente inválido');
-    }
-
-    // Verificar que el cliente no tenga documentos asociados
-    // TODO: Implementar validación con Facturas, Albaranes, etc.
-
-    const result = await Cliente.findOneAndUpdate(
-      {
-        _id: clienteId,
-        empresaId,
-      },
-      {
-        activo: false,
-      },
-      {
-        new: true,
-      }
-    );
-
-    return !!result;
-  }
-
-  /**
-   * Eliminar cliente permanentemente
-   */
-  async deletePermanently(empresaId: string, clienteId: string): Promise<boolean> {
-    if (!mongoose.Types.ObjectId.isValid(clienteId)) {
-      throw new Error('ID de cliente inválido');
-    }
-
-    const result = await Cliente.deleteOne({
-      _id: clienteId,
+  // ============================================
+  // ELIMINAR
+  // ============================================
+  
+  async eliminar(
+    id: string,
+    empresaId: mongoose.Types.ObjectId
+  ): Promise<boolean> {
+    const resultado = await Cliente.deleteOne({
+      _id: id,
       empresaId,
     });
 
-    return result.deletedCount > 0;
+    return resultado.deletedCount > 0;
   }
 
-  /**
-   * Verificar si un NIF ya existe
-   */
-  async nifExists(empresaId: string, nif: string, excludeId?: string): Promise<boolean> {
-    const filter: any = {
+  // ============================================
+  // ELIMINACIÓN MÚLTIPLE
+  // ============================================
+  
+  async eliminarMultiples(
+    ids: string[],
+    empresaId: mongoose.Types.ObjectId
+  ): Promise<number> {
+    const resultado = await Cliente.deleteMany({
+      _id: { $in: ids },
       empresaId,
-      nif: nif.toUpperCase(),
-    };
+    });
 
+    return resultado.deletedCount || 0;
+  }
+
+  // ============================================
+  // ACTIVAR/DESACTIVAR
+  // ============================================
+  
+  async cambiarEstado(
+    id: string,
+    activo: boolean,
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId
+  ): Promise<ICliente | null> {
+    const cliente = await Cliente.findOneAndUpdate(
+      { _id: id, empresaId },
+      {
+        activo,
+        modificadoPor: usuarioId,
+        fechaModificacion: new Date(),
+      },
+      { new: true }
+    );
+
+    return cliente;
+  }
+
+  // ============================================
+  // OBTENER ESTADÍSTICAS
+  // ============================================
+  
+  async obtenerEstadisticas(
+    empresaId: mongoose.Types.ObjectId
+  ) {
+    return await Cliente.obtenerEstadisticas(empresaId);
+  }
+
+  // ============================================
+  // SUBIR ARCHIVO
+  // ============================================
+  
+  async subirArchivo(
+    id: string,
+    archivo: {
+      nombre: string;
+      url: string;
+      tipo: string;
+      tamaño: number;
+    },
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId
+  ): Promise<ICliente | null> {
+    const cliente = await Cliente.findOneAndUpdate(
+      { _id: id, empresaId },
+      {
+        $push: {
+          archivos: {
+            ...archivo,
+            fechaSubida: new Date(),
+            subidoPor: usuarioId,
+          },
+        },
+        modificadoPor: usuarioId,
+        fechaModificacion: new Date(),
+      },
+      { new: true }
+    );
+
+    return cliente;
+  }
+
+  // ============================================
+  // ELIMINAR ARCHIVO
+  // ============================================
+  
+  async eliminarArchivo(
+    id: string,
+    archivoUrl: string,
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId
+  ): Promise<ICliente | null> {
+    const cliente = await Cliente.findOneAndUpdate(
+      { _id: id, empresaId },
+      {
+        $pull: {
+          archivos: { url: archivoUrl },
+        },
+        modificadoPor: usuarioId,
+        fechaModificacion: new Date(),
+      },
+      { new: true }
+    );
+
+    return cliente;
+  }
+
+  // ============================================
+  // VERIFICAR DUPLICADOS
+  // ============================================
+  
+  async verificarDuplicados(
+    nif: string,
+    empresaId: mongoose.Types.ObjectId,
+    excludeId?: string
+  ): Promise<boolean> {
+    const filter: any = { empresaId, nif };
+    
     if (excludeId) {
       filter._id = { $ne: excludeId };
     }
@@ -241,172 +295,49 @@ export class ClienteService {
     return count > 0;
   }
 
-  /**
-   * Obtener estadísticas de clientes
-   */
-  async getEstadisticas(empresaId: string) {
-    const [
-      total,
-      activos,
-      inactivos,
-      empresas,
-      particulares,
-      conRiesgo,
-    ] = await Promise.all([
-      Cliente.countDocuments({ empresaId }),
-      Cliente.countDocuments({ empresaId, activo: true }),
-      Cliente.countDocuments({ empresaId, activo: false }),
-      Cliente.countDocuments({ empresaId, tipoCliente: 'empresa' }),
-      Cliente.countDocuments({ empresaId, tipoCliente: 'particular' }),
-      Cliente.countDocuments({
-        empresaId,
-        $expr: { $gt: ['$riesgoActual', '$limiteCredito'] },
-      }),
-    ]);
+  // ============================================
+  // EXPORTAR A CSV
+  // ============================================
+  
+  async exportarCSV(
+    empresaId: mongoose.Types.ObjectId,
+    filtros?: Partial<GetClientesQueryDto>
+  ): Promise<any[]> {
+    const filter: any = { empresaId };
 
-    return {
-      total,
-      activos,
-      inactivos,
-      empresas,
-      particulares,
-      conRiesgo,
-    };
-  }
-
-  /**
-   * Actualizar riesgo actual de un cliente
-   */
-  async actualizarRiesgo(
-    empresaId: string,
-    clienteId: string,
-    nuevoRiesgo: number
-  ): Promise<ICliente | null> {
-    if (!mongoose.Types.ObjectId.isValid(clienteId)) {
-      throw new Error('ID de cliente inválido');
+    if (filtros?.activo !== undefined) {
+      filter.activo = filtros.activo;
     }
 
+    if (filtros?.vendedorId) {
+      filter.vendedorId = filtros.vendedorId;
+    }
+
+    const clientes = await Cliente.find(filter)
+      .populate('vendedorId', 'nombre')
+      .populate('categoriaId', 'nombre')
+      .lean();
+
+    return clientes as any[];
+  }
+
+  // ============================================
+  // ACTUALIZAR RIESGO
+  // ============================================
+  
+  async actualizarRiesgo(
+    id: string,
+    nuevoRiesgo: number,
+    empresaId: mongoose.Types.ObjectId
+  ): Promise<ICliente | null> {
     const cliente = await Cliente.findOneAndUpdate(
-      {
-        _id: clienteId,
-        empresaId,
-      },
-      {
-        riesgoActual: nuevoRiesgo,
-      },
-      {
-        new: true,
-      }
+      { _id: id, empresaId },
+      { riesgoActual: nuevoRiesgo },
+      { new: true }
     );
 
     return cliente;
   }
-
-  /**
-   * Obtener clientes con riesgo excedido
-   */
-  async getClientesConRiesgo(empresaId: string): Promise<ICliente[]> {
-    const clientes = await Cliente.find({
-      empresaId,
-      activo: true,
-      limiteCredito: { $exists: true, $ne: null },
-      $expr: { $gt: ['$riesgoActual', '$limiteCredito'] },
-    });
-
-    return clientes;
-  }
-
-  /**
-   * Buscar clientes por nombre o NIF
-   */
-  async search(empresaId: string, termino: string, limit: number = 10): Promise<ICliente[]> {
-    const clientes = await Cliente.find({
-      empresaId,
-      activo: true,
-      $or: [
-        { nombre: { $regex: termino, $options: 'i' } },
-        { nombreComercial: { $regex: termino, $options: 'i' } },
-        { nif: { $regex: termino, $options: 'i' } },
-        { codigo: { $regex: termino, $options: 'i' } },
-      ],
-    })
-      .limit(limit)
-      .sort({ nombre: 1 });
-
-    return clientes;
-  }
-
-  /**
-   * Exportar clientes a CSV
-   */
-  async exportToCSV(empresaId: string): Promise<string> {
-    const clientes = await Cliente.find({ empresaId }).lean();
-
-    // Cabeceras
-    const headers = [
-      'Código',
-      'Nombre',
-      'NIF',
-      'Email',
-      'Teléfono',
-      'Ciudad',
-      'Provincia',
-      'Forma de Pago',
-      'Días de Pago',
-      'Activo',
-    ];
-
-    // Crear filas
-    const rows = clientes.map(c => [
-      c.codigo,
-      c.nombre,
-      c.nif,
-      c.email || '',
-      c.telefono || '',
-      c.direccion.ciudad,
-      c.direccion.provincia,
-      c.formaPago,
-      c.diasPago,
-      c.activo ? 'Sí' : 'No',
-    ]);
-
-    // Unir todo
-    const csv = [
-      headers.join(','),
-      ...rows.map(row => row.join(',')),
-    ].join('\n');
-
-    return csv;
-  }
-
-  /**
-   * Formatear cliente para respuesta
-   */
-  formatClienteResponse(cliente: ICliente): ClienteResponse {
-    return {
-      _id: (cliente._id as mongoose.Types.ObjectId).toString(),
-      empresaId: cliente.empresaId.toString(),
-      tipoCliente: cliente.tipoCliente,
-      codigo: cliente.codigo,
-      nombre: cliente.nombre,
-      nombreComercial: cliente.nombreComercial,
-      nif: cliente.nif,
-      email: cliente.email,
-      telefono: cliente.telefono,
-      movil: cliente.movil,
-      web: cliente.web,
-      direccion: cliente.direccion,
-      direccionEnvio: cliente.direccionEnvio,
-      formaPago: cliente.formaPago,
-      diasPago: cliente.diasPago,
-      descuentoGeneral: cliente.descuentoGeneral,
-      limiteCredito: cliente.limiteCredito,
-      riesgoActual: cliente.riesgoActual,
-      activo: cliente.activo,
-      observaciones: cliente.observaciones,
-      tags: cliente.tags,
-      createdAt: cliente.createdAt,
-      updatedAt: cliente.updatedAt,
-    };
-  }
 }
+
+export const clientesService = new ClientesService();
