@@ -60,7 +60,7 @@ export interface ICliente extends Document {
   codigo: string;
   nombre: string;
   nombreComercial?: string;
-  
+
   // Fiscal
   nif: string;
   
@@ -299,10 +299,13 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
     type: Number,
     min: 0,
   },
+
+  // ⚠️ IMPORTANTE: riesgoActual es requerido y tiene valor por defecto 0
   riesgoActual: {
     type: Number,
     default: 0,
     min: 0,
+    required: true,
   },
   
   // Estado
@@ -446,6 +449,16 @@ ClienteSchema.pre('save', async function(next) {
   
   if (this.isModified() && !this.isNew) {
     this.fechaModificacion = new Date();
+  }
+  
+  // Normalizar NIF
+  if (this.nif) {
+    this.nif = this.nif.toUpperCase().trim();
+  }
+
+  // ⚠️ IMPORTANTE: Asegurar que riesgoActual siempre tenga un valor
+  if (this.riesgoActual === undefined || this.riesgoActual === null) {
+    this.riesgoActual = 0;
   }
   
   next();
