@@ -1,22 +1,28 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect } from 'react';
-import { Cliente } from '@/services/clientes.service';
+import React, { useState, useEffect } from 'react'
+import { Cliente, CreateClienteDTO, UpdateClienteDTO } from '@/types/cliente.types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Loader2 } from 'lucide-react'
 
 interface ClienteFormProps {
-  cliente?: Cliente;
-  onSubmit: (data: Partial<Cliente>) => Promise<void>;
-  onCancel: () => void;
-  isLoading?: boolean;
+  initialData?: Cliente
+  onSubmit: (data: CreateClienteDTO | UpdateClienteDTO) => Promise<void>  // ✅ Acepta ambos tipos
+  isLoading?: boolean
+  mode?: 'create' | 'edit'
 }
 
-export default function ClienteForm({
-  cliente,
+export function ClienteForm({
+  initialData,
   onSubmit,
-  onCancel,
   isLoading = false,
+  mode = 'create',
 }: ClienteFormProps) {
-  const [formData, setFormData] = useState<Partial<Cliente>>({
+  const [formData, setFormData] = useState<CreateClienteDTO>({
     tipoCliente: 'particular',
     nombre: '',
     nif: '',
@@ -30,22 +36,55 @@ export default function ClienteForm({
       pais: 'España',
     },
     activo: true,
-    ...cliente,
-  });
+  })
 
-  const [usarDireccionEnvio, setUsarDireccionEnvio] = useState(!!cliente?.direccionEnvio);
+  const [usarDireccionEnvio, setUsarDireccionEnvio] = useState(false)
+
+  // Cargar datos iniciales si existen
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        tipoCliente: initialData.tipoCliente,
+        codigo: initialData.codigo,
+        nombre: initialData.nombre,
+        nombreComercial: initialData.nombreComercial,
+        nif: initialData.nif,
+        email: initialData.email,
+        telefono: initialData.telefono,
+        movil: initialData.movil,
+        web: initialData.web,
+        direccion: initialData.direccion,
+        direccionEnvio: initialData.direccionEnvio,
+        formaPago: initialData.formaPago,
+        diasPago: initialData.diasPago,
+        descuentoGeneral: initialData.descuentoGeneral,
+        tarifaId: initialData.tarifaId,
+        iban: initialData.iban,
+        swift: initialData.swift,
+        personaContacto: initialData.personaContacto,
+        categoriaId: initialData.categoriaId,
+        zona: initialData.zona,
+        vendedorId: initialData.vendedorId,
+        limiteCredito: initialData.limiteCredito,
+        activo: initialData.activo,
+        observaciones: initialData.observaciones,
+        tags: initialData.tags,
+      })
+      setUsarDireccionEnvio(!!initialData.direccionEnvio)
+    }
+  }, [initialData])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
-    const { name, value, type } = e.target;
-    const checked = (e.target as HTMLInputElement).checked;
+    const { name, value, type } = e.target
+    const checked = (e.target as HTMLInputElement).checked
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : type === 'number' ? Number(value) : value,
-    }));
-  };
+    }))
+  }
 
   const handleDireccionChange = (
     campo: string,
@@ -53,373 +92,375 @@ export default function ClienteForm({
     esDireccionEnvio: boolean = false
   ) => {
     if (esDireccionEnvio) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         direccionEnvio: {
-          ...prev.direccionEnvio!,
+          ...(prev.direccionEnvio || {
+            calle: '',
+            codigoPostal: '',
+            ciudad: '',
+            provincia: '',
+            pais: 'España',
+          }),
           [campo]: value,
         },
-      }));
+      }))
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         direccion: {
           ...prev.direccion!,
           [campo]: value,
         },
-      }));
+      }))
     }
-  };
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const dataToSubmit = { ...formData };
-    
+    e.preventDefault()
+
+    const dataToSubmit = { ...formData }
+
     if (!usarDireccionEnvio) {
-      delete dataToSubmit.direccionEnvio;
+      delete dataToSubmit.direccionEnvio
     }
-    
-    await onSubmit(dataToSubmit);
-  };
+
+    await onSubmit(dataToSubmit)
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* ============================================ */}
       {/* TIPO DE CLIENTE */}
       {/* ============================================ */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Tipo de Cliente</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Tipo *</label>
+      <Card>
+        <CardHeader>
+          <CardTitle>Tipo de Cliente</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="tipoCliente">Tipo *</Label>
             <select
+              id="tipoCliente"
               name="tipoCliente"
               value={formData.tipoCliente}
               onChange={handleChange}
               required
-              className="w-full border rounded-md px-3 py-2"
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="particular">Particular</option>
               <option value="empresa">Empresa</option>
             </select>
           </div>
 
-          <div>
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                name="activo"
-                checked={formData.activo}
-                onChange={handleChange}
-                className="rounded"
-              />
-              <span className="text-sm font-medium">Cliente Activo</span>
-            </label>
+          <div className="flex items-center space-x-2 pt-8">
+            <input
+              type="checkbox"
+              id="activo"
+              name="activo"
+              checked={formData.activo}
+              onChange={handleChange}
+              className="h-4 w-4 rounded border-primary text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            />
+            <Label htmlFor="activo" className="cursor-pointer">
+              Cliente Activo
+            </Label>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ============================================ */}
       {/* DATOS BÁSICOS */}
       {/* ============================================ */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Datos Básicos</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Código</label>
-            <input
-              type="text"
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos Básicos</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="codigo">Código</Label>
+            <Input
+              id="codigo"
               name="codigo"
               value={formData.codigo || ''}
-              onChange={handleChange}
-              placeholder="Se generará automáticamente"
               disabled
-              className="w-full border rounded-md px-3 py-2 bg-gray-100"
+              placeholder="Se generará automáticamente"
+              className="bg-muted"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">NIF/CIF *</label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="nif">NIF/CIF *</Label>
+            <Input
+              id="nif"
               name="nif"
               value={formData.nif}
               onChange={handleChange}
               required
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-2">
-              Nombre / Razón Social *
-            </label>
-            <input
-              type="text"
+          <div className="md:col-span-2 space-y-2">
+            <Label htmlFor="nombre">Nombre / Razón Social *</Label>
+            <Input
+              id="nombre"
               name="nombre"
               value={formData.nombre}
               onChange={handleChange}
               required
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-2">Nombre Comercial</label>
-            <input
-              type="text"
+          <div className="md:col-span-2 space-y-2">
+            <Label htmlFor="nombreComercial">Nombre Comercial</Label>
+            <Input
+              id="nombreComercial"
               name="nombreComercial"
               value={formData.nombreComercial || ''}
               onChange={handleChange}
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ============================================ */}
       {/* DATOS DE CONTACTO */}
       {/* ============================================ */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Datos de Contacto</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Email</label>
-            <input
-              type="email"
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos de Contacto</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
               name="email"
+              type="email"
               value={formData.email || ''}
               onChange={handleChange}
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Teléfono</label>
-            <input
-              type="tel"
+          <div className="space-y-2">
+            <Label htmlFor="telefono">Teléfono</Label>
+            <Input
+              id="telefono"
               name="telefono"
+              type="tel"
               value={formData.telefono || ''}
               onChange={handleChange}
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Móvil</label>
-            <input
-              type="tel"
+          <div className="space-y-2">
+            <Label htmlFor="movil">Móvil</Label>
+            <Input
+              id="movil"
               name="movil"
+              type="tel"
               value={formData.movil || ''}
               onChange={handleChange}
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Sitio Web</label>
-            <input
-              type="url"
+          <div className="space-y-2">
+            <Label htmlFor="web">Sitio Web</Label>
+            <Input
+              id="web"
               name="web"
+              type="url"
               value={formData.web || ''}
               onChange={handleChange}
               placeholder="https://"
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ============================================ */}
       {/* DIRECCIÓN PRINCIPAL */}
       {/* ============================================ */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Dirección Principal *</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-2">Calle *</label>
-            <input
-              type="text"
+      <Card>
+        <CardHeader>
+          <CardTitle>Dirección Principal *</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2 space-y-2">
+            <Label htmlFor="direccion-calle">Calle *</Label>
+            <Input
+              id="direccion-calle"
               value={formData.direccion?.calle || ''}
-              onChange={e => handleDireccionChange('calle', e.target.value)}
+              onChange={(e) => handleDireccionChange('calle', e.target.value)}
               required
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Número</label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="direccion-numero">Número</Label>
+            <Input
+              id="direccion-numero"
               value={formData.direccion?.numero || ''}
-              onChange={e => handleDireccionChange('numero', e.target.value)}
-              className="w-full border rounded-md px-3 py-2"
+              onChange={(e) => handleDireccionChange('numero', e.target.value)}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Piso/Puerta</label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="direccion-piso">Piso/Puerta</Label>
+            <Input
+              id="direccion-piso"
               value={formData.direccion?.piso || ''}
-              onChange={e => handleDireccionChange('piso', e.target.value)}
-              className="w-full border rounded-md px-3 py-2"
+              onChange={(e) => handleDireccionChange('piso', e.target.value)}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Código Postal *</label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="direccion-cp">Código Postal *</Label>
+            <Input
+              id="direccion-cp"
               value={formData.direccion?.codigoPostal || ''}
-              onChange={e => handleDireccionChange('codigoPostal', e.target.value)}
+              onChange={(e) => handleDireccionChange('codigoPostal', e.target.value)}
               required
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Ciudad *</label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="direccion-ciudad">Ciudad *</Label>
+            <Input
+              id="direccion-ciudad"
               value={formData.direccion?.ciudad || ''}
-              onChange={e => handleDireccionChange('ciudad', e.target.value)}
+              onChange={(e) => handleDireccionChange('ciudad', e.target.value)}
               required
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Provincia *</label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="direccion-provincia">Provincia *</Label>
+            <Input
+              id="direccion-provincia"
               value={formData.direccion?.provincia || ''}
-              onChange={e => handleDireccionChange('provincia', e.target.value)}
+              onChange={(e) => handleDireccionChange('provincia', e.target.value)}
               required
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">País *</label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="direccion-pais">País *</Label>
+            <Input
+              id="direccion-pais"
               value={formData.direccion?.pais || 'España'}
-              onChange={e => handleDireccionChange('pais', e.target.value)}
+              onChange={(e) => handleDireccionChange('pais', e.target.value)}
               required
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ============================================ */}
       {/* DIRECCIÓN DE ENVÍO */}
       {/* ============================================ */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Dirección de Envío</h2>
-          <label className="flex items-center space-x-2">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle>Dirección de Envío</CardTitle>
+          <div className="flex items-center space-x-2">
             <input
               type="checkbox"
+              id="usar-direccion-envio"
               checked={usarDireccionEnvio}
-              onChange={e => setUsarDireccionEnvio(e.target.checked)}
-              className="rounded"
+              onChange={(e) => setUsarDireccionEnvio(e.target.checked)}
+              className="h-4 w-4 rounded border-primary text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
-            <span className="text-sm">Usar dirección diferente</span>
-          </label>
-        </div>
+            <Label htmlFor="usar-direccion-envio" className="cursor-pointer">
+              Usar dirección diferente
+            </Label>
+          </div>
+        </CardHeader>
 
         {usarDireccionEnvio && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-2">Calle</label>
-              <input
-                type="text"
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2 space-y-2">
+              <Label htmlFor="envio-calle">Calle</Label>
+              <Input
+                id="envio-calle"
                 value={formData.direccionEnvio?.calle || ''}
-                onChange={e => handleDireccionChange('calle', e.target.value, true)}
-                className="w-full border rounded-md px-3 py-2"
+                onChange={(e) => handleDireccionChange('calle', e.target.value, true)}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Número</label>
-              <input
-                type="text"
+            <div className="space-y-2">
+              <Label htmlFor="envio-numero">Número</Label>
+              <Input
+                id="envio-numero"
                 value={formData.direccionEnvio?.numero || ''}
-                onChange={e => handleDireccionChange('numero', e.target.value, true)}
-                className="w-full border rounded-md px-3 py-2"
+                onChange={(e) => handleDireccionChange('numero', e.target.value, true)}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Piso/Puerta</label>
-              <input
-                type="text"
+            <div className="space-y-2">
+              <Label htmlFor="envio-piso">Piso/Puerta</Label>
+              <Input
+                id="envio-piso"
                 value={formData.direccionEnvio?.piso || ''}
-                onChange={e => handleDireccionChange('piso', e.target.value, true)}
-                className="w-full border rounded-md px-3 py-2"
+                onChange={(e) => handleDireccionChange('piso', e.target.value, true)}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Código Postal</label>
-              <input
-                type="text"
+            <div className="space-y-2">
+              <Label htmlFor="envio-cp">Código Postal</Label>
+              <Input
+                id="envio-cp"
                 value={formData.direccionEnvio?.codigoPostal || ''}
-                onChange={e => handleDireccionChange('codigoPostal', e.target.value, true)}
-                className="w-full border rounded-md px-3 py-2"
+                onChange={(e) => handleDireccionChange('codigoPostal', e.target.value, true)}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Ciudad</label>
-              <input
-                type="text"
+            <div className="space-y-2">
+              <Label htmlFor="envio-ciudad">Ciudad</Label>
+              <Input
+                id="envio-ciudad"
                 value={formData.direccionEnvio?.ciudad || ''}
-                onChange={e => handleDireccionChange('ciudad', e.target.value, true)}
-                className="w-full border rounded-md px-3 py-2"
+                onChange={(e) => handleDireccionChange('ciudad', e.target.value, true)}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Provincia</label>
-              <input
-                type="text"
+            <div className="space-y-2">
+              <Label htmlFor="envio-provincia">Provincia</Label>
+              <Input
+                id="envio-provincia"
                 value={formData.direccionEnvio?.provincia || ''}
-                onChange={e => handleDireccionChange('provincia', e.target.value, true)}
-                className="w-full border rounded-md px-3 py-2"
+                onChange={(e) => handleDireccionChange('provincia', e.target.value, true)}
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">País</label>
-              <input
-                type="text"
+            <div className="space-y-2">
+              <Label htmlFor="envio-pais">País</Label>
+              <Input
+                id="envio-pais"
                 value={formData.direccionEnvio?.pais || 'España'}
-                onChange={e => handleDireccionChange('pais', e.target.value, true)}
-                className="w-full border rounded-md px-3 py-2"
+                onChange={(e) => handleDireccionChange('pais', e.target.value, true)}
               />
             </div>
-          </div>
+          </CardContent>
         )}
-      </div>
+      </Card>
 
       {/* ============================================ */}
       {/* DATOS COMERCIALES */}
       {/* ============================================ */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Datos Comerciales</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Forma de Pago *</label>
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos Comerciales</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="formaPago">Forma de Pago *</Label>
             <select
+              id="formaPago"
               name="formaPago"
               value={formData.formaPago}
               onChange={handleChange}
               required
-              className="w-full border rounded-md px-3 py-2"
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <option value="contado">Contado</option>
               <option value="transferencia">Transferencia</option>
@@ -429,113 +470,113 @@ export default function ClienteForm({
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Días de Pago *</label>
-            <input
-              type="number"
+          <div className="space-y-2">
+            <Label htmlFor="diasPago">Días de Pago *</Label>
+            <Input
+              id="diasPago"
               name="diasPago"
+              type="number"
               value={formData.diasPago}
               onChange={handleChange}
               min="0"
               required
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Descuento General (%)</label>
-            <input
-              type="number"
+          <div className="space-y-2">
+            <Label htmlFor="descuentoGeneral">Descuento General (%)</Label>
+            <Input
+              id="descuentoGeneral"
               name="descuentoGeneral"
+              type="number"
               value={formData.descuentoGeneral || ''}
               onChange={handleChange}
               min="0"
               max="100"
               step="0.01"
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Límite de Crédito (€)</label>
-            <input
-              type="number"
+          <div className="space-y-2">
+            <Label htmlFor="limiteCredito">Límite de Crédito (€)</Label>
+            <Input
+              id="limiteCredito"
               name="limiteCredito"
+              type="number"
               value={formData.limiteCredito || ''}
               onChange={handleChange}
               min="0"
               step="0.01"
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ============================================ */}
       {/* DATOS BANCARIOS */}
       {/* ============================================ */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Datos Bancarios</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">IBAN</label>
-            <input
-              type="text"
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos Bancarios</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="iban">IBAN</Label>
+            <Input
+              id="iban"
               name="iban"
               value={formData.iban || ''}
               onChange={handleChange}
               placeholder="ES00 0000 0000 0000 0000 0000"
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">SWIFT/BIC</label>
-            <input
-              type="text"
+          <div className="space-y-2">
+            <Label htmlFor="swift">SWIFT/BIC</Label>
+            <Input
+              id="swift"
               name="swift"
               value={formData.swift || ''}
               onChange={handleChange}
-              className="w-full border rounded-md px-3 py-2"
             />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ============================================ */}
       {/* OBSERVACIONES */}
       {/* ============================================ */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-lg font-semibold mb-4">Observaciones</h2>
-        <textarea
-          name="observaciones"
-          value={formData.observaciones || ''}
-          onChange={handleChange}
-          rows={4}
-          className="w-full border rounded-md px-3 py-2"
-        />
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Observaciones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            name="observaciones"
+            value={formData.observaciones || ''}
+            onChange={handleChange}
+            rows={4}
+            placeholder="Observaciones adicionales sobre el cliente..."
+          />
+        </CardContent>
+      </Card>
 
       {/* ============================================ */}
       {/* BOTONES */}
       {/* ============================================ */}
       <div className="flex justify-end space-x-4">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isLoading}
-          className="px-6 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
-        >
-          Cancelar
-        </button>
-        <button
+        <Button
           type="submit"
           disabled={isLoading}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="min-w-[150px]"
         >
-          {isLoading ? 'Guardando...' : cliente ? 'Actualizar' : 'Crear'}
-        </button>
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isLoading ? 'Guardando...' : mode === 'edit' ? 'Actualizar' : 'Crear'}
+        </Button>
       </div>
     </form>
-  );
+  )
 }
+
+// También exportar como default para compatibilidad
+export default ClienteForm

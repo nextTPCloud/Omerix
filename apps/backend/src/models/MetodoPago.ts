@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IMetodoPago extends Document {
+  _id: mongoose.Types.ObjectId;
   empresaId: mongoose.Types.ObjectId;
   
   // Tipo
@@ -33,6 +34,12 @@ export interface IMetodoPago extends Document {
 
 const MetodoPagoSchema = new Schema<IMetodoPago>(
   {
+    _id: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      auto: true,
+    },
+    
     empresaId: {
       type: Schema.Types.ObjectId,
       ref: 'Empresa',

@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IPago extends Document {
+  _id: mongoose.Types.ObjectId;
   empresaId: mongoose.Types.ObjectId;
   
   // Referencia
@@ -53,6 +54,11 @@ export interface IPago extends Document {
 
 const PagoSchema = new Schema<IPago>(
   {
+   _id: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      auto: true,
+    },
     empresaId: {
       type: Schema.Types.ObjectId,
       ref: 'Empresa',

@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 export interface IUsuario extends Document {
+  _id: mongoose.Types.ObjectId;
   empresaId: mongoose.Types.ObjectId;
   email: string;
   password: string;
@@ -44,6 +45,12 @@ export interface IUsuario extends Document {
 
 const UsuarioSchema = new Schema<IUsuario>(
   {
+    _id: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      auto: true,
+    },
+
     empresaId: {
       type: Schema.Types.ObjectId,
       ref: 'Empresa',

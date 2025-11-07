@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { clientesService } from './clientes.service';
 import mongoose from 'mongoose';
+import { CreateClienteSchema } from './clientes.dto';
 
 export class ClientesController {
   
@@ -10,13 +11,21 @@ export class ClientesController {
   
   async crear(req: Request, res: Response) {
     try {
+      // ✅ FIX: Eliminar campo codigo si viene vacío o undefined
+      // Esto permite que el pre-save hook del modelo lo genere automáticamente
+      if (req.body.codigo === '' || req.body.codigo === undefined || req.body.codigo === null) {
+        delete req.body.codigo;
+      }
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
           success: false,
           message: 'No autenticado',
         });
-      }
+      }       
+      const validatedData = CreateClienteSchema.parse(req.body);
 
+      
+    // Obtener empresaId y usuarioId del request (añadidos por middleware)
       const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
       const usuarioId = new mongoose.Types.ObjectId(req.userId); // Del middleware de autenticación
 

@@ -10,6 +10,8 @@ export interface Direccion {
   ciudad: string
   provincia: string
   pais: string
+  latitud?: number
+  longitud?: number
 }
 
 export interface PersonaContacto {
@@ -44,7 +46,8 @@ export interface Cliente {
   zona?: string
   vendedorId?: string
   limiteCredito?: number
-  riesgoActual?: number
+  // ⚠️ IMPORTANTE: riesgoActual es REQUERIDO (no opcional)
+  riesgoActual: number
   activo: boolean
   observaciones?: string
   tags?: string[]

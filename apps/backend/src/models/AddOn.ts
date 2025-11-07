@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IAddOn extends Document {
+  _id: mongoose.Types.ObjectId;
   nombre: string;
   slug: string;
   descripcion?: string;
@@ -13,6 +14,12 @@ export interface IAddOn extends Document {
 
 const AddOnSchema = new Schema<IAddOn>(
   {
+    _id: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      auto: true,
+    },
+    
     nombre: {
       type: String,
       required: true,

@@ -25,6 +25,7 @@ export interface IVariante {
 }
 
 export interface IProducto extends Document {
+  _id: Types.ObjectId;
   empresaId: Types.ObjectId;
   
   // Identificación
@@ -115,6 +116,12 @@ const VarianteSchema = new Schema({
 
 const ProductoSchema = new Schema<IProducto>(
   {
+   _id: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      auto: true,
+    },
+    
     empresaId: {
       type: Schema.Types.ObjectId,
       ref: 'Empresa',

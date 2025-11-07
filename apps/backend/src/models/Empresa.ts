@@ -1,6 +1,7 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface IEmpresa extends Document {
+  _id: Types.ObjectId;
   nombre: string;
   nif: string;
   email: string;
@@ -26,6 +27,12 @@ export interface IEmpresa extends Document {
 
 const EmpresaSchema = new Schema<IEmpresa>(
   {
+     _id: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      auto: true,
+    },
+    
     nombre: {
       type: String,
       required: [true, 'El nombre es obligatorio'],

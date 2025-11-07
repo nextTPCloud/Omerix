@@ -1,72 +1,91 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { ClienteForm } from '@/components/clientes/ClienteForm' // ✅ Importación nombrada
 import { clientesService } from '@/services/clientes.service'
-import { Cliente } from '@/types/cliente.types'
+import { Cliente, UpdateClienteDTO } from '@/types/cliente.types'
 import { toast } from 'sonner'
-import {
-  ArrowLeft,
-  Pencil,
-  Trash2,
-  Mail,
-  Phone,
-  MapPin,
-  CreditCard,
-  Building,
-  User,
-} from 'lucide-react'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import Link from 'next/link'
 
-export default function ClienteDetailPage() {
+interface EditarClientePageProps {
+  params: {
+    id: string
+  }
+}
+
+export default function EditarClientePage({ params }: EditarClientePageProps) {
   const router = useRouter()
-  const params = useParams()
-  const id = params.id as string
-
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // ============================================
+  // CARGAR CLIENTE
+  // ============================================
 
   useEffect(() => {
     loadCliente()
-  }, [id])
+  }, [params.id])
 
   const loadCliente = async () => {
     try {
       setIsLoading(true)
-      const response = await clientesService.getById(id)
-      setCliente(response.data)
+      const response = await clientesService.getById(params.id)
+      
+      if (response.success && response.data) {
+        setCliente(response.data)
+      } else {
+        toast.error('No se pudo cargar el cliente')
+        router.push('/clientes')
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al cargar cliente')
+      console.error('Error al cargar cliente:', error)
+      toast.error(error.response?.data?.message || 'Error al cargar el cliente')
       router.push('/clientes')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleDelete = async () => {
+  // ============================================
+  // GUARDAR CAMBIOS
+  // ============================================
+
+  const handleSubmit = async (data: UpdateClienteDTO) => {
     if (!cliente) return
-    
-    if (!confirm(`¿Estás seguro de desactivar al cliente "${cliente.nombre}"?`)) {
-      return
-    }
 
     try {
-      await clientesService.delete(id)
-      toast.success('Cliente desactivado correctamente')
-      router.push('/clientes')
+      setIsSaving(true)
+      const response = await clientesService.update(cliente._id, data)
+      
+      if (response.success) {
+        toast.success('Cliente actualizado correctamente')
+        router.push(`/clientes/${cliente._id}`)
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al desactivar cliente')
+      console.error('Error al actualizar cliente:', error)
+      toast.error(error.response?.data?.message || 'Error al actualizar el cliente')
+    } finally {
+      setIsSaving(false)
     }
   }
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   if (isLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Cargando cliente...</p>
+          </div>
         </div>
       </DashboardLayout>
     )
@@ -75,8 +94,14 @@ export default function ClienteDetailPage() {
   if (!cliente) {
     return (
       <DashboardLayout>
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Cliente no encontrado</p>
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="text-center space-y-4">
+            <p className="text-lg text-muted-foreground">Cliente no encontrado</p>
+            <Button onClick={() => router.push('/clientes')}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver a Clientes
+            </Button>
+          </div>
         </div>
       </DashboardLayout>
     )
@@ -85,185 +110,34 @@ export default function ClienteDetailPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.back()}
-            >
+        {/* ============================================ */}
+        {/* HEADER */}
+        {/* ============================================ */}
+        
+        <div className="flex items-center gap-4">
+          <Link href={`/clientes/${cliente._id}`}>
+            <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">{cliente.nombre}</h1>
-                <Badge variant={cliente.activo ? 'success' : 'destructive'}>
-                  {cliente.activo ? 'Activo' : 'Inactivo'}
-                </Badge>
-                <Badge variant={cliente.tipoCliente === 'empresa' ? 'default' : 'secondary'}>
-                  {cliente.tipoCliente === 'empresa' ? 'Empresa' : 'Particular'}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground">Código: {cliente.codigo}</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/clientes/${id}/editar`)}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Desactivar
-            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Editar Cliente</h1>
+            <p className="text-muted-foreground">
+              Modificar datos de {cliente.nombre}
+            </p>
           </div>
         </div>
 
-        {/* Información Principal */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Datos Básicos */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="h-5 w-5" />
-                Datos Básicos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">NIF/CIF</p>
-                <p className="font-medium">{cliente.nif}</p>
-              </div>
-              {cliente.nombreComercial && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Nombre Comercial</p>
-                  <p className="font-medium">{cliente.nombreComercial}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Contacto */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                Contacto
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {cliente.email && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{cliente.email}</p>
-                </div>
-              )}
-              {cliente.telefono && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Teléfono</p>
-                  <p className="font-medium">{cliente.telefono}</p>
-                </div>
-              )}
-              {cliente.movil && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Móvil</p>
-                  <p className="font-medium">{cliente.movil}</p>
-                </div>
-              )}
-              {cliente.web && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Web</p>
-                  <a
-                    href={cliente.web}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-blue-600 hover:underline"
-                  >
-                    {cliente.web}
-                  </a>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Dirección */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                Dirección
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="font-medium">
-                {cliente.direccion.calle}
-                {cliente.direccion.numero && `, ${cliente.direccion.numero}`}
-                {cliente.direccion.piso && `, ${cliente.direccion.piso}`}
-              </p>
-              <p>
-                {cliente.direccion.codigoPostal} {cliente.direccion.ciudad}
-              </p>
-              <p>{cliente.direccion.provincia}</p>
-              <p>{cliente.direccion.pais}</p>
-            </CardContent>
-          </Card>
-
-          {/* Datos Comerciales */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Datos Comerciales
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Forma de Pago</p>
-                <p className="font-medium capitalize">{cliente.formaPago}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Días de Pago</p>
-                <p className="font-medium">{cliente.diasPago} días</p>
-              </div>
-              {cliente.descuentoGeneral && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Descuento General</p>
-                  <p className="font-medium">{cliente.descuentoGeneral}%</p>
-                </div>
-              )}
-              {cliente.limiteCredito && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Límite de Crédito</p>
-                  <p className="font-medium">
-                    {new Intl.NumberFormat('es-ES', {
-                      style: 'currency',
-                      currency: 'EUR',
-                    }).format(cliente.limiteCredito)}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Observaciones */}
-        {cliente.observaciones && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Observaciones</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap">{cliente.observaciones}</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* ============================================ */}
+        {/* FORMULARIO */}
+        {/* ============================================ */}
+        
+        <ClienteForm
+          initialData={cliente}
+          onSubmit={handleSubmit}
+          isLoading={isSaving}
+          mode="edit"
+        />
       </div>
     </DashboardLayout>
   )

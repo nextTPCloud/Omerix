@@ -1,46 +1,83 @@
-'use client';
+"use client"
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import ClienteForm from '@/components/clientes/ClienteForm';
-import { clientesService, Cliente } from '@/services/clientes.service';
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { DashboardLayout } from '@/components/layout/DashboardLayout'
+import { Button } from '@/components/ui/button'
+import { ClienteForm } from '@/components/clientes/ClienteForm'
+import { clientesService } from '@/services/clientes.service'
+import { CreateClienteDTO, UpdateClienteDTO } from '@/types/cliente.types'
+import { toast } from 'sonner'
+import { ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
 
 export default function NuevoClientePage() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter()
+  const [isSaving, setIsSaving] = useState(false)
 
-  const handleSubmit = async (data: Partial<Cliente>) => {
+  // ============================================
+  // CREAR CLIENTE
+  // ============================================
+
+  // ✅ CORRECCIÓN: Ahora acepta ambos tipos
+  const handleSubmit = async (data: CreateClienteDTO | UpdateClienteDTO) => {
     try {
-      setIsLoading(true);
-      await clientesService.crear(data);
-      alert('Cliente creado exitosamente');
-      router.push('/clientes');
+      setIsSaving(true)
+      const response = await clientesService.create(data as CreateClienteDTO)
+      
+      if (response.success && response.data) {
+        toast.success('Cliente creado correctamente')
+        router.push(`/clientes/${response.data._id}`)  // ✅ CORRECCIÓN: Sintaxis corregida
+      }
     } catch (error: any) {
-      console.error('Error al crear cliente:', error);
-      alert(error.response?.data?.message || 'Error al crear el cliente');
+      console.error('Error al crear cliente:', error)
+      
+      // Manejo de errores específicos
+      if (error.response?.status === 409) {
+        toast.error('Ya existe un cliente con ese NIF')
+      } else {
+        toast.error(error.response?.data?.message || 'Error al crear el cliente')
+      }
     } finally {
-      setIsLoading(false);
+      setIsSaving(false)
     }
-  };
+  }
 
-  const handleCancel = () => {
-    router.push('/clientes');
-  };
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Nuevo Cliente</h1>
-        <p className="text-gray-600 mt-2">
-          Completa el formulario para crear un nuevo cliente
-        </p>
-      </div>
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* ============================================ */}
+        {/* HEADER */}
+        {/* ============================================ */}
+        
+        <div className="flex items-center gap-4">
+          <Link href="/clientes">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Nuevo Cliente</h1>
+            <p className="text-muted-foreground">
+              Registrar un nuevo cliente en el sistema
+            </p>
+          </div>
+        </div>
 
-      <ClienteForm
-        onSubmit={handleSubmit}
-        onCancel={handleCancel}
-        isLoading={isLoading}
-      />
-    </div>
-  );
+        {/* ============================================ */}
+        {/* FORMULARIO */}
+        {/* ============================================ */}
+        
+        <ClienteForm
+          onSubmit={handleSubmit}
+          isLoading={isSaving}
+          mode="create"
+        />
+      </div>
+    </DashboardLayout>
+  )
 }

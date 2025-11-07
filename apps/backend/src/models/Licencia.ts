@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ILicencia extends Document {
+  _id: mongoose.Types.ObjectId;
   empresaId: mongoose.Types.ObjectId;
   planId: mongoose.Types.ObjectId;
   
@@ -66,6 +67,12 @@ export interface ILicencia extends Document {
 
 const LicenciaSchema = new Schema<ILicencia>(
   {
+    _id: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      auto: true,
+    },
+    
     empresaId: {
       type: Schema.Types.ObjectId,
       ref: 'Empresa',

@@ -1,6 +1,7 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface IPlan extends Document {
+  _id: Types.ObjectId;
   nombre: string;
   slug: string;
   descripcion?: string;
@@ -44,6 +45,12 @@ export interface IPlan extends Document {
 
 const PlanSchema = new Schema<IPlan>(
   {
+    _id: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      auto: true,
+    },
+    
     nombre: {
       type: String,
       required: true,

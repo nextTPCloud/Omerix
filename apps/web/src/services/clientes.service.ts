@@ -1,227 +1,288 @@
-import { api } from './api';
+import { api } from './api'
+import {
+  Cliente,
+  CreateClienteDTO,
+  UpdateClienteDTO,
+  ClientesFilters,
+  ClientesListResponse,
+  ClienteDetailResponse,
+  EstadisticasClientes,
+} from '@/types/cliente.types'
 
-export interface Cliente {
-  _id: string;
-  empresaId: string;
-  tipoCliente: 'empresa' | 'particular';
-  codigo: string;
-  nombre: string;
-  nombreComercial?: string;
-  nif: string;
-  email?: string;
-  telefono?: string;
-  movil?: string;
-  web?: string;
-  direccion: {
-    calle: string;
-    numero?: string;
-    piso?: string;
-    codigoPostal: string;
-    ciudad: string;
-    provincia: string;
-    pais: string;
-    latitud?: number;
-    longitud?: number;
-  };
-  direccionEnvio?: {
-    calle: string;
-    numero?: string;
-    piso?: string;
-    codigoPostal: string;
-    ciudad: string;
-    provincia: string;
-    pais: string;
-    latitud?: number;
-    longitud?: number;
-  };
-  formaPago: 'contado' | 'transferencia' | 'domiciliacion' | 'confirming' | 'pagare';
-  diasPago: number;
-  descuentoGeneral?: number;
-  tarifaId?: string;
-  iban?: string;
-  swift?: string;
-  personaContacto?: {
-    nombre: string;
-    cargo?: string;
-    telefono?: string;
-    email?: string;
-  };
-  categoriaId?: string;
-  zona?: string;
-  vendedorId?: string;
-  limiteCredito?: number;
-  riesgoActual: number;
-  activo: boolean;
-  observaciones?: string;
-  tags?: string[];
-  archivos?: Array<{
-    nombre: string;
-    url: string;
-    tipo: string;
-    tamaño: number;
-    fechaSubida: Date;
-    subidoPor: string;
-  }>;
-  creadoPor: string;
-  modificadoPor?: string;
-  fechaCreacion: Date;
-  fechaModificacion?: Date;
-}
-
-export interface GetClientesParams {
-  search?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  page?: number;
-  limit?: number;
-  activo?: boolean;
-  vendedorId?: string;
-  categoriaId?: string;
-  zona?: string;
-  tags?: string[];
-}
-
-export interface GetClientesResponse {
-  success: boolean;
-  data: Cliente[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
-
-export interface Estadisticas {
-  total: number;
-  activos: number;
-  inactivos: number;
-  excedenCredito: number;
-  riesgoTotal: number;
-}
-
-class ClientesService {
-  
+export const clientesService = {
   // ============================================
-  // OBTENER TODOS CON FILTROS
+  // LISTAR CLIENTES CON FILTROS Y PAGINACIÓN
   // ============================================
   
-  async obtenerTodos(params?: GetClientesParams): Promise<GetClientesResponse> {
-    const response = await api.get('/clientes', { params });
-    return response.data;
-  }
+  getAll: async (filters?: ClientesFilters): Promise<ClientesListResponse> => {
+    const params = new URLSearchParams()
+    
+    if (filters?.search) params.append('search', filters.search)
+    if (filters?.tipoCliente) params.append('tipoCliente', filters.tipoCliente)
+    if (filters?.activo !== undefined) params.append('activo', String(filters.activo))
+    if (filters?.formaPago) params.append('formaPago', filters.formaPago)
+    if (filters?.categoriaId) params.append('categoriaId', filters.categoriaId)
+    if (filters?.vendedorId) params.append('vendedorId', filters.vendedorId)
+    if (filters?.zona) params.append('zona', filters.zona)
+    if (filters?.page) params.append('page', String(filters.page))
+    if (filters?.limit) params.append('limit', String(filters.limit))
+    if (filters?.sortBy) params.append('sortBy', filters.sortBy)
+    if (filters?.sortOrder) params.append('sortOrder', filters.sortOrder)
+
+    const response = await api.get(`/clientes?${params.toString()}`)
+    return response.data
+  },
 
   // ============================================
-  // OBTENER POR ID
+  // OBTENER CLIENTE POR ID
   // ============================================
   
-  async obtenerPorId(id: string): Promise<Cliente> {
-    const response = await api.get(`/clientes/${id}`);
-    return response.data.data;
-  }
+  getById: async (id: string): Promise<ClienteDetailResponse> => {
+    const response = await api.get(`/clientes/${id}`)
+    return response.data
+  },
 
   // ============================================
-  // CREAR
+  // CREAR CLIENTE
   // ============================================
   
-  async crear(cliente: Partial<Cliente>): Promise<Cliente> {
-    const response = await api.post('/clientes', cliente);
-    return response.data.data;
-  }
+  create: async (data: CreateClienteDTO): Promise<ClienteDetailResponse> => {
+    const response = await api.post('/clientes', data)
+    return response.data
+  },
 
   // ============================================
-  // ACTUALIZAR
+  // ACTUALIZAR CLIENTE
   // ============================================
   
-  async actualizar(id: string, cliente: Partial<Cliente>): Promise<Cliente> {
-    const response = await api.put(`/clientes/${id}`, cliente);
-    return response.data.data;
-  }
+  update: async (id: string, data: UpdateClienteDTO): Promise<ClienteDetailResponse> => {
+    const response = await api.put(`/clientes/${id}`, data)
+    return response.data
+  },
 
   // ============================================
-  // ELIMINAR
+  // DESACTIVAR CLIENTE (SOFT DELETE)
   // ============================================
   
-  async eliminar(id: string): Promise<void> {
-    await api.delete(`/clientes/${id}`);
-  }
+  delete: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.delete(`/clientes/${id}`)
+    return response.data
+  },
 
   // ============================================
-  // ELIMINACIÓN MÚLTIPLE
+  // ELIMINAR MÚLTIPLES CLIENTES
   // ============================================
   
-  async eliminarMultiples(ids: string[]): Promise<{ eliminados: number }> {
-    const response = await api.post('/clientes/bulk-delete', { ids });
-    return response.data.data;
-  }
+  deleteMany: async (ids: string[]): Promise<{ success: boolean; message: string; count: number }> => {
+    const response = await api.post('/clientes/delete-many', { ids })
+    return response.data
+  },
 
   // ============================================
-  // CAMBIAR ESTADO
+  // ACTIVAR/REACTIVAR CLIENTE
   // ============================================
   
-  async cambiarEstado(id: string, activo: boolean): Promise<Cliente> {
-    const response = await api.patch(`/clientes/${id}/estado`, { activo });
-    return response.data.data;
-  }
+  activate: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.patch(`/clientes/${id}/activate`)
+    return response.data
+  },
+
+  // ============================================
+  // BÚSQUEDA RÁPIDA
+  // ============================================
+  
+  search: async (query: string): Promise<{ success: boolean; data: Cliente[] }> => {
+    const response = await api.get(`/clientes/search?q=${encodeURIComponent(query)}`)
+    return response.data
+  },
 
   // ============================================
   // OBTENER ESTADÍSTICAS
   // ============================================
   
-  async obtenerEstadisticas(): Promise<Estadisticas> {
-    const response = await api.get('/clientes/estadisticas');
-    return response.data.data;
-  }
-
-  // ============================================
-  // SUBIR ARCHIVO
-  // ============================================
-  
-  async subirArchivo(id: string, archivo: File): Promise<Cliente> {
-    const formData = new FormData();
-    formData.append('archivo', archivo);
-
-    const response = await api.post(`/clientes/${id}/archivos`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data.data;
-  }
-
-  // ============================================
-  // ELIMINAR ARCHIVO
-  // ============================================
-  
-  async eliminarArchivo(id: string, archivoUrl: string): Promise<Cliente> {
-    const response = await api.delete(`/clientes/${id}/archivos`, {
-      data: { archivoUrl },
-    });
-    return response.data.data;
-  }
+  getStats: async (): Promise<{ success: boolean; data: EstadisticasClientes }> => {
+    const response = await api.get('/clientes/stats')
+    return response.data
+  },
 
   // ============================================
   // EXPORTAR A CSV
   // ============================================
   
-  async exportarCSV(params?: GetClientesParams): Promise<Blob> {
-    const response = await api.get('/clientes/exportar/csv', {
-      params,
+  exportToCSV: async (filters?: ClientesFilters): Promise<Blob> => {
+    const params = new URLSearchParams()
+    
+    if (filters?.search) params.append('search', filters.search)
+    if (filters?.tipoCliente) params.append('tipoCliente', filters.tipoCliente)
+    if (filters?.activo !== undefined) params.append('activo', String(filters.activo))
+    if (filters?.formaPago) params.append('formaPago', filters.formaPago)
+
+    const response = await api.get(`/clientes/export/csv?${params.toString()}`, {
       responseType: 'blob',
-    });
-    return response.data;
-  }
+    })
+    return response.data
+  },
 
   // ============================================
-  // OBTENER URL DE GOOGLE MAPS
+  // EXPORTAR A EXCEL
   // ============================================
   
-  getGoogleMapsUrl(direccion: Cliente['direccion']): string {
-    const query = encodeURIComponent(
-      `${direccion.calle} ${direccion.numero || ''}, ${direccion.codigoPostal} ${direccion.ciudad}, ${direccion.provincia}, ${direccion.pais}`
-    );
-    return `https://www.google.com/maps/search/?api=1&query=${query}`;
-  }
+  exportToExcel: async (filters?: ClientesFilters): Promise<Blob> => {
+    const params = new URLSearchParams()
+    
+    if (filters?.search) params.append('search', filters.search)
+    if (filters?.tipoCliente) params.append('tipoCliente', filters.tipoCliente)
+    if (filters?.activo !== undefined) params.append('activo', String(filters.activo))
+
+    const response = await api.get(`/clientes/export/excel?${params.toString()}`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  // ============================================
+  // EXPORTAR DOMICILIACIÓN SEPA
+  // ============================================
+  
+  exportSEPA: async (clienteIds: string[]): Promise<Blob> => {
+    const response = await api.post(
+      '/clientes/export/sepa',
+      { clienteIds },
+      { responseType: 'blob' }
+    )
+    return response.data
+  },
+
+  // ============================================
+  // SUBIR ARCHIVO A CLIENTE
+  // ============================================
+  
+  uploadFile: async (
+    clienteId: string,
+    file: File
+  ): Promise<{ success: boolean; data: any }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await api.post(`/clientes/${clienteId}/files`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  // ============================================
+  // ELIMINAR ARCHIVO DE CLIENTE
+  // ============================================
+  
+  deleteFile: async (
+    clienteId: string,
+    fileId: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const response = await api.delete(`/clientes/${clienteId}/files/${fileId}`)
+    return response.data
+  },
+
+  // ============================================
+  // OBTENER ARCHIVOS DE CLIENTE
+  // ============================================
+  
+  getFiles: async (clienteId: string): Promise<{ success: boolean; data: any[] }> => {
+    const response = await api.get(`/clientes/${clienteId}/files`)
+    return response.data
+  },
+
+  // ============================================
+  // CALCULAR RIESGO ACTUAL
+  // ============================================
+  
+  calculateRiesgo: async (clienteId: string): Promise<{ 
+    success: boolean
+    data: {
+      riesgoActual: number
+      limiteCredito: number
+      riesgoDisponible: number
+      porcentajeUtilizado: number
+    }
+  }> => {
+    const response = await api.get(`/clientes/${clienteId}/riesgo`)
+    return response.data
+  },
+
+  // ============================================
+  // OBTENER HISTORIAL DE TRANSACCIONES
+  // ============================================
+  
+  getTransactions: async (
+    clienteId: string,
+    params?: {
+      tipo?: 'pedido' | 'albaran' | 'factura'
+      desde?: string
+      hasta?: string
+      page?: number
+      limit?: number
+    }
+  ): Promise<{
+    success: boolean
+    data: any[]
+    pagination: {
+      page: number
+      limit: number
+      total: number
+      pages: number
+    }
+  }> => {
+    const queryParams = new URLSearchParams()
+    
+    if (params?.tipo) queryParams.append('tipo', params.tipo)
+    if (params?.desde) queryParams.append('desde', params.desde)
+    if (params?.hasta) queryParams.append('hasta', params.hasta)
+    if (params?.page) queryParams.append('page', String(params.page))
+    if (params?.limit) queryParams.append('limit', String(params.limit))
+
+    const response = await api.get(
+      `/clientes/${clienteId}/transactions?${queryParams.toString()}`
+    )
+    return response.data
+  },
+
+  // ============================================
+  // OBTENER VENCIMIENTOS PENDIENTES
+  // ============================================
+  
+  getPendingPayments: async (clienteId: string): Promise<{
+    success: boolean
+    data: {
+      total: number
+      vencido: number
+      porVencer: number
+      detalles: any[]
+    }
+  }> => {
+    const response = await api.get(`/clientes/${clienteId}/vencimientos`)
+    return response.data
+  },
+
+  // ============================================
+  // VERIFICAR NIF DUPLICADO
+  // ============================================
+  
+  checkNIF: async (nif: string, excludeId?: string): Promise<{
+    success: boolean
+    exists: boolean
+    message?: string
+  }> => {
+    const params = new URLSearchParams({ nif })
+    if (excludeId) params.append('excludeId', excludeId)
+    
+    const response = await api.get(`/clientes/check-nif?${params.toString()}`)
+    return response.data
+  },
 }
 
-export const clientesService = new ClientesService();
+// Exportar también como default para compatibilidad
+export default clientesService
+
+// Re-exportar tipos para facilitar las importaciones
+export type { Cliente, CreateClienteDTO, UpdateClienteDTO, ClientesFilters }
