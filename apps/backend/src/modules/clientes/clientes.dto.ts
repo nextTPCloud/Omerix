@@ -88,11 +88,15 @@ export const UpdateClienteSchema = z.object({
 });
 
 // ============================================
-// QUERY SCHEMA
+// QUERY SCHEMA - CORREGIDO CON tipoCliente y formaPago
 // ============================================
 
 export const GetClientesQuerySchema = z.object({
   search: z.string().optional(),
+  // ✅ AÑADIR ESTOS CAMPOS QUE FALTABAN
+  tipoCliente: z.nativeEnum(TipoCliente).optional(),
+  formaPago: z.nativeEnum(FormaPago).optional(),
+  // Campos existentes
   sortBy: z.string().optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   page: z.coerce.number().min(1).optional(),
@@ -131,12 +135,32 @@ export const UploadArchivoSchema = z.object({
 });
 
 // ============================================
+// EXPORT SCHEMA (Para exportaciones con límites más altos)
+// ============================================
+
+export const ExportClientesQuerySchema = z.object({
+  search: z.string().optional(),
+  tipoCliente: z.nativeEnum(TipoCliente).optional(),
+  formaPago: z.nativeEnum(FormaPago).optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+  activo: z.coerce.boolean().optional(),
+  vendedorId: z.string().optional(),
+  categoriaId: z.string().optional(),
+  zona: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  // Sin límite de página para exportación
+  limit: z.coerce.number().min(1).max(50000).default(50000),
+});
+
+// ============================================
 // TIPOS (para TypeScript)
 // ============================================
 
 export type CreateClienteDto = z.infer<typeof CreateClienteSchema>;
 export type UpdateClienteDto = z.infer<typeof UpdateClienteSchema>;
 export type GetClientesQueryDto = z.infer<typeof GetClientesQuerySchema>;
+export type ExportClientesQueryDto = z.infer<typeof ExportClientesQuerySchema>;
 export type BulkDeleteClientesDto = z.infer<typeof BulkDeleteClientesSchema>;
 export type ChangeStatusDto = z.infer<typeof ChangeStatusSchema>;
 export type UploadArchivoDto = z.infer<typeof UploadArchivoSchema>;

@@ -77,16 +77,17 @@ export class ClientesController {
 
       const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
       
-      const resultado = await clientesService.obtenerTodos(empresaId, req.query);
+      // ✅ FIX: Desestructurar el resultado para evitar errores de TypeScript
+      const { clientes, total, page, limit, totalPages } = await clientesService.obtenerTodos(empresaId, req.query);
 
       res.json({
         success: true,
-        data: resultado.clientes,
+        data: clientes,
         pagination: {
-          total: resultado.total,
-          page: resultado.page,
-          limit: resultado.limit,
-          totalPages: resultado.totalPages,
+          total,
+          page,
+          limit,
+          pages: totalPages,  // ← CAMBIO: pages en lugar de totalPages
         },
       });
     } catch (error: any) {
@@ -148,9 +149,9 @@ export class ClientesController {
       }
 
       const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
-      const usuarioId = new mongoose.Types.ObjectId(req.userId); // Del middleware de autenticación
+      const usuarioId = new mongoose.Types.ObjectId(req.userId);
 
-      // Verificar duplicados (excluyendo el cliente actual)
+      // Verificar duplicados si se cambia el NIF
       if (req.body.nif) {
         const existeDuplicado = await clientesService.verificarDuplicados(
           req.body.nif,
@@ -195,7 +196,7 @@ export class ClientesController {
   }
 
   // ============================================
-  // ELIMINAR
+  // ELIMINAR (SOFT DELETE)
   // ============================================
   
   async eliminar(req: Request, res: Response) {
@@ -207,7 +208,7 @@ export class ClientesController {
         });
       }
 
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
       const resultado = await clientesService.eliminar(req.params.id, empresaId);
 
       if (!resultado) {
@@ -243,22 +244,22 @@ export class ClientesController {
         });
       }
 
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
       const { ids } = req.body;
 
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'Se requiere un array de IDs',
+          message: 'Debe proporcionar un array de IDs',
         });
       }
 
-      const eliminados = await clientesService.eliminarMultiples(ids, empresaId);
+      const count = await clientesService.eliminarMultiples(ids, empresaId);
 
       res.json({
         success: true,
-        message: `${eliminados} cliente(s) eliminado(s) exitosamente`,
-        data: { eliminados },
+        message: `${count} cliente(s) eliminado(s) exitosamente`,
+        count,
       });
     } catch (error: any) {
       console.error('Error al eliminar clientes:', error);
@@ -282,15 +283,14 @@ export class ClientesController {
         });
       }
 
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
-      const usuarioId = new mongoose.Types.ObjectId(req.userId); // Del middleware de autenticación
-
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const usuarioId = new mongoose.Types.ObjectId(req.userId);
       const { activo } = req.body;
 
       if (typeof activo !== 'boolean') {
         return res.status(400).json({
           success: false,
-          message: 'El campo activo debe ser un booleano',
+          message: 'El campo "activo" debe ser un booleano',
         });
       }
 
@@ -335,7 +335,7 @@ export class ClientesController {
         });
       }
 
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
       const estadisticas = await clientesService.obtenerEstadisticas(empresaId);
 
       res.json({
@@ -347,6 +347,44 @@ export class ClientesController {
       res.status(500).json({
         success: false,
         message: error.message || 'Error al obtener las estadísticas',
+      });
+    }
+  }
+
+  // ============================================
+  // EXPORTAR CSV
+  // ============================================
+  
+  async exportarCSV(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const clientes = await clientesService.exportarCSV(empresaId, req.query);
+
+      // Configurar headers para descarga
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename=clientes.csv');
+
+      // Crear CSV
+      const csvHeader = 'Código,Nombre,NIF,Email,Teléfono,Tipo,Forma Pago,Estado\n';
+      let csvContent = csvHeader;
+
+      clientes.forEach((cliente: any) => {
+        csvContent += `"${cliente.codigo}","${cliente.nombre}","${cliente.nif}","${cliente.email || ''}","${cliente.telefono || ''}","${cliente.tipoCliente}","${cliente.formaPago}","${cliente.activo ? 'Activo' : 'Inactivo'}"\n`;
+      });
+
+      res.send(csvContent);
+    } catch (error: any) {
+      console.error('Error al exportar CSV:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al exportar CSV',
       });
     }
   }
@@ -364,29 +402,26 @@ export class ClientesController {
         });
       }
 
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
-      const usuarioId = new mongoose.Types.ObjectId(req.userId); // Del middleware de autenticación
-
-
       if (!req.file) {
         return res.status(400).json({
           success: false,
-          message: 'No se ha proporcionado ningún archivo',
+          message: 'No se ha subido ningún archivo',
         });
       }
 
-      // Aquí deberías subir el archivo a tu servicio de almacenamiento (S3, etc.)
-      // Por ahora, simularemos la URL
-      const archivoData = {
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const usuarioId = new mongoose.Types.ObjectId(req.userId);
+
+      const archivo = {
         nombre: req.file.originalname,
-        url: `/uploads/clientes/${req.params.id}/${req.file.filename}`,
+        url: req.file.path,
         tipo: req.file.mimetype,
         tamaño: req.file.size,
       };
 
       const cliente = await clientesService.subirArchivo(
         req.params.id,
-        archivoData,
+        archivo,
         empresaId,
         usuarioId
       );
@@ -425,21 +460,20 @@ export class ClientesController {
         });
       }
 
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
-      const usuarioId = new mongoose.Types.ObjectId(req.userId); // Del middleware de autenticación
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const usuarioId = new mongoose.Types.ObjectId(req.userId);
+      const { url } = req.body;
 
-      const { archivoUrl } = req.body;
-
-      if (!archivoUrl) {
+      if (!url) {
         return res.status(400).json({
           success: false,
-          message: 'Se requiere la URL del archivo',
+          message: 'Debe proporcionar la URL del archivo a eliminar',
         });
       }
 
       const cliente = await clientesService.eliminarArchivo(
         req.params.id,
-        archivoUrl,
+        url,
         empresaId,
         usuarioId
       );
@@ -466,55 +500,51 @@ export class ClientesController {
   }
 
   // ============================================
-  // EXPORTAR A CSV
+  // ACTUALIZAR RIESGO
   // ============================================
   
-  async exportarCSV(req: Request, res: Response) {
+  async actualizarRiesgo(req: Request, res: Response) {
     try {
-     if (!req.empresaId || !req.userId) {
+      if (!req.empresaId || !req.userId) {
         return res.status(401).json({
           success: false,
           message: 'No autenticado',
         });
       }
 
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
-      const clientes = await clientesService.exportarCSV(empresaId, req.query);
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const { riesgo } = req.body;
 
-      // Generar CSV
-      const headers = [
-        'Código',
-        'Nombre',
-        'NIF',
-        'Email',
-        'Teléfono',
-        'Forma de Pago',
-        'Activo',
-      ];
+      if (typeof riesgo !== 'number' || riesgo < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'El riesgo debe ser un número positivo',
+        });
+      }
 
-      const rows = clientes.map((c: any) => [
-        c.codigo,
-        c.nombreCompleto || c.nombre,
-        c.nif,
-        c.email || '',
-        c.telefono || '',
-        c.formaPago,
-        c.activo ? 'Sí' : 'No',
-      ]);
+      const cliente = await clientesService.actualizarRiesgo(
+        req.params.id,
+        riesgo,
+        empresaId
+      );
 
-      const csv = [
-        headers.join(','),
-        ...rows.map(r => r.join(',')),
-      ].join('\n');
+      if (!cliente) {
+        return res.status(404).json({
+          success: false,
+          message: 'Cliente no encontrado',
+        });
+      }
 
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename=clientes.csv');
-      res.send(csv);
+      res.json({
+        success: true,
+        data: cliente,
+        message: 'Riesgo actualizado exitosamente',
+      });
     } catch (error: any) {
-      console.error('Error al exportar CSV:', error);
+      console.error('Error al actualizar riesgo:', error);
       res.status(500).json({
         success: false,
-        message: error.message || 'Error al exportar los datos',
+        message: error.message || 'Error al actualizar el riesgo',
       });
     }
   }

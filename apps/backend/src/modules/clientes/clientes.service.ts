@@ -2,6 +2,18 @@ import mongoose from 'mongoose';
 import { CreateClienteDto, UpdateClienteDto, GetClientesQueryDto } from './clientes.dto';
 import { Cliente, ICliente } from '@/models/Cliente';
 
+// ============================================
+// TIPOS DE RETORNO
+// ============================================
+
+interface ObtenerTodosResult {
+  clientes: any[];  // ← Tipo flexible para compatibilidad con Mongoose .lean()
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export class ClientesService {
   
   // ============================================
@@ -33,7 +45,7 @@ export class ClientesService {
   async obtenerTodos(
     empresaId: mongoose.Types.ObjectId,
     query: Partial<GetClientesQueryDto>
-  ) {
+  ): Promise<ObtenerTodosResult> {  // ← TIPO DE RETORNO EXPLÍCITO
     const {
       search,
       sortBy = 'fechaCreacion',

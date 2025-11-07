@@ -1,12 +1,20 @@
-"use client"
+'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
+import { clientesService } from '@/services/clientes.service'
+import {
+  Cliente,
+  ClientesFilters,
+  EstadisticasClientes,
+} from '@/types/cliente.types'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Select,
   SelectContent,
@@ -14,17 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from '@/components/ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
@@ -34,62 +31,81 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import { Checkbox } from '@/components/ui/checkbox'
-import { clientesService } from '@/services/clientes.service'
-import { Cliente, ClientesFilters } from '@/types/cliente.types'
-import { toast } from 'sonner'
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
-  Plus,
-  Search,
-  MoreVertical,
-  Eye,
-  Pencil,
-  Trash2,
-  Download,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Users,
-  Building2,
-  UserCircle,
-  CheckCircle2,
-  XCircle,
-  ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  ArrowUpDown,
+  Plus,
+  Search,
+  Download,
+  Upload,
+  Edit,
+  Eye,
+  Trash2,
+  MoreHorizontal,
+  FileSpreadsheet,
+  Filter,
   Settings2,
-  FileText,
-  Package,
-  Truck,
-  Receipt,
-  Wrench,
-  Calendar,
-  CreditCard,
-  ChevronDown,
-  ChevronUp,
+  RefreshCw,
+  Users,
+  UserCheck,
+  UserX,
+  Building2,
+  AlertCircle,
+  Columns,
 } from 'lucide-react'
+import { toast } from 'sonner'
+import { exportClientesToCSV, processImportFile } from '@/utils/excel.utils'
 
 // ============================================
-// TIPOS
+// HOOK PARA DEBOUNCE
 // ============================================
 
-type SortConfig = {
-  key: string
-  direction: 'asc' | 'desc'
-} | null
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
 
-type ColumnFilters = {
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [value, delay])
+
+  return debouncedValue
+}
+
+// ============================================
+// INTERFACES Y TIPOS
+// ============================================
+
+interface ColumnFilters {
   [key: string]: string
 }
 
+interface SortConfig {
+  key: string
+  direction: 'asc' | 'desc'
+}
+
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
+
 export default function ClientesPage() {
   const router = useRouter()
-  
-  // Estado principal
+
+  // Estados de datos - con inicialización correcta
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -104,8 +120,12 @@ export default function ClientesPage() {
     direction: 'desc',
   })
   
-  // Filtros por columna
+  // Filtros por columna - con estados separados para input y valor aplicado
+  const [columnFiltersInput, setColumnFiltersInput] = useState<ColumnFilters>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({})
+  
+  // Aplicar debounce a los filtros de columna
+  const debouncedColumnFilters = useDebounce(columnFiltersInput, 500)
   
   // Filtros generales
   const [filters, setFilters] = useState<ClientesFilters>({
@@ -137,17 +157,17 @@ export default function ClientesPage() {
   
   // Columnas disponibles y visibles
   const [columnasDisponibles] = useState([
-    { key: 'codigo', label: 'Código' },
-    { key: 'nombre', label: 'Nombre' },
-    { key: 'nif', label: 'NIF/CIF' },
-    { key: 'email', label: 'Email' },
-    { key: 'telefono', label: 'Teléfono' },
-    { key: 'tipoCliente', label: 'Tipo' },
-    { key: 'direccion', label: 'Dirección' },
-    { key: 'formaPago', label: 'Forma Pago' },
-    { key: 'riesgoActual', label: 'Riesgo' },
-    { key: 'limiteCredito', label: 'Límite' },
-    { key: 'activo', label: 'Estado' },
+    { key: 'codigo', label: 'Código', width: 'w-32' },
+    { key: 'nombre', label: 'Nombre', width: 'w-64' },
+    { key: 'nif', label: 'NIF/CIF', width: 'w-36' },
+    { key: 'email', label: 'Email', width: 'w-56' },
+    { key: 'telefono', label: 'Teléfono', width: 'w-36' },
+    { key: 'tipoCliente', label: 'Tipo', width: 'w-32' },
+    { key: 'direccion', label: 'Dirección', width: 'w-64' },
+    { key: 'formaPago', label: 'Forma Pago', width: 'w-40' },
+    { key: 'riesgoActual', label: 'Riesgo', width: 'w-32' },
+    { key: 'limiteCredito', label: 'Límite', width: 'w-32' },
+    { key: 'activo', label: 'Estado', width: 'w-28' },
   ])
   
   const [columnasVisibles, setColumnasVisibles] = useState<string[]>([
@@ -162,76 +182,145 @@ export default function ClientesPage() {
   ])
 
   // ============================================
-  // ESTADÍSTICAS CALCULADAS
+  // CALCULAR ANCHO MÍNIMO DE LA TABLA
+  // ============================================
+  
+  const anchoMinimoTabla = useMemo(() => {
+    let ancho = 100 // checkbox + acciones
+    columnasVisibles.forEach(col => {
+      const columna = columnasDisponibles.find(c => c.key === col)
+      if (columna) {
+        const widthValue = columna.width.replace('w-', '')
+        // Convertir clases tailwind a píxeles aproximados
+        const pixelMap: { [key: string]: number } = {
+          '28': 112, '32': 128, '36': 144, '40': 160,
+          '56': 224, '64': 256,
+        }
+        ancho += pixelMap[widthValue] || 128
+      }
+    })
+    return ancho
+  }, [columnasVisibles, columnasDisponibles])
+
+  // ============================================
+  // ESTADÍSTICAS CALCULADAS - Con verificación de seguridad
   // ============================================
 
   const stats = useMemo(() => {
-    const total = pagination.total
-    const activos = clientes.filter((c) => c.activo).length
-    const inactivos = clientes.filter((c) => !c.activo).length
-    const empresas = clientes.filter((c) => c.tipoCliente === 'empresa').length
-    const particulares = clientes.filter((c) => c.tipoCliente === 'particular').length
-
-    return { total, activos, inactivos, empresas, particulares }
-  }, [clientes, pagination.total])
-
-  // ============================================
-  // EFECTOS
-  // ============================================
-
-  useEffect(() => {
-    loadClientes()
-  }, [filters])
-
-  // Búsqueda en tiempo real con debounce
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchTerm !== filters.search) {
-        setFilters({ ...filters, search: searchTerm, page: 1 })
+    // Verificación de seguridad completa
+    if (!clientes || !Array.isArray(clientes)) {
+      return {
+        total: 0,
+        activos: 0,
+        inactivos: 0,
+        empresas: 0,
+        particulares: 0,
+        conRiesgo: 0,
       }
-    }, 500)
+    }
 
-    return () => clearTimeout(delayDebounceFn)
-  }, [searchTerm])
+    const total = pagination?.total || 0
+    const activos = clientes.filter((c) => c?.activo).length
+    const inactivos = clientes.filter((c) => !c?.activo).length
+    const empresas = clientes.filter((c) => c?.tipoCliente === 'empresa').length
+    const particulares = clientes.filter((c) => c?.tipoCliente === 'particular').length
+    const conRiesgo = clientes.filter((c) => (c?.riesgoActual || 0) > 0).length
+
+    return {
+      total,
+      activos,
+      inactivos,
+      empresas,
+      particulares,
+      conRiesgo,
+    }
+  }, [clientes, pagination?.total])
 
   // ============================================
-  // FUNCIONES DE CARGA
+  // CARGAR CLIENTES
   // ============================================
 
-  const loadClientes = async () => {
+  const cargarClientes = useCallback(async () => {
     try {
       setIsLoading(true)
       const response = await clientesService.getAll(filters)
-      setClientes(response.data)
-      setPagination(response.pagination)
-      setSelectedClientes([])
-      setSelectAll(false)
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al cargar clientes')
+      
+      if (response.success) {
+        // Verificación adicional de seguridad
+        setClientes(response.data || [])
+        setPagination(response.pagination || {
+          page: 1,
+          limit: 25,
+          total: 0,
+          pages: 0,
+        })
+      } else {
+        // Si la respuesta no es exitosa, mantener array vacío
+        setClientes([])
+        toast.error('Error al cargar los clientes')
+      }
+    } catch (error) {
+      console.error('Error al cargar clientes:', error)
+      // En caso de error, asegurar que clientes sea un array vacío
       setClientes([])
+      setPagination({
+        page: 1,
+        limit: 25,
+        total: 0,
+        pages: 0,
+      })
+      toast.error('Error al cargar los clientes')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [filters])
+
+  // Cargar clientes cuando cambien los filtros
+  useEffect(() => {
+    cargarClientes()
+  }, [cargarClientes])
 
   // ============================================
-  // ORDENAMIENTO
+  // APLICAR FILTROS DEBOUNCED
   // ============================================
+  
+  useEffect(() => {
+    setColumnFilters(debouncedColumnFilters)
+    applyAllFilters(debouncedColumnFilters)
+  }, [debouncedColumnFilters])
+
+  // ============================================
+  // MANEJADORES DE EVENTOS
+  // ============================================
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value)
+    setFilters(prev => ({
+      ...prev,
+      search: value,
+      page: 1,
+    }))
+  }
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc'
     
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc'
+    if (sortConfig.key === key) {
+      direction = sortConfig.direction === 'asc' ? 'desc' : 'asc'
     }
     
     setSortConfig({ key, direction })
-    setFilters({ ...filters, sortBy: key, sortOrder: direction, page: 1 })
+    setFilters(prev => ({
+      ...prev,
+      sortBy: key,
+      sortOrder: direction,
+      page: 1,
+    }))
   }
 
-  const getSortIcon = (key: string) => {
-    if (!sortConfig || sortConfig.key !== key) {
-      return <ArrowUpDown className="ml-2 h-3 w-3" />
+  const getSortIcon = (column: string) => {
+    if (sortConfig.key !== column) {
+      return <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground" />
     }
     return sortConfig.direction === 'asc' 
       ? <ArrowUp className="ml-2 h-3 w-3" />
@@ -239,11 +328,11 @@ export default function ClientesPage() {
   }
 
   // ============================================
-  // FILTROS POR COLUMNA
+  // FILTROS POR COLUMNA CON DEBOUNCE
   // ============================================
 
-  const handleColumnFilter = (column: string, value: string) => {
-    const newFilters = { ...columnFilters }
+  const handleColumnFilterInput = (column: string, value: string) => {
+    const newFilters = { ...columnFiltersInput }
     
     if (value === '') {
       delete newFilters[column]
@@ -251,15 +340,28 @@ export default function ClientesPage() {
       newFilters[column] = value
     }
     
-    setColumnFilters(newFilters)
-    // Aplicar filtros combinados
-    applyAllFilters(newFilters)
+    setColumnFiltersInput(newFilters)
   }
 
   const applyAllFilters = (colFilters: ColumnFilters) => {
     // Combinar filtros de columna con filtros generales
     const combinedFilters: any = { ...filters, page: 1 }
     
+    // Aplicar filtros de texto para búsqueda
+    const searchableFields = ['codigo', 'nombre', 'nif', 'email', 'telefono']
+    const searchTerms: string[] = []
+    
+    searchableFields.forEach(field => {
+      if (colFilters[field]) {
+        searchTerms.push(colFilters[field])
+      }
+    })
+    
+    if (searchTerms.length > 0) {
+      combinedFilters.search = searchTerms.join(' ')
+    }
+    
+    // Aplicar filtros de tipo select
     Object.entries(colFilters).forEach(([key, value]) => {
       if (key === 'tipoCliente' || key === 'formaPago') {
         combinedFilters[key] = value
@@ -293,729 +395,819 @@ export default function ClientesPage() {
   }
 
   // ============================================
-  // PAGINACIÓN
+  // ACCIONES EN LOTE
   // ============================================
 
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= pagination.pages) {
-      setFilters({ ...filters, page: newPage })
+  const handleBulkAction = (action: string) => {
+    switch (action) {
+      case 'export':
+        handleExportSelected()
+        break
+      case 'delete':
+        if (selectedClientes.length > 0) {
+          const nombresSeleccionados = clientes
+            .filter(c => selectedClientes.includes(c._id))
+            .map(c => c.nombre)
+          
+          setDeleteDialog({
+            open: true,
+            clienteIds: selectedClientes,
+            clienteNombres: nombresSeleccionados,
+          })
+        }
+        break
+      case 'activate':
+      case 'deactivate':
+        handleToggleStatus(action === 'activate')
+        break
     }
   }
 
-  const handleLimitChange = (newLimit: number) => {
-    setFilters({ ...filters, limit: newLimit, page: 1 })
+  const handleExportSelected = () => {
+    const selectedData = clientes.filter(c => selectedClientes.includes(c._id))
+    exportClientesToCSV(selectedData, 'clientes_seleccionados.csv')
+    toast.success('Clientes exportados correctamente')
+  }
+
+  const handleToggleStatus = async (activate: boolean) => {
+    try {
+      await Promise.all(
+        selectedClientes.map(id =>
+          clientesService.update(id, { activo: activate })
+        )
+      )
+      toast.success(`Clientes ${activate ? 'activados' : 'desactivados'} correctamente`)
+      cargarClientes()
+      setSelectedClientes([])
+      setSelectAll(false)
+    } catch (error) {
+      toast.error('Error al actualizar el estado')
+    }
   }
 
   // ============================================
-  // ACCIONES
+  // ELIMINAR CLIENTES
   // ============================================
 
-  const handleDelete = (clienteIds: string[], clienteNombres: string[]) => {
-    setDeleteDialog({
-      open: true,
-      clienteIds,
-      clienteNombres,
-    })
-  }
-
-  const confirmDelete = async () => {
+  const handleDeleteConfirm = async () => {
     try {
       if (deleteDialog.clienteIds.length === 1) {
         await clientesService.delete(deleteDialog.clienteIds[0])
-        toast.success('Cliente desactivado correctamente')
       } else {
         await clientesService.deleteMany(deleteDialog.clienteIds)
-        toast.success(`${deleteDialog.clienteIds.length} clientes desactivados correctamente`)
       }
       
-      setDeleteDialog({ open: false, clienteIds: [], clienteNombres: [] })
+      toast.success('Cliente(s) eliminado(s) correctamente')
+      cargarClientes()
       setSelectedClientes([])
-      loadClientes()
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al desactivar clientes')
-    }
-  }
-
-  const handleExportCSV = async () => {
-    try {
-      const blob = await clientesService.exportToCSV()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `clientes-${new Date().toISOString().split('T')[0]}.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-      toast.success('Clientes exportados correctamente')
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al exportar clientes')
-    }
-  }
-
-  const handleBulkAction = (action: string) => {
-    if (selectedClientes.length === 0) {
-      toast.error('Selecciona al menos un cliente')
-      return
-    }
-
-    const nombres = clientes
-      .filter(c => selectedClientes.includes(c._id))
-      .map(c => c.nombre)
-
-    switch (action) {
-      case 'delete':
-        handleDelete(selectedClientes, nombres)
-        break
-      case 'export':
-        toast.info('Exportando clientes seleccionados...')
-        break
-      default:
-        toast.info(`Acción "${action}" en desarrollo`)
-    }
-  }
-
-  // Acciones específicas por cliente
-  const handleClientAction = (clienteId: string, action: string) => {
-    const cliente = clientes.find(c => c._id === clienteId)
-    if (!cliente) return
-
-    switch (action) {
-      case 'view':
-        router.push(`/clientes/${clienteId}`)
-        break
-      case 'edit':
-        router.push(`/clientes/${clienteId}/editar`)
-        break
-      case 'delete':
-        handleDelete([clienteId], [cliente.nombre])
-        break
-      // Nuevas acciones
-      case 'pedido':
-        router.push(`/pedidos/nuevo?clienteId=${clienteId}`)
-        break
-      case 'albaran':
-        router.push(`/albaranes/nuevo?clienteId=${clienteId}`)
-        break
-      case 'factura':
-        router.push(`/facturas/nuevo?clienteId=${clienteId}`)
-        break
-      case 'parte':
-        router.push(`/partes/nuevo?clienteId=${clienteId}`)
-        break
-      case 'consulta-pedidos':
-        router.push(`/pedidos?clienteId=${clienteId}`)
-        break
-      case 'vencimientos':
-        router.push(`/vencimientos?clienteId=${clienteId}`)
-        break
-      default:
-        toast.info(`Acción "${action}" en desarrollo`)
+      setSelectAll(false)
+      setDeleteDialog({ open: false, clienteIds: [], clienteNombres: [] })
+    } catch (error) {
+      toast.error('Error al eliminar')
     }
   }
 
   // ============================================
-  // COLUMNAS
+  // GESTIÓN DE COLUMNAS
   // ============================================
 
-  const toggleColumna = (columna: string) => {
-    if (columnasVisibles.includes(columna)) {
-      setColumnasVisibles(columnasVisibles.filter((c) => c !== columna))
+  const toggleColumna = (key: string) => {
+    if (columnasVisibles.includes(key)) {
+      // No permitir quitar todas las columnas
+      if (columnasVisibles.length > 1) {
+        setColumnasVisibles(columnasVisibles.filter(c => c !== key))
+      }
     } else {
-      setColumnasVisibles([...columnasVisibles, columna])
+      setColumnasVisibles([...columnasVisibles, key])
     }
   }
 
   // ============================================
-  // RENDER
+  // IMPORTAR CLIENTES
+  // ============================================
+
+  const handleImport = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.csv'
+    input.onchange = async (e: any) => {
+      const file = e.target.files[0]
+      if (file) {
+        try {
+          if (file.name.endsWith('.csv')) {
+            const clientesImportados = await processImportFile(file)
+            toast.info(`${clientesImportados.length} clientes listos para importar`)
+            
+            // TODO: Aquí deberías enviar los clientes al backend
+            // for (const cliente of clientesImportados) {
+            //   await clientesService.create(cliente as any)
+            // }
+            // cargarClientes()
+          } else {
+            toast.error('Por favor selecciona un archivo CSV')
+          }
+        } catch (error) {
+          console.error('Error al procesar archivo:', error)
+          toast.error('Error al procesar el archivo')
+        }
+      }
+    }
+    input.click()
+  }
+
+  // ============================================
+  // RENDER PRINCIPAL
   // ============================================
 
   return (
     <DashboardLayout>
-      <div className="space-y-3">
-        {/* ============================================ */}
-        {/* HEADER COMPACTO */}
-        {/* ============================================ */}
-        
+      <div className="space-y-4">
+        {/* HEADER */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Clientes</h1>
             <p className="text-sm text-muted-foreground">
-              {pagination.total} clientes | {selectedClientes.length} seleccionados
+              Gestiona tu cartera de clientes
             </p>
           </div>
-          
           <div className="flex gap-2">
-            {/* Estadísticas Toggle */}
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={() => setShowStats(!showStats)}
+              title="Ver estadísticas"
             >
-              {showStats ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {showStats ? <Eye /> : <Users />}
             </Button>
-
-            {/* Selector de columnas */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Settings2 className="mr-2 h-4 w-4" />
-                  Columnas
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56">
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Mostrar columnas</h4>
-                  {columnasDisponibles.map((col) => (
-                    <div key={col.key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={col.key}
-                        checked={columnasVisibles.includes(col.key)}
-                        onCheckedChange={() => toggleColumna(col.key)}
-                      />
-                      <label htmlFor={col.key} className="text-sm cursor-pointer">
-                        {col.label}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            <Button variant="outline" size="sm" onClick={handleExportCSV}>
-              <Download className="mr-2 h-4 w-4" />
-              Exportar
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={cargarClientes}
+              title="Actualizar"
+            >
+              <RefreshCw className="h-4 w-4" />
             </Button>
-            
-            <Button size="sm" onClick={() => router.push('/clientes/nuevo')}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo
+            <Button asChild>
+              <Link href="/clientes/nuevo">
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo Cliente
+              </Link>
             </Button>
           </div>
         </div>
 
-        {/* ============================================ */}
-        {/* ESTADÍSTICAS COLAPSABLES */}
-        {/* ============================================ */}
-        
+        {/* ESTADÍSTICAS */}
         {showStats && (
-          <Card>
-            <CardContent className="py-3">
-              <div className="grid grid-cols-5 gap-4">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Total</p>
-                    <p className="text-lg font-bold">{stats.total}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Activos</p>
-                    <p className="text-lg font-bold text-green-600">{stats.activos}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-500" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Inactivos</p>
-                    <p className="text-lg font-bold text-red-600">{stats.inactivos}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Empresas</p>
-                    <p className="text-lg font-bold">{stats.empresas}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <UserCircle className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Particulares</p>
-                    <p className="text-lg font-bold">{stats.particulares}</p>
-                  </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <Card className="p-4">
+              <div className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total</p>
+                  <p className="text-2xl font-bold">{stats.total}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center space-x-2">
+                <UserCheck className="h-5 w-5 text-green-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Activos</p>
+                  <p className="text-2xl font-bold">{stats.activos}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center space-x-2">
+                <UserX className="h-5 w-5 text-red-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Inactivos</p>
+                  <p className="text-2xl font-bold">{stats.inactivos}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center space-x-2">
+                <Building2 className="h-5 w-5 text-blue-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Empresas</p>
+                  <p className="text-2xl font-bold">{stats.empresas}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-purple-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Particulares</p>
+                  <p className="text-2xl font-bold">{stats.particulares}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5 text-orange-500" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Con Riesgo</p>
+                  <p className="text-2xl font-bold">{stats.conRiesgo}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
         )}
 
-        {/* ============================================ */}
-        {/* BARRA DE BÚSQUEDA Y ACCIONES MASIVAS */}
-        {/* ============================================ */}
-        
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        {/* BARRA DE HERRAMIENTAS */}
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          <div className="flex flex-1 gap-2 items-center w-full md:max-w-sm">
+            <Search className="h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre, NIF, email o código..."
-              className="pl-8 h-9"
+              placeholder="Buscar por nombre, NIF, email..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="flex-1"
             />
           </div>
 
-          {selectedClientes.length > 0 && (
-            <>
+          <div className="flex gap-2 flex-wrap">
+            {/* Selector de columnas */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Columns className="mr-2 h-4 w-4" />
+                  Columnas
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Columnas visibles</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {columnasDisponibles.map((columna) => (
+                  <DropdownMenuCheckboxItem
+                    key={columna.key}
+                    checked={columnasVisibles.includes(columna.key)}
+                    onCheckedChange={() => toggleColumna(columna.key)}
+                  >
+                    {columna.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleImport}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Importar
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                exportClientesToCSV(clientes)
+                toast.success('Clientes exportados correctamente')
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exportar
+            </Button>
+          </div>
+        </div>
+
+        {/* ACCIONES EN LOTE */}
+        {selectedClientes.length > 0 && (
+          <div className="flex gap-2 p-3 bg-muted rounded-lg">
+            <span className="text-sm text-muted-foreground mr-4">
+              {selectedClientes.length} seleccionados
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleBulkAction('activate')}
+            >
+              Activar ({selectedClientes.length})
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleBulkAction('deactivate')}
+            >
+              Desactivar ({selectedClientes.length})
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleBulkAction('export')}
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Exportar ({selectedClientes.length})
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleBulkAction('delete')}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Eliminar ({selectedClientes.length})
+            </Button>
+          </div>
+        )}
+
+        {/* TABLA CON SCROLL HORIZONTAL */}
+        <Card>
+          <div className="overflow-x-auto relative">
+            <table className="w-full text-sm" style={{ minWidth: `${anchoMinimoTabla}px` }}>
+                <thead>
+                  {/* Headers con ordenamiento */}
+                  <tr className="border-b bg-muted/30">
+                    <th className="sticky left-0 z-10 bg-background px-3 py-2 text-left w-12">
+                      <Checkbox
+                        checked={selectAll}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </th>
+                    
+                    {columnasVisibles.includes('codigo') && (
+                      <th className="px-3 py-2 text-left">
+                        <button
+                          onClick={() => handleSort('codigo')}
+                          className="flex items-center hover:text-primary"
+                        >
+                          Código
+                          {getSortIcon('codigo')}
+                        </button>
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('nombre') && (
+                      <th className="px-3 py-2 text-left">
+                        <button
+                          onClick={() => handleSort('nombre')}
+                          className="flex items-center hover:text-primary"
+                        >
+                          Nombre
+                          {getSortIcon('nombre')}
+                        </button>
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('nif') && (
+                      <th className="px-3 py-2 text-left">
+                        <button
+                          onClick={() => handleSort('nif')}
+                          className="flex items-center hover:text-primary"
+                        >
+                          NIF/CIF
+                          {getSortIcon('nif')}
+                        </button>
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('email') && (
+                      <th className="px-3 py-2 text-left">Email</th>
+                    )}
+                    
+                    {columnasVisibles.includes('telefono') && (
+                      <th className="px-3 py-2 text-left">Teléfono</th>
+                    )}
+                    
+                    {columnasVisibles.includes('tipoCliente') && (
+                      <th className="px-3 py-2 text-left">
+                        <button
+                          onClick={() => handleSort('tipoCliente')}
+                          className="flex items-center hover:text-primary"
+                        >
+                          Tipo
+                          {getSortIcon('tipoCliente')}
+                        </button>
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('direccion') && (
+                      <th className="px-3 py-2 text-left">Dirección</th>
+                    )}
+                    
+                    {columnasVisibles.includes('formaPago') && (
+                      <th className="px-3 py-2 text-left">Forma Pago</th>
+                    )}
+                    
+                    {columnasVisibles.includes('riesgoActual') && (
+                      <th className="px-3 py-2 text-right">
+                        <button
+                          onClick={() => handleSort('riesgoActual')}
+                          className="flex items-center justify-end w-full hover:text-primary"
+                        >
+                          Riesgo
+                          {getSortIcon('riesgoActual')}
+                        </button>
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('limiteCredito') && (
+                      <th className="px-3 py-2 text-right">
+                        <button
+                          onClick={() => handleSort('limiteCredito')}
+                          className="flex items-center justify-end w-full hover:text-primary"
+                        >
+                          Límite
+                          {getSortIcon('limiteCredito')}
+                        </button>
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('activo') && (
+                      <th className="px-3 py-2 text-left">
+                        <button
+                          onClick={() => handleSort('activo')}
+                          className="flex items-center hover:text-primary"
+                        >
+                          Estado
+                          {getSortIcon('activo')}
+                        </button>
+                      </th>
+                    )}
+                    
+                    <th className="sticky right-0 z-10 bg-background px-3 py-2 text-right w-16">
+                      Acciones
+                    </th>
+                  </tr>
+
+                  {/* Fila de filtros por columna */}
+                  <tr className="border-b bg-muted/10">
+                    <th className="sticky left-0 z-10 bg-background px-3 py-1"></th>
+                    
+                    {columnasVisibles.includes('codigo') && (
+                      <th className="px-3 py-1">
+                        <Input
+                          placeholder="Filtrar..."
+                          className="h-7 text-xs"
+                          value={columnFiltersInput.codigo || ''}
+                          onChange={(e) => handleColumnFilterInput('codigo', e.target.value)}
+                        />
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('nombre') && (
+                      <th className="px-3 py-1">
+                        <Input
+                          placeholder="Filtrar..."
+                          className="h-7 text-xs"
+                          value={columnFiltersInput.nombre || ''}
+                          onChange={(e) => handleColumnFilterInput('nombre', e.target.value)}
+                        />
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('nif') && (
+                      <th className="px-3 py-1">
+                        <Input
+                          placeholder="Filtrar..."
+                          className="h-7 text-xs"
+                          value={columnFiltersInput.nif || ''}
+                          onChange={(e) => handleColumnFilterInput('nif', e.target.value)}
+                        />
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('email') && (
+                      <th className="px-3 py-1">
+                        <Input
+                          placeholder="Filtrar..."
+                          className="h-7 text-xs"
+                          value={columnFiltersInput.email || ''}
+                          onChange={(e) => handleColumnFilterInput('email', e.target.value)}
+                        />
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('telefono') && (
+                      <th className="px-3 py-1">
+                        <Input
+                          placeholder="Filtrar..."
+                          className="h-7 text-xs"
+                          value={columnFiltersInput.telefono || ''}
+                          onChange={(e) => handleColumnFilterInput('telefono', e.target.value)}
+                        />
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('tipoCliente') && (
+                      <th className="px-3 py-1">
+                        <Select
+                          value={columnFiltersInput.tipoCliente || 'all'}
+                          onValueChange={(value) => 
+                            handleColumnFilterInput('tipoCliente', value === 'all' ? '' : value)
+                          }
+                        >
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            <SelectItem value="empresa">Empresa</SelectItem>
+                            <SelectItem value="particular">Particular</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('direccion') && (
+                      <th className="px-3 py-1"></th>
+                    )}
+                    
+                    {columnasVisibles.includes('formaPago') && (
+                      <th className="px-3 py-1">
+                        <Select
+                          value={columnFiltersInput.formaPago || 'all'}
+                          onValueChange={(value) => 
+                            handleColumnFilterInput('formaPago', value === 'all' ? '' : value)
+                          }
+                        >
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            <SelectItem value="contado">Contado</SelectItem>
+                            <SelectItem value="transferencia">Transferencia</SelectItem>
+                            <SelectItem value="domiciliacion">Domiciliación</SelectItem>
+                            <SelectItem value="confirming">Confirming</SelectItem>
+                            <SelectItem value="pagare">Pagaré</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </th>
+                    )}
+                    
+                    {columnasVisibles.includes('riesgoActual') && (
+                      <th className="px-3 py-1"></th>
+                    )}
+                    
+                    {columnasVisibles.includes('limiteCredito') && (
+                      <th className="px-3 py-1"></th>
+                    )}
+                    
+                    {columnasVisibles.includes('activo') && (
+                      <th className="px-3 py-1">
+                        <Select
+                          value={columnFiltersInput.activo || 'all'}
+                          onValueChange={(value) => 
+                            handleColumnFilterInput('activo', value === 'all' ? '' : value)
+                          }
+                        >
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            <SelectItem value="true">Activos</SelectItem>
+                            <SelectItem value="false">Inactivos</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </th>
+                    )}
+                    
+                    <th className="sticky right-0 z-10 bg-background px-3 py-1"></th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={columnasVisibles.length + 2} className="px-3 py-8 text-center text-sm">
+                        Cargando clientes...
+                      </td>
+                    </tr>
+                  ) : clientes.length === 0 ? (
+                    <tr>
+                      <td colSpan={columnasVisibles.length + 2} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                        No se encontraron clientes
+                      </td>
+                    </tr>
+                  ) : (
+                    clientes.map((cliente) => (
+                      <tr
+                        key={cliente._id}
+                        className="border-b hover:bg-muted/50 transition-colors"
+                      >
+                        <td className="sticky left-0 z-10 bg-background px-3 py-2">
+                          <Checkbox
+                            checked={selectedClientes.includes(cliente._id)}
+                            onCheckedChange={() => handleSelectCliente(cliente._id)}
+                          />
+                        </td>
+                        
+                        {columnasVisibles.includes('codigo') && (
+                          <td className="px-3 py-2 font-medium">{cliente.codigo}</td>
+                        )}
+                        
+                        {columnasVisibles.includes('nombre') && (
+                          <td className="px-3 py-2">
+                            <div>
+                              <p className="font-medium">{cliente.nombre}</p>
+                              {cliente.nombreComercial && (
+                                <p className="text-xs text-muted-foreground">
+                                  {cliente.nombreComercial}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                        
+                        {columnasVisibles.includes('nif') && (
+                          <td className="px-3 py-2">{cliente.nif}</td>
+                        )}
+                        
+                        {columnasVisibles.includes('email') && (
+                          <td className="px-3 py-2">
+                            {cliente.email && (
+                              <a href={`mailto:${cliente.email}`} className="text-primary hover:underline">
+                                {cliente.email}
+                              </a>
+                            )}
+                          </td>
+                        )}
+                        
+                        {columnasVisibles.includes('telefono') && (
+                          <td className="px-3 py-2">
+                            {cliente.telefono && (
+                              <a href={`tel:${cliente.telefono}`} className="hover:underline">
+                                {cliente.telefono}
+                              </a>
+                            )}
+                          </td>
+                        )}
+                        
+                        {columnasVisibles.includes('tipoCliente') && (
+                          <td className="px-3 py-2">
+                            <Badge variant="outline">
+                              {cliente.tipoCliente === 'empresa' ? 'Empresa' : 'Particular'}
+                            </Badge>
+                          </td>
+                        )}
+                        
+                        {columnasVisibles.includes('direccion') && (
+                          <td className="px-3 py-2">
+                            <div className="text-xs">
+                              <p>{cliente.direccion?.calle}</p>
+                              <p className="text-muted-foreground">
+                                {cliente.direccion?.codigoPostal} {cliente.direccion?.ciudad}
+                              </p>
+                            </div>
+                          </td>
+                        )}
+                        
+                        {columnasVisibles.includes('formaPago') && (
+                          <td className="px-3 py-2">
+                            <span className="text-xs">
+                              {cliente.formaPago === 'contado' && 'Contado'}
+                              {cliente.formaPago === 'transferencia' && 'Transferencia'}
+                              {cliente.formaPago === 'domiciliacion' && 'Domiciliación'}
+                              {cliente.formaPago === 'confirming' && 'Confirming'}
+                              {cliente.formaPago === 'pagare' && 'Pagaré'}
+                            </span>
+                          </td>
+                        )}
+                        
+                        {columnasVisibles.includes('riesgoActual') && (
+                          <td className="px-3 py-2 text-right">
+                            <span className={`font-medium ${
+                              cliente.limiteCredito && (cliente.riesgoActual || 0) > cliente.limiteCredito 
+                                ? 'text-red-500' 
+                                : ''
+                            }`}>
+                              {(cliente.riesgoActual || 0).toLocaleString('es-ES', {
+                                style: 'currency',
+                                currency: 'EUR',
+                              })}
+                            </span>
+                          </td>
+                        )}
+                        
+                        {columnasVisibles.includes('limiteCredito') && (
+                          <td className="px-3 py-2 text-right">
+                            {cliente.limiteCredito ? (
+                              <span>
+                                {cliente.limiteCredito.toLocaleString('es-ES', {
+                                  style: 'currency',
+                                  currency: 'EUR',
+                                })}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        )}
+                        
+                        {columnasVisibles.includes('activo') && (
+                          <td className="px-3 py-2">
+                            <Badge variant={cliente.activo ? 'success' : 'secondary'}>
+                              {cliente.activo ? 'Activo' : 'Inactivo'}
+                            </Badge>
+                          </td>
+                        )}
+                        
+                        <td className="sticky right-0 z-10 bg-background px-3 py-2 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link href={`/clientes/${cliente._id}`}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Ver detalles
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/clientes/${cliente._id}/editar`}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Editar
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteDialog({
+                                  open: true,
+                                  clienteIds: [cliente._id],
+                                  clienteNombres: [cliente.nombre],
+                                })}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+          </div>
+        </Card>
+
+        {/* PAGINACIÓN */}
+        {pagination.pages > 1 && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Mostrando {((pagination.page - 1) * pagination.limit) + 1} a{' '}
+              {Math.min(pagination.page * pagination.limit, pagination.total)} de{' '}
+              {pagination.total} clientes
+            </p>
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleBulkAction('export')}
+                onClick={() => setFilters(prev => ({ ...prev, page: Math.max(1, prev.page! - 1) }))}
+                disabled={pagination.page === 1}
               >
-                Exportar ({selectedClientes.length})
+                Anterior
               </Button>
+              {[...Array(Math.min(5, pagination.pages))].map((_, i) => {
+                const pageNum = i + 1
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={pagination.page === pageNum ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilters(prev => ({ ...prev, page: pageNum }))}
+                  >
+                    {pageNum}
+                  </Button>
+                )
+              })}
               <Button
-                variant="destructive"
+                variant="outline"
                 size="sm"
-                onClick={() => handleBulkAction('delete')}
+                onClick={() => setFilters(prev => ({ ...prev, page: Math.min(pagination.pages, prev.page! + 1) }))}
+                disabled={pagination.page === pagination.pages}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar ({selectedClientes.length})
+                Siguiente
               </Button>
-            </>
-          )}
-        </div>
-
-        {/* ============================================ */}
-        {/* TABLA COMPACTA CON FILTROS */}
-        {/* ============================================ */}
-        
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                {/* Headers con ordenamiento */}
-                <tr className="border-b bg-muted/30">
-                  <th className="px-3 py-2 text-left w-12">
-                    <Checkbox
-                      checked={selectAll}
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </th>
-                  
-                  {columnasVisibles.includes('codigo') && (
-                    <th className="px-3 py-2 text-left">
-                      <button
-                        onClick={() => handleSort('codigo')}
-                        className="flex items-center hover:text-primary"
-                      >
-                        Código
-                        {getSortIcon('codigo')}
-                      </button>
-                    </th>
-                  )}
-                  
-                  {columnasVisibles.includes('nombre') && (
-                    <th className="px-3 py-2 text-left">
-                      <button
-                        onClick={() => handleSort('nombre')}
-                        className="flex items-center hover:text-primary"
-                      >
-                        Nombre
-                        {getSortIcon('nombre')}
-                      </button>
-                    </th>
-                  )}
-                  
-                  {columnasVisibles.includes('nif') && (
-                    <th className="px-3 py-2 text-left">
-                      <button
-                        onClick={() => handleSort('nif')}
-                        className="flex items-center hover:text-primary"
-                      >
-                        NIF/CIF
-                        {getSortIcon('nif')}
-                      </button>
-                    </th>
-                  )}
-                  
-                  {columnasVisibles.includes('email') && (
-                    <th className="px-3 py-2 text-left">Email</th>
-                  )}
-                  
-                  {columnasVisibles.includes('telefono') && (
-                    <th className="px-3 py-2 text-left">Teléfono</th>
-                  )}
-                  
-                  {columnasVisibles.includes('tipoCliente') && (
-                    <th className="px-3 py-2 text-left">
-                      <button
-                        onClick={() => handleSort('tipoCliente')}
-                        className="flex items-center hover:text-primary"
-                      >
-                        Tipo
-                        {getSortIcon('tipoCliente')}
-                      </button>
-                    </th>
-                  )}
-                  
-                  {columnasVisibles.includes('riesgoActual') && (
-                    <th className="px-3 py-2 text-right">
-                      <button
-                        onClick={() => handleSort('riesgoActual')}
-                        className="flex items-center justify-end w-full hover:text-primary"
-                      >
-                        Riesgo
-                        {getSortIcon('riesgoActual')}
-                      </button>
-                    </th>
-                  )}
-                  
-                  {columnasVisibles.includes('activo') && (
-                    <th className="px-3 py-2 text-left">
-                      <button
-                        onClick={() => handleSort('activo')}
-                        className="flex items-center hover:text-primary"
-                      >
-                        Estado
-                        {getSortIcon('activo')}
-                      </button>
-                    </th>
-                  )}
-                  
-                  <th className="px-3 py-2 text-right w-16">Acciones</th>
-                </tr>
-
-                {/* Fila de filtros por columna */}
-                <tr className="border-b bg-muted/10">
-                  <th className="px-3 py-1"></th>
-                  
-                  {columnasVisibles.includes('codigo') && (
-                    <th className="px-3 py-1">
-                      <Input
-                        placeholder="Filtrar..."
-                        className="h-7 text-xs"
-                        value={columnFilters.codigo || ''}
-                        onChange={(e) => handleColumnFilter('codigo', e.target.value)}
-                      />
-                    </th>
-                  )}
-                  
-                  {columnasVisibles.includes('nombre') && (
-                    <th className="px-3 py-1">
-                      <Input
-                        placeholder="Filtrar..."
-                        className="h-7 text-xs"
-                        value={columnFilters.nombre || ''}
-                        onChange={(e) => handleColumnFilter('nombre', e.target.value)}
-                      />
-                    </th>
-                  )}
-                  
-                  {columnasVisibles.includes('nif') && (
-                    <th className="px-3 py-1">
-                      <Input
-                        placeholder="Filtrar..."
-                        className="h-7 text-xs"
-                        value={columnFilters.nif || ''}
-                        onChange={(e) => handleColumnFilter('nif', e.target.value)}
-                      />
-                    </th>
-                  )}
-                  
-                  {columnasVisibles.includes('email') && (
-                    <th className="px-3 py-1">
-                      <Input
-                        placeholder="Filtrar..."
-                        className="h-7 text-xs"
-                        value={columnFilters.email || ''}
-                        onChange={(e) => handleColumnFilter('email', e.target.value)}
-                      />
-                    </th>
-                  )}
-                  
-                  {columnasVisibles.includes('telefono') && (
-                    <th className="px-3 py-1"></th>
-                  )}
-                  
-                  {columnasVisibles.includes('tipoCliente') && (
-                    <th className="px-3 py-1">
-                      <Select
-                        value={columnFilters.tipoCliente || 'all'}
-                        onValueChange={(value) => 
-                          handleColumnFilter('tipoCliente', value === 'all' ? '' : value)
-                        }
-                      >
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="empresa">Empresa</SelectItem>
-                          <SelectItem value="particular">Particular</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </th>
-                  )}
-                  
-                  {columnasVisibles.includes('riesgoActual') && (
-                    <th className="px-3 py-1"></th>
-                  )}
-                  
-                  {columnasVisibles.includes('activo') && (
-                    <th className="px-3 py-1">
-                      <Select
-                        value={columnFilters.activo || 'all'}
-                        onValueChange={(value) => 
-                          handleColumnFilter('activo', value === 'all' ? '' : value)
-                        }
-                      >
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="true">Activos</SelectItem>
-                          <SelectItem value="false">Inactivos</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </th>
-                  )}
-                  
-                  <th className="px-3 py-1"></th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={20} className="px-3 py-8 text-center text-sm">
-                      Cargando clientes...
-                    </td>
-                  </tr>
-                ) : clientes.length === 0 ? (
-                  <tr>
-                    <td colSpan={20} className="px-3 py-8 text-center text-sm">
-                      No se encontraron clientes
-                    </td>
-                  </tr>
-                ) : (
-                  clientes.map((cliente) => (
-                    <tr
-                      key={cliente._id}
-                      className="border-b transition-colors hover:bg-muted/30"
-                    >
-                      <td className="px-3 py-2">
-                        <Checkbox
-                          checked={selectedClientes.includes(cliente._id)}
-                          onCheckedChange={() => handleSelectCliente(cliente._id)}
-                        />
-                      </td>
-                      
-                      {columnasVisibles.includes('codigo') && (
-                        <td className="px-3 py-2 font-medium">{cliente.codigo}</td>
-                      )}
-                      
-                      {columnasVisibles.includes('nombre') && (
-                        <td className="px-3 py-2">
-                          <div>
-                            <div className="font-medium">{cliente.nombre}</div>
-                            {cliente.nombreComercial && (
-                              <div className="text-xs text-muted-foreground">
-                                {cliente.nombreComercial}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                      
-                      {columnasVisibles.includes('nif') && (
-                        <td className="px-3 py-2">{cliente.nif}</td>
-                      )}
-                      
-                      {columnasVisibles.includes('email') && (
-                        <td className="px-3 py-2 text-xs">{cliente.email || '-'}</td>
-                      )}
-                      
-                      {columnasVisibles.includes('telefono') && (
-                        <td className="px-3 py-2 text-xs">
-                          {cliente.telefono || cliente.movil || '-'}
-                        </td>
-                      )}
-                      
-                      {columnasVisibles.includes('tipoCliente') && (
-                        <td className="px-3 py-2">
-                          <Badge
-                            variant={cliente.tipoCliente === 'empresa' ? 'default' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {cliente.tipoCliente === 'empresa' ? 'Empresa' : 'Particular'}
-                          </Badge>
-                        </td>
-                      )}
-                      
-                      {columnasVisibles.includes('riesgoActual') && (
-                        <td className="px-3 py-2 text-right text-xs">
-                          {typeof cliente.riesgoActual === 'number'
-                            ? cliente.riesgoActual.toLocaleString('es-ES', {
-                                style: 'currency',
-                                currency: 'EUR',
-                              })
-                            : '0,00 €'}
-                        </td>
-                      )}
-                      
-                      {columnasVisibles.includes('activo') && (
-                        <td className="px-3 py-2">
-                          <Badge
-                            variant={cliente.activo ? 'default' : 'destructive'}
-                            className="text-xs"
-                          >
-                            {cliente.activo ? 'Activo' : 'Inactivo'}
-                          </Badge>
-                        </td>
-                      )}
-                      
-                      <td className="px-3 py-2 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                            
-                            <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'view')}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Ver detalle
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'edit')}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuSeparator />
-                            
-                            <DropdownMenuLabel>Crear Documento</DropdownMenuLabel>
-                            
-                            <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'pedido')}>
-                              <Package className="mr-2 h-4 w-4" />
-                              Nuevo Pedido
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'albaran')}>
-                              <Truck className="mr-2 h-4 w-4" />
-                              Nuevo Albarán
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'factura')}>
-                              <Receipt className="mr-2 h-4 w-4" />
-                              Nueva Factura
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'parte')}>
-                              <Wrench className="mr-2 h-4 w-4" />
-                              Nuevo Parte de Trabajo
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuSeparator />
-                            
-                            <DropdownMenuLabel>Consultas</DropdownMenuLabel>
-                            
-                            <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'consulta-pedidos')}>
-                              <FileText className="mr-2 h-4 w-4" />
-                              Ver Pedidos
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'vencimientos')}>
-                              <Calendar className="mr-2 h-4 w-4" />
-                              Ver Vencimientos
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuSeparator />
-                            
-                            <DropdownMenuItem
-                              onClick={() => handleClientAction(cliente._id, 'delete')}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Desactivar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Paginación compacta */}
-          {!isLoading && clientes.length > 0 && (
-            <div className="flex items-center justify-between border-t px-3 py-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>
-                  {(pagination.page - 1) * pagination.limit + 1}-
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total}
-                </span>
-                <Select
-                  value={pagination.limit.toString()}
-                  onValueChange={(value) => handleLimitChange(parseInt(value))}
-                >
-                  <SelectTrigger className="h-7 w-16 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(pagination.page - 1)}
-                  disabled={pagination.page === 1}
-                  className="h-7"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                
-                <span className="text-xs px-2">
-                  {pagination.page} / {pagination.pages}
-                </span>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(pagination.page + 1)}
-                  disabled={pagination.page === pagination.pages}
-                  className="h-7"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
-          )}
-        </Card>
+          </div>
+        )}
 
-        {/* ============================================ */}
-        {/* DIALOG DE CONFIRMACIÓN */}
-        {/* ============================================ */}
-        
-        <Dialog 
-          open={deleteDialog.open} 
-          onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
-        >
+        {/* DIALOG DE CONFIRMACIÓN PARA ELIMINAR */}
+        <Dialog open={deleteDialog.open} onOpenChange={(open) => 
+          setDeleteDialog({ ...deleteDialog, open })
+        }>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>¿Desactivar cliente{deleteDialog.clienteIds.length > 1 ? 's' : ''}?</DialogTitle>
+              <DialogTitle>Confirmar eliminación</DialogTitle>
               <DialogDescription>
-                {deleteDialog.clienteIds.length === 1 ? (
-                  <>¿Estás seguro de que quieres desactivar al cliente "{deleteDialog.clienteNombres[0]}"?</>
-                ) : (
-                  <>¿Estás seguro de que quieres desactivar {deleteDialog.clienteIds.length} clientes?</>
-                )}
-                <br />Esta acción se puede revertir más tarde.
+                ¿Estás seguro de que deseas eliminar {deleteDialog.clienteIds.length === 1 
+                  ? 'el siguiente cliente' 
+                  : `los siguientes ${deleteDialog.clienteIds.length} clientes`}?
+                <ul className="mt-2 max-h-32 overflow-y-auto">
+                  {deleteDialog.clienteNombres.map((nombre, index) => (
+                    <li key={index} className="text-sm">• {nombre}</li>
+                  ))}
+                </ul>
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -1025,8 +1217,11 @@ export default function ClientesPage() {
               >
                 Cancelar
               </Button>
-              <Button variant="destructive" onClick={confirmDelete}>
-                Desactivar
+              <Button
+                variant="destructive"
+                onClick={handleDeleteConfirm}
+              >
+                Eliminar
               </Button>
             </DialogFooter>
           </DialogContent>
