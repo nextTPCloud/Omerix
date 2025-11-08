@@ -68,6 +68,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportClientesToCSV, processImportFile } from '@/utils/excel.utils'
+import { useModuleConfig } from '@/hooks/useModuleConfig'
+import { ColumnaConfig } from '@/services/configuracion.service'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -103,6 +105,37 @@ interface SortConfig {
 }
 
 // ============================================
+// CONFIGURACIÓN POR DEFECTO DEL MÓDULO CLIENTES
+// ============================================
+
+const DEFAULT_CLIENTES_CONFIG = {
+  columnas: [
+    { key: 'codigo', visible: true, orden: 0 },
+    { key: 'nombre', visible: true, orden: 1 },
+    { key: 'nif', visible: true, orden: 2 },
+    { key: 'email', visible: true, orden: 3 },
+    { key: 'telefono', visible: true, orden: 4 },
+    { key: 'tipoCliente', visible: true, orden: 5 },
+    { key: 'direccion', visible: false, orden: 6 },
+    { key: 'formaPago', visible: false, orden: 7 },
+    { key: 'riesgoActual', visible: true, orden: 8 },
+    { key: 'limiteCredito', visible: false, orden: 9 },
+    { key: 'activo', visible: true, orden: 10 },
+  ] as ColumnaConfig[],
+  sortConfig: {
+    key: 'createdAt',
+    direction: 'desc' as const,
+  },
+  columnFilters: {},
+  paginacion: {
+    limit: 25 as const,
+  },
+  filtrosAdicionales: {
+    activo: true, // Por defecto mostrar solo activos
+  },
+}
+
+// ============================================
 // COMPONENTE PRINCIPAL
 // ============================================
 
@@ -118,11 +151,6 @@ export default function ClientesPage() {
   const [selectedClientes, setSelectedClientes] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
   
-  // Ordenamiento
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: 'createdAt',
-    direction: 'desc',
-  })
   
   // Filtros por columna
   const [columnFiltersInput, setColumnFiltersInput] = useState<ColumnFilters>({})
@@ -175,16 +203,44 @@ export default function ClientesPage() {
     { key: 'activo', label: 'Estado', sortable: true },
   ])
   
-  const [columnasVisibles, setColumnasVisibles] = useState<string[]>([
-    'codigo',
-    'nombre',
-    'nif',
-    'email',
-    'telefono',
-    'tipoCliente',
-    'riesgoActual',
-    'activo',
-  ])
+// ============================================
+// CONFIGURACIÓN DEL MÓDULO
+// ============================================
+
+const {
+  config: moduleConfig,
+  isLoading: isLoadingConfig,
+  updateColumnas,
+  updateSortConfig,
+  updateColumnFilters,
+  resetConfig,
+} = useModuleConfig('clientes', DEFAULT_CLIENTES_CONFIG, {
+  autoSave: true,
+  debounceMs: 1000,
+})
+
+  // ============================================
+  // DERIVAR VALORES DESDE LA CONFIGURACIÓN
+  // ============================================
+
+  // Columnas visibles ordenadas
+  const columnasVisibles = useMemo(() => {
+    if (!moduleConfig) return []
+    return moduleConfig.columnas
+      .filter((col) => col.visible)
+      .sort((a, b) => a.orden - b.orden)
+      .map((col) => col.key)
+  }, [moduleConfig])
+
+  // Configuración de ordenamiento actual
+  const sortConfig = useMemo(() => {
+    return moduleConfig?.sortConfig || DEFAULT_CLIENTES_CONFIG.sortConfig
+  }, [moduleConfig])
+
+  // Filtros de columna actuales
+  const savedColumnFilters = useMemo(() => {
+    return moduleConfig?.columnFilters || {}
+  }, [moduleConfig])
 
   // ============================================
   // ESTADÍSTICAS CALCULADAS
@@ -264,9 +320,36 @@ export default function ClientesPage() {
   // ============================================
   
   useEffect(() => {
-    setColumnFilters(debouncedColumnFilters)
+    // Aplicar filtros a la API
     applyAllFilters(debouncedColumnFilters)
+    
+    // Guardar filtros en la configuración
+    if (moduleConfig) {
+      updateColumnFilters(debouncedColumnFilters as any)
+    }
   }, [debouncedColumnFilters])
+
+  // ============================================
+  // SINCRONIZAR CONFIGURACIÓN GUARDADA CON FILTROS
+  // ============================================
+
+  useEffect(() => {
+    if (!moduleConfig || !isLoadingConfig) {
+      // Aplicar configuración guardada a los filtros de la API
+      setFilters((prev) => ({
+        ...prev,
+        sortBy: sortConfig.key,
+        sortOrder: sortConfig.direction,
+        limit: moduleConfig?.paginacion?.limit || 25,
+        ...moduleConfig?.filtrosAdicionales,
+      }))
+
+      // Aplicar filtros de columna guardados
+      if (moduleConfig?.columnFilters) {
+        setColumnFiltersInput(moduleConfig.columnFilters as any)
+      }
+    }
+  }, [moduleConfig, isLoadingConfig]) // Solo cuando se cargue la config
 
   // ============================================
   // MANEJADORES DE EVENTOS
@@ -282,14 +365,14 @@ export default function ClientesPage() {
   }
 
   const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc'
-    
-    if (sortConfig.key === key) {
-      direction = sortConfig.direction === 'asc' ? 'desc' : 'asc'
-    }
-    
-    setSortConfig({ key, direction })
-    setFilters(prev => ({
+    const direction =
+      sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc'
+
+    // Actualizar en la configuración (se guarda automáticamente)
+    updateSortConfig({ key, direction })
+
+    // Actualizar los filtros de la API
+    setFilters((prev) => ({
       ...prev,
       sortBy: key,
       sortOrder: direction,
@@ -509,15 +592,23 @@ export default function ClientesPage() {
   // ============================================
   // GESTIÓN DE COLUMNAS
   // ============================================
-
   const toggleColumna = (key: string) => {
-    if (columnasVisibles.includes(key)) {
-      if (columnasVisibles.length > 1) {
-        setColumnasVisibles(columnasVisibles.filter(c => c !== key))
+    if (!moduleConfig) return
+
+    const newColumnas = moduleConfig.columnas.map((col) => {
+      if (col.key === key) {
+        // No permitir ocultar todas las columnas
+        const visibleCount = moduleConfig.columnas.filter((c) => c.visible).length
+        if (col.visible && visibleCount <= 1) {
+          toast.warning('Debe haber al menos una columna visible')
+          return col
+        }
+        return { ...col, visible: !col.visible }
       }
-    } else {
-      setColumnasVisibles([...columnasVisibles, key])
-    }
+      return col
+    })
+
+    updateColumnas(newColumnas)
   }
 
   // ============================================
@@ -550,7 +641,18 @@ export default function ClientesPage() {
   // ============================================
   // RENDER PRINCIPAL
   // ============================================
-
+  if (isLoadingConfig) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Cargando configuración...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
   return (
     <DashboardLayout>
       <div className="w-full space-y-4">
@@ -684,6 +786,20 @@ export default function ClientesPage() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Botón para restablecer configuración */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await resetConfig()
+                toast.success('Configuración restablecida a valores por defecto')
+              }}
+              title="Restablecer vista a valores por defecto"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Restablecer Vista
+            </Button>
 
             <Button
               variant="outline"
