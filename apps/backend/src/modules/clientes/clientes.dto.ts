@@ -1,4 +1,4 @@
-import { FormaPago, TipoCliente } from '@/models/Cliente';
+import { FormaPago, TipoCliente } from '@/modules/clientes/Cliente';
 import { z } from 'zod';
 
 // ============================================

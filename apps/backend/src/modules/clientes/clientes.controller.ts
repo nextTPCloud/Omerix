@@ -139,7 +139,7 @@ export class ClientesController {
   // ACTUALIZAR
   // ============================================
   
-  async actualizar(req: Request, res: Response) {
+  async update(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
@@ -199,7 +199,7 @@ export class ClientesController {
   // ELIMINAR (SOFT DELETE)
   // ============================================
   
-  async eliminar(req: Request, res: Response) {
+  async delete(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
@@ -235,7 +235,7 @@ export class ClientesController {
   // ELIMINACIÓN MÚLTIPLE
   // ============================================
   
-  async eliminarMultiples(req: Request, res: Response) {
+  async bulkDelete(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
@@ -274,7 +274,7 @@ export class ClientesController {
   // CAMBIAR ESTADO (ACTIVAR/DESACTIVAR)
   // ============================================
   
-  async cambiarEstado(req: Request, res: Response) {
+  async changeStatus(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({

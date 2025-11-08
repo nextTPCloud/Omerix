@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { CreateClienteDto, UpdateClienteDto, GetClientesQueryDto } from './clientes.dto';
-import { Cliente, ICliente } from '@/models/Cliente';
+import { Cliente, ICliente } from '@/modules/clientes/Cliente';
 
 // ============================================
 // TIPOS DE RETORNO

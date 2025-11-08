@@ -92,13 +92,13 @@ router.get(
 router.put(
   '/:id',
   validateBody(UpdateClienteSchema),
-  clientesController.actualizar.bind(clientesController)
+  clientesController.update.bind(clientesController)
 );
 
 // Eliminar cliente
 router.delete(
   '/:id',
-  clientesController.eliminar.bind(clientesController)
+  clientesController.delete.bind(clientesController)
 );
 
 // ============================================
@@ -109,14 +109,14 @@ router.delete(
 router.post(
   '/bulk-delete',
   validateBody(BulkDeleteClientesSchema),
-  clientesController.eliminarMultiples.bind(clientesController)
+  clientesController.bulkDelete.bind(clientesController)
 );
 
 // Cambiar estado (activar/desactivar)
 router.patch(
   '/:id/estado',
   validateBody(ChangeStatusSchema),
-  clientesController.cambiarEstado.bind(clientesController)
+  clientesController.changeStatus.bind(clientesController)
 );
 
 // Subir archivo
