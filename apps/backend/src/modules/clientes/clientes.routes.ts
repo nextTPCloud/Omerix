@@ -61,13 +61,13 @@ router.use(authMiddleware);
 router.post(
   '/',
   validateBody(CreateClienteSchema),
-  clientesController.crear.bind(clientesController)
+  clientesController.create.bind(clientesController)
 );
 
 // Obtener todos los clientes (con filtros y paginación)
 router.get(
   '/',
-  clientesController.obtenerTodos.bind(clientesController)
+  clientesController.findAll.bind(clientesController)
 );
 
 // Obtener estadísticas
@@ -85,7 +85,7 @@ router.get(
 // Obtener cliente por ID
 router.get(
   '/:id',
-  clientesController.obtenerPorId.bind(clientesController)
+  clientesController.findById.bind(clientesController)
 );
 
 // Actualizar cliente

@@ -6,7 +6,7 @@ import { Cliente, ICliente } from '@/models/Cliente';
 // TIPOS DE RETORNO
 // ============================================
 
-interface ObtenerTodosResult {
+interface findAllResult {
   clientes: any[];  // ← Tipo flexible para compatibilidad con Mongoose .lean()
   total: number;
   page: number;
@@ -16,7 +16,7 @@ interface ObtenerTodosResult {
 
 export class ClientesService {
   
-  // ============================================
+// ============================================
   // CREAR CLIENTE
   // ============================================
   
@@ -42,10 +42,10 @@ export class ClientesService {
   // OBTENER TODOS CON FILTROS Y PAGINACIÓN
   // ============================================
   
-  async obtenerTodos(
+  async findAll(
     empresaId: mongoose.Types.ObjectId,
     query: Partial<GetClientesQueryDto>
-  ): Promise<ObtenerTodosResult> {  // ← TIPO DE RETORNO EXPLÍCITO
+  ) {
     const {
       search,
       sortBy = 'fechaCreacion',
@@ -53,6 +53,8 @@ export class ClientesService {
       page = 1,
       limit = 10,
       activo,
+      tipoCliente,
+      formaPago,
       vendedorId,
       categoriaId,
       zona,
@@ -62,7 +64,7 @@ export class ClientesService {
     // Construir filtro
     const filter: any = { empresaId };
 
-    // Búsqueda por texto
+    // Búsqueda por texto - INCLUYE TODOS LOS CAMPOS
     if (search) {
       filter.$or = [
         { nombre: { $regex: search, $options: 'i' } },
@@ -70,12 +72,25 @@ export class ClientesService {
         { codigo: { $regex: search, $options: 'i' } },
         { nif: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
+        { telefono: { $regex: search, $options: 'i' } },
+        { 'direccion.calle': { $regex: search, $options: 'i' } },
+        { 'direccion.ciudad': { $regex: search, $options: 'i' } },
+        { 'direccion.provincia': { $regex: search, $options: 'i' } },
+        { 'direccion.codigoPostal': { $regex: search, $options: 'i' } },
       ];
     }
 
     // Filtros adicionales
     if (activo !== undefined) {
       filter.activo = activo;
+    }
+
+    if (tipoCliente) {
+      filter.tipoCliente = tipoCliente;
+    }
+
+    if (formaPago) {
+      filter.formaPago = formaPago;
     }
 
     if (vendedorId) {
@@ -126,7 +141,7 @@ export class ClientesService {
   // OBTENER POR ID
   // ============================================
   
-  async obtenerPorId(
+  async findById(
     id: string,
     empresaId: mongoose.Types.ObjectId
   ): Promise<ICliente | null> {

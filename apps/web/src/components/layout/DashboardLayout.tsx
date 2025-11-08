@@ -12,14 +12,15 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, isHydrated } = useAuthStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // ✅ SOLO redirigir cuando ya se haya cargado del localStorage
+    if (isHydrated && !isAuthenticated) {
       router.push('/login')
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, isHydrated, router])
 
   // Cerrar menú móvil al cambiar de tamaño a desktop
   useEffect(() => {
@@ -33,6 +34,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  // ✅ Mostrar loading mientras se carga del localStorage
+  if (!isHydrated) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  // ✅ Si ya se cargó y NO está autenticado, mostrar null (va a redirigir)
   if (!isAuthenticated) {
     return null
   }
@@ -48,7 +59,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           isOpen={isMobileMenuOpen}
           onClose={() => setIsMobileMenuOpen(false)}
         />
-        {/* ✅ Optimizado: Menos padding y mejor uso del espacio */}
         <main className="flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 lg:ml-64">
           <div className="w-full max-w-full">
             {children}

@@ -9,7 +9,7 @@ export class ClientesController {
   // CREAR CLIENTE
   // ============================================
   
-  async crear(req: Request, res: Response) {
+  async create(req: Request, res: Response) {
     try {
       // ✅ FIX: Eliminar campo codigo si viene vacío o undefined
       // Esto permite que el pre-save hook del modelo lo genere automáticamente
@@ -66,7 +66,7 @@ export class ClientesController {
   // OBTENER TODOS
   // ============================================
   
-  async obtenerTodos(req: Request, res: Response) {
+  async findAll(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
@@ -78,7 +78,7 @@ export class ClientesController {
       const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
       
       // ✅ FIX: Desestructurar el resultado para evitar errores de TypeScript
-      const { clientes, total, page, limit, totalPages } = await clientesService.obtenerTodos(empresaId, req.query);
+      const { clientes, total, page, limit, totalPages } = await clientesService.findAll(empresaId, req.query);
 
       res.json({
         success: true,
@@ -103,7 +103,7 @@ export class ClientesController {
   // OBTENER POR ID
   // ============================================
   
-  async obtenerPorId(req: Request, res: Response) {
+  async findById(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
@@ -113,7 +113,7 @@ export class ClientesController {
       }
 
       const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
-      const cliente = await clientesService.obtenerPorId(req.params.id, empresaId);
+      const cliente = await clientesService.findById(req.params.id, empresaId);
 
       if (!cliente) {
         return res.status(404).json({
