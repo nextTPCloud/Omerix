@@ -1327,7 +1327,7 @@ export default function ClientesPage() {
               </Button>
               <Button
                 variant="destructive"
-                onClick={handleDeleteConfirm}
+                  onClick={handleDeleteConfirm}
               >
                 Eliminar
               </Button>
