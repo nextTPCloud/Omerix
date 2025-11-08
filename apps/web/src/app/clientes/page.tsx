@@ -8,7 +8,6 @@ import { clientesService } from '@/services/clientes.service'
 import {
   Cliente,
   ClientesFilters,
-  EstadisticasClientes,
 } from '@/types/cliente.types'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -52,8 +51,6 @@ import {
   Trash2,
   MoreHorizontal,
   FileSpreadsheet,
-  Filter,
-  Settings2,
   RefreshCw,
   Users,
   UserCheck,
@@ -61,6 +58,13 @@ import {
   Building2,
   AlertCircle,
   Columns,
+  Package,
+  Truck,
+  Receipt,
+  Wrench,
+  FileText,
+  Calendar,
+  CreditCard,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportClientesToCSV, processImportFile } from '@/utils/excel.utils'
@@ -105,7 +109,7 @@ interface SortConfig {
 export default function ClientesPage() {
   const router = useRouter()
 
-  // Estados de datos - con inicialización correcta
+  // Estados de datos
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -120,19 +124,20 @@ export default function ClientesPage() {
     direction: 'desc',
   })
   
-  // Filtros por columna - con estados separados para input y valor aplicado
+  // Filtros por columna
   const [columnFiltersInput, setColumnFiltersInput] = useState<ColumnFilters>({})
   const [columnFilters, setColumnFilters] = useState<ColumnFilters>({})
   
   // Aplicar debounce a los filtros de columna
   const debouncedColumnFilters = useDebounce(columnFiltersInput, 500)
   
-  // Filtros generales
+  // Filtros generales - CON ACTIVO=TRUE POR DEFECTO
   const [filters, setFilters] = useState<ClientesFilters>({
     page: 1,
     limit: 25,
     sortBy: 'createdAt',
     sortOrder: 'desc',
+    activo: true,  // ← FILTRO POR DEFECTO: SOLO ACTIVOS
   })
   
   // Paginación
@@ -155,19 +160,19 @@ export default function ClientesPage() {
     clienteNombres: [],
   })
   
-  // Columnas disponibles y visibles
+  // Columnas disponibles con anchos optimizados
   const [columnasDisponibles] = useState([
-    { key: 'codigo', label: 'Código', width: 'w-32' },
-    { key: 'nombre', label: 'Nombre', width: 'w-64' },
-    { key: 'nif', label: 'NIF/CIF', width: 'w-36' },
-    { key: 'email', label: 'Email', width: 'w-56' },
-    { key: 'telefono', label: 'Teléfono', width: 'w-36' },
-    { key: 'tipoCliente', label: 'Tipo', width: 'w-32' },
-    { key: 'direccion', label: 'Dirección', width: 'w-64' },
-    { key: 'formaPago', label: 'Forma Pago', width: 'w-40' },
-    { key: 'riesgoActual', label: 'Riesgo', width: 'w-32' },
-    { key: 'limiteCredito', label: 'Límite', width: 'w-32' },
-    { key: 'activo', label: 'Estado', width: 'w-28' },
+    { key: 'codigo', label: 'Código', sortable: true },
+    { key: 'nombre', label: 'Nombre', sortable: true },
+    { key: 'nif', label: 'NIF/CIF', sortable: true },
+    { key: 'email', label: 'Email', sortable: true },
+    { key: 'telefono', label: 'Teléfono', sortable: true },
+    { key: 'tipoCliente', label: 'Tipo', sortable: true },
+    { key: 'direccion', label: 'Dirección', sortable: false },
+    { key: 'formaPago', label: 'Forma Pago', sortable: true },
+    { key: 'riesgoActual', label: 'Riesgo', sortable: true },
+    { key: 'limiteCredito', label: 'Límite', sortable: true },
+    { key: 'activo', label: 'Estado', sortable: true },
   ])
   
   const [columnasVisibles, setColumnasVisibles] = useState<string[]>([
@@ -182,32 +187,10 @@ export default function ClientesPage() {
   ])
 
   // ============================================
-  // CALCULAR ANCHO MÍNIMO DE LA TABLA
-  // ============================================
-  
-  const anchoMinimoTabla = useMemo(() => {
-    let ancho = 100 // checkbox + acciones
-    columnasVisibles.forEach(col => {
-      const columna = columnasDisponibles.find(c => c.key === col)
-      if (columna) {
-        const widthValue = columna.width.replace('w-', '')
-        // Convertir clases tailwind a píxeles aproximados
-        const pixelMap: { [key: string]: number } = {
-          '28': 112, '32': 128, '36': 144, '40': 160,
-          '56': 224, '64': 256,
-        }
-        ancho += pixelMap[widthValue] || 128
-      }
-    })
-    return ancho
-  }, [columnasVisibles, columnasDisponibles])
-
-  // ============================================
-  // ESTADÍSTICAS CALCULADAS - Con verificación de seguridad
+  // ESTADÍSTICAS CALCULADAS
   // ============================================
 
   const stats = useMemo(() => {
-    // Verificación de seguridad completa
     if (!clientes || !Array.isArray(clientes)) {
       return {
         total: 0,
@@ -246,7 +229,6 @@ export default function ClientesPage() {
       const response = await clientesService.getAll(filters)
       
       if (response.success) {
-        // Verificación adicional de seguridad
         setClientes(response.data || [])
         setPagination(response.pagination || {
           page: 1,
@@ -255,13 +237,11 @@ export default function ClientesPage() {
           pages: 0,
         })
       } else {
-        // Si la respuesta no es exitosa, mantener array vacío
         setClientes([])
         toast.error('Error al cargar los clientes')
       }
     } catch (error) {
       console.error('Error al cargar clientes:', error)
-      // En caso de error, asegurar que clientes sea un array vacío
       setClientes([])
       setPagination({
         page: 1,
@@ -275,7 +255,6 @@ export default function ClientesPage() {
     }
   }, [filters])
 
-  // Cargar clientes cuando cambien los filtros
   useEffect(() => {
     cargarClientes()
   }, [cargarClientes])
@@ -320,11 +299,11 @@ export default function ClientesPage() {
 
   const getSortIcon = (column: string) => {
     if (sortConfig.key !== column) {
-      return <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground" />
+      return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
     }
     return sortConfig.direction === 'asc' 
-      ? <ArrowUp className="ml-2 h-3 w-3" />
-      : <ArrowDown className="ml-2 h-3 w-3" />
+      ? <ArrowUp className="ml-1 h-3 w-3" />
+      : <ArrowDown className="ml-1 h-3 w-3" />
   }
 
   // ============================================
@@ -334,7 +313,7 @@ export default function ClientesPage() {
   const handleColumnFilterInput = (column: string, value: string) => {
     const newFilters = { ...columnFiltersInput }
     
-    if (value === '') {
+    if (value === '' || value === 'all') {
       delete newFilters[column]
     } else {
       newFilters[column] = value
@@ -344,11 +323,15 @@ export default function ClientesPage() {
   }
 
   const applyAllFilters = (colFilters: ColumnFilters) => {
-    // Combinar filtros de columna con filtros generales
-    const combinedFilters: any = { ...filters, page: 1 }
+    const combinedFilters: any = { 
+      page: 1,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder,
+      limit: filters.limit,
+    }
     
-    // Aplicar filtros de texto para búsqueda
-    const searchableFields = ['codigo', 'nombre', 'nif', 'email', 'telefono']
+    // Campos de búsqueda por texto
+    const searchableFields = ['codigo', 'nombre', 'nif', 'email', 'telefono', 'direccion', 'riesgoActual', 'limiteCredito']
     const searchTerms: string[] = []
     
     searchableFields.forEach(field => {
@@ -361,12 +344,20 @@ export default function ClientesPage() {
       combinedFilters.search = searchTerms.join(' ')
     }
     
-    // Aplicar filtros de tipo select
+    // Filtros de select
     Object.entries(colFilters).forEach(([key, value]) => {
-      if (key === 'tipoCliente' || key === 'formaPago') {
-        combinedFilters[key] = value
+      if (key === 'tipoCliente') {
+        if (value !== 'all') {
+          combinedFilters.tipoCliente = value
+        }
+      } else if (key === 'formaPago') {
+        if (value !== 'all') {
+          combinedFilters.formaPago = value
+        }
       } else if (key === 'activo') {
-        combinedFilters.activo = value === 'true'
+        if (value !== 'all') {
+          combinedFilters.activo = value === 'true'
+        }
       }
     })
     
@@ -468,12 +459,59 @@ export default function ClientesPage() {
   }
 
   // ============================================
+  // ACCIONES POR CLIENTE
+  // ============================================
+
+  const handleClientAction = (clienteId: string, action: string) => {
+    switch (action) {
+      case 'view':
+        router.push(`/clientes/${clienteId}`)
+        break
+      case 'edit':
+        router.push(`/clientes/${clienteId}/editar`)
+        break
+      case 'delete':
+        const cliente = clientes.find(c => c._id === clienteId)
+        if (cliente) {
+          setDeleteDialog({
+            open: true,
+            clienteIds: [clienteId],
+            clienteNombres: [cliente.nombre],
+          })
+        }
+        break
+      case 'pedido':
+        router.push(`/pedidos/nuevo?clienteId=${clienteId}`)
+        break
+      case 'albaran':
+        router.push(`/albaranes/nuevo?clienteId=${clienteId}`)
+        break
+      case 'factura':
+        router.push(`/facturas/nuevo?clienteId=${clienteId}`)
+        break
+      case 'presupuesto':
+        router.push(`/presupuestos/nuevo?clienteId=${clienteId}`)
+        break
+      case 'parte':
+        router.push(`/partes/nuevo?clienteId=${clienteId}`)
+        break
+      case 'consulta-pedidos':
+        router.push(`/pedidos?clienteId=${clienteId}`)
+        break
+      case 'vencimientos':
+        router.push(`/vencimientos?clienteId=${clienteId}`)
+        break
+      default:
+        toast.info(`Acción "${action}" en desarrollo`)
+    }
+  }
+
+  // ============================================
   // GESTIÓN DE COLUMNAS
   // ============================================
 
   const toggleColumna = (key: string) => {
     if (columnasVisibles.includes(key)) {
-      // No permitir quitar todas las columnas
       if (columnasVisibles.length > 1) {
         setColumnasVisibles(columnasVisibles.filter(c => c !== key))
       }
@@ -497,12 +535,6 @@ export default function ClientesPage() {
           if (file.name.endsWith('.csv')) {
             const clientesImportados = await processImportFile(file)
             toast.info(`${clientesImportados.length} clientes listos para importar`)
-            
-            // TODO: Aquí deberías enviar los clientes al backend
-            // for (const cliente of clientesImportados) {
-            //   await clientesService.create(cliente as any)
-            // }
-            // cargarClientes()
           } else {
             toast.error('Por favor selecciona un archivo CSV')
           }
@@ -521,23 +553,23 @@ export default function ClientesPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4">
+      <div className="w-full space-y-4">
         {/* HEADER */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">Clientes</h1>
             <p className="text-sm text-muted-foreground">
               Gestiona tu cartera de clientes
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
               size="icon"
               onClick={() => setShowStats(!showStats)}
               title="Ver estadísticas"
             >
-              {showStats ? <Eye /> : <Users />}
+              {showStats ? <Eye className="h-4 w-4" /> : <Users className="h-4 w-4" />}
             </Button>
             <Button
               variant="outline"
@@ -550,7 +582,8 @@ export default function ClientesPage() {
             <Button asChild>
               <Link href="/clientes/nuevo">
                 <Plus className="mr-2 h-4 w-4" />
-                Nuevo Cliente
+                <span className="hidden sm:inline">Nuevo Cliente</span>
+                <span className="sm:hidden">Nuevo</span>
               </Link>
             </Button>
           </div>
@@ -617,9 +650,9 @@ export default function ClientesPage() {
         )}
 
         {/* BARRA DE HERRAMIENTAS */}
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex flex-1 gap-2 items-center w-full md:max-w-sm">
-            <Search className="h-4 w-4 text-muted-foreground" />
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div className="flex flex-1 gap-2 items-center w-full sm:max-w-md">
+            <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <Input
               placeholder="Buscar por nombre, NIF, email..."
               value={searchTerm}
@@ -628,7 +661,7 @@ export default function ClientesPage() {
             />
           </div>
 
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap w-full sm:w-auto">
             {/* Selector de columnas */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -677,8 +710,8 @@ export default function ClientesPage() {
 
         {/* ACCIONES EN LOTE */}
         {selectedClientes.length > 0 && (
-          <div className="flex gap-2 p-3 bg-muted rounded-lg">
-            <span className="text-sm text-muted-foreground mr-4">
+          <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-lg items-center">
+            <span className="text-sm text-muted-foreground mr-2">
               {selectedClientes.length} seleccionados
             </span>
             <Button
@@ -686,14 +719,14 @@ export default function ClientesPage() {
               size="sm"
               onClick={() => handleBulkAction('activate')}
             >
-              Activar ({selectedClientes.length})
+              Activar
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => handleBulkAction('deactivate')}
             >
-              Desactivar ({selectedClientes.length})
+              Desactivar
             </Button>
             <Button
               variant="outline"
@@ -701,7 +734,7 @@ export default function ClientesPage() {
               onClick={() => handleBulkAction('export')}
             >
               <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Exportar ({selectedClientes.length})
+              Exportar
             </Button>
             <Button
               variant="destructive"
@@ -709,19 +742,19 @@ export default function ClientesPage() {
               onClick={() => handleBulkAction('delete')}
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar ({selectedClientes.length})
+              Eliminar
             </Button>
           </div>
         )}
 
         {/* TABLA CON SCROLL HORIZONTAL */}
-        <Card>
-          <div className="overflow-x-auto relative">
-            <table className="w-full text-sm" style={{ minWidth: `${anchoMinimoTabla}px` }}>
+        <Card className="w-full">
+          <div className="w-full overflow-x-auto">
+            <table className="min-w-full text-sm border-collapse">
                 <thead>
                   {/* Headers con ordenamiento */}
                   <tr className="border-b bg-muted/30">
-                    <th className="sticky left-0 z-10 bg-background px-3 py-2 text-left w-12">
+                    <th className="sticky left-0 z-20 bg-muted/30 px-4 py-3 text-left w-12">
                       <Checkbox
                         checked={selectAll}
                         onCheckedChange={handleSelectAll}
@@ -729,10 +762,10 @@ export default function ClientesPage() {
                     </th>
                     
                     {columnasVisibles.includes('codigo') && (
-                      <th className="px-3 py-2 text-left">
+                      <th className="px-4 py-3 text-left min-w-[100px]">
                         <button
                           onClick={() => handleSort('codigo')}
-                          className="flex items-center hover:text-primary"
+                          className="flex items-center hover:text-primary text-sm font-medium whitespace-nowrap"
                         >
                           Código
                           {getSortIcon('codigo')}
@@ -741,10 +774,10 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('nombre') && (
-                      <th className="px-3 py-2 text-left">
+                      <th className="px-4 py-3 text-left min-w-[250px]">
                         <button
                           onClick={() => handleSort('nombre')}
-                          className="flex items-center hover:text-primary"
+                          className="flex items-center hover:text-primary text-sm font-medium whitespace-nowrap"
                         >
                           Nombre
                           {getSortIcon('nombre')}
@@ -753,10 +786,10 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('nif') && (
-                      <th className="px-3 py-2 text-left">
+                      <th className="px-4 py-3 text-left min-w-[120px]">
                         <button
                           onClick={() => handleSort('nif')}
-                          className="flex items-center hover:text-primary"
+                          className="flex items-center hover:text-primary text-sm font-medium whitespace-nowrap"
                         >
                           NIF/CIF
                           {getSortIcon('nif')}
@@ -765,18 +798,34 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('email') && (
-                      <th className="px-3 py-2 text-left">Email</th>
+                      <th className="px-4 py-3 text-left min-w-[220px]">
+                        <button
+                          onClick={() => handleSort('email')}
+                          className="flex items-center hover:text-primary text-sm font-medium whitespace-nowrap"
+                        >
+                          Email
+                          {getSortIcon('email')}
+                        </button>
+                      </th>
                     )}
                     
                     {columnasVisibles.includes('telefono') && (
-                      <th className="px-3 py-2 text-left">Teléfono</th>
+                      <th className="px-4 py-3 text-left min-w-[130px]">
+                        <button
+                          onClick={() => handleSort('telefono')}
+                          className="flex items-center hover:text-primary text-sm font-medium whitespace-nowrap"
+                        >
+                          Teléfono
+                          {getSortIcon('telefono')}
+                        </button>
+                      </th>
                     )}
                     
                     {columnasVisibles.includes('tipoCliente') && (
-                      <th className="px-3 py-2 text-left">
+                      <th className="px-4 py-3 text-left min-w-[120px]">
                         <button
                           onClick={() => handleSort('tipoCliente')}
-                          className="flex items-center hover:text-primary"
+                          className="flex items-center hover:text-primary text-sm font-medium whitespace-nowrap"
                         >
                           Tipo
                           {getSortIcon('tipoCliente')}
@@ -785,18 +834,28 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('direccion') && (
-                      <th className="px-3 py-2 text-left">Dirección</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap min-w-[250px]">
+                        Dirección
+                      </th>
                     )}
                     
                     {columnasVisibles.includes('formaPago') && (
-                      <th className="px-3 py-2 text-left">Forma Pago</th>
+                      <th className="px-4 py-3 text-left min-w-[140px]">
+                        <button
+                          onClick={() => handleSort('formaPago')}
+                          className="flex items-center hover:text-primary text-sm font-medium whitespace-nowrap"
+                        >
+                          Forma Pago
+                          {getSortIcon('formaPago')}
+                        </button>
+                      </th>
                     )}
                     
                     {columnasVisibles.includes('riesgoActual') && (
-                      <th className="px-3 py-2 text-right">
+                      <th className="px-4 py-3 text-right min-w-[120px]">
                         <button
                           onClick={() => handleSort('riesgoActual')}
-                          className="flex items-center justify-end w-full hover:text-primary"
+                          className="flex items-center justify-end w-full hover:text-primary text-sm font-medium whitespace-nowrap"
                         >
                           Riesgo
                           {getSortIcon('riesgoActual')}
@@ -805,10 +864,10 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('limiteCredito') && (
-                      <th className="px-3 py-2 text-right">
+                      <th className="px-4 py-3 text-right min-w-[120px]">
                         <button
                           onClick={() => handleSort('limiteCredito')}
-                          className="flex items-center justify-end w-full hover:text-primary"
+                          className="flex items-center justify-end w-full hover:text-primary text-sm font-medium whitespace-nowrap"
                         >
                           Límite
                           {getSortIcon('limiteCredito')}
@@ -817,10 +876,10 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('activo') && (
-                      <th className="px-3 py-2 text-left">
+                      <th className="px-4 py-3 text-left min-w-[100px]">
                         <button
                           onClick={() => handleSort('activo')}
-                          className="flex items-center hover:text-primary"
+                          className="flex items-center hover:text-primary text-sm font-medium whitespace-nowrap"
                         >
                           Estado
                           {getSortIcon('activo')}
@@ -828,20 +887,20 @@ export default function ClientesPage() {
                       </th>
                     )}
                     
-                    <th className="sticky right-0 z-10 bg-background px-3 py-2 text-right w-16">
+                    <th className="sticky right-0 z-20 bg-muted/30 px-4 py-3 text-right min-w-[80px] text-sm font-medium whitespace-nowrap">
                       Acciones
                     </th>
                   </tr>
 
                   {/* Fila de filtros por columna */}
                   <tr className="border-b bg-muted/10">
-                    <th className="sticky left-0 z-10 bg-background px-3 py-1"></th>
+                    <th className="sticky left-0 z-20 bg-muted/10 px-4 py-2"></th>
                     
                     {columnasVisibles.includes('codigo') && (
-                      <th className="px-3 py-1">
+                      <th className="px-4 py-2">
                         <Input
                           placeholder="Filtrar..."
-                          className="h-7 text-xs"
+                          className="h-8 text-sm"
                           value={columnFiltersInput.codigo || ''}
                           onChange={(e) => handleColumnFilterInput('codigo', e.target.value)}
                         />
@@ -849,10 +908,10 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('nombre') && (
-                      <th className="px-3 py-1">
+                      <th className="px-4 py-2">
                         <Input
                           placeholder="Filtrar..."
-                          className="h-7 text-xs"
+                          className="h-8 text-sm"
                           value={columnFiltersInput.nombre || ''}
                           onChange={(e) => handleColumnFilterInput('nombre', e.target.value)}
                         />
@@ -860,10 +919,10 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('nif') && (
-                      <th className="px-3 py-1">
+                      <th className="px-4 py-2">
                         <Input
                           placeholder="Filtrar..."
-                          className="h-7 text-xs"
+                          className="h-8 text-sm"
                           value={columnFiltersInput.nif || ''}
                           onChange={(e) => handleColumnFilterInput('nif', e.target.value)}
                         />
@@ -871,10 +930,10 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('email') && (
-                      <th className="px-3 py-1">
+                      <th className="px-4 py-2">
                         <Input
                           placeholder="Filtrar..."
-                          className="h-7 text-xs"
+                          className="h-8 text-sm"
                           value={columnFiltersInput.email || ''}
                           onChange={(e) => handleColumnFilterInput('email', e.target.value)}
                         />
@@ -882,10 +941,10 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('telefono') && (
-                      <th className="px-3 py-1">
+                      <th className="px-4 py-2">
                         <Input
                           placeholder="Filtrar..."
-                          className="h-7 text-xs"
+                          className="h-8 text-sm"
                           value={columnFiltersInput.telefono || ''}
                           onChange={(e) => handleColumnFilterInput('telefono', e.target.value)}
                         />
@@ -893,15 +952,15 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('tipoCliente') && (
-                      <th className="px-3 py-1">
+                      <th className="px-4 py-2">
                         <Select
                           value={columnFiltersInput.tipoCliente || 'all'}
                           onValueChange={(value) => 
-                            handleColumnFilterInput('tipoCliente', value === 'all' ? '' : value)
+                            handleColumnFilterInput('tipoCliente', value)
                           }
                         >
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue />
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Todos" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todos</SelectItem>
@@ -913,19 +972,26 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('direccion') && (
-                      <th className="px-3 py-1"></th>
+                      <th className="px-4 py-2">
+                        <Input
+                          placeholder="Filtrar..."
+                          className="h-8 text-sm"
+                          value={columnFiltersInput.direccion || ''}
+                          onChange={(e) => handleColumnFilterInput('direccion', e.target.value)}
+                        />
+                      </th>
                     )}
                     
                     {columnasVisibles.includes('formaPago') && (
-                      <th className="px-3 py-1">
+                      <th className="px-4 py-2">
                         <Select
                           value={columnFiltersInput.formaPago || 'all'}
                           onValueChange={(value) => 
-                            handleColumnFilterInput('formaPago', value === 'all' ? '' : value)
+                            handleColumnFilterInput('formaPago', value)
                           }
                         >
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue />
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Todos" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todos</SelectItem>
@@ -940,23 +1006,37 @@ export default function ClientesPage() {
                     )}
                     
                     {columnasVisibles.includes('riesgoActual') && (
-                      <th className="px-3 py-1"></th>
+                      <th className="px-4 py-2">
+                        <Input
+                          placeholder="Filtrar..."
+                          className="h-8 text-sm"
+                          value={columnFiltersInput.riesgoActual || ''}
+                          onChange={(e) => handleColumnFilterInput('riesgoActual', e.target.value)}
+                        />
+                      </th>
                     )}
                     
                     {columnasVisibles.includes('limiteCredito') && (
-                      <th className="px-3 py-1"></th>
+                      <th className="px-4 py-2">
+                        <Input
+                          placeholder="Filtrar..."
+                          className="h-8 text-sm"
+                          value={columnFiltersInput.limiteCredito || ''}
+                          onChange={(e) => handleColumnFilterInput('limiteCredito', e.target.value)}
+                        />
+                      </th>
                     )}
                     
                     {columnasVisibles.includes('activo') && (
-                      <th className="px-3 py-1">
+                      <th className="px-4 py-2">
                         <Select
-                          value={columnFiltersInput.activo || 'all'}
+                          value={columnFiltersInput.activo || (filters.activo === true ? 'true' : filters.activo === false ? 'false' : 'all')}
                           onValueChange={(value) => 
-                            handleColumnFilterInput('activo', value === 'all' ? '' : value)
+                            handleColumnFilterInput('activo', value)
                           }
                         >
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue />
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Activos" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todos</SelectItem>
@@ -967,20 +1047,20 @@ export default function ClientesPage() {
                       </th>
                     )}
                     
-                    <th className="sticky right-0 z-10 bg-background px-3 py-1"></th>
+                    <th className="sticky right-0 z-20 bg-muted/10 px-4 py-2"></th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={columnasVisibles.length + 2} className="px-3 py-8 text-center text-sm">
+                      <td colSpan={columnasVisibles.length + 2} className="px-2 py-8 text-center text-sm">
                         Cargando clientes...
                       </td>
                     </tr>
                   ) : clientes.length === 0 ? (
                     <tr>
-                      <td colSpan={columnasVisibles.length + 2} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                      <td colSpan={columnasVisibles.length + 2} className="px-2 py-8 text-center text-sm text-muted-foreground">
                         No se encontraron clientes
                       </td>
                     </tr>
@@ -990,7 +1070,7 @@ export default function ClientesPage() {
                         key={cliente._id}
                         className="border-b hover:bg-muted/50 transition-colors"
                       >
-                        <td className="sticky left-0 z-10 bg-background px-3 py-2">
+                        <td className="sticky left-0 z-10 bg-background px-2 py-2">
                           <Checkbox
                             checked={selectedClientes.includes(cliente._id)}
                             onCheckedChange={() => handleSelectCliente(cliente._id)}
@@ -998,15 +1078,15 @@ export default function ClientesPage() {
                         </td>
                         
                         {columnasVisibles.includes('codigo') && (
-                          <td className="px-3 py-2 font-medium">{cliente.codigo}</td>
+                          <td className="px-2 py-2 font-medium text-xs whitespace-nowrap">{cliente.codigo}</td>
                         )}
                         
                         {columnasVisibles.includes('nombre') && (
-                          <td className="px-3 py-2">
-                            <div>
+                          <td className="px-2 py-2 text-xs whitespace-nowrap">
+                            <div className="max-w-[200px] truncate">
                               <p className="font-medium">{cliente.nombre}</p>
                               {cliente.nombreComercial && (
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-muted-foreground text-[10px]">
                                   {cliente.nombreComercial}
                                 </p>
                               )}
@@ -1015,13 +1095,13 @@ export default function ClientesPage() {
                         )}
                         
                         {columnasVisibles.includes('nif') && (
-                          <td className="px-3 py-2">{cliente.nif}</td>
+                          <td className="px-2 py-2 text-xs whitespace-nowrap">{cliente.nif}</td>
                         )}
                         
                         {columnasVisibles.includes('email') && (
-                          <td className="px-3 py-2">
+                          <td className="px-2 py-2 text-xs whitespace-nowrap">
                             {cliente.email && (
-                              <a href={`mailto:${cliente.email}`} className="text-primary hover:underline">
+                              <a href={`mailto:${cliente.email}`} className="text-primary hover:underline max-w-[180px] truncate block">
                                 {cliente.email}
                               </a>
                             )}
@@ -1029,7 +1109,7 @@ export default function ClientesPage() {
                         )}
                         
                         {columnasVisibles.includes('telefono') && (
-                          <td className="px-3 py-2">
+                          <td className="px-2 py-2 text-xs whitespace-nowrap">
                             {cliente.telefono && (
                               <a href={`tel:${cliente.telefono}`} className="hover:underline">
                                 {cliente.telefono}
@@ -1039,18 +1119,18 @@ export default function ClientesPage() {
                         )}
                         
                         {columnasVisibles.includes('tipoCliente') && (
-                          <td className="px-3 py-2">
-                            <Badge variant="outline">
+                          <td className="px-2 py-2 text-xs whitespace-nowrap">
+                            <Badge variant="outline" className="text-xs">
                               {cliente.tipoCliente === 'empresa' ? 'Empresa' : 'Particular'}
                             </Badge>
                           </td>
                         )}
                         
                         {columnasVisibles.includes('direccion') && (
-                          <td className="px-3 py-2">
-                            <div className="text-xs">
+                          <td className="px-2 py-2 text-xs whitespace-nowrap">
+                            <div className="max-w-[220px] truncate">
                               <p>{cliente.direccion?.calle}</p>
-                              <p className="text-muted-foreground">
+                              <p className="text-muted-foreground text-[10px]">
                                 {cliente.direccion?.codigoPostal} {cliente.direccion?.ciudad}
                               </p>
                             </div>
@@ -1058,19 +1138,17 @@ export default function ClientesPage() {
                         )}
                         
                         {columnasVisibles.includes('formaPago') && (
-                          <td className="px-3 py-2">
-                            <span className="text-xs">
-                              {cliente.formaPago === 'contado' && 'Contado'}
-                              {cliente.formaPago === 'transferencia' && 'Transferencia'}
-                              {cliente.formaPago === 'domiciliacion' && 'Domiciliación'}
-                              {cliente.formaPago === 'confirming' && 'Confirming'}
-                              {cliente.formaPago === 'pagare' && 'Pagaré'}
-                            </span>
+                          <td className="px-2 py-2 text-xs whitespace-nowrap">
+                            {cliente.formaPago === 'contado' && 'Contado'}
+                            {cliente.formaPago === 'transferencia' && 'Transferencia'}
+                            {cliente.formaPago === 'domiciliacion' && 'Domiciliación'}
+                            {cliente.formaPago === 'confirming' && 'Confirming'}
+                            {cliente.formaPago === 'pagare' && 'Pagaré'}
                           </td>
                         )}
                         
                         {columnasVisibles.includes('riesgoActual') && (
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-2 py-2 text-right text-xs whitespace-nowrap">
                             <span className={`font-medium ${
                               cliente.limiteCredito && (cliente.riesgoActual || 0) > cliente.limiteCredito 
                                 ? 'text-red-500' 
@@ -1085,7 +1163,7 @@ export default function ClientesPage() {
                         )}
                         
                         {columnasVisibles.includes('limiteCredito') && (
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-2 py-2 text-right text-xs whitespace-nowrap">
                             {cliente.limiteCredito ? (
                               <span>
                                 {cliente.limiteCredito.toLocaleString('es-ES', {
@@ -1100,41 +1178,71 @@ export default function ClientesPage() {
                         )}
                         
                         {columnasVisibles.includes('activo') && (
-                          <td className="px-3 py-2">
-                            <Badge variant={cliente.activo ? 'success' : 'secondary'}>
+                          <td className="px-2 py-2 text-xs whitespace-nowrap">
+                            <Badge variant={cliente.activo ? 'default' : 'secondary'} className="text-xs">
                               {cliente.activo ? 'Activo' : 'Inactivo'}
                             </Badge>
                           </td>
                         )}
                         
-                        <td className="sticky right-0 z-10 bg-background px-3 py-2 text-right">
+                        <td className="sticky right-0 z-10 bg-background px-2 py-2 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link href={`/clientes/${cliente._id}`}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Ver detalles
-                                </Link>
+                            <DropdownMenuContent align="end" className="w-56">
+                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'view')}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                Ver detalle
                               </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/clientes/${cliente._id}/editar`}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Editar
-                                </Link>
+                              <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'edit')}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Editar
                               </DropdownMenuItem>
+                              
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>Crear Documento</DropdownMenuLabel>
+                              
+                              <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'presupuesto')}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                Presupuesto
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'pedido')}>
+                                <Package className="mr-2 h-4 w-4" />
+                                Pedido
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'albaran')}>
+                                <Truck className="mr-2 h-4 w-4" />
+                                Albarán
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'factura')}>
+                                <Receipt className="mr-2 h-4 w-4" />
+                                Factura
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'parte')}>
+                                <Wrench className="mr-2 h-4 w-4" />
+                                Parte de Trabajo
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>Consultas</DropdownMenuLabel>
+                              
+                              <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'consulta-pedidos')}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                Ver Pedidos
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'vencimientos')}>
+                                <Calendar className="mr-2 h-4 w-4" />
+                                Vencimientos
+                              </DropdownMenuItem>
+                              
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive"
-                                onClick={() => setDeleteDialog({
-                                  open: true,
-                                  clienteIds: [cliente._id],
-                                  clienteNombres: [cliente.nombre],
-                                })}
+                                onClick={() => handleClientAction(cliente._id, 'delete')}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Eliminar
@@ -1152,13 +1260,13 @@ export default function ClientesPage() {
 
         {/* PAGINACIÓN */}
         {pagination.pages > 1 && (
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
               Mostrando {((pagination.page - 1) * pagination.limit) + 1} a{' '}
               {Math.min(pagination.page * pagination.limit, pagination.total)} de{' '}
               {pagination.total} clientes
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"

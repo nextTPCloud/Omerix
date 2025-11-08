@@ -48,8 +48,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           isOpen={isMobileMenuOpen}
           onClose={() => setIsMobileMenuOpen(false)}
         />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 lg:ml-64">
-          {children}
+        {/* ✅ Optimizado: Menos padding y mejor uso del espacio */}
+        <main className="flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 lg:ml-64">
+          <div className="w-full max-w-full">
+            {children}
+          </div>
         </main>
       </div>
     </div>
