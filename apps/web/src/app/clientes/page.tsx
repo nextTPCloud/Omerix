@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef  } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -129,10 +129,7 @@ const DEFAULT_CLIENTES_CONFIG = {
   columnFilters: {},
   paginacion: {
     limit: 25 as const,
-  },
-  filtrosAdicionales: {
-    activo: true, // Por defecto mostrar solo activos
-  },
+  }
 }
 
 // ============================================
@@ -141,6 +138,10 @@ const DEFAULT_CLIENTES_CONFIG = {
 
 export default function ClientesPage() {
   const router = useRouter()
+  const isInitialLoad = useRef(true)
+  const prevColumnasRef = useRef<string>('')
+  const prevSortRef = useRef<string>('')      // ← NUEVO
+  const prevLimitRef = useRef<number>(25)     // ← NUEVO
 
   // Estados de datos
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -334,22 +335,77 @@ const {
   // ============================================
 
   useEffect(() => {
-    if (!moduleConfig || !isLoadingConfig) {
-      // Aplicar configuración guardada a los filtros de la API
+    if (!moduleConfig || isLoadingConfig) return
+
+    // Crear firmas para detectar cambios
+    const columnasSignature = JSON.stringify(
+      moduleConfig.columnas.map(c => ({ 
+        key: c.key, 
+        visible: c.visible, 
+        orden: c.orden 
+      }))
+    )
+
+    const currentSort = `${moduleConfig.sortConfig?.key || 'createdAt'}-${moduleConfig.sortConfig?.direction || 'desc'}`
+    const currentLimit = moduleConfig.paginacion?.limit || 25
+
+    if (isInitialLoad.current) {
+      // ============================================
+      // CARGA INICIAL: Aplicar TODO
+      // ============================================
+      console.log('🔄 Carga inicial - Aplicando configuración guardada')
+      
       setFilters((prev) => ({
         ...prev,
-        sortBy: sortConfig.key,
-        sortOrder: sortConfig.direction,
-        limit: moduleConfig?.paginacion?.limit || 25,
-        ...moduleConfig?.filtrosAdicionales,
+        sortBy: moduleConfig.sortConfig?.key || 'createdAt',
+        sortOrder: moduleConfig.sortConfig?.direction || 'desc',
+        limit: moduleConfig.paginacion?.limit || 25,
       }))
 
-      // Aplicar filtros de columna guardados
-      if (moduleConfig?.columnFilters) {
+      if (moduleConfig?.columnFilters && Object.keys(moduleConfig.columnFilters).length > 0) {
         setColumnFiltersInput(moduleConfig.columnFilters as any)
+      } else {
+        setColumnFiltersInput({ activo: 'true' })
       }
+
+      // Guardar valores iniciales
+      isInitialLoad.current = false
+      prevColumnasRef.current = columnasSignature
+      prevSortRef.current = currentSort
+      prevLimitRef.current = currentLimit
+      
+    } else if (prevColumnasRef.current !== columnasSignature) {
+      // ============================================
+      // SOLO CAMBIARON COLUMNAS: NO tocar nada
+      // ============================================
+      console.log('🔄 Solo cambiaron columnas - Manteniendo filtros actuales')
+      prevColumnasRef.current = columnasSignature
+      // NO tocar filters ni columnFiltersInput
+      
+    } else if (prevSortRef.current !== currentSort || prevLimitRef.current !== currentLimit) {
+      // ============================================
+      // CAMBIÓ SORT O LIMIT: Actualizar solo eso
+      // ============================================
+      console.log('🔄 Cambió sort/limit - Actualizando')
+      
+      setFilters((prev) => ({
+        ...prev,
+        sortBy: moduleConfig.sortConfig?.key || 'createdAt',
+        sortOrder: moduleConfig.sortConfig?.direction || 'desc',
+        limit: moduleConfig.paginacion?.limit || 25,
+      }))
+
+      prevSortRef.current = currentSort
+      prevLimitRef.current = currentLimit
+      
+    } else {
+      // ============================================
+      // SOLO CAMBIARON FILTROS DE COLUMNA: NO hacer nada
+      // ============================================
+      console.log('🔄 Solo cambiaron columnFilters guardados - Ignorando')
     }
-  }, [moduleConfig, isLoadingConfig]) // Solo cuando se cargue la config
+  }, [moduleConfig, isLoadingConfig]) // ← IMPORTANTE: Solo estas dos dependencias  
+
 
   // ============================================
   // MANEJADORES DE EVENTOS
@@ -439,7 +495,7 @@ const {
         }
       } else if (key === 'activo') {
         if (value !== 'all') {
-          combinedFilters.activo = value === 'true'
+          combinedFilters.activo = value === 'true'  // ✅ Esto debe estar así
         }
       }
     })
@@ -1146,7 +1202,7 @@ const {
                     {columnasVisibles.includes('activo') && (
                       <th className="px-4 py-2">
                         <Select
-                          value={columnFiltersInput.activo || (filters.activo === true ? 'true' : filters.activo === false ? 'false' : 'all')}
+                          value={columnFiltersInput.activo || 'all'}
                           onValueChange={(value) => 
                             handleColumnFilterInput('activo', value)
                           }
@@ -1162,7 +1218,6 @@ const {
                         </Select>
                       </th>
                     )}
-                    
                     <th className="sticky right-0 z-20 bg-muted/10 px-4 py-2"></th>
                   </tr>
                 </thead>
