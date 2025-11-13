@@ -34,6 +34,7 @@ export interface IModuleConfig {
     limit: 10 | 25 | 50 | 100; // Límite de registros por página
   };
   filtrosAdicionales?: any; // Filtros específicos del módulo (ej: activo: true)
+  densidad?: 'compact' | 'normal' | 'comfortable'; // 🆕 Densidad de la tabla
 }
 
 // Documento principal
@@ -130,6 +131,11 @@ const ModuleConfigSchema = new Schema<IModuleConfig>(
     filtrosAdicionales: {
       type: Schema.Types.Mixed,
       default: {},
+    },
+    densidad: {
+      type: String,
+      enum: ['compact', 'normal', 'comfortable'],
+      default: 'normal',
     },
   },
   { _id: false }

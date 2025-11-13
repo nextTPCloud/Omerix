@@ -18,6 +18,8 @@ import pagosRoutes from './modules/pagos/pagos.routes'; // ← AÑADIR
 import clientesRoutes from './modules/clientes/clientes.routes'; 
 import productosRoutes from './modules/productos/productos.routes';
 import configuracionUsuarioRoutes from './modules/configuracion-usuario/configuracion-usuario.routes';
+import vistas from './modules/vistasGuardadas/vistas-guardadas.routes';
+import exportRoutes from './modules/export/export.routes';
 
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
@@ -191,6 +193,8 @@ app.use('/api/clientes', clientesRoutes); // ← AÑADIR
 app.use('/api/productos', productosRoutes);
 app.use('/api/pagos', pagosRoutes); // ← AÑADIR
 app.use('/api/configuraciones', configuracionUsuarioRoutes);
+app.use('/api/vistas-guardadas',vistas)
+app.use('/api/export', exportRoutes)
 
 // ============================================
 // MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS

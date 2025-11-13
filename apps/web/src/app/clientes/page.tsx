@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { clientesService } from '@/services/clientes.service'
+import vistasService from '@/services/vistas-guardadas.service'
 import {
   Cliente,
   ClientesFilters,
@@ -44,7 +45,6 @@ import {
   ArrowUpDown,
   Plus,
   Search,
-  Download,
   Upload,
   Edit,
   Eye,
@@ -70,6 +70,11 @@ import { toast } from 'sonner'
 import { exportClientesToCSV, processImportFile } from '@/utils/excel.utils'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
 import { ColumnaConfig } from '@/services/configuracion.service'
+
+// 🆕 NUEVOS IMPORTS
+import { DensitySelector, useDensityClasses } from '@/components/ui/DensitySelector'
+import { VistasGuardadasManager } from '@/components/ui/VistasGuardadasManager'
+import { ExportButton } from '@/components/ui/ExportButton'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -127,7 +132,8 @@ const DEFAULT_CLIENTES_CONFIG = {
   },
   paginacion: {
     limit: 25 as const,
-  }
+  },
+  densidad: 'normal' as const,
 }
 
 // ============================================
@@ -207,6 +213,8 @@ const {
   isLoading: isLoadingConfig,
   updateColumnas,
   updateSortConfig,
+  updateColumnFilters,
+  updateDensidad,
   resetConfig,
 } = useModuleConfig('clientes', DEFAULT_CLIENTES_CONFIG, {
   autoSave: true,
@@ -232,6 +240,13 @@ const {
   const currentSortKey = useMemo(() => sortConfig.key, [sortConfig.key])
   const currentSortDirection = useMemo(() => sortConfig.direction, [sortConfig.direction])
   const currentLimit = useMemo(() => moduleConfig?.paginacion?.limit || 25, [moduleConfig?.paginacion?.limit])
+
+  // 🆕 DENSIDAD Y CLASES
+  const densidad = useMemo(() => {
+    return moduleConfig?.densidad || 'normal'
+  }, [moduleConfig])
+
+  const densityClasses = useDensityClasses(densidad)
 
   // ============================================
   // ESTADÍSTICAS CALCULADAS
@@ -374,6 +389,58 @@ const {
     isInitialLoad.current = false
     
   }, [moduleConfig, isLoadingConfig])
+
+  // ============================================
+  // 🆕 HANDLERS PARA VISTAS GUARDADAS
+  // ============================================
+
+  const handleAplicarVista = useCallback((configuracion: any) => {
+    console.log('📄 Aplicando vista guardada:', configuracion)
+    
+    // Aplicar todas las propiedades de la configuración
+    if (configuracion.columnas) {
+      updateColumnas(configuracion.columnas)
+    }
+    
+    if (configuracion.sortConfig) {
+      updateSortConfig(configuracion.sortConfig)
+    }
+    
+    if (configuracion.columnFilters) {
+      setColumnFiltersInput(configuracion.columnFilters as any)
+    }
+    
+    if (configuracion.densidad) {
+      updateDensidad(configuracion.densidad)
+    }
+    
+    if (configuracion.paginacion?.limit) {
+      // Actualizar límite de paginación si es necesario
+      setFilters(prev => ({ ...prev, limit: configuracion.paginacion.limit }))
+    }
+    
+    toast.success('Vista aplicada correctamente')
+  }, [updateColumnas, updateSortConfig, updateDensidad])
+
+  const handleGuardarVista = useCallback(async (nombre: string, descripcion?: string) => {
+    try {
+      console.log('💾 Guardando vista:', { nombre, descripcion, config: moduleConfig })
+      
+      await vistasService.create({
+        modulo: 'clientes',
+        nombre,
+        descripcion,
+        configuracion: moduleConfig,
+        esDefault: false,
+      })
+      
+      toast.success(`Vista "${nombre}" guardada correctamente`)
+    } catch (error) {
+      console.error('Error al guardar vista:', error)
+      toast.error('Error al guardar la vista')
+      throw error
+    }
+  }, [moduleConfig])
 
   // ============================================
   // MANEJADORES DE EVENTOS
@@ -750,6 +817,16 @@ const {
           </div>
 
           <div className="flex gap-2 flex-wrap w-full sm:w-auto">
+            {/* 🆕 SELECTOR DE DENSIDAD */}
+            <DensitySelector
+              value={densidad}
+              onChange={(newDensity) => {
+                updateDensidad(newDensity)
+                toast.success(`Densidad cambiada a ${newDensity}`)
+              }}
+            />
+
+            {/* SELECTOR DE COLUMNAS */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -757,7 +834,7 @@ const {
                   Columnas
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuLabel>Columnas visibles</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {columnasDisponibles.map((columna) => (
@@ -772,6 +849,15 @@ const {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* GESTOR DE VISTAS GUARDADAS */}
+            <VistasGuardadasManager
+              modulo="clientes"
+              configuracionActual={moduleConfig}
+              onAplicarVista={handleAplicarVista}
+              onGuardarVista={handleGuardarVista}
+            />
+
+            {/* RESTABLECER */}
             <Button
               variant="outline"
               size="sm"
@@ -784,22 +870,31 @@ const {
               Restablecer
             </Button>
 
+            {/* IMPORTAR */}
             <Button variant="outline" size="sm" onClick={handleImport}>
               <Upload className="mr-2 h-4 w-4" />
               Importar
             </Button>
             
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                exportClientesToCSV(clientes)
-                toast.success('Clientes exportados')
-              }}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Exportar
-            </Button>
+            {/* EXPORTACIÓN */}
+            <ExportButton
+              data={clientes}
+              columns={columnasDisponibles
+                .filter((col) => columnasVisibles.includes(col.key))
+                .map((col) => ({
+                  key: col.key,
+                  label: col.label,
+                }))}
+              filename="clientes"
+              stats={[
+                { label: 'Total', value: stats.total },
+                { label: 'Activos', value: stats.activos },
+                { label: 'Inactivos', value: stats.inactivos },
+                { label: 'Empresas', value: stats.empresas },
+                { label: 'Particulares', value: stats.particulares },
+                { label: 'Con Riesgo', value: stats.conRiesgo },
+              ]}
+            />
           </div>
         </div>
 
@@ -829,14 +924,14 @@ const {
           </Card>
         )}
 
-        {/* TABLA PROFESIONAL */}
+        {/* TABLA PROFESIONAL CON DENSIDAD */}
         <Card className="overflow-hidden">
           <div className="w-full overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                {/* Headers */}
+                {/* ✅ HEADERS - SOLO TÍTULOS Y SORT */}
                 <tr className="border-b bg-muted/50">
-                  <th className="sticky left-0 z-30 bg-muted/50 backdrop-blur-sm px-3 py-2.5 text-left w-10">
+                  <th className={`${densityClasses.header} sticky left-0 z-30 bg-muted/50 backdrop-blur-sm text-left w-10`}>
                     <div className="flex items-center justify-center">
                       <Checkbox
                         checked={selectAll}
@@ -846,7 +941,7 @@ const {
                   </th>
                   
                   {columnasVisibles.includes('codigo') && (
-                    <th className="px-3 py-2.5 text-left min-w-[90px]">
+                    <th className={`${densityClasses.header} text-left w-[100px]`}>
                       <button
                         onClick={() => handleSort('codigo')}
                         className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -858,7 +953,7 @@ const {
                   )}
                   
                   {columnasVisibles.includes('nombre') && (
-                    <th className="px-3 py-2.5 text-left min-w-[180px]">
+                    <th className={`${densityClasses.header} text-left w-[220px]`}>
                       <button
                         onClick={() => handleSort('nombre')}
                         className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -870,7 +965,7 @@ const {
                   )}
 
                   {columnasVisibles.includes('nombreComercial') && (
-                    <th className="px-3 py-2.5 text-left min-w-[180px]">
+                    <th className={`${densityClasses.header} text-left w-[200px]`}>
                       <button
                         onClick={() => handleSort('nombreComercial')}
                         className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -882,7 +977,7 @@ const {
                   )}
                   
                   {columnasVisibles.includes('nif') && (
-                    <th className="px-3 py-2.5 text-left min-w-[110px]">
+                    <th className={`${densityClasses.header} text-left w-[120px]`}>
                       <button
                         onClick={() => handleSort('nif')}
                         className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -894,7 +989,7 @@ const {
                   )}
                   
                   {columnasVisibles.includes('email') && (
-                    <th className="px-3 py-2.5 text-left min-w-[200px]">
+                    <th className={`${densityClasses.header} text-left w-[240px]`}>
                       <button
                         onClick={() => handleSort('email')}
                         className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -906,7 +1001,7 @@ const {
                   )}
                   
                   {columnasVisibles.includes('telefono') && (
-                    <th className="px-3 py-2.5 text-left min-w-[120px]">
+                    <th className={`${densityClasses.header} text-left w-[140px]`}>
                       <button
                         onClick={() => handleSort('telefono')}
                         className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -918,7 +1013,7 @@ const {
                   )}
                   
                   {columnasVisibles.includes('tipoCliente') && (
-                    <th className="px-3 py-2.5 text-left min-w-[110px]">
+                    <th className={`${densityClasses.header} text-left min-w-[110px]`}>
                       <button
                         onClick={() => handleSort('tipoCliente')}
                         className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -930,13 +1025,13 @@ const {
                   )}
                   
                   {columnasVisibles.includes('direccion') && (
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider min-w-[200px]">
+                    <th className={`${densityClasses.header} text-left text-xs font-semibold uppercase tracking-wider min-w-[200px]`}>
                       Dirección
                     </th>
                   )}
                   
                   {columnasVisibles.includes('formaPago') && (
-                    <th className="px-3 py-2.5 text-left min-w-[130px]">
+                    <th className={`${densityClasses.header} text-left min-w-[130px]`}>
                       <button
                         onClick={() => handleSort('formaPago')}
                         className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -948,7 +1043,7 @@ const {
                   )}
                   
                   {columnasVisibles.includes('riesgoActual') && (
-                    <th className="px-3 py-2.5 text-right min-w-[110px]">
+                    <th className={`${densityClasses.header} text-right min-w-[110px]`}>
                       <button
                         onClick={() => handleSort('riesgoActual')}
                         className="flex items-center justify-end w-full hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -960,7 +1055,7 @@ const {
                   )}
                   
                   {columnasVisibles.includes('limiteCredito') && (
-                    <th className="px-3 py-2.5 text-right min-w-[110px]">
+                    <th className={`${densityClasses.header} text-right min-w-[110px]`}>
                       <button
                         onClick={() => handleSort('limiteCredito')}
                         className="flex items-center justify-end w-full hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -972,7 +1067,7 @@ const {
                   )}
                   
                   {columnasVisibles.includes('activo') && (
-                    <th className="px-3 py-2.5 text-left min-w-[90px]">
+                    <th className={`${densityClasses.header} text-left min-w-[90px]`}>
                       <button
                         onClick={() => handleSort('activo')}
                         className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
@@ -983,12 +1078,12 @@ const {
                     </th>
                   )}
                   
-                  <th className="sticky right-0 z-30 bg-muted/50 backdrop-blur-sm px-3 py-2.5 text-right min-w-[70px] text-xs font-semibold uppercase tracking-wider">
+                  <th className={`${densityClasses.header} sticky right-0 z-30 bg-muted/50 backdrop-blur-sm text-right min-w-[70px] text-xs font-semibold uppercase tracking-wider`}>
                     Acciones
                   </th>
                 </tr>
 
-                {/* Fila de filtros */}
+                {/* ✅ FILTROS - SOLO INPUTS Y SELECTS */}
                 <tr className="border-b bg-background">
                   <th className="sticky left-0 z-30 bg-background backdrop-blur-sm px-3 py-1.5"></th>
                   
@@ -1064,8 +1159,8 @@ const {
                         value={columnFiltersInput.tipoCliente || 'all'}
                         onValueChange={(value) => handleColumnFilterInput('tipoCliente', value)}
                       >
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
+                        <SelectTrigger className="h-7 text-xs flex items-center">
+                          <SelectValue placeholder="Todos" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todos</SelectItem>
@@ -1093,8 +1188,8 @@ const {
                         value={columnFiltersInput.formaPago || 'all'}
                         onValueChange={(value) => handleColumnFilterInput('formaPago', value)}
                       >
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
+                        <SelectTrigger className="h-7 text-xs flex items-center">
+                          <SelectValue placeholder="Todos" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todos</SelectItem>
@@ -1136,8 +1231,8 @@ const {
                         value={columnFiltersInput.activo || 'all'}
                         onValueChange={(value) => handleColumnFilterInput('activo', value)}
                       >
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue />
+                        <SelectTrigger className="h-7 text-xs flex items-center">
+                          <SelectValue placeholder="Todos" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todos</SelectItem>
@@ -1169,12 +1264,12 @@ const {
                     </td>
                   </tr>
                 ) : (
-                  clientes.map((cliente, index) => (
+                  clientes.map((cliente) => (
                     <tr
                       key={cliente._id}
                       className="hover:bg-muted/30 transition-colors group"
                     >
-                      <td className="sticky left-0 z-20 bg-background group-hover:bg-muted/30 transition-colors px-3 py-2">
+                      <td className={`${densityClasses.cell} sticky left-0 z-20 bg-background group-hover:bg-muted/30 transition-colors`}>
                         <div className="flex items-center justify-center">
                           <Checkbox
                             checked={selectedClientes.includes(cliente._id)}
@@ -1184,25 +1279,37 @@ const {
                       </td>
                       
                       {columnasVisibles.includes('codigo') && (
-                        <td className="px-3 py-2 font-mono text-xs font-medium">{cliente.codigo}</td>
+                        <td className={`${densityClasses.cell} font-mono ${densityClasses.text} font-medium`}>{cliente.codigo}</td>
                       )}
                       
                       {columnasVisibles.includes('nombre') && (
-                        <td className="px-3 py-2 text-xs font-medium">{cliente.nombre}</td>
+                        <td className={`${densityClasses.cell} ${densityClasses.text} font-medium`}>
+                          <div className="max-w-[220px] truncate" title={cliente.nombre}>
+                            {cliente.nombre}
+                          </div>
+                        </td>
                       )}
 
                       {columnasVisibles.includes('nombreComercial') && (
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{cliente.nombreComercial || '-'}</td>
+                        <td className={`${densityClasses.cell} ${densityClasses.text} text-muted-foreground`}>
+                          <div className="max-w-[200px] truncate" title={cliente.nombreComercial || ''}>
+                            {cliente.nombreComercial || '-'}
+                          </div>
+                        </td>
                       )}
                       
                       {columnasVisibles.includes('nif') && (
-                        <td className="px-3 py-2 text-xs font-mono">{cliente.nif}</td>
+                        <td className={`${densityClasses.cell} ${densityClasses.text} font-mono`}>{cliente.nif}</td>
                       )}
                       
                       {columnasVisibles.includes('email') && (
-                        <td className="px-3 py-2 text-xs">
+                        <td className={`${densityClasses.cell} ${densityClasses.text}`}>
                           {cliente.email && (
-                            <a href={`mailto:${cliente.email}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                            <a 
+                              href={`mailto:${cliente.email}`} 
+                              className="text-blue-600 dark:text-blue-400 hover:underline max-w-[240px] truncate block"
+                              title={cliente.email}
+                            >
                               {cliente.email}
                             </a>
                           )}
@@ -1210,7 +1317,7 @@ const {
                       )}
                       
                       {columnasVisibles.includes('telefono') && (
-                        <td className="px-3 py-2 text-xs">
+                        <td className={`${densityClasses.cell} ${densityClasses.text} whitespace-nowrap`}>
                           {cliente.telefono && (
                             <a href={`tel:${cliente.telefono}`} className="hover:text-primary">
                               {cliente.telefono}
@@ -1220,7 +1327,7 @@ const {
                       )}
                       
                       {columnasVisibles.includes('tipoCliente') && (
-                        <td className="px-3 py-2 text-xs">
+                        <td className={`${densityClasses.cell} ${densityClasses.text}`}>
                           <Badge 
                             variant={cliente.tipoCliente === 'empresa' ? 'default' : 'secondary'} 
                             className="text-xs font-medium"
@@ -1231,7 +1338,7 @@ const {
                       )}
                       
                       {columnasVisibles.includes('direccion') && (
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                        <td className={`${densityClasses.cell} ${densityClasses.text} text-muted-foreground`}>
                           {cliente.direccion?.calle && (
                             <div className="max-w-[200px] truncate">
                               {cliente.direccion.calle}, {cliente.direccion.codigoPostal} {cliente.direccion.ciudad}
@@ -1241,7 +1348,7 @@ const {
                       )}
                       
                       {columnasVisibles.includes('formaPago') && (
-                        <td className="px-3 py-2 text-xs">
+                        <td className={`${densityClasses.cell} ${densityClasses.text}`}>
                           {cliente.formaPago === 'contado' && 'Contado'}
                           {cliente.formaPago === 'transferencia' && 'Transferencia'}
                           {cliente.formaPago === 'domiciliacion' && 'Domiciliación'}
@@ -1251,7 +1358,7 @@ const {
                       )}
                       
                       {columnasVisibles.includes('riesgoActual') && (
-                        <td className="px-3 py-2 text-right text-xs">
+                        <td className={`${densityClasses.cell} text-right ${densityClasses.text}`}>
                           <span className={`font-semibold ${
                             cliente.limiteCredito && (cliente.riesgoActual || 0) > cliente.limiteCredito 
                               ? 'text-red-600 dark:text-red-400' 
@@ -1266,7 +1373,7 @@ const {
                       )}
                       
                       {columnasVisibles.includes('limiteCredito') && (
-                        <td className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
+                        <td className={`${densityClasses.cell} text-right ${densityClasses.text} font-medium text-muted-foreground`}>
                           {cliente.limiteCredito ? (
                             cliente.limiteCredito.toLocaleString('es-ES', {
                               style: 'currency',
@@ -1279,7 +1386,7 @@ const {
                       )}
                       
                       {columnasVisibles.includes('activo') && (
-                        <td className="px-3 py-2 text-xs">
+                        <td className={`${densityClasses.cell} ${densityClasses.text}`}>
                           <Badge 
                             variant={cliente.activo ? 'default' : 'secondary'} 
                             className={`text-xs font-medium ${
@@ -1293,7 +1400,7 @@ const {
                         </td>
                       )}
                       
-                      <td className="sticky right-0 z-20 bg-background group-hover:bg-muted/30 transition-colors px-3 py-2 text-right">
+                      <td className={`${densityClasses.cell} sticky right-0 z-20 bg-background group-hover:bg-muted/30 transition-colors text-right`}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0">

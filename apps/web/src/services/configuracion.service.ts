@@ -30,6 +30,7 @@ export interface ModuleConfig {
     limit: 10 | 25 | 50 | 100;
   };
   filtrosAdicionales?: any;
+  densidad?: 'compact' | 'normal' | 'comfortable';
 }
 
 export interface ConfiguracionUsuario {
@@ -42,6 +43,7 @@ export interface ConfiguracionUsuario {
   createdAt: string;
   updatedAt: string;
 }
+
 
 /**
  * ============================================
@@ -147,4 +149,14 @@ export const configuracionService = {
     });
     return data.data;
   },
+
+  async updateDensidad(
+    modulo: string,
+    densidad: 'compact' | 'normal' | 'comfortable'
+  ): Promise<void> {
+    await api.put('/configuraciones/densidad', {
+      modulo,
+      densidad,
+    });
+  }
 };

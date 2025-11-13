@@ -2,45 +2,52 @@ import { z } from 'zod';
 
 /**
  * ============================================
- * VALIDATION SCHEMAS (ZOD)
+ * SCHEMAS DE VALIDACIÓN BASE
  * ============================================
  */
 
-// Schema para una columna
 export const ColumnaConfigSchema = z.object({
-  key: z.string().min(1, 'La key de la columna es obligatoria'),
-  visible: z.boolean().default(true),
-  orden: z.number().int().min(0, 'El orden debe ser mayor o igual a 0'),
-  ancho: z.number().int().min(50).max(500).optional(),
+  key: z.string().min(1),
+  visible: z.boolean(),
+  orden: z.number(),
+  ancho: z.number().min(50).max(500).optional(),
 });
 
-// Schema para configuración de ordenamiento
+export type ColumnaConfig = z.infer<typeof ColumnaConfigSchema>;
+
 export const SortConfigSchema = z.object({
-  key: z.string().min(1, 'La key del sort es obligatoria'),
+  key: z.string().min(1),
   direction: z.enum(['asc', 'desc']),
 });
 
-// Schema para filtros de columna (flexible)
-export const ColumnFiltersSchema = z.record(z.union([z.string(), z.boolean(), z.number()]));
+export type SortConfig = z.infer<typeof SortConfigSchema>;
 
-// Schema para configuración de un módulo
+export const ColumnFiltersSchema = z.record(
+  z.union([z.string(), z.boolean(), z.number()])
+);
+
+export type ColumnFilters = z.infer<typeof ColumnFiltersSchema>;
+
+// 🔧 CORREGIDO: Usar z.union con z.literal para números
 export const ModuleConfigSchema = z.object({
-  columnas: z.array(ColumnaConfigSchema).default([]),
+  columnas: z.array(ColumnaConfigSchema),
   sortConfig: SortConfigSchema.optional(),
   columnFilters: ColumnFiltersSchema.optional(),
-  paginacion: z.object({
-    limit: z.union([
-      z.literal(10),
-      z.literal(25),
-      z.literal(50),
-      z.literal(100),
-    ]).default(25),
-  }).optional(),
-  filtrosAdicionales: z.record(z.any()).optional(),
+  paginacion: z
+    .object({
+      limit: z.union([
+        z.literal(10),
+        z.literal(25),
+        z.literal(50),
+        z.literal(100),
+      ]),
+    })
+    .optional(),
+  filtrosAdicionales: z.any().optional(),
+  densidad: z.enum(['compact', 'normal', 'comfortable']).optional(),
 });
 
-// Schema completo de configuraciones
-export const ConfiguracionesSchema = z.record(ModuleConfigSchema);
+export type ModuleConfig = z.infer<typeof ModuleConfigSchema>;
 
 /**
  * ============================================
@@ -131,20 +138,12 @@ export type UpdatePaginationLimitBodyDto = z.infer<typeof UpdatePaginationLimitB
 
 /**
  * ============================================
- * EXPORT ALL
+ * DTO: ACTUALIZAR DENSIDAD
  * ============================================
  */
-export default {
-  GetModuleConfigQuerySchema,
-  UpdateModuleConfigBodySchema,
-  ResetModuleConfigBodySchema,
-  UpdateColumnasBodySchema,
-  UpdateSortConfigBodySchema,
-  UpdateColumnFiltersBodySchema,
-  UpdatePaginationLimitBodySchema,
-  ColumnaConfigSchema,
-  SortConfigSchema,
-  ColumnFiltersSchema,
-  ModuleConfigSchema,
-  ConfiguracionesSchema,
-};
+export const UpdateDensidadBodySchema = z.object({
+  modulo: z.string().min(1, 'El módulo es obligatorio'),
+  densidad: z.enum(['compact', 'normal', 'comfortable']),
+});
+
+export type UpdateDensidadBodyDto = z.infer<typeof UpdateDensidadBodySchema>;

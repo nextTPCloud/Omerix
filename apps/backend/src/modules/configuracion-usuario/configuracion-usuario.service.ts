@@ -244,6 +244,32 @@ class ConfiguracionUsuarioService {
 
     return result.deletedCount > 0;
   }
+
+  /**
+ * Actualizar solo la densidad de un módulo
+ */
+  async updateDensidad(
+    usuarioId: string,
+    empresaId: string,
+    data: { modulo: string; densidad: 'compact' | 'normal' | 'comfortable' }
+  ): Promise<IConfiguracionUsuario> {
+    const configuracion = await this.findOrCreate(usuarioId, empresaId);
+
+    const moduleConfig: IModuleConfig = (configuracion.configuraciones as any)[
+      data.modulo
+    ] || {
+      columnas: [],
+    };
+
+    moduleConfig.densidad = data.densidad;
+
+    (configuracion.configuraciones as any)[data.modulo] = moduleConfig;
+    configuracion.markModified('configuraciones');
+
+    await configuracion.save();
+    return configuracion;
+  }
+
 }
 
 export default new ConfiguracionUsuarioService();

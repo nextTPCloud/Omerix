@@ -123,6 +123,8 @@ export function useModuleConfig(
     [autoSave, debounceMs, saveConfig]
   );
 
+
+
   /**
    * Actualizar configuración localmente y opcionalmente guardar
    */
@@ -145,6 +147,16 @@ export function useModuleConfig(
       });
     },
     [autoSave, debouncedSave]
+  );
+
+    /**
+   * Update Densidad
+   */
+  const updateDensidad = useCallback(
+    (densidad: 'compact' | 'normal' | 'comfortable') => {
+      updateConfig({ densidad });
+    },
+    [updateConfig]
   );
 
   /**
@@ -263,6 +275,7 @@ export function useModuleConfig(
     updateSortConfig,
     updateColumnFilters,
     updatePaginationLimit,
+    updateDensidad,
 
     // Métodos de gestión
     resetConfig,
