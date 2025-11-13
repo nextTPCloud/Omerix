@@ -120,3 +120,31 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================
+   FIX PARA ALINEACIÓN DE SELECT EN TABLAS
+   Añade esto AL FINAL de tu globals.css
+   ============================================ */
+
+/* Asegurar que el dropdown del Select se posicione correctamente */
+[data-radix-select-content] {
+  position: fixed !important;
+  z-index: 50;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Añadir separación entre el trigger y el dropdown */
+table [data-radix-select-content] {
+  transform: translateY(4px) !important;
+}
+
+/* Asegurar que el ancho del dropdown coincida con el trigger */
+[data-radix-select-content] {
+  min-width: var(--radix-select-trigger-width);
+}
+
+/* Evitar que el scroll de la tabla afecte el posicionamiento */
+[data-radix-select-viewport] {
+  max-height: inherit;
+}

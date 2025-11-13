@@ -929,7 +929,7 @@ const {
           <div className="w-full overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                {/* ✅ HEADERS - SOLO TÍTULOS Y SORT */}
+                {/* HEADERS - SOLO TÍTULOS Y SORT */}
                 <tr className="border-b bg-muted/50">
                   <th className={`${densityClasses.header} sticky left-0 z-30 bg-muted/50 backdrop-blur-sm text-left w-10`}>
                     <div className="flex items-center justify-center">
@@ -1083,7 +1083,7 @@ const {
                   </th>
                 </tr>
 
-                {/* ✅ FILTROS - SOLO INPUTS Y SELECTS */}
+                {/* ✅ FILTROS - CON position="popper" PARA ALINEACIÓN CORRECTA */}
                 <tr className="border-b bg-background">
                   <th className="sticky left-0 z-30 bg-background backdrop-blur-sm px-3 py-1.5"></th>
                   
