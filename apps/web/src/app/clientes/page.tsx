@@ -75,6 +75,7 @@ import { ColumnaConfig } from '@/services/configuracion.service'
 import { DensitySelector, useDensityClasses } from '@/components/ui/DensitySelector'
 import { VistasGuardadasManager } from '@/components/ui/VistasGuardadasManager'
 import { ExportButton } from '@/components/ui/ExportButton'
+import { TableSelect } from '@/components/ui/tableSelect'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -1155,19 +1156,16 @@ const {
                   
                   {columnasVisibles.includes('tipoCliente') && (
                     <th className="px-3 py-1.5">
-                      <Select
+                      <TableSelect
                         value={columnFiltersInput.tipoCliente || 'all'}
                         onValueChange={(value) => handleColumnFilterInput('tipoCliente', value)}
-                      >
-                        <SelectTrigger className="h-7 text-xs flex items-center">
-                          <SelectValue placeholder="Todos" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="empresa">Empresa</SelectItem>
-                          <SelectItem value="particular">Particular</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Todos"
+                        options={[
+                          { value: 'all', label: 'Todos' },
+                          { value: 'empresa', label: 'Empresa' },
+                          { value: 'particular', label: 'Particular' },
+                        ]}
+                      />
                     </th>
                   )}
                   
@@ -1184,22 +1182,19 @@ const {
                   
                   {columnasVisibles.includes('formaPago') && (
                     <th className="px-3 py-1.5">
-                      <Select
+                      <TableSelect
                         value={columnFiltersInput.formaPago || 'all'}
                         onValueChange={(value) => handleColumnFilterInput('formaPago', value)}
-                      >
-                        <SelectTrigger className="h-7 text-xs flex items-center">
-                          <SelectValue placeholder="Todos" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="contado">Contado</SelectItem>
-                          <SelectItem value="transferencia">Transferencia</SelectItem>
-                          <SelectItem value="domiciliacion">Domiciliación</SelectItem>
-                          <SelectItem value="confirming">Confirming</SelectItem>
-                          <SelectItem value="pagare">Pagaré</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Todos"
+                        options={[
+                          { value: 'all', label: 'Todos' },
+                          { value: 'contado', label: 'Contado' },
+                          { value: 'transferencia', label: 'Transferencia' },
+                          { value: 'domiciliacion', label: 'Domiciliación' },
+                          { value: 'confirming', label: 'Confirming' },
+                          { value: 'pagare', label: 'Pagaré' },
+                        ]}
+                      />
                     </th>
                   )}
                   
@@ -1227,19 +1222,16 @@ const {
                   
                   {columnasVisibles.includes('activo') && (
                     <th className="px-3 py-1.5">
-                      <Select
+                      <TableSelect
                         value={columnFiltersInput.activo || 'all'}
                         onValueChange={(value) => handleColumnFilterInput('activo', value)}
-                      >
-                        <SelectTrigger className="h-7 text-xs flex items-center">
-                          <SelectValue placeholder="Todos" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="true">Activos</SelectItem>
-                          <SelectItem value="false">Inactivos</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Todos"
+                        options={[
+                          { value: 'all', label: 'Todos' },
+                          { value: 'true', label: 'Activos' },
+                          { value: 'false', label: 'Inactivos' },
+                        ]}
+                      />
                     </th>
                   )}
                   

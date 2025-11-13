@@ -35,11 +35,31 @@ interface SelectProps {
   children: React.ReactNode
   defaultValue?: string
   disabled?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function Select({ value, onValueChange, children, defaultValue, disabled }: SelectProps) {
-  const [open, setOpen] = React.useState(false)
+export function Select({
+  value,
+  onValueChange,
+  children,
+  defaultValue,
+  disabled,
+  open: controlledOpen,
+  onOpenChange
+}: SelectProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false)
   const [internalValue, setInternalValue] = React.useState(defaultValue || value || '')
+
+  // Usar el estado controlado si se proporciona, si no usar el interno
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen
+  const setOpen = (newOpen: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(newOpen)
+    } else {
+      setInternalOpen(newOpen)
+    }
+  }
 
   const handleValueChange = (newValue: string) => {
     setInternalValue(newValue)
@@ -123,9 +143,10 @@ export function SelectValue({ placeholder }: SelectValueProps) {
 interface SelectContentProps {
   children: React.ReactNode
   className?: string
+  position?: 'relative' | 'absolute'
 }
 
-export function SelectContent({ children, className }: SelectContentProps) {
+export function SelectContent({ children, className, position = 'absolute' }: SelectContentProps) {
   const { open, setOpen } = useSelectContext()
   const contentRef = React.useRef<HTMLDivElement>(null)
 
@@ -163,8 +184,10 @@ export function SelectContent({ children, className }: SelectContentProps) {
     <div
       ref={contentRef}
       className={cn(
-        "absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover",
+        "z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover",
         "text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
+        position === 'absolute' && "absolute",
+        position === 'relative' && "relative",
         className
       )}
     >
