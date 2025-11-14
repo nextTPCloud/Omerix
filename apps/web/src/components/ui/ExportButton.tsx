@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Download, FileSpreadsheet, FileText, FileImage } from 'lucide-react'
 import { toast } from 'sonner'
+import { api } from '@/services/api'
 
 interface ExportButtonProps {
   data: any[]
@@ -98,6 +99,8 @@ export function ExportButton({
       // Construir el body de la petición
       const exportData = {
         filename,
+        title: `Listado de ${filename}`,
+        subtitle: `Generado el ${new Date().toLocaleDateString('es-ES')}`,
         columns: columns.map((col) => ({
           key: col.key,
           label: col.label,
@@ -108,19 +111,15 @@ export function ExportButton({
         includeStats: !!stats,
       }
 
-      // Llamar al endpoint de exportación
-      const response = await fetch('/api/export/excel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(exportData),
+      // Llamar al endpoint de exportación usando axios con responseType blob
+      const response = await api.post('/export/excel', exportData, {
+        responseType: 'blob',
       })
 
-      if (!response.ok) {
-        throw new Error('Error en la exportación')
-      }
-
       // Descargar el archivo
-      const blob = await response.blob()
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -129,9 +128,10 @@ export function ExportButton({
       window.URL.revokeObjectURL(url)
 
       toast.success('Archivo Excel exportado correctamente')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al exportar Excel:', error)
-      toast.error('Error al exportar Excel')
+      const message = error.response?.data?.message || 'Error al exportar Excel'
+      toast.error(message)
     }
   }
 
@@ -144,6 +144,8 @@ export function ExportButton({
     try {
       const exportData = {
         filename,
+        title: `Listado de ${filename}`,
+        subtitle: `Generado el ${new Date().toLocaleDateString('es-ES')}`,
         columns: columns.map((col) => ({
           key: col.key,
           label: col.label,
@@ -153,17 +155,13 @@ export function ExportButton({
         includeStats: !!stats,
       }
 
-      const response = await fetch('/api/export/pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(exportData),
+      // Llamar al endpoint de exportación usando axios con responseType blob
+      const response = await api.post('/export/pdf', exportData, {
+        responseType: 'blob',
       })
 
-      if (!response.ok) {
-        throw new Error('Error en la exportación')
-      }
-
-      const blob = await response.blob()
+      // Descargar el archivo
+      const blob = new Blob([response.data], { type: 'application/pdf' })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -172,9 +170,10 @@ export function ExportButton({
       window.URL.revokeObjectURL(url)
 
       toast.success('Archivo PDF exportado correctamente')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al exportar PDF:', error)
-      toast.error('Error al exportar PDF')
+      const message = error.response?.data?.message || 'Error al exportar PDF'
+      toast.error(message)
     }
   }
 

@@ -196,9 +196,40 @@ export class ClientesController {
   }
 
   // ============================================
+  // SUGERIR SIGUIENTE CÓDIGO
+  // ============================================
+
+  async sugerirSiguienteCodigo(req: Request, res: Response) {
+    try {
+      if (!req.empresaId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const prefijo = req.query.prefijo as string | undefined;
+
+      const codigoSugerido = await clientesService.sugerirSiguienteCodigo(empresaId, prefijo);
+
+      res.json({
+        success: true,
+        data: { codigo: codigoSugerido },
+      });
+    } catch (error: any) {
+      console.error('Error al sugerir código:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al sugerir el código',
+      });
+    }
+  }
+
+  // ============================================
   // ELIMINAR (SOFT DELETE)
   // ============================================
-  
+
   async delete(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {

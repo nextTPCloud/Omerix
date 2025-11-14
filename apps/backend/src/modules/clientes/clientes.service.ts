@@ -351,7 +351,7 @@ export class ClientesService {
   // ============================================
   // ACTUALIZAR RIESGO
   // ============================================
-  
+
   async actualizarRiesgo(
     id: string,
     nuevoRiesgo: number,
@@ -364,6 +364,81 @@ export class ClientesService {
     );
 
     return cliente;
+  }
+
+  // ============================================
+  // SUGERIR SIGUIENTE CÓDIGO
+  // ============================================
+
+  async sugerirSiguienteCodigo(
+    empresaId: mongoose.Types.ObjectId,
+    prefijo?: string
+  ): Promise<string> {
+    // Si no se proporciona prefijo, buscar el patrón más común
+    if (!prefijo || prefijo.trim() === '') {
+      // Buscar todos los códigos y extraer el prefijo más común
+      const clientes = await Cliente.find({ empresaId })
+        .select('codigo')
+        .sort({ codigo: -1 })
+        .limit(10)
+        .lean();
+
+      if (clientes.length === 0) {
+        return 'CLI-001';
+      }
+
+      // Intentar detectar el patrón más común (ej: CLI-, C-, etc.)
+      const patrones = clientes
+        .map(c => {
+          const match = c.codigo?.match(/^([A-Za-z]+-)/);
+          return match ? match[1] : null;
+        })
+        .filter(Boolean);
+
+      if (patrones.length > 0) {
+        // Usar el patrón más frecuente
+        const patronMasComun = patrones.sort(
+          (a, b) =>
+            patrones.filter(v => v === a).length - patrones.filter(v => v === b).length
+        )[patrones.length - 1];
+
+        prefijo = patronMasComun!;
+      } else {
+        prefijo = 'CLI-';
+      }
+    }
+
+    // Buscar el último código con ese prefijo
+    const regex = new RegExp(`^${prefijo}(\\d+)$`, 'i');
+    const clientes = await Cliente.find({
+      empresaId,
+      codigo: regex,
+    })
+      .select('codigo')
+      .sort({ codigo: -1 })
+      .lean();
+
+    if (clientes.length === 0) {
+      // Primer código con este prefijo
+      return `${prefijo}001`;
+    }
+
+    // Extraer todos los números y encontrar el máximo
+    const numeros = clientes
+      .map(c => {
+        const match = c.codigo?.match(regex);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(n => !isNaN(n));
+
+    const maxNumero = Math.max(...numeros);
+    const siguienteNumero = maxNumero + 1;
+
+    // Formatear con ceros a la izquierda (mínimo 3 dígitos)
+    const digitosMinimos = 3;
+    const numeroStr = siguienteNumero.toString().padStart(digitosMinimos, '0');
+
+    return `${prefijo}${numeroStr}`;
   }
 }
 

@@ -1,23 +1,64 @@
-"use client"
+'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { clientesService } from '@/services/clientes.service'
 import { Cliente } from '@/types/cliente.types'
 import { toast } from 'sonner'
-import { ArrowLeft, Pencil, Trash2, Mail, Phone, MapPin, CreditCard } from 'lucide-react'
-import Link from 'next/link'
+import {
+  ArrowLeft,
+  Pencil,
+  Trash2,
+  Mail,
+  Phone,
+  MapPin,
+  CreditCard,
+  Building2,
+  User,
+  Globe,
+  AlertCircle,
+  TrendingUp,
+  Package,
+  FileText,
+  Truck,
+  Receipt,
+  Wrench,
+  Calendar,
+  BarChart3,
+  DollarSign,
+  ShoppingCart,
+  Clock,
+  Tags,
+  FileUp,
+  Download,
+  MoreHorizontal,
+  CheckCircle2,
+  XCircle,
+  Users,
+  Target,
+} from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export default function ClienteDetailPage() {
   const params = useParams()
   const router = useRouter()
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('general')
 
   useEffect(() => {
     loadCliente()
@@ -50,6 +91,24 @@ export default function ClienteDetailPage() {
     }
   }
 
+  const handleCreateDocument = (tipo: string) => {
+    if (!cliente) return
+
+    const rutas: Record<string, string> = {
+      presupuesto: `/presupuestos/nuevo?clienteId=${cliente._id}`,
+      pedido: `/pedidos/nuevo?clienteId=${cliente._id}`,
+      albaran: `/albaranes/nuevo?clienteId=${cliente._id}`,
+      factura: `/facturas/nuevo?clienteId=${cliente._id}`,
+      parte: `/partes/nuevo?clienteId=${cliente._id}`,
+    }
+
+    if (rutas[tipo]) {
+      router.push(rutas[tipo])
+    } else {
+      toast.info(`Función "${tipo}" en desarrollo`)
+    }
+  }
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -73,276 +132,822 @@ export default function ClienteDetailPage() {
     )
   }
 
+  // Calcular crédito disponible
+  const creditoDisponible = cliente.limiteCredito
+    ? Math.max(0, cliente.limiteCredito - (cliente.riesgoActual || 0))
+    : null
+
+  const excedeCredito = cliente.limiteCredito
+    ? (cliente.riesgoActual || 0) > cliente.limiteCredito
+    : false
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        {/* ========================================== */}
+        {/* CABECERA CON INFORMACIÓN CLAVE Y ACCIONES */}
+        {/* ========================================== */}
+        <div className="flex flex-col gap-4">
+          {/* Navegación y título */}
+          <div className="flex items-center gap-3">
             <Link href="/clientes">
               <Button variant="ghost" size="icon">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">{cliente.nombre}</h1>
-              <p className="text-muted-foreground">{cliente.nif}</p>
-            </div>
-            <Badge variant={cliente.activo ? 'success' : 'destructive'}>
-              {cliente.activo ? 'Activo' : 'Inactivo'}
-            </Badge>
-            <Badge variant={cliente.tipoCliente === 'empresa' ? 'default' : 'secondary'}>
-              {cliente.tipoCliente === 'empresa' ? 'Empresa' : 'Particular'}
-            </Badge>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/clientes/${cliente._id}/editar`)}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </Button>
-            <Button variant="destructive" onClick={handleDelete}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Desactivar
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Información Básica */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Información Básica</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {cliente.nombreComercial && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Nombre Comercial</p>
-                  <p className="text-sm">{cliente.nombreComercial}</p>
-                </div>
-              )}
-              {cliente.codigo && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Código</p>
-                  <p className="text-sm">{cliente.codigo}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Datos de Contacto */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Datos de Contacto
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {cliente.email && (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <a href={`mailto:${cliente.email}`} className="text-sm text-blue-600 hover:underline">
-                    {cliente.email}
-                  </a>
-                </div>
-              )}
-              {cliente.telefono && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <a href={`tel:${cliente.telefono}`} className="text-sm">
-                    {cliente.telefono}
-                  </a>
-                </div>
-              )}
-              {cliente.movil && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <a href={`tel:${cliente.movil}`} className="text-sm">
-                    {cliente.movil} (Móvil)
-                  </a>
-                </div>
-              )}
-              {cliente.web && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">🌐</span>
-                  <a
-                    href={cliente.web}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    {cliente.web}
-                  </a>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Dirección Principal */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Dirección Principal
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm">
-                {cliente.direccion.calle}
-                {cliente.direccion.numero && `, ${cliente.direccion.numero}`}
-                {cliente.direccion.piso && `, ${cliente.direccion.piso}`}
-                <br />
-                {cliente.direccion.codigoPostal} {cliente.direccion.ciudad}
-                <br />
-                {cliente.direccion.provincia}, {cliente.direccion.pais}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Dirección de Envío */}
-          {cliente.direccionEnvio && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  Dirección de Envío
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm">
-                  {cliente.direccionEnvio.calle}
-                  {cliente.direccionEnvio.numero && `, ${cliente.direccionEnvio.numero}`}
-                  {cliente.direccionEnvio.piso && `, ${cliente.direccionEnvio.piso}`}
-                  <br />
-                  {cliente.direccionEnvio.codigoPostal} {cliente.direccionEnvio.ciudad}
-                  <br />
-                  {cliente.direccionEnvio.provincia}, {cliente.direccionEnvio.pais}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Datos Comerciales */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                Datos Comerciales
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Forma de Pago</p>
-                  <p className="text-sm capitalize">{cliente.formaPago}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Días de Pago</p>
-                  <p className="text-sm">{cliente.diasPago} días</p>
-                </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-3xl font-bold tracking-tight">{cliente.nombre}</h1>
+                <Badge variant={cliente.activo ? 'default' : 'secondary'} className={
+                  cliente.activo
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                }>
+                  {cliente.activo ? 'Activo' : 'Inactivo'}
+                </Badge>
+                <Badge variant={cliente.tipoCliente === 'empresa' ? 'default' : 'secondary'}>
+                  {cliente.tipoCliente === 'empresa' ? (
+                    <><Building2 className="mr-1 h-3 w-3" />Empresa</>
+                  ) : (
+                    <><User className="mr-1 h-3 w-3" />Particular</>
+                  )}
+                </Badge>
+                {excedeCredito && (
+                  <Badge variant="destructive">
+                    <AlertCircle className="mr-1 h-3 w-3" />
+                    Excede crédito
+                  </Badge>
+                )}
               </div>
+              <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                <span className="font-mono">{cliente.codigo}</span>
+                <span>•</span>
+                <span className="font-mono">{cliente.nif}</span>
+              </div>
+            </div>
+          </div>
 
-              {cliente.descuentoGeneral && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Descuento General</p>
-                  <p className="text-sm">{cliente.descuentoGeneral}%</p>
+          {/* KPIs Rápidos */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <Card className="border-l-4 border-l-blue-500">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Riesgo Actual</p>
+                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                      {(cliente.riesgoActual || 0).toLocaleString('es-ES', {
+                        style: 'currency',
+                        currency: 'EUR',
+                      })}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                    <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
                 </div>
-              )}
+              </CardContent>
+            </Card>
 
-              {cliente.limiteCredito && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Límite de Crédito</p>
-                  <p className="text-sm">{cliente.limiteCredito.toLocaleString('es-ES')} €</p>
+            <Card className="border-l-4 border-l-green-500">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Crédito Disponible</p>
+                    <p className="text-xl font-bold text-green-600 dark:text-green-400">
+                      {creditoDisponible !== null ? (
+                        creditoDisponible.toLocaleString('es-ES', {
+                          style: 'currency',
+                          currency: 'EUR',
+                        })
+                      ) : (
+                        'Sin límite'
+                      )}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
                 </div>
-              )}
+              </CardContent>
+            </Card>
 
-              {cliente.riesgoActual !== undefined && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Riesgo Actual</p>
-                  <p className="text-sm">{cliente.riesgoActual.toLocaleString('es-ES')} €</p>
+            <Card className="border-l-4 border-l-purple-500">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Forma de Pago</p>
+                    <p className="text-lg font-bold capitalize">
+                      {cliente.formaPago}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {cliente.diasPago} días
+                    </p>
+                  </div>
+                  <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                    <CreditCard className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
                 </div>
-              )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-orange-500">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Descuento</p>
+                    <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                      {cliente.descuentoGeneral ? `${cliente.descuentoGeneral}%` : 'Sin descuento'}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                    <Target className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Acciones Rápidas */}
+          <Card className="bg-muted/30">
+            <CardContent className="pt-4">
+              <div className="flex flex-wrap gap-2 items-center">
+                <p className="text-sm font-medium mr-2">Acciones rápidas:</p>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => router.push(`/clientes/${cliente._id}/editar`)}
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar
+                </Button>
+
+                <Separator orientation="vertical" className="h-8" />
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCreateDocument('presupuesto')}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Presupuesto
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCreateDocument('pedido')}
+                >
+                  <Package className="mr-2 h-4 w-4" />
+                  Pedido
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCreateDocument('albaran')}
+                >
+                  <Truck className="mr-2 h-4 w-4" />
+                  Albarán
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCreateDocument('factura')}
+                >
+                  <Receipt className="mr-2 h-4 w-4" />
+                  Factura
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCreateDocument('parte')}
+                >
+                  <Wrench className="mr-2 h-4 w-4" />
+                  Parte
+                </Button>
+
+                <Separator orientation="vertical" className="h-8" />
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <MoreHorizontal className="h-4 w-4 mr-2" />
+                      Más acciones
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => toast.info('Exportar a PDF - En desarrollo')}>
+                      <Download className="mr-2 h-4 w-4" />
+                      Exportar a PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toast.info('Enviar email - En desarrollo')}>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Enviar email
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Desactivar cliente
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </CardContent>
           </Card>
+        </div>
 
-          {/* Datos Bancarios */}
-          {(cliente.iban || cliente.swift) && (
+        {/* ========================================== */}
+        {/* PESTAÑAS DE CONTENIDO */}
+        {/* ========================================== */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto">
+            <TabsTrigger value="general" className="gap-2">
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline">General</span>
+            </TabsTrigger>
+            <TabsTrigger value="documentos" className="gap-2">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Documentos</span>
+            </TabsTrigger>
+            <TabsTrigger value="actividad" className="gap-2">
+              <Clock className="h-4 w-4" />
+              <span className="hidden sm:inline">Actividad</span>
+            </TabsTrigger>
+            <TabsTrigger value="estadisticas" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Estadísticas</span>
+            </TabsTrigger>
+            <TabsTrigger value="archivos" className="gap-2">
+              <FileUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Archivos</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ========================================== */}
+          {/* PESTAÑA: INFORMACIÓN GENERAL */}
+          {/* ========================================== */}
+          <TabsContent value="general" className="space-y-4 mt-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Información Básica */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Información Básica
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Código</p>
+                      <p className="text-sm font-mono">{cliente.codigo}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">NIF/CIF</p>
+                      <p className="text-sm font-mono">{cliente.nif}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Razón Social</p>
+                    <p className="text-sm">{cliente.nombre}</p>
+                  </div>
+
+                  {cliente.nombreComercial && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Nombre Comercial</p>
+                      <p className="text-sm">{cliente.nombreComercial}</p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Tipo</p>
+                      <Badge variant="outline" className="mt-1">
+                        {cliente.tipoCliente === 'empresa' ? 'Empresa' : 'Particular'}
+                      </Badge>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Estado</p>
+                      <Badge variant="outline" className="mt-1">
+                        {cliente.activo ? (
+                          <><CheckCircle2 className="mr-1 h-3 w-3 text-green-600" />Activo</>
+                        ) : (
+                          <><XCircle className="mr-1 h-3 w-3 text-red-600" />Inactivo</>
+                        )}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Datos de Contacto */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Phone className="h-5 w-5" />
+                    Contacto
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {cliente.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <a href={`mailto:${cliente.email}`} className="text-sm text-blue-600 hover:underline">
+                        {cliente.email}
+                      </a>
+                    </div>
+                  )}
+
+                  {cliente.telefono && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <a href={`tel:${cliente.telefono}`} className="text-sm hover:text-primary">
+                        {cliente.telefono}
+                      </a>
+                    </div>
+                  )}
+
+                  {cliente.movil && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <a href={`tel:${cliente.movil}`} className="text-sm hover:text-primary">
+                        {cliente.movil} <span className="text-muted-foreground">(Móvil)</span>
+                      </a>
+                    </div>
+                  )}
+
+                  {cliente.web && (
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <a
+                        href={cliente.web}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:underline truncate"
+                      >
+                        {cliente.web}
+                      </a>
+                    </div>
+                  )}
+
+                  {cliente.personaContacto && (
+                    <>
+                      <Separator />
+                      <div>
+                        <p className="text-sm font-medium mb-2">Persona de Contacto</p>
+                        <div className="space-y-2 pl-2 border-l-2 border-muted">
+                          <p className="text-sm">
+                            <span className="font-medium">{cliente.personaContacto.nombre}</span>
+                            {cliente.personaContacto.cargo && (
+                              <span className="text-muted-foreground"> - {cliente.personaContacto.cargo}</span>
+                            )}
+                          </p>
+                          {cliente.personaContacto.telefono && (
+                            <p className="text-sm text-muted-foreground">
+                              Tel: {cliente.personaContacto.telefono}
+                            </p>
+                          )}
+                          {cliente.personaContacto.email && (
+                            <p className="text-sm text-blue-600">
+                              {cliente.personaContacto.email}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Dirección Principal */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Dirección Principal
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const { direccion } = cliente
+                        // Si tiene latitud y longitud, usar coordenadas
+                        if (direccion.latitud && direccion.longitud) {
+                          window.open(
+                            `https://www.google.com/maps?q=${direccion.latitud},${direccion.longitud}`,
+                            '_blank'
+                          )
+                        } else {
+                          // Si no, usar dirección formateada
+                          const address = `${direccion.calle}${direccion.numero ? ' ' + direccion.numero : ''}, ${direccion.codigoPostal} ${direccion.ciudad}, ${direccion.provincia}, ${direccion.pais}`
+                          window.open(
+                            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+                            '_blank'
+                          )
+                        }
+                      }}
+                    >
+                      <MapPin className="mr-2 h-4 w-4" />
+                      <span className="hidden sm:inline">Ver en mapa</span>
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      {cliente.direccion.calle}
+                      {cliente.direccion.numero && `, ${cliente.direccion.numero}`}
+                      {cliente.direccion.piso && `, ${cliente.direccion.piso}`}
+                    </p>
+                    <p>
+                      {cliente.direccion.codigoPostal} {cliente.direccion.ciudad}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {cliente.direccion.provincia}, {cliente.direccion.pais}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Dirección de Envío */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Truck className="h-5 w-5" />
+                      Dirección de Envío
+                    </CardTitle>
+                    {cliente.direccionEnvio && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const { direccionEnvio } = cliente
+                          if (!direccionEnvio) return
+                          // Si tiene latitud y longitud, usar coordenadas
+                          if (direccionEnvio.latitud && direccionEnvio.longitud) {
+                            window.open(
+                              `https://www.google.com/maps?q=${direccionEnvio.latitud},${direccionEnvio.longitud}`,
+                              '_blank'
+                            )
+                          } else {
+                            // Si no, usar dirección formateada
+                            const address = `${direccionEnvio.calle}${direccionEnvio.numero ? ' ' + direccionEnvio.numero : ''}, ${direccionEnvio.codigoPostal} ${direccionEnvio.ciudad}, ${direccionEnvio.provincia}, ${direccionEnvio.pais}`
+                            window.open(
+                              `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+                              '_blank'
+                            )
+                          }
+                        }}
+                      >
+                        <MapPin className="mr-2 h-4 w-4" />
+                        <span className="hidden sm:inline">Ver en mapa</span>
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {cliente.direccionEnvio ? (
+                    <div className="space-y-1 text-sm">
+                      <p>
+                        {cliente.direccionEnvio.calle}
+                        {cliente.direccionEnvio.numero && `, ${cliente.direccionEnvio.numero}`}
+                        {cliente.direccionEnvio.piso && `, ${cliente.direccionEnvio.piso}`}
+                      </p>
+                      <p>
+                        {cliente.direccionEnvio.codigoPostal} {cliente.direccionEnvio.ciudad}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {cliente.direccionEnvio.provincia}, {cliente.direccionEnvio.pais}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Usa la dirección principal
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Datos Comerciales */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Datos Comerciales
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Forma de Pago</p>
+                      <p className="text-sm capitalize">{cliente.formaPago}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Días de Pago</p>
+                      <p className="text-sm">{cliente.diasPago} días</p>
+                    </div>
+                  </div>
+
+                  {cliente.descuentoGeneral && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Descuento General</p>
+                      <p className="text-sm">{cliente.descuentoGeneral}%</p>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Límite de Crédito</p>
+                      <p className="text-sm font-bold">
+                        {cliente.limiteCredito
+                          ? cliente.limiteCredito.toLocaleString('es-ES', {
+                              style: 'currency',
+                              currency: 'EUR',
+                            })
+                          : 'Sin límite'
+                        }
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Riesgo Actual</p>
+                      <p className={`text-sm font-bold ${excedeCredito ? 'text-red-600' : 'text-green-600'}`}>
+                        {(cliente.riesgoActual || 0).toLocaleString('es-ES', {
+                          style: 'currency',
+                          currency: 'EUR',
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {creditoDisponible !== null && (
+                    <div className={`p-3 rounded-lg ${excedeCredito ? 'bg-red-50 dark:bg-red-950/20' : 'bg-green-50 dark:bg-green-950/20'}`}>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Crédito Disponible</p>
+                      <p className={`text-lg font-bold ${excedeCredito ? 'text-red-600' : 'text-green-600'}`}>
+                        {creditoDisponible.toLocaleString('es-ES', {
+                          style: 'currency',
+                          currency: 'EUR',
+                        })}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Datos Bancarios */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Datos Bancarios
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {cliente.iban ? (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">IBAN</p>
+                      <p className="text-sm font-mono">{cliente.iban}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Sin datos bancarios</p>
+                  )}
+
+                  {cliente.swift && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">SWIFT/BIC</p>
+                      <p className="text-sm font-mono">{cliente.swift}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Observaciones */}
+              {cliente.observaciones && (
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle>Observaciones</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm whitespace-pre-wrap">{cliente.observaciones}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Tags */}
+              {cliente.tags && cliente.tags.length > 0 && (
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Tags className="h-5 w-5" />
+                      Etiquetas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {cliente.tags.map((tag) => (
+                        <Badge key={tag} variant="outline">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Información del Sistema */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>Información del Sistema</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Fecha de Creación</p>
+                    <p className="text-sm">
+                      {new Date(cliente.createdAt).toLocaleString('es-ES')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Última Actualización</p>
+                    <p className="text-sm">
+                      {new Date(cliente.updatedAt).toLocaleString('es-ES')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">ID del Sistema</p>
+                    <p className="text-xs font-mono text-muted-foreground">{cliente._id}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ========================================== */}
+          {/* PESTAÑA: DOCUMENTOS */}
+          {/* ========================================== */}
+          <TabsContent value="documentos" className="space-y-4 mt-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {/* Presupuestos */}
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-blue-500" onClick={() => toast.info('Endpoint de presupuestos en desarrollo')}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <FileText className="h-8 w-8 text-blue-600" />
+                    <Badge variant="secondary">0</Badge>
+                  </div>
+                  <CardTitle className="text-lg">Presupuestos</CardTitle>
+                  <CardDescription>Ver todos los presupuestos</CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Pedidos */}
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-green-500" onClick={() => toast.info('Endpoint de pedidos en desarrollo')}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <Package className="h-8 w-8 text-green-600" />
+                    <Badge variant="secondary">0</Badge>
+                  </div>
+                  <CardTitle className="text-lg">Pedidos</CardTitle>
+                  <CardDescription>Ver todos los pedidos</CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Albaranes */}
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-purple-500" onClick={() => toast.info('Endpoint de albaranes en desarrollo')}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <Truck className="h-8 w-8 text-purple-600" />
+                    <Badge variant="secondary">0</Badge>
+                  </div>
+                  <CardTitle className="text-lg">Albaranes</CardTitle>
+                  <CardDescription>Ver todos los albaranes</CardDescription>
+                </CardHeader>
+              </Card>
+
+              {/* Facturas */}
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-orange-500" onClick={() => toast.info('Endpoint de facturas en desarrollo')}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <Receipt className="h-8 w-8 text-orange-600" />
+                    <Badge variant="secondary">0</Badge>
+                  </div>
+                  <CardTitle className="text-lg">Facturas</CardTitle>
+                  <CardDescription>Ver todas las facturas</CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+
+            {/* Placeholder cuando no hay documentos */}
+            <Card>
+              <CardContent className="pt-12 pb-12 text-center">
+                <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-20" />
+                <h3 className="text-lg font-semibold mb-2">Documentos en desarrollo</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Los endpoints de documentos están en desarrollo. Pronto podrás ver todos los documentos de este cliente.
+                </p>
+                <Button variant="outline" onClick={() => setActiveTab('general')}>
+                  Volver a información general
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ========================================== */}
+          {/* PESTAÑA: ACTIVIDAD */}
+          {/* ========================================== */}
+          <TabsContent value="actividad" className="space-y-4 mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Datos Bancarios</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {cliente.iban && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">IBAN</p>
-                    <p className="text-sm font-mono">{cliente.iban}</p>
-                  </div>
-                )}
-                {cliente.swift && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">SWIFT/BIC</p>
-                    <p className="text-sm font-mono">{cliente.swift}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Observaciones */}
-          {cliente.observaciones && (
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>Observaciones</CardTitle>
+                <CardTitle>Historial de Actividad</CardTitle>
+                <CardDescription>Últimas interacciones y movimientos con este cliente</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{cliente.observaciones}</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Tags */}
-          {cliente.tags && cliente.tags.length > 0 && (
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle>Etiquetas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {cliente.tags.map((tag) => (
-                    <Badge key={tag} variant="outline">
-                      {tag}
-                    </Badge>
-                  ))}
+                <div className="text-center py-12">
+                  <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-20" />
+                  <h3 className="text-lg font-semibold mb-2">Historial en desarrollo</h3>
+                  <p className="text-sm text-muted-foreground">
+                    El sistema de seguimiento de actividad estará disponible próximamente
+                  </p>
                 </div>
               </CardContent>
             </Card>
-          )}
-        </div>
+          </TabsContent>
 
-        {/* Metadatos */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Información del Sistema</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Fecha de Creación</p>
-              <p className="text-sm">
-                {new Date(cliente.createdAt).toLocaleString('es-ES')}
-              </p>
+          {/* ========================================== */}
+          {/* PESTAÑA: ESTADÍSTICAS */}
+          {/* ========================================== */}
+          <TabsContent value="estadisticas" className="space-y-4 mt-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Ventas */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    Resumen de Ventas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <BarChart3 className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-20" />
+                    <p className="text-sm text-muted-foreground">
+                      Estadísticas de ventas en desarrollo
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Productos más vendidos */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Productos Más Vendidos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-20" />
+                    <p className="text-sm text-muted-foreground">
+                      Análisis de productos en desarrollo
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Última Actualización</p>
-              <p className="text-sm">
-                {new Date(cliente.updatedAt).toLocaleString('es-ES')}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+          </TabsContent>
+
+          {/* ========================================== */}
+          {/* PESTAÑA: ARCHIVOS */}
+          {/* ========================================== */}
+          <TabsContent value="archivos" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Archivos y Documentos</CardTitle>
+                <CardDescription>Documentos adjuntos relacionados con este cliente</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12">
+                  <FileUp className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-20" />
+                  <h3 className="text-lg font-semibold mb-2">Gestión de archivos en desarrollo</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Pronto podrás subir y gestionar documentos relacionados con este cliente
+                  </p>
+                  <Button variant="outline" disabled>
+                    <FileUp className="mr-2 h-4 w-4" />
+                    Subir archivo
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   )

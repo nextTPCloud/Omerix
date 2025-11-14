@@ -206,6 +206,45 @@ router.get(
 
 /**
  * @swagger
+ * /clientes/sugerir-codigo:
+ *   get:
+ *     summary: Sugerir el siguiente código disponible
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefijo
+ *         schema:
+ *           type: string
+ *         description: Prefijo del código (ej. CLI-, C-). Si no se proporciona, detecta el patrón más común
+ *         example: CLI-
+ *     responses:
+ *       200:
+ *         description: Código sugerido generado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     codigo:
+ *                       type: string
+ *                       example: CLI-001
+ *       401:
+ *         description: No autenticado
+ */
+router.get(
+  '/sugerir-codigo',
+  clientesController.sugerirSiguienteCodigo.bind(clientesController)
+);
+
+/**
+ * @swagger
  * /clientes/estadisticas:
  *   get:
  *     summary: Obtener estadísticas de clientes

@@ -65,6 +65,10 @@ import {
   FileText,
   Calendar,
   Store,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportClientesToCSV, processImportFile } from '@/utils/excel.utils'
@@ -76,6 +80,7 @@ import { DensitySelector, useDensityClasses } from '@/components/ui/DensitySelec
 import { VistasGuardadasManager } from '@/components/ui/VistasGuardadasManager'
 import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
+import { PrintButton } from '@/components/ui/PrintButton'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -423,25 +428,61 @@ const {
     toast.success('Vista aplicada correctamente')
   }, [updateColumnas, updateSortConfig, updateDensidad])
 
-  const handleGuardarVista = useCallback(async (nombre: string, descripcion?: string) => {
+  const handleGuardarVista = useCallback(async (
+    nombre: string,
+    descripcion?: string,
+    esDefault?: boolean,
+    vistaIdActualizar?: string
+  ) => {
     try {
-      console.log('💾 Guardando vista:', { nombre, descripcion, config: moduleConfig })
-      
-      await vistasService.create({
-        modulo: 'clientes',
-        nombre,
-        descripcion,
-        configuracion: moduleConfig,
-        esDefault: false,
-      })
-      
-      toast.success(`Vista "${nombre}" guardada correctamente`)
+      console.log('💾 Guardando vista:', { nombre, descripcion, esDefault, vistaIdActualizar, config: moduleConfig })
+
+      if (vistaIdActualizar) {
+        // Actualizar vista existente
+        await vistasService.update(vistaIdActualizar, {
+          modulo: 'clientes',
+          nombre,
+          descripcion,
+          configuracion: moduleConfig,
+          esDefault: esDefault || false,
+        })
+        toast.success(`Vista "${nombre}" actualizada correctamente`)
+      } else {
+        // Crear nueva vista
+        await vistasService.create({
+          modulo: 'clientes',
+          nombre,
+          descripcion,
+          configuracion: moduleConfig,
+          esDefault: esDefault || false,
+        })
+        toast.success(`Vista "${nombre}" guardada correctamente`)
+      }
     } catch (error) {
       console.error('Error al guardar vista:', error)
       toast.error('Error al guardar la vista')
       throw error
     }
   }, [moduleConfig])
+
+  // Cargar y aplicar vista por defecto al iniciar
+  useEffect(() => {
+    const cargarVistaDefault = async () => {
+      try {
+        const vistas = await vistasService.getAll('clientes', true)
+        const vistaDefault = vistas?.find((v: any) => v.esDefault)
+
+        if (vistaDefault && vistaDefault.configuracion) {
+          handleAplicarVista(vistaDefault.configuracion)
+          console.log('✅ Vista por defecto aplicada:', vistaDefault.nombre)
+        }
+      } catch (error) {
+        console.error('Error al cargar vista por defecto:', error)
+      }
+    }
+
+    cargarVistaDefault()
+  }, [handleAplicarVista])
 
   // ============================================
   // MANEJADORES DE EVENTOS
@@ -654,6 +695,57 @@ const {
   }
 
   // ============================================
+  // PAGINACIÓN INTELIGENTE
+  // ============================================
+
+  // Generar números de página con ellipsis
+  const getPageNumbers = (currentPage: number, totalPages: number): (number | string)[] => {
+    const pages: (number | string)[] = []
+    const maxVisible = 7 // Número máximo de botones visibles
+
+    if (totalPages <= maxVisible) {
+      // Mostrar todas las páginas si son pocas
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Siempre mostrar primera página
+      pages.push(1)
+
+      if (currentPage > 3) {
+        pages.push('...')
+      }
+
+      // Páginas alrededor de la actual
+      const start = Math.max(2, currentPage - 1)
+      const end = Math.min(totalPages - 1, currentPage + 1)
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i)
+      }
+
+      if (currentPage < totalPages - 2) {
+        pages.push('...')
+      }
+
+      // Siempre mostrar última página
+      pages.push(totalPages)
+    }
+
+    return pages
+  }
+
+  // Cambiar límite de registros por página
+  const handleLimitChange = (newLimit: number) => {
+    setFilters(prev => ({
+      ...prev,
+      limit: newLimit,
+      page: 1, // Resetear a página 1
+    }))
+    toast.success(`Mostrando ${newLimit} registros por página`)
+  }
+
+  // ============================================
   // IMPORTAR CLIENTES
   // ============================================
 
@@ -727,7 +819,7 @@ const {
             <Button asChild size="sm">
               <Link href="/clientes/nuevo">
                 <Plus className="h-4 w-4 mr-2" />
-                Nuevo Cliente
+                <span className="hidden sm:inline">Nuevo Cliente</span>
               </Link>
             </Button>
           </div>
@@ -831,8 +923,8 @@ const {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
-                  <Columns className="mr-2 h-4 w-4" />
-                  Columnas
+                  <Columns className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">Columnas</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
@@ -867,16 +959,37 @@ const {
                 toast.success('Configuración restablecida')
               }}
             >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Restablecer
+              <RefreshCw className="mr-2 h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Restablecer</span>
             </Button>
 
             {/* IMPORTAR */}
             <Button variant="outline" size="sm" onClick={handleImport}>
-              <Upload className="mr-2 h-4 w-4" />
-              Importar
+              <Upload className="mr-2 h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Importar</span>
             </Button>
-            
+
+            {/* IMPRIMIR */}
+            <PrintButton
+              data={clientes}
+              columns={columnasDisponibles
+                .filter((col) => columnasVisibles.includes(col.key))
+                .map((col) => ({
+                  key: col.key,
+                  label: col.label,
+                }))}
+              title="Listado de Clientes"
+              stats={[
+                { label: 'Total', value: stats.total },
+                { label: 'Activos', value: stats.activos },
+                { label: 'Inactivos', value: stats.inactivos },
+                { label: 'Empresas', value: stats.empresas },
+                { label: 'Particulares', value: stats.particulares },
+                { label: 'Con Riesgo', value: stats.conRiesgo },
+              ]}
+              filters={columnFiltersInput}
+            />
+
             {/* EXPORTACIÓN */}
             <ExportButton
               data={clientes}
@@ -1465,47 +1578,117 @@ const {
           </div>
         </Card>
 
-        {/* PAGINACIÓN */}
-        {pagination.pages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
-              Mostrando <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span> a{' '}
-              <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> de{' '}
-              <span className="font-medium">{pagination.total}</span> clientes
-            </p>
-            <div className="flex gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setFilters(prev => ({ ...prev, page: Math.max(1, prev.page! - 1) }))}
-                disabled={pagination.page === 1}
-              >
-                Anterior
-              </Button>
-              {[...Array(Math.min(5, pagination.pages))].map((_, i) => {
-                const pageNum = i + 1
-                return (
-                  <Button
-                    key={pageNum}
-                    variant={pagination.page === pageNum ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setFilters(prev => ({ ...prev, page: pageNum }))}
-                    className="w-9"
-                  >
-                    {pageNum}
-                  </Button>
-                )
-              })}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setFilters(prev => ({ ...prev, page: Math.min(pagination.pages, prev.page! + 1) }))}
-                disabled={pagination.page === pagination.pages}
-              >
-                Siguiente
-              </Button>
+        {/* PAGINACIÓN PROFESIONAL */}
+        {pagination.total > 0 && (
+          <Card className="p-4">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+              {/* SELECTOR DE REGISTROS POR PÁGINA */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">Mostrar</span>
+                <Select
+                  value={pagination.limit.toString()}
+                  onValueChange={(value) => handleLimitChange(Number(value))}
+                >
+                  <SelectTrigger className="w-[80px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="min-w-[80px] w-auto" align="start">
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="200">200</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  de <span className="font-medium">{pagination.total}</span> registros
+                </span>
+              </div>
+
+              {/* INFORMACIÓN DEL RANGO */}
+              <div className="text-sm text-muted-foreground">
+                Mostrando <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span> a{' '}
+                <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span>
+                {' '}(Página <span className="font-medium">{pagination.page}</span> de{' '}
+                <span className="font-medium">{pagination.pages}</span>)
+              </div>
+
+              {/* NAVEGACIÓN DE PÁGINAS */}
+              <div className="flex items-center gap-1">
+                {/* Primera página */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFilters(prev => ({ ...prev, page: 1 }))}
+                  disabled={pagination.page === 1}
+                  className="h-9 w-9 p-0"
+                  title="Primera página"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+
+                {/* Página anterior */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFilters(prev => ({ ...prev, page: Math.max(1, prev.page! - 1) }))}
+                  disabled={pagination.page === 1}
+                  className="h-9 w-9 p-0"
+                  title="Página anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                {/* Números de página con ellipsis */}
+                {getPageNumbers(pagination.page, pagination.pages).map((pageNum, idx) => {
+                  if (pageNum === '...') {
+                    return (
+                      <div key={`ellipsis-${idx}`} className="h-9 w-9 flex items-center justify-center">
+                        <span className="text-muted-foreground">...</span>
+                      </div>
+                    )
+                  }
+
+                  const page = pageNum as number
+                  return (
+                    <Button
+                      key={page}
+                      variant={pagination.page === page ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setFilters(prev => ({ ...prev, page }))}
+                      className="h-9 w-9 p-0"
+                    >
+                      {page}
+                    </Button>
+                  )
+                })}
+
+                {/* Página siguiente */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFilters(prev => ({ ...prev, page: Math.min(pagination.pages, prev.page! + 1) }))}
+                  disabled={pagination.page === pagination.pages}
+                  className="h-9 w-9 p-0"
+                  title="Página siguiente"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+
+                {/* Última página */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFilters(prev => ({ ...prev, page: pagination.pages }))}
+                  disabled={pagination.page === pagination.pages}
+                  className="h-9 w-9 p-0"
+                  title="Última página"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* DIALOG DE CONFIRMACIÓN PARA ELIMINAR */}

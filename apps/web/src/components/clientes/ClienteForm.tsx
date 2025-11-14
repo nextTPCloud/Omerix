@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
+import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete'
 
 interface ClienteFormProps {
   initialData?: Cliente
@@ -178,15 +179,47 @@ export function ClienteForm({
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="codigo">Código</Label>
-            <Input
-              id="codigo"
-              name="codigo"
-              value={formData.codigo || ''}
-              disabled
-              placeholder="Se generará automáticamente"
-              className="bg-muted"
-            />
+            <Label htmlFor="codigo">Código {mode === 'create' && '(opcional)'}</Label>
+            <div className="relative">
+              <Input
+                id="codigo"
+                name="codigo"
+                value={formData.codigo || ''}
+                onChange={handleChange}
+                onKeyDown={async (e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    try {
+                      // Extraer prefijo del código actual
+                      const codigoActual = e.currentTarget.value
+                      const match = codigoActual.match(/^([A-Za-z]+-?)/)
+                      const prefijo = match ? match[1] : undefined
+
+                      // Llamar al servicio para sugerir código
+                      const { clientesService } = await import('@/services/clientes.service')
+                      const response = await clientesService.sugerirSiguienteCodigo(prefijo)
+
+                      if (response.success) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          codigo: response.data.codigo,
+                        }))
+                      }
+                    } catch (error) {
+                      console.error('Error al sugerir código:', error)
+                    }
+                  }
+                }}
+                placeholder={mode === 'create' ? 'Ej: CLI-001 (vacío para autogenerar)' : 'Código del cliente'}
+                disabled={mode === 'edit'}
+                className={mode === 'edit' ? 'bg-muted' : ''}
+              />
+              {mode === 'create' && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  💡 Presiona ↓ para sugerir el siguiente código disponible
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -286,6 +319,43 @@ export function ClienteForm({
           <CardTitle>Dirección Principal *</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Buscador de direcciones con Google Maps */}
+          <div className="md:col-span-2">
+            <AddressAutocomplete
+              label="Buscar dirección con Google Maps"
+              placeholder="Empieza a escribir una dirección..."
+              onAddressSelect={(address) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  direccion: {
+                    calle: address.calle,
+                    numero: address.numero,
+                    codigoPostal: address.codigoPostal,
+                    ciudad: address.ciudad,
+                    provincia: address.provincia,
+                    pais: address.pais,
+                    latitud: address.latitud,
+                    longitud: address.longitud,
+                  },
+                }))
+              }}
+            />
+          </div>
+
+          {/* Separador */}
+          <div className="md:col-span-2">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  O rellenar manualmente
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div className="md:col-span-2 space-y-2">
             <Label htmlFor="direccion-calle">Calle *</Label>
             <Input
@@ -378,6 +448,43 @@ export function ClienteForm({
 
         {usarDireccionEnvio && (
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Buscador de direcciones con Google Maps */}
+            <div className="md:col-span-2">
+              <AddressAutocomplete
+                label="Buscar dirección de envío con Google Maps"
+                placeholder="Empieza a escribir una dirección..."
+                onAddressSelect={(address) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    direccionEnvio: {
+                      calle: address.calle,
+                      numero: address.numero,
+                      codigoPostal: address.codigoPostal,
+                      ciudad: address.ciudad,
+                      provincia: address.provincia,
+                      pais: address.pais,
+                      latitud: address.latitud,
+                      longitud: address.longitud,
+                    },
+                  }))
+                }}
+              />
+            </div>
+
+            {/* Separador */}
+            <div className="md:col-span-2">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    O rellenar manualmente
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="md:col-span-2 space-y-2">
               <Label htmlFor="envio-calle">Calle</Label>
               <Input

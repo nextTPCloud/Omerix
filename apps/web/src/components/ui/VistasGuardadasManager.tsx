@@ -30,6 +30,8 @@ import {
   MoreHorizontal,
   Plus,
   ChevronDown,
+  Check,
+  Settings2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -52,7 +54,7 @@ interface VistasGuardadasManagerProps {
   modulo: string
   configuracionActual: any
   onAplicarVista: (configuracion: any) => void
-  onGuardarVista: (nombre: string, descripcion?: string) => Promise<void>
+  onGuardarVista: (nombre: string, descripcion?: string, esDefault?: boolean, vistaIdActualizar?: string) => Promise<void>
 }
 
 export function VistasGuardadasManager({
@@ -99,30 +101,54 @@ export function VistasGuardadasManager({
     }
   }
 
-  const handleGuardarVista = async () => {
+  const handleGuardarVista = async (modoActualizar: boolean = false) => {
     if (!nuevoNombre.trim()) {
       toast.error('El nombre de la vista es obligatorio')
       return
     }
 
     try {
-      await onGuardarVista(nuevoNombre, nuevaDescripcion)
-      
-      // Si se debe establecer como default, hacer la petición adicional
-      if (establecerDefault) {
-        // Aquí se haría la petición para establecer como default
-        // Por ahora solo cerramos el diálogo
+      if (modoActualizar && vistaActual) {
+        // Actualizar vista existente
+        await onGuardarVista(
+          nuevoNombre,
+          nuevaDescripcion,
+          establecerDefault,
+          vistaActual._id
+        )
+        toast.success('Vista actualizada correctamente')
+      } else {
+        // Crear nueva vista
+        await onGuardarVista(
+          nuevoNombre,
+          nuevaDescripcion,
+          establecerDefault
+        )
+        toast.success('Vista guardada correctamente')
       }
-      
+
       setShowSaveDialog(false)
       setNuevoNombre('')
       setNuevaDescripcion('')
       setEstablecerDefault(false)
-      cargarVistas()
-      toast.success('Vista guardada correctamente')
+      await cargarVistas()
     } catch (error) {
-      toast.error('Error al guardar la vista')
+      toast.error(modoActualizar ? 'Error al actualizar la vista' : 'Error al guardar la vista')
     }
+  }
+
+  const handleAbrirDialogoGuardar = () => {
+    // Pre-rellenar si hay vista actual
+    if (vistaActual) {
+      setNuevoNombre(vistaActual.nombre)
+      setNuevaDescripcion(vistaActual.descripcion || '')
+      setEstablecerDefault(vistaActual.esDefault)
+    } else {
+      setNuevoNombre('')
+      setNuevaDescripcion('')
+      setEstablecerDefault(false)
+    }
+    setShowSaveDialog(true)
   }
 
   const handleAplicarVista = async (vista: VistaGuardada) => {
@@ -132,6 +158,16 @@ export function VistasGuardadasManager({
       toast.success(`Vista "${vista.nombre}" aplicada`)
     } catch (error) {
       toast.error('Error al aplicar la vista')
+    }
+  }
+
+  const handleRestaurarDefault = () => {
+    try {
+      // Resetear a configuración por defecto (sin vista guardada)
+      setVistaActual(null)
+      toast.success('Configuración por defecto restaurada')
+    } catch (error) {
+      toast.error('Error al restaurar configuración')
     }
   }
 
@@ -175,54 +211,101 @@ export function VistasGuardadasManager({
         {/* Selector de vista */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Eye className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">
-                {vistaActual ? vistaActual.nombre : 'Vista Actual'}
-              </span>
-              <ChevronDown className="ml-2 h-3 w-3" />
+            <Button variant="outline" size="sm" className="sm:min-w-[140px] justify-start">
+              {vistaActual ? (
+                <>
+                  <Eye className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline truncate">{vistaActual.nombre}</span>
+                </>
+              ) : (
+                <>
+                  <Settings2 className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">Por defecto</span>
+                </>
+              )}
+              <ChevronDown className="ml-auto h-3 w-3 shrink-0" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel>Vistas Guardadas</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuLabel className="flex items-center justify-between">
+              <span>Vistas Guardadas</span>
+              {vistaActual && (
+                <Badge variant="secondary" className="text-xs">
+                  Activa
+                </Badge>
+              )}
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            
+
+            {/* Opción "Por defecto" */}
+            <DropdownMenuItem
+              onClick={() => setVistaActual(null)}
+              className="flex items-center gap-2 py-2"
+            >
+              <div className="flex items-center flex-1 gap-2">
+                <Settings2 className="h-4 w-4 text-muted-foreground" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className={!vistaActual ? "font-semibold" : ""}>
+                      Configuración por defecto
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Vista estándar del sistema
+                  </p>
+                </div>
+              </div>
+              {!vistaActual && (
+                <Check className="h-4 w-4 text-primary" />
+              )}
+            </DropdownMenuItem>
+
+            {vistas.length > 0 && <DropdownMenuSeparator />}
+
             {vistas.length === 0 ? (
               <div className="px-2 py-6 text-center text-sm text-muted-foreground">
                 <Eye className="mx-auto mb-2 h-8 w-8 opacity-20" />
-                <p>No hay vistas guardadas</p>
-                <p className="text-xs mt-1">Crea una vista personalizada</p>
+                <p>No hay vistas personalizadas</p>
+                <p className="text-xs mt-1">Crea una vista para guardar tu configuración</p>
               </div>
             ) : (
-              vistas.map((vista) => (
-                <DropdownMenuItem
-                  key={vista._id}
-                  onClick={() => handleAplicarVista(vista)}
-                  className="flex items-center justify-between py-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <Eye className="h-4 w-4" />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{vista.nombre}</span>
-                        {vista.esDefault && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Star className="mr-1 h-3 w-3" />
-                            Default
-                          </Badge>
+              vistas.map((vista) => {
+                const isActive = vistaActual?._id === vista._id
+                return (
+                  <DropdownMenuItem
+                    key={vista._id}
+                    onClick={() => handleAplicarVista(vista)}
+                    className="flex items-center gap-2 py-2"
+                  >
+                    <div className="flex items-center flex-1 gap-2">
+                      <Eye className={`h-4 w-4 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={isActive ? "font-semibold" : "font-medium"}>
+                            {vista.nombre}
+                          </span>
+                          {vista.esDefault && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" />
+                              Default
+                            </Badge>
+                          )}
+                        </div>
+                        {vista.descripcion && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {vista.descripcion}
+                          </p>
                         )}
                       </div>
-                      {vista.descripcion && (
-                        <p className="text-xs text-muted-foreground">
-                          {vista.descripcion}
-                        </p>
-                      )}
                     </div>
-                  </div>
-                </DropdownMenuItem>
-              ))
+                    {isActive && (
+                      <Check className="h-4 w-4 text-primary shrink-0" />
+                    )}
+                  </DropdownMenuItem>
+                )
+              })
             )}
-            
+
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setShowManageDialog(true)}>
               <MoreHorizontal className="mr-2 h-4 w-4" />
@@ -235,9 +318,9 @@ export function VistasGuardadasManager({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setShowSaveDialog(true)}
+          onClick={handleAbrirDialogoGuardar}
         >
-          <Save className="mr-2 h-4 w-4" />
+          <Save className="mr-2 h-4 w-4 shrink-0" />
           <span className="hidden sm:inline">Guardar Vista</span>
         </Button>
       </div>
@@ -290,14 +373,34 @@ export function VistasGuardadasManager({
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleGuardarVista} disabled={!nuevoNombre.trim()}>
-              <Save className="mr-2 h-4 w-4" />
-              Guardar Vista
-            </Button>
+            {vistaActual ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => handleGuardarVista(false)}
+                  disabled={!nuevoNombre.trim()}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Guardar como nueva
+                </Button>
+                <Button
+                  onClick={() => handleGuardarVista(true)}
+                  disabled={!nuevoNombre.trim()}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Actualizar vista
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => handleGuardarVista(false)} disabled={!nuevoNombre.trim()}>
+                <Save className="mr-2 h-4 w-4" />
+                Guardar Vista
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

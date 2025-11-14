@@ -3,6 +3,7 @@ import { api } from './api';
 export interface VistaGuardada {
   _id: string;
   nombre: string;
+  modulo: string;
   descripcion?: string;
   configuracion: any;
   esDefault: boolean;

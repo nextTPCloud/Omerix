@@ -228,7 +228,7 @@ class ExportService {
   }
 
   /**
-   * Exportar a PDF
+   * Exportar a PDF con tabla completa
    */
   async exportToPDF(options: ExportOptions, res: Response): Promise<void> {
     const {
@@ -241,7 +241,12 @@ class ExportService {
       includeStats = true,
     } = options;
 
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    // Landscape para más espacio horizontal
+    const doc = new PDFDocument({
+      size: 'A4',
+      layout: 'landscape',
+      margin: 30
+    });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
@@ -252,14 +257,14 @@ class ExportService {
     // TÍTULO
     // ===================================
     if (title) {
-      doc.fontSize(18).font('Helvetica-Bold').text(title, { align: 'center' });
-      doc.moveDown(0.5);
+      doc.fontSize(16).font('Helvetica-Bold').text(title, { align: 'center' });
+      doc.moveDown(0.3);
     }
 
     if (subtitle) {
-      doc.fontSize(12).font('Helvetica').fillColor('#666').text(subtitle, { align: 'center' });
+      doc.fontSize(10).font('Helvetica').fillColor('#666').text(subtitle, { align: 'center' });
       doc.fillColor('#000');
-      doc.moveDown(1);
+      doc.moveDown(0.5);
     }
 
     // ===================================
@@ -267,39 +272,156 @@ class ExportService {
     // ===================================
     if (includeStats && stats && stats.length > 0) {
       const startY = doc.y;
-      const boxWidth = (doc.page.width - 100) / 4;
-      
+      const boxWidth = (doc.page.width - 60) / Math.min(stats.length, 6);
+      const boxHeight = 25;
+
       stats.forEach((stat, index) => {
-        const col = index % 4;
-        const row = Math.floor(index / 4);
-        const x = 50 + col * boxWidth;
-        const y = startY + row * 40;
-        
-        doc.rect(x, y, boxWidth - 10, 30).fillAndStroke('#F3F4F6', '#D1D5DB');
-        doc.fillColor('#000').fontSize(8).text(stat.label, x + 5, y + 8, {
-          width: boxWidth - 20,
-          align: 'center',
-        });
-        doc.fontSize(10).font('Helvetica-Bold').text(String(stat.value), x + 5, y + 18, {
-          width: boxWidth - 20,
-          align: 'center',
-        });
+        if (index >= 6) return; // Máximo 6 estadísticas
+
+        const x = 30 + index * boxWidth;
+        const y = startY;
+
+        // Fondo
+        doc.rect(x, y, boxWidth - 5, boxHeight)
+           .fillAndStroke('#F3F4F6', '#D1D5DB');
+
+        // Etiqueta
+        doc.fillColor('#666')
+           .fontSize(7)
+           .font('Helvetica')
+           .text(stat.label, x + 3, y + 5, {
+             width: boxWidth - 11,
+             align: 'center',
+           });
+
+        // Valor
+        doc.fillColor('#000')
+           .fontSize(9)
+           .font('Helvetica-Bold')
+           .text(String(stat.value), x + 3, y + 14, {
+             width: boxWidth - 11,
+             align: 'center',
+           });
       });
-      
-      doc.moveDown(3);
+
+      doc.y = startY + boxHeight + 10;
     }
 
     // ===================================
-    // TABLA (simplificada para PDF)
+    // TABLA COMPLETA
     // ===================================
-    doc.fontSize(10).font('Helvetica');
-    
-    // Esta es una versión simplificada
-    // Para tablas complejas en PDF, considera usar una librería como pdfkit-table
-    
-    doc.text('Ver archivo Excel para datos completos', { align: 'center' });
+    const tableTop = doc.y;
+    const itemHeight = 18;
+    const headerHeight = 22;
+
+    // Calcular anchos de columna dinámicamente
+    const pageWidth = doc.page.width - 60;
+    const colWidth = pageWidth / columns.length;
+
+    // HEADERS
+    doc.fillColor('#3B82F6').rect(30, tableTop, pageWidth, headerHeight).fill();
+    doc.fillColor('#FFFFFF').fontSize(8).font('Helvetica-Bold');
+
+    columns.forEach((col, i) => {
+      const x = 30 + i * colWidth;
+      doc.text(col.label, x + 3, tableTop + 7, {
+        width: colWidth - 6,
+        align: 'left',
+        ellipsis: true,
+      });
+    });
+
+    doc.fillColor('#000');
+    let currentY = tableTop + headerHeight;
+
+    // FILAS DE DATOS
+    data.forEach((item, rowIndex) => {
+      // Verificar si necesitamos una nueva página
+      if (currentY > doc.page.height - 50) {
+        doc.addPage();
+        currentY = 50;
+
+        // Repetir headers en nueva página
+        doc.fillColor('#3B82F6').rect(30, currentY, pageWidth, headerHeight).fill();
+        doc.fillColor('#FFFFFF').fontSize(8).font('Helvetica-Bold');
+
+        columns.forEach((col, i) => {
+          const x = 30 + i * colWidth;
+          doc.text(col.label, x + 3, currentY + 7, {
+            width: colWidth - 6,
+            align: 'left',
+            ellipsis: true,
+          });
+        });
+
+        doc.fillColor('#000');
+        currentY += headerHeight;
+      }
+
+      // Fondo alternado
+      if (rowIndex % 2 === 0) {
+        doc.fillColor('#F9FAFB').rect(30, currentY, pageWidth, itemHeight).fill();
+      }
+
+      // Bordes
+      doc.strokeColor('#E5E7EB').rect(30, currentY, pageWidth, itemHeight).stroke();
+
+      // Datos de la fila
+      doc.fillColor('#000').fontSize(7).font('Helvetica');
+
+      columns.forEach((col, i) => {
+        const x = 30 + i * colWidth;
+        let value = item[col.key];
+
+        // Aplicar formato si existe
+        if (col.format && value !== null && value !== undefined) {
+          value = col.format(value);
+        }
+
+        // Manejar objetos (como direcciones)
+        if (typeof value === 'object' && value !== null) {
+          if (value.calle) {
+            value = `${value.calle}, ${value.codigoPostal}`;
+          } else {
+            value = '-';
+          }
+        }
+
+        // Convertir a string
+        const displayValue = value !== null && value !== undefined ? String(value) : '-';
+
+        // Dibujar líneas verticales entre columnas
+        if (i > 0) {
+          doc.strokeColor('#E5E7EB')
+             .moveTo(x, currentY)
+             .lineTo(x, currentY + itemHeight)
+             .stroke();
+        }
+
+        doc.text(displayValue, x + 3, currentY + 5, {
+          width: colWidth - 6,
+          height: itemHeight - 10,
+          align: 'left',
+          ellipsis: true,
+        });
+      });
+
+      currentY += itemHeight;
+    });
+
+    // ===================================
+    // FOOTER
+    // ===================================
     doc.moveDown();
-    doc.fontSize(8).text(`Total de registros: ${data.length}`, { align: 'center' });
+    doc.fontSize(8)
+       .fillColor('#666')
+       .text(`Total de registros: ${data.length}`, 30, doc.page.height - 30, {
+         align: 'left',
+       });
+
+    doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, 30, doc.page.height - 30, {
+      align: 'right',
+    });
 
     doc.end();
   }

@@ -267,7 +267,7 @@ export const clientesService = {
   // ============================================
   // VERIFICAR NIF DUPLICADO
   // ============================================
-  
+
   checkNIF: async (nif: string, excludeId?: string): Promise<{
     success: boolean
     exists: boolean
@@ -275,8 +275,23 @@ export const clientesService = {
   }> => {
     const params = new URLSearchParams({ nif })
     if (excludeId) params.append('excludeId', excludeId)
-    
+
     const response = await api.get(`/clientes/check-nif?${params.toString()}`)
+    return response.data
+  },
+
+  // ============================================
+  // SUGERIR SIGUIENTE CÓDIGO
+  // ============================================
+
+  sugerirSiguienteCodigo: async (prefijo?: string): Promise<{
+    success: boolean
+    data: { codigo: string }
+  }> => {
+    const params = new URLSearchParams()
+    if (prefijo) params.append('prefijo', prefijo)
+
+    const response = await api.get(`/clientes/sugerir-codigo?${params.toString()}`)
     return response.data
   },
 }
