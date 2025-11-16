@@ -1,0 +1,5592 @@
+SOLUCIÓN APLICADA:
+- Abierto puerto 9100/TCP en firewall para IP impresora
+- Verificado funcionamiento desde 3 equipos diferentes
+- Añadida regla permanente en firewall
+- Impresora funcionando correctamente
+`,
+interno: false
+}
+
+],
+// Solución
+solucion: "Puerto 9100/TCP bloqueado en firewall tras actualización. Regla añadida.",
+articuloBaseConocimiento: ObjectId, // si se creó artículo de esta solución
+// Tiempos
+tiempoRespuesta: 20, // minutos desde creación hasta primera respuesta
+tiempoResolucion: 90, // minutos desde creación hasta resolución
+tiempoTecnico: 45, // minutos de trabajo efectivo del técnico
+// Facturación
+facturable: true,
+contratoId: ObjectId, // si está en contrato de mantenimiento
+horasConsumidas: 0.75,
+tarifaHora: 50.00,
+importeFacturado: 0, // 0 porque está en contrato con horas incluidas
+// Valoración del cliente valoracionCliente: { puntuacion: 5, // 1-5 comentario: "Problema resuelto rápidamente,
+técnico muy profesional", fecha: "2025-10-03T12:05:00Z" },
+// Relaciones
+ticketRelacionados: [], // tickets similares o relacionados
+ticketPadre: null, // si es subtask de otro ticket
+createdAt: "2025-10-03T10:15:00Z", updatedAt: "2025-10-03T12:00:00Z" }
+
+**Niveles de SLA configurables**:
+```javascript
+{
+nombre: "SLA Premium",
+codigo: "premium",
+prioridades: {
+critica: { respuesta: 1, resolucion: 4 }, // horas
+alta: { respuesta: 2, resolucion: 8 },
+normal: { respuesta: 4, resolucion: 24 },
+baja: { respuesta: 8, resolucion: 48 }
+},
+horarioSoporte: "24/7",
+penalizacionIncumplimiento: 50.00, // € por hora de retraso
+incluido: true
+}
+```
+#### 5.9.3 Contratos de Mantenimiento
+**Estructura de contrato**:
+```javascript
+{
+numero: "CTR-2025-00045",
+clienteId: ObjectId,
+cliente: "Empresa XYZ SL",
+// Tipo de contrato
+tipo: "mantenimiento_informatico",
+nombre: "Contrato Mantenimiento IT Premium",
+// Vigencia
+fechaInicio: "2025-01-01",
+fechaFin: "2025-12-31",
+duracion: 12, // meses
+renovacionAutomatica: true,
+// Nivel de servicio
+nivelSLA: "premium",
+// Horas incluidas
+horasIncluidas: 50, // horas/año
+horasConsumidas: 23.5,
+horasRestantes: 26.5,
+tarifaHoraExtra: 60.00, // € por hora adicional
+
+// Servicios incluidos
+serviciosIncluidos: [
+"Soporte remoto ilimitado",
+"Soporte presencial según horas incluidas",
+"Mantenimiento preventivo trimestral",
+"Actualizaciones de software",
+"Monitorización 24/7",
+"Gestión de licencias",
+"Backup y recuperación",
+"Seguridad y antivirus"
+],
+// Equipos cubiertos
+equiposCubiertos: [
+{ equipoId: ObjectId, descripcion: "Servidor Dell PowerEdge" },
+{ equipoId: ObjectId, descripcion: "10 PCs de oficina" },
+{ equipoId: ObjectId, descripcion: "Firewall FortiGate" },
+{ equipoId: ObjectId, descripcion: "2 Impresoras de red" },
+{ equipoId: ObjectId, descripcion: "Switch 24 puertos" }
+],
+// Mantenimientos preventivos programados
+mantenimientosPreventivos: [
+{
+frecuencia: "trimestral",
+descripcion: "Revisión completa servidores",
+proximaFecha: "2025-12-15",
+checklist: [
+"Revisar logs de sistema",
+"Comprobar espacio en disco",
+"Actualizar sistema operativo",
+"Verificar backups",
+"Revisar seguridad",
+"Optimizar rendimiento"
+]
+},
+{
+frecuencia: "mensual",
+descripcion: "Actualización de antivirus PCs",
+proximaFecha: "2025-11-01"
+}
+],
+// Facturación
+importeMensual: 450.00,
+importeAnual: 5400.00,
+
+formaPago: "domiciliacion_bancaria",
+diaFacturacion: 1, // día del mes
+// Facturación automática
+facturacionAutomatica: true,
+proximaFacturacion: "2025-11-01",
+// Historial de consumo
+consumoMensual: [
+{ mes: "2025-01", horasConsumidas: 2.5, tickets: 5 },
+{ mes: "2025-02", horasConsumidas: 1.8, tickets: 3 },
+{ mes: "2025-03", horasConsumidas: 4.2, tickets: 8 },
+// ...
+],
+// Alertas
+alertas: {
+avisarHorasRestantes: true,
+porcentajeAviso: 80, // avisar cuando consuma el 80%
+avisoRenovacion: 60 // días antes del vencimiento
+},
+// Estado
+estado: "activo", // activo | suspendido | finalizado | cancelado
+// Documentos
+documentoContrato: "contrato-firmado.pdf",
+// Relaciones
+ticketsAsociados: [ObjectId, ...],
+facturasGeneradas: [ObjectId, ...],
+createdAt: "2024-12-15T10:00:00Z",
+updatedAt: "2025-10-03T14:30:00Z"
+}
+```
+**Facturación recurrente automática**:
+- Cada mes/trimestre/año según contrato
+- Generación automática de factura
+- Envío por email
+- Cobro automático si está configurado
+#### 5.9.4 Gestión de Licencias de Software
+```javascript
+{
+
+// Identificación
+producto: "Microsoft Office 365 Business Premium",
+proveedor: "Microsoft",
+// Tipo de licencia
+tipoLicencia: "suscripcion", // perpetua | suscripcion | oem | volumen
+// Cliente
+clienteId: ObjectId,
+// Licencia
+claveLicencia: "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX",
+numeroSerie: "...",
+email: "admin@empresa.com",
+// Cantidad
+licenciasTotal: 10,
+licenciasAsignadas: 8,
+licenciasDisponibles: 2,
+// Asignación
+asignaciones: [
+{ usuario: "Laura Martínez", email: "laura@empresa.com", equipoId: ObjectId, activa: true },
+{ usuario: "Pedro García", email: "pedro@empresa.com", equipoId: ObjectId, activa: true },
+// ... 6 más
+],
+// Fechas
+fechaCompra: "2024-01-15",
+fechaActivacion: "2024-01-20",
+fechaVencimiento: "2026-01-20",
+diasRestantes: 474,
+// Renovación
+renovacionAutomatica: true,
+importeRenovacion: 129.00, // € por licencia/año
+// Costes
+costeLicencia: 129.00, // € por licencia/año
+costeTotal: 1290.00, // € total/año (10 licencias)
+// Facturación
+facturaCompraId: ObjectId,
+// Alertas
+alertaVencimiento: true,
+diasAntelacion: [60, 30, 15, 7], // avisar estos días antes
+
+// Documentos
+documentos: ["factura.pdf", "certificado-licencia.pdf"],
+// Estado
+estado: "activa", // activa | vencida | cancelada | suspendida
+// Observaciones
+observaciones: "Licencias corporativas con soporte prioritario",
+createdAt: "2024-01-20T10:00:00Z",
+updatedAt: "2025-10-03T14:30:00Z"
+}
+```
+**Dashboard de licencias**:
+- Licencias próximas a vencer
+- Coste total en licencias
+- Licencias sin asignar (desperdicio)
+- Recomendaciones de optimización
+#### 5.9.5 Base de Conocimiento (Wiki interna)
+**Artículo de base de conocimiento**:
+```javascript
+{
+titulo: "Cómo solucionar impresora sin conexión en Windows",
+// Categorización
+categoria: "Hardware",
+subcategoria: "Impresoras",
+tags: ["impresora", "red", "windows", "sin_conexion"],
+// Contenido
+problema: "La impresora muestra estado 'Sin conexión' en Windows",
+sintomas: [
+"Mensaje 'Impresora sin conexión' al intentar imprimir",
+"Trabajos de impresión se quedan en cola",
+"Impresora funciona desde otros equipos"
+],
+causas: [
+"Firewall bloqueando puerto de impresión",
+"Impresora configurada para usar offline",
+"Driver de impresora desactualizado",
+
+"Problemas de red",
+"Cola de impresión bloqueada"
+],
+solucion: `
+## SOLUCIÓN 1: Verificar estado de impresora
+1. Abrir Panel de Control > Dispositivos e impresoras
+2. Click derecho en impresora > "Ver lo que se está imprimando"
+3. Menú "Impresora" > Desmarcar "Usar impresora sin conexión"
+## SOLUCIÓN 2: Reiniciar servicio de cola de impresión
+1. Abrir cmd como administrador
+2. Ejecutar: net stop spooler
+3. Ejecutar: net start spooler
+## SOLUCIÓN 3: Verificar firewall
+1. Verificar que puerto 9100/TCP está abierto
+2. Si está bloqueado, añadir excepción en firewall
+## SOLUCIÓN 4: Reinstalar impresora
+1. Eliminar impresora del sistema
+2. Descargar driver actualizado del fabricante
+3. Reinstalar impresora
+`,
+capturasPantalla: ["imagen1.png", "imagen2.png"],
+// Metadatos
+autor: "Pedro García",
+fechaCreacion: "2025-10-03T12:00:00Z",
+ultimaActualizacion: "2025-10-03T12:00:00Z",
+// Utilidad
+veces_usado: 15,
+veces_util: 14,
+porcentaje_exito: 93.3,
+// Relacionado
+ticketsRelacionados: [ObjectId, ObjectId],
+articulosRelacionados: [ObjectId],
+// Visibilidad
+publico: false, // solo interno del equipo IT
+
+estado: "publicado" // borrador | revision | publicado | archivado
+}
+```
+**Búsqueda inteligente**:
+- Búsqueda por palabras clave
+- Búsqueda por categoría
+- Artículos más útiles
+- Artículos relacionados con ticket actual
+--### 5.10 MÓDULO PROYECTOS
+#### 5.10.1 Gestión de Proyectos
+**Proyecto completo**:
+```javascript
+{
+// Identificación
+codigo: "PRJ-2025-00012",
+nombre: "Desarrollo Web Corporativa - Empresa ABC",
+descripcion: "Diseño y desarrollo de nueva web corporativa con área privada de clientes",
+// Cliente
+clienteId: ObjectId,
+cliente: "Empresa ABC SL",
+personaContacto: "María Directora",
+emailContacto: "maria@abc.com",
+// Equipo
+responsableId: ObjectId,
+responsable: "Juan Project Manager",
+equipoIds: [ObjectId, ObjectId, ObjectId],
+equipo: [
+{ usuarioId: ObjectId, nombre: "Pedro Desarrollador", rol: "Developer" },
+{ usuarioId: ObjectId, nombre: "Ana Diseñadora", rol: "Designer" },
+{ usuarioId: ObjectId, nombre: "Carlos QA", rol: "Tester" }
+],
+// Fechas
+fechaInicio: "2025-09-01",
+fechaFinEstimada: "2025-12-31",
+fechaFinReal: null,
+duracionEstimada: 4, // meses
+
+// Fases del proyecto
+fases: [
+{
+orden: 1,
+nombre: "Análisis y diseño",
+descripcion: "Definición de requisitos y diseño visual",
+fechaInicio: "2025-09-01",
+fechaFin: "2025-09-30",
+estado: "completada",
+porcentajeCompletado: 100,
+entregables: ["Documento de requisitos", "Mockups visuales", "Arquitectura técnica"],
+responsable: "Ana Diseñadora"
+},
+{
+orden: 2,
+nombre: "Desarrollo",
+descripcion: "Desarrollo frontend y backend",
+fechaInicio: "2025-10-01",
+fechaFin: "2025-11-30",
+estado: "en_curso",
+porcentajeCompletado: 65,
+entregables: ["Web funcional", "Área privada", "Panel administración"],
+responsable: "Pedro Desarrollador"
+},
+{
+orden: 3,
+nombre: "Testing y QA",
+descripcion: "Pruebas funcionales y de rendimiento",
+fechaInicio: "2025-12-01",
+fechaFin: "2025-12-15",
+estado: "pendiente",
+porcentajeCompletado: 0,
+entregables: ["Informe de testing", "Bugs corregidos"],
+responsable: "Carlos QA"
+},
+{
+orden: 4,
+nombre: "Despliegue y formación",
+descripcion: "Puesta en producción y formación al cliente",
+fechaInicio: "2025-12-16",
+fechaFin: "2025-12-31",
+estado: "pendiente",
+porcentajeCompletado: 0,
+entregables: ["Web en producción", "Manual de usuario", "Formación"],
+responsable: "Juan Project Manager"
+
+}
+],
+// Presupuesto y costes
+presupuestoTotal: 15000.00,
+costosReales: 9750.00,
+gastosAprobados: 500.00,
+horasEstimadas: 300,
+horasReales: 195,
+rentabilidad: 4750.00,
+margen: 31.67, // %
+// Facturación
+tipoFacturacion: "hitos", // hito | mensual | final | personalizado
+hitos: [
+{
+nombre: "Entrega diseño",
+descripcion: "Mockups aprobados",
+porcentajeFacturacion: 30,
+importe: 4500.00,
+fechaPrevista: "2025-09-30",
+fechaReal: "2025-09-28",
+completado: true,
+facturaId: ObjectId,
+facturado: true
+},
+{
+nombre: "Desarrollo completado",
+porcentajeFacturacion: 50,
+importe: 7500.00,
+fechaPrevista: "2025-11-30",
+completado: false,
+facturado: false
+},
+{
+nombre: "Entrega final",
+porcentajeFacturacion: 20,
+importe: 3000.00,
+fechaPrevista: "2025-12-31",
+completado: false,
+facturado: false
+}
+],
+facturado: 4500.00,
+pendienteFacturar: 10500.00,
+// Certificaciones (para obras/construcción)
+
+certificaciones: [], // si aplica
+// Control
+porcentajeCompletado: 48.75,
+estado: "en_curso", // propuesta | aprobado | en_curso | pausado | finalizado | cancelado
+estadoSalud: "en_riesgo", // saludable | en_riesgo | critico
+motivoRiesgo: "Retraso de 1 semana en fase de desarrollo",
+// Hitos principales
+hitosPrincipales: [
+{
+nombre: "Kick-off meeting",
+fecha: "2025-09-01",
+completado: true
+},
+{
+nombre: "Aprobación diseño",
+fecha: "2025-09-28",
+completado: true
+},
+{
+nombre: "Demo funcional",
+fecha: "2025-11-15",
+completado: false
+},
+{
+nombre: "Go-live",
+fecha: "2025-12-31",
+completado: false
+}
+],
+// Documentos
+documentos: [
+{ nombre: "Contrato.pdf", tipo: "contrato", url: "...", fechaSubida: "2025-08-28" },
+{ nombre: "Requisitos.docx", tipo: "documento", url: "...", fechaSubida: "2025-09-15" },
+{ nombre: "Mockups.fig", tipo: "diseño", url: "...", fechaSubida: "2025-09-28" }
+],
+// Tareas
+tareasIds: [ObjectId, ObjectId, ...],
+tareasTotales: 47,
+tareasCompletadas: 23,
+tareasPendientes: 24,
+// Riesgos
+
+riesgos: [
+{
+descripcion: "Retraso en entrega de contenidos por parte del cliente",
+impacto: "medio",
+probabilidad: "alta",
+mitigacion: "Solicitar contenidos con 2 semanas de antelación",
+estado: "activo"
+}
+],
+// Comunicación
+ultimaActualizacionCliente: "2025-10-01T10:00:00Z",
+proximaReunion: "2025-11-08T16:00:00Z",
+// Observaciones
+observaciones: "Cliente muy implicado, responde rápido",
+// Auditoría
+creadoPor: ObjectId,
+modificadoPor: ObjectId,
+createdAt: "2025-08-28T09:00:00Z",
+updatedAt: "2025-10-03T14:30:00Z"
+}
+```
+#### 5.10.2 Gestión de Tareas
+**Tarea completa**:
+```javascript
+{
+proyectoId: ObjectId,
+proyecto: "Desarrollo Web Corporativa",
+titulo: "Implementar sistema de login con 2FA",
+descripcion: "Desarrollar sistema de autenticación con verificación en dos pasos usando TOTP",
+// Asignación
+asignadoA: ObjectId,
+asignado: "Pedro Desarrollador",
+creadoPor: ObjectId,
+creador: "Juan Project Manager",
+// Fechas
+fechaCreacion: "2025-10-01T09:00:00Z",
+fechaInicio: "2025-10-02T09:00:00Z",
+fechaVencimiento: "2025-10-08T18:00:00Z",
+fechaCompletado: null,
+
+// Tiempo
+tiempoEstimado: 8, // horas
+tiempoReal: 5.5, // horas trabajadas hasta ahora
+tiempoRestante: 2.5,
+// Prioridad y estado
+prioridad: "alta", // baja | normal | alta | urgente
+estado: "en_proceso", // pendiente | en_proceso | revision | completada | cancelada
+// Fase del proyecto
+fase: "Desarrollo",
+// Dependencias
+tareasDependientes: [ObjectId], // tareas que dependen de esta
+bloqueadaPor: [], // tareas que bloquean esta
+// Subtareas (checklist)
+subtareas: [
+{ titulo: "Implementar generación QR TOTP", completada: true },
+{ titulo: "Crear UI para configurar 2FA", completada: true },
+{ titulo: "Implementar verificación de código", completada: false },
+{ titulo: "Añadir códigos de recuperación", completada: false },
+{ titulo: "Testing", completada: false }
+],
+progresoSubtareas: 40, // % (2 de 5 completadas)
+// Progreso general
+progreso: 68, // % estimado por el asignado
+// Etiquetas
+etiquetas: ["backend", "seguridad", "autenticación"],
+// Comunicación
+comentarios: [
+{
+usuarioId: ObjectId,
+usuario: "Juan Project Manager",
+fecha: "2025-10-01T09:15:00Z",
+comentario: "Importante: Cliente solicita soporte para Google Authenticator y Authy"
+},
+{
+usuarioId: ObjectId,
+usuario: "Pedro Desarrollador",
+fecha: "2025-10-02T11:30:00Z",
+comentario: "Implementación TOTP completada, comenzando con la UI"
+
+}
+],
+// Archivos adjuntos
+archivosAdjuntos: [
+{
+nombre: "especificaciones-2FA.pdf",
+url: "...",
+tipo: "application/pdf",
+tamaño: 245678,
+fecha: "2025-10-01T09:00:00Z",
+subirPor: "Juan Project Manager"
+}
+],
+// Seguimiento de tiempo
+registrosTiempo: [
+{ fecha: "2025-10-02", horas: 3.5, descripcion: "Implementación lógica TOTP" },
+{ fecha: "2025-10-03", horas: 2.0, descripcion: "Desarrollo UI configuración" }
+],
+createdAt: "2025-10-01T09:00:00Z",
+updatedAt: "2025-10-03T14:30:00Z"
+}
+```
+**Tablero Kanban**:
+
+┌──────────────┬──────────────┬──────────────┬──────────────┐
+│ Pendiente │ En Proceso │ Revisión │ Completado │
+├──────────────┼──────────────┼──────────────┼──────────────┤
+│ [Tarea 1]
+
+│ [Tarea 4]
+
+│ [Tarea 7]
+
+│ [Tarea 10] │
+
+│ [Tarea 2]
+
+│ [Tarea 5]
+
+│ [Tarea 8]
+
+│ [Tarea 11] │
+
+│ [Tarea 3]
+
+│ [Tarea 6]
+
+│ [Tarea 9]
+
+│ [Tarea 12] │
+
+│
+
+│
+
+│
+
+│ [Tarea 13] │
+
+└──────────────┴──────────────┴──────────────┴──────────────┘
+
+Drag & drop para mover tareas entre columnas.
+#### 5.10.3 Certificaciones de Obra
+**Para proyectos de construcción/obra**:
+```javascript
+{
+proyectoId: ObjectId,
+numero: "CERT-2025-10",
+mes: "octubre",
+periodo: "2025-10-01 a 2025-10-31",
+// Mediciones
+mediciones: [
+{
+unidadObra: "Excavación terreno",
+unidad: "m3",
+precioUnitario: 15.00,
+cantidadTotal: 500,
+cantidadEjecutadaAnterior: 350,
+cantidadEjecutadaMes: 100,
+cantidadEjecutadaTotal: 450,
+importe: 1500.00
+},
+{
+unidadObra: "Hormigón armado HA-25",
+unidad: "m3",
+precioUnitario: 85.00,
+cantidadTotal: 200,
+cantidadEjecutadaAnterior: 80,
+cantidadEjecutadaMes: 60,
+cantidadEjecutadaTotal: 140,
+importe: 5100.00
+}
+// ... más partidas
+],
+// Totales
+importeMes: 6600.00,
+importeAcumulado: 32500.00,
+porcentajeAvance: 43.33, // % sobre presupuesto total (75.000€)
+// Retenciones
+retencion: 5, // %
+importeRetencion: 330.00,
+
+importeNeto: 6270.00,
+// Facturación
+facturaId: ObjectId,
+numeroFactura: "FAC-2025-00890",
+// Aprobación
+aprobada: true,
+aprobadaPor: "Director de obra",
+fechaAprobacion: "2025-10-31T18:00:00Z",
+// Documentos
+actaCertificacion: "cert-octubre.pdf",
+medionesFotograficas: ["foto1.jpg", "foto2.jpg"],
+createdAt: "2025-10-31T12:00:00Z"
+}
+```
+--### 5.11 MÓDULO RECURSOS HUMANOS Y FICHAJES
+#### 5.11.1 Gestión de Empleados
+**Ficha de empleado**:
+```javascript
+{
+// Datos personales
+nombre: "María",
+apellidos: "García López",
+nif: "12345678A",
+fechaNacimiento: "1990-05-15",
+email: "maria.garcia@empresa.com",
+telefono: "+34666777888",
+direccion: {...},
+// Datos laborales
+numeroEmpleado: "EMP-0045",
+fechaAlta: "2020-03-01",
+fechaBaja: null,
+departamento: "Ventas",
+puesto: "Comercial",
+categoria: "Oficial 1ª",
+// Contrato
+
+tipoContrato: "indefinido", // indefinido | temporal | practicas | formacion
+jornadaLaboral: "completa", // completa | parcial | reducida
+horasSemanales: 40,
+// Salario
+salarioBase: 24000, // bruto anual
+complementos: 2000,
+salarioBrutoAnual: 26000,
+// Comisiones (si aplica)
+tieneComisiones: true,
+porcentajeComision: 2, // % sobre ventas
+// Horario
+horario: {
+lunes: { entrada: "09:00", salida: "18:00", descanso: "14:00-15:00" },
+martes: { entrada: "09:00", salida: "18:00", descanso: "14:00-15:00" },
+miercoles: { entrada: "09:00", salida: "18:00", descanso: "14:00-15:00" },
+jueves: { entrada: "09:00", salida: "18:00", descanso: "14:00-15:00" },
+viernes: { entrada: "09:00", salida: "15:00" }
+},
+// Vacaciones
+diasVacacionesAnuales: 22,
+diasVacacionesConsumidos2025: 10,
+diasVacacionesRestantes2025: 12,
+// Usuario del sistema
+usuarioId: ObjectId,
+// Dispositivo de fichaje
+tarjetaFichaje: "CARD-12345",
+huellaDactilar: "registrada",
+// Documentos
+documentos: ["contrato.pdf", "nominas/", "certificados/"],
+// Estado
+activo: true,
+createdAt: "2020-02-28T10:00:00Z",
+updatedAt: "2025-10-03T14:30:00Z"
+}
+```
+#### 5.11.2 Sistema de Fichajes
+
+**Integración con dispositivos físicos**:
+- **Anviz**: Lectores biométricos con huella dactilar y/o facial
+- **ZKTeco**: Terminales de control de acceso
+- **Otros**: Compatibilidad vía API o archivo CSV
+**Registro de fichaje**:
+```javascript
+{
+empleadoId: ObjectId,
+empleado: "María García",
+fecha: "2025-10-03",
+// Fichajes del día
+fichajes: [
+{
+tipo: "entrada",
+hora: "08:57:32",
+dispositivo: "Terminal Entrada Principal",
+metodo: "huella_dactilar",
+geolocalizacion: { lat: 41.3851, lng: 2.1734 },
+validado: true
+},
+{
+tipo: "salida_descanso",
+hora: "14:01:05",
+dispositivo: "Terminal Entrada Principal",
+metodo: "huella_dactilar"
+},
+{
+tipo: "entrada_descanso",
+hora: "15:03:22",
+dispositivo: "Terminal Entrada Principal",
+metodo: "huella_dactilar"
+},
+{
+tipo: "salida",
+hora: "18:12:45",
+dispositivo: "Terminal Entrada Principal",
+metodo: "huella_dactilar"
+}
+],
+// Cálculos automáticos
+horaEntrada: "08:57:32",
+horaSalida: "18:12:45",
+
+horasTrabajadas: 8.25, // descontando descanso
+horasExtras: 0.25,
+retrasos: 0,
+// Anomalías
+anomalias: [],
+// Validación
+validado: true,
+validadoPor: null, // auto-validado
+createdAt: "2025-10-03T18:12:45Z"
+}
+```
+**Dashboard de fichajes**:
+- Vista en tiempo real de quién está fichado
+- Resumen mensual por empleado
+- Horas extras acumuladas
+- Retrasos y ausencias
+- Exportación para nóminas
+**Incidencias de fichaje**:
+```javascript
+{
+empleadoId: ObjectId,
+fecha: "2025-10-03",
+tipo: "olvido_fichaje", // olvido_fichaje | fichaje_erroneo | ausencia_justificada
+descripcion: "Olvidó fichar a la salida",
+horaSalidaDeclarada: "18:00:00",
+justificante: "declaracion-jurada.pdf",
+aprobadoPor: ObjectId,
+estado: "aprobada"
+}
+```
+#### 5.11.3 Gestión de Vacaciones y Ausencias
+**Solicitud de vacaciones**:
+```javascript
+{
+empleadoId: ObjectId,
+empleado: "María García",
+tipo: "vacaciones", // vacaciones | permiso_retribuido | baja_medica | asuntos_propios | excedencia
+
+fechaInicio: "2025-11-10",
+fechaFin: "2025-11-14",
+diasSolicitados: 5,
+motivo: "Vacaciones personales",
+observaciones: "Solicito la semana del puente de noviembre",
+// Workflow de aprobación
+estado: "aprobada", // pendiente | aprobada | rechazada | cancelada
+solicitadoFecha: "2025-10-01T09:00:00Z",
+aprobadoPor: ObjectId,
+aprobadoFecha: "2025-10-01T10:30:00Z",
+motivoRechazo: null,
+// Documentación (si aplica)
+documentoAdjunto: null, // para bajas médicas, justificantes, etc
+// Impacto
+diasVacacionesRestantesTras: 7,
+createdAt: "2025-10-01T09:00:00Z",
+updatedAt: "2025-10-01T10:30:00Z"
+}
+```
+**Calendario de ausencias**:
+Vista visual del equipo mostrando quién está de vacaciones/ausente cada día.
+**Tipos de ausencias configurables**:
+- Vacaciones
+- Permiso retribuido (matrimonio, nacimiento, fallecimiento, mudanza, etc)
+- Baja médica
+- Baja por maternidad/paternidad
+- Asuntos propios
+- Excedencia
+- Otros
+#### 5.11.4 Cálculo de Comisiones
+**Para vendedores/técnicos**:
+```javascript
+{
+empleadoId: ObjectId,
+empleado: "María García",
+periodo: "2025-10",
+// Configuración de comisiones
+
+tipoComision: "porcentaje_ventas", // porcentaje_ventas | fija_por_venta | escalonada | mixta
+porcentaje: 2, // %
+// Ventas del mes
+ventasRealizadas: [
+{ facturaId: ObjectId, numero: "FAC-2025-00123", total: 1250.00, comision: 25.00 },
+{ facturaId: ObjectId, numero: "FAC-2025-00145", total: 890.00, comision: 17.80 },
+{ facturaId: ObjectId, numero: "FAC-2025-00167", total: 2340.00, comision: 46.80 }
+// ... más ventas
+],
+totalVentas: 48650.00,
+comisionBase: 973.00,
+// Bonificaciones
+bonificaciones: [
+{ concepto: "Objetivo mensual superado", importe: 200.00 },
+{ concepto: "Cliente nuevo captado", importe: 100.00 }
+],
+totalBonificaciones: 300.00,
+// Deducciones
+deducciones: [
+{ concepto: "Devolución factura FAC-2025-00089", importe: -45.00 }
+],
+totalDeducciones: -45.00,
+// Total
+comisionTotal: 1228.00,
+// Pago
+pagado: true,
+fechaPago: "2025-11-05",
+formaPago: "nomina", // nomina | transferencia | efectivo
+createdAt: "2025-11-01T00:00:00Z"
+}
+```
+**Comisiones escalonadas** (ejemplo):
+- 0-10.000€ ventas → 1%
+- 10.001-25.000€ → 2%
+- +25.000€ → 3%
+---
+
+### 5.12 MÓDULO CRM Y MARKETING
+#### 5.12.1 Pipeline de Ventas (Embudo)
+**Oportunidad de venta**:
+```javascript
+{
+titulo: "Venta sistema ERP a Empresa XYZ",
+// Cliente
+clienteId: ObjectId,
+cliente: "Empresa XYZ SL",
+contacto: "Director General",
+email: "director@xyz.com",
+telefono: "+34666777888",
+// Clasificación
+origen: "web", // web | llamada | referido | evento | email | linkedin | otro
+fuente: "Formulario web",
+// Valor
+valorEstimado: 15000.00,
+probabilidad: 60, // %
+valorPonderado: 9000.00, // valorEstimado * probabilidad
+// Fase del pipeline
+fase: "propuesta_enviada", // lead | contactado | cualificado | propuesta_enviada | negociacion | cerrado_ganado |
+cerrado_perdido
+fasesHistorico: [
+{ fase: "lead", fecha: "2025-09-15T10:00:00Z" },
+{ fase: "contactado", fecha: "2025-09-16T11:30:00Z" },
+{ fase: "cualificado", fecha: "2025-09-20T14:00:00Z" },
+{ fase: "propuesta_enviada", fecha: "2025-10-01T09:00:00Z" }
+],
+// Seguimiento
+proximaAccion: "Llamar para hacer seguimiento de propuesta",
+fechaProximaAccion: "2025-10-08T10:00:00Z",
+responsable: "María Comercial",
+// Historial de interacciones
+interacciones: [
+{
+tipo: "llamada",
+fecha: "2025-09-16T11:30:00Z",
+
+duracion: 25, // minutos
+notas: "Primera llamada. Cliente interesado, solicita presupuesto.",
+realizadoPor: "María Comercial"
+},
+{
+tipo: "email",
+fecha: "2025-09-20T10:00:00Z",
+asunto: "Información adicional ERP",
+notas: "Enviada documentación técnica y casos de éxito",
+realizadoPor: "María Comercial"
+},
+{
+tipo: "reunion",
+fecha: "2025-09-25T16:00:00Z",
+duracion: 90,
+notas: "Reunión presencial. Demo del sistema. Muy interesados.",
+realizadoPor: "María Comercial"
+},
+{
+tipo: "propuesta",
+fecha: "2025-10-01T09:00:00Z",
+notas: "Enviada propuesta económica. Presupuesto: 15.000€",
+documentoId: ObjectId,
+realizadoPor: "María Comercial"
+}
+],
+// Productos/servicios de interés
+productosInteres: ["ERP Cloud", "Módulo Taller", "Formación"],
+// Competencia
+competencia: ["Software ABC", "Sistema DEF"],
+// Motivo de pérdida (si aplica)
+motivoPerdida: null,
+// Fechas
+fechaCreacion: "2025-09-15T10:00:00Z",
+fechaCierre: null,
+diasEnPipeline: 18,
+// Tags
+tags: ["empresa_mediana", "sector_automocion", "urgente"],
+// Conversión
+presupuestoId: ObjectId,
+pedidoId: null,
+
+estado: "activa", // activa | ganada | perdida | descartada
+createdAt: "2025-09-15T10:00:00Z",
+updatedAt: "2025-10-03T14:30:00Z"
+}
+```
+**Pipeline visual** (Kanban):
+
+┌──────────┬──────────┬──────────┬──────────┬──────────┬───────
+───┐
+│ Lead │Contactado│Cualifi- │Propuesta │Negocia- │ Ganado │
+│
+
+│
+
+│cado
+
+│
+
+│ción
+
+│
+
+│
+
+├──────────┼──────────┼──────────┼──────────┼──────────┼───────
+───┤
+│ Op. 1
+
+│ Op. 4
+
+│ Op. 7
+
+│ Op. 10 │ Op. 13 │ Op. 15 │
+
+│ 5.000€ │ 12.000€ │ 8.000€ │ 15.000€ │ 25.000€ │ 18.000€ │
+│
+
+│
+
+│ Op. 2
+
+│
+│ Op. 5
+
+│
+│ Op. 8
+
+│
+
+│
+
+│
+
+│ Op. 11 │ Op. 14 │ Op. 16 │
+
+│ 3.000€ │ 7.500€ │ 20.000€ │ 10.000€ │ 30.000€ │ 22.000€ │
+│
+│ Op. 3
+
+│
+
+│
+│ Op. 6
+
+│
+│ Op. 9
+
+│
+
+│
+
+│ Op. 12 │
+
+│ 4.500€ │ 9.000€ │ 11.000€ │ 6.500€ │
+
+│
+│
+
+│
+│
+
+│
+
+└──────────┴──────────┴──────────┴──────────┴──────────┴───────
+───┘
+Total: 12.5K 28.5K
+
+39K
+
+31.5K
+
+55K
+
+40K
+
+#### 5.12.2 Campañas de Marketing
+**Campaña de email**:
+```javascript
+{
+nombre: "Promoción Black Friday 2025",
+tipo: "email", // email | sms | whatsapp | postal
+// Segmentación
+segmento: {
+tipo: "clientes_activos",
+filtros: {
+ultimaCompra: { mayor_que: "2024-01-01" },
+totalComprado: { mayor_que: 500 },
+categoria: ["VIP", "Mayorista"]
+},
+destinatarios: 245
+},
+// Contenido
+asunto: "
+
+Black Friday: -30% en toda nuestra tienda",
+
+plantilla: "plantilla-black-friday",
+contenido: "HTML del email...",
+// Programación
+fechaEnvio: "2025-11-24T08:00:00Z",
+estado: "programada", // borrador | programada | enviando | enviada | cancelada
+// Resultados
+enviados: 0,
+entregados: 0,
+abiertos: 0,
+clicks: 0,
+conversiones: 0,
+tasaApertura: 0, // %
+tasaClick: 0, // %
+tasaConversion: 0, // %
+// Ingresos generados
+ventasGeneradas: [],
+ingresosTotales: 0,
+roi: 0,
+// Coste
+costeEnvio: 24.50, // 0.10€ por email
+
+createdAt: "2025-11-01T10:00:00Z"
+}
+```
+#### 5.12.3 Segmentación de Clientes
+**Segmentos automáticos**:
+- Clientes VIP (alto valor)
+- Clientes en riesgo (sin comprar en 6 meses)
+- Clientes nuevos (primera compra hace menos de 30 días)
+- Clientes recurrentes
+- Clientes inactivos (más de 1 año sin comprar)
+**Segmento personalizado**:
+```javascript
+{
+nombre: "Clientes mayoristas sector automoción",
+criterios: {
+categoria: "Mayorista",
+sector: "Automoción",
+totalComprado: { mayor_que: 5000 },
+ultimaCompra: { dentro_ultimos: 180 } // días
+},
+clientesIncluidos: 37,
+valorTotal: 245670.00
+}
+```
+--### 5.13 MÓDULO REPORTES Y BUSINESS INTELLIGENCE
+#### 5.13.1 Dashboard Principal Personalizable
+**Widgets disponibles**:
+-
+
+Ventas del día/mes/año
+
+-
+
+Gráfico ventas últimos 30 días
+
+-
+
+Top 10 productos más vendidos
+
+-
+
+Top 10 clientes
+
+-
+
+Productos con stock bajo
+
+-
+
+Facturas vencidas
+
+-
+
+Tareas pendientes
+
+-
+
+Objetivos vs Real
+
+-
+
+Cuentas por cobrar
+
+-
+
+Evolución márgenes
+
+**Dashboard personalizable por usuario**:
+Cada usuario puede configurar su propio dashboard con los widgets que necesite.
+#### 5.13.2 Reportes Predefinidos
+**Ventas**:
+- Ventas por período (día, semana, mes, año)
+- Ventas por producto/familia
+- Ventas por cliente
+- Ventas por vendedor
+- Ventas por almacén
+- Comparativas año anterior
+- Análisis de márgenes
+- Productos más/menos vendidos
+**Compras**:
+- Compras por período
+- Compras por proveedor
+- Análisis de costes
+- Proveedores más utilizados
+**Inventario**:
+- Valoración de stock (FIFO, LIFO, PMP)
+- Rotación de productos
+- Productos sin movimiento
+- Análisis ABC
+- Stock mínimos alcanzados
+- Necesidades de reposición
+**Financiero**:
+- Cuentas por cobrar (aging)
+- Cuentas por pagar
+- Flujo de caja
+- Análisis de rentabilidad
+- Balance de situación
+**Restauración**:
+- Ventas por turno/camarero
+- Productos más vendidos por franja horaria
+- Ocupación de mesas
+- Ticket medio
+- Food cost / Beverage cost
+**Taller**:
+- OTs por técnico
+
+- Tiempo medio de reparación
+- Servicios más solicitados
+- Piezas más utilizadas
+**Informática**:
+- Tickets por técnico
+- Tiempo medio de resolución
+- SLA cumplido/incumplido
+- Equipos con más incidencias
+#### 5.13.3 Generador de Reportes Personalizados
+**Constructor visual**:
+- Seleccionar origen de datos
+- Elegir campos a mostrar
+- Aplicar filtros
+- Agrupar por
+- Ordenar por
+- Añadir gráficos
+- Programar envío automático
+**Exportación**:
+- PDF
+- Excel
+- CSV
+- Envío por email programado
+--### 5.14 MÓDULO GESTIÓN DOCUMENTAL
+#### 5.14.1 Repositorio de Documentos
+**Estructura de carpetas**:
+
+/Documentos
+├── /Clientes
+│ ├── /Cliente ABC
+│ │ ├── Contrato.pdf
+│ │ ├── Facturas/
+│ │ └── Correspondencia/
+│ └── /Cliente XYZ
+├── /Proveedores
+├── /Legal
+│ ├── Contratos
+
+│ ├── Licencias
+│ └── Certificaciones
+**Metadatos
+├──
+/RRHH de documento**:
+
+│ ```javascript
+├── /Contratos
+│ { ├── /Nóminas
+
+nombre: "Contrato mantenimiento 2025.pdf",
+
+│ └── /Certificados
+tipo: "contrato",
+
+├──
+/Proyectos
+categoria: "Legal",
+└──
+/Plantillas
+carpeta:
+"/Legal/Contratos",
+// Archivo
+url: "https://storage.../contrato.pdf",
+tamaño: 1245678, // bytes
+mimeType: "application/pdf",
+// Control de versiones
+version: 2,
+versionAnterior: ObjectId,
+// Relaciones
+clienteId: ObjectId,
+proyectoId: null,
+// Fechas importantes
+fechaSubida: "2025-01-15T10:00:00Z",
+fechaDocumento: "2025-01-10",
+fechaCaducidad: "2026-01-10",
+diasHastaCaducidad: 99,
+// Alertas
+alertarCaducidad: true,
+diasAntelacionAlerta: [30, 15, 7],
+// Firma digital
+firmado: true,
+firmadoPor: ["Empresa", "Cliente"],
+fechaFirma: "2025-01-12T14:30:00Z",
+hashDocumento: "sha256:abcd1234...",
+// Permisos
+privado: false,
+accesoPara: ["admin", "gerencia", "legal"],
+// Tags
+tags: ["importante", "renovacion_anual", "cliente_vip"],
+// Auditoría
+
+subidoPor: ObjectId,
+modificadoPor: ObjectId,
+createdAt: "2025-01-15T10:00:00Z",
+updatedAt: "2025-01-15T10:00:00Z"
+}
+```
+#### 5.14.2 Control de Caducidades
+**Dashboard de caducidades**:
+- Documentos que caducan hoy
+- Próximos 7 días
+- Próximos 30 días
+- Documentos caducados
+**Alertas automáticas**:
+Email/SMS X días antes de la caducidad.
+#### 5.14.3 Firma Digital de Documentos
+**Integración con servicios de firma**:
+- DocuSign
+- SignNow
+- Firma electrónica nativa
+**Proceso**:
+1. Subir documento
+2. Indicar firmantes
+3. Enviar para firma
+4. Seguimiento de firmas
+5. Documento firmado guardado automáticamente
+--### 5.15 MÓDULO COMUNICACIÓN
+#### 5.15.1 Chat Interno
+**Características**:
+- Chat en tiempo real (WebSockets)
+- Conversaciones individuales
+- Grupos/canales
+- Compartir archivos
+- Menciones (@usuario)
+- Emojis y reacciones
+
+- Búsqueda en historial
+- Notificaciones push
+**Estructura de mensaje**:
+```javascript
+{
+conversacionId: ObjectId,
+remitenteId: ObjectId,
+remitente: "María García",
+mensaje: "¿Has visto el presupuesto del cliente XYZ?",
+tipo: "texto", // texto | archivo | imagen | sistema
+// Si es archivo
+archivo: null,
+// Menciones
+menciones: [],
+// Respuesta a otro mensaje
+respondiendo: null,
+// Reacciones
+reacciones: [
+{ emoji: "
+
+", usuarioId: ObjectId }
+
+],
+// Estado
+leido: true,
+leidoPor: [ObjectId, ObjectId],
+timestamp: "2025-10-03T14:45:23Z"
+}
+```
+#### 5.15.2 Sistema de Notificaciones
+**Tipos de notificación**:
+-
+
+In-app (dentro de la aplicación)
+
+-
+
+Email
+
+-
+
+SMS
+
+-
+
+WhatsApp
+
+-
+
+Push (navegador/app)
+
+**Eventos que generan notificaciones**:
+- Nueva venta
+- Presupuesto aceptado/rechazado
+
+- Factura vencida
+- Stock mínimo alcanzado
+- Nuevo ticket asignado
+- Tarea vencida
+- Mensaje de chat
+- Solicitud de vacaciones
+- OT lista para entrega
+- Y muchos más...
+**Preferencias de notificación por usuario**:
+```javascript
+{
+usuarioId: ObjectId,
+preferencias: {
+ventas: { inapp: true, email: true, sms: false },
+inventario: { inapp: true, email: true, sms: true },
+tickets: { inapp: true, email: false, sms: false },
+chat: { inapp: true, email: false, sms: false, push: true }
+}
+}
+```
+--### 5.16 PORTAL DEL CLIENTE
+**Acceso autónomo para clientes**:
+**Funcionalidades**:
+- Ver sus facturas
+- Descargar PDFs
+- Ver presupuestos
+- Aceptar/rechazar presupuestos online
+- Ver estado de pedidos
+- Tracking de envíos
+- Abrir tickets de soporte
+- Ver historial de compras
+- Descargar albaranes
+- Ver saldo pendiente
+- Realizar pagos online
+**Dashboard del cliente**:
+
+┌─────────────────────────────────────────────────┐
+│ Bienvenido, Juan García (Empresa ABC SL)
+
+│
+
+├─────────────────────────────────────────────────┤
+│
+
+│
+
+│
+
+Facturas pendientes: 2
+
+│
+
+│ ---
+
+Saldo pendiente: 2.345,50€
+
+│
+
+Pedidos en curso: 1
+
+│
+│
+
+MODELOS
+DE BASE
+SCHEMAS) {#6-base-de-datos}
+abiertos:
+0 DE DATOS (MONGOOSE
+│
+│ ## 6. Tickets
+
+│
+
+│
+
+*Nota: Los schemas principales ya están definidos en la sección 5. Aquí incluimos algunos adicionales:*
+
+│ ┌──────────────┐ ┌──────────────┐
+│ ###
+│ Facturas
+│ │ Presupuestos │
+6.1 Notificaciones
+
+│
+
+│
+
+│ ```javascript
+└──────────────┘ └──────────────┘
+
+│
+
+│ {┌──────────────┐ ┌──────────────┐
+
+│
+
+usuarioId:
+ObjectId,
+│ │
+Pedidos
+│ │ Tickets
+
+│
+
+│
+
+empresaId: ObjectId,
+
+│ └──────────────┘ └──────────────┘
+
+│
+
+└─────────────────────────────────────────────────┘
+tipo: "venta_nueva", // tipo de evento
+titulo: "Nueva venta registrada",
+mensaje: "Se ha registrado una venta de 234,50€",
+icono: "
+
+",
+
+// Datos relacionados
+referenciaId: ObjectId, // ID del objeto relacionado
+referenciatipo: "venta",
+url: "/ventas/12345", // enlace directo
+// Estado
+leida: false,
+fechaLeida: null,
+// Canales enviados
+canales: {
+inapp: true,
+email: false,
+sms: false,
+push: true
+},
+createdAt: "2025-10-03T14:30:00Z"
+}
+```
+### 6.2 Actividad/Audit Log
+```javascript
+{
+empresaId: ObjectId,
+usuarioId: ObjectId,
+usuario: "María García",
+
+accion: "crear", // crear | editar | eliminar | ver
+entidad: "factura",
+entidadId: ObjectId,
+// Cambios (para ediciones)
+cambios: {
+antes: { total: 100.00 },
+despues: { total: 120.00 }
+},
+ip: "192.168.1.105",
+userAgent: "Mozilla/5.0...",
+timestamp: "2025-10-03T14:30:00Z"
+}
+```
+--## 7. APIs Y ENDPOINTS {#7-apis}
+### 7.1 Autenticación
+
+POST /api/auth/register
+
+Registro de empresa
+
+POST /api/auth/login
+
+Login
+
+POST /api/auth/logout
+
+Logout
+
+POST /api/auth/refresh
+
+Refresh token
+
+POST /api/auth/forgot-password Recuperar contraseña
+POST /api/auth/reset-password
+POST /api/auth/verify-2fa
+
+Resetear contraseña
+
+Verificar 2FA
+
+### 7.2 Clientes
+
+GET /api/clientes Listar clientes (paginado, filtros) POST /api/clientes Crear cliente GET /api/clientes/:id
+Obtener cliente PUT /api/clientes/:id Actualizar cliente DELETE /api/clientes/:id Eliminar cliente GET /api/
+clientes/:id/historial Historial de compras POST /api/clientes/import Importación masiva
+
+### 7.3 Productos
+
+GET /api/productos Listar productos POST /api/productos Crear producto GET /api/productos/:id Obtener
+producto PUT /api/productos/:id Actualizar producto DELETE /api/productos/:id Eliminar producto POST /api/
+productos/:id/variantes Añadir variantes GET /api/productos/:id/bom Obtener escandallo/BOM PUT /api/
+productos/:id/bom Actualizar escandallo/BOM
+
+### 7.4 Ventas
+
+GET /api/ventas/presupuestos Listar presupuestos POST /api/ventas/presupuestos Crear presupuesto GET /api/
+ventas/presupuestos/:id PUT /api/ventas/presupuestos/:id POST /api/ventas/presupuestos/:id/convertir-pedido
+POST /api/ventas/presupuestos/:id/enviar-email
+
+Similar para pedidos, albaranes, facturas
+### 7.5 TPV Sync
+
+POST /api/sync/productos
+
+Sincronizar productos al TPV
+
+POST /api/sync/clientes
+
+Sincronizar clientes
+
+POST /api/sync/ventas
+
+Subir ventas desde TPV
+
+GET
+
+Estado de sincronización
+
+/api/sync/status
+
+POST /api/sync/manual
+
+Sincronización manual
+
+### 7.6 Inventario
+
+GET
+
+/api/inventario/stock
+
+Estado de stock
+
+POST /api/inventario/movimientos Registrar movimiento
+GET
+
+/api/inventario/movimientos Historial de movimientos
+
+POST /api/inventario/transferencia Transferencia entre almacenes
+POST /api/inventario/ajuste
+
+Ajuste de inventario
+
+### 7.7 Restauración
+
+GET /api/restauracion/salones Listar salones GET /api/restauracion/mesas Estado de mesas PUT /api/
+restauracion/mesas/:id/estado Cambiar estado mesa POST /api/restauracion/comandas Crear comanda PUT /api/
+restauracion/comandas/:id Actualizar comanda GET /api/restauracion/kds Pedidos para KDS
+
+### 7.8 Taller
+
+GET /api/taller/vehiculos Listar vehículos POST /api/taller/vehiculos Crear vehículo GET /api/taller/ordenestrabajo Listar OTs POST /api/taller/ordenes-trabajo Crear OT PUT /api/taller/ordenes-trabajo/:id Actualizar OT
+POST /api/taller/ordenes-trabajo/:id/firmar Firmar OT
+
+### 7.9 Informática
+
+GET /api/informatica/tickets Listar tickets POST /api/informatica/tickets Crear ticket PUT /api/informatica/
+tickets/:id Actualizar ticket POST /api/informatica/tickets/:id/comentar Añadir comentario GET /api/
+informatica/equipos Listar equipos POST /api/informatica/contratos Crear contrato mantenimiento GET /api/
+informatica/base-conocimiento Buscar en wiki
+
+### 7.10 Proyectos
+
+GET /api/proyectos Listar proyectos POST /api/proyectos Crear proyecto GET /api/proyectos/:id Obtener
+proyecto PUT /api/proyectos/:id Actualizar proyecto GET /api/proyectos/:id/tareas Listar tareas del proyecto
+POST /api/proyectos/:id/tareas Crear tarea PUT /api/tareas/:id Actualizar tarea POST /api/proyectos/:id/
+certificacion Crear certificación
+
+### 7.11 RRHH
+
+GET /api/empleados Listar empleados POST /api/empleados Crear empleado GET /api/fichajes Obtener
+fichajes POST /api/fichajes Registrar fichaje manual GET /api/vacaciones Listar solicitudes vacaciones POST /
+api/vacaciones Solicitar vacaciones PUT /api/vacaciones/:id/aprobar Aprobar/rechazar solicitud GET /api/
+comisiones/:empleadoId Calcular comisiones
+
+### 7.12 Reportes
+
+GET /api/reportes/ventas Reporte de ventas GET /api/reportes/compras Reporte de compras GET /api/reportes/
+inventario Reporte de inventario GET /api/reportes/financiero Reporte financiero POST /api/reportes/
+personalizado Generar reporte custom GET /api/reportes/:id/export Exportar reporte (PDF/Excel)
+
+### 7.13 IA
+
+POST /api/ia/asistente
+
+Consulta al asistente IA
+
+POST /api/ia/voz
+
+Comando de voz
+
+POST /api/ia/ocr
+
+Escanear documento (OCR)
+
+POST /api/ia/prediccion-stock
+POST /api/ia/sugerencias
+
+Predicción de necesidades
+Sugerencias inteligentes
+
+--## 8. INTEGRACIONES {#8-integraciones}
+### 8.1 Contabilidad
+- **Contasimple**: Exportación de facturas
+- **A3**: Sincronización contable
+- **Sage**: Integración bidireccional
+### 8.2 eCommerce
+- **WooCommerce**: Sincronización productos, stock, pedidos
+- **Shopify**: Integración completa
+- **PrestaShop**: Sincronización catálogo
+- **Magento**: Pedidos y stock
+### 8.3 Marketplaces
+- **Amazon**: Gestión de listings y pedidos
+- **eBay**: Sincronización stock
+- **Wallapop Pro**: Publicación automática
+### 8.4 Transportistas
+- **MRW**: Generación de etiquetas y tracking
+- **SEUR**: Recogidas y seguimiento
+- **Correos**: Envíos y tracking
+- **GLS**: Integración completa
+### 8.5 Bancos
+- **Norma43**: Importación de movimientos
+- **Redsys**: TPV virtual para pagos online
+- **Bizum**: Pagos instantáneos
+- **Confirmación de pagos**: Webhook de bancos
+### 8.6 Email y Comunicación
+- **Resend**: Email transaccional
+- **SendGrid**: Campañas email
+- **Twilio**: SMS y WhatsApp Business API
+- **Mailchimp**: Marketing automation
+### 8.7 Pasarelas de Pago
+- **Redsys**: TPV virtual
+- **Stripe**: Pagos online
+- **PayPal**: Checkout
+- **Aplazame/SeQura**: Financiación
+### 8.8 Firma Digital
+
+- **DocuSign**: Firma electrónica
+- **SignNow**: Documentos firmados
+- **Firma nativa**: Sistema propio
+### 8.9 Almacenamiento
+- **AWS S3**: Archivos y documentos
+- **Cloudinary**: Imágenes optimizadas
+- **Google Drive**: Backup documentos
+### 8.10 Delivery
+- **Glovo**: Pedidos de restauración
+- **Uber Eats**: Integración completa
+- **Just Eat**: Sincronización menú
+--## 9. IA Y AUTOMATIZACIÓN {#9-ia}
+### 9.1 Asistente de Voz
+**Comandos por voz**:
+
+"Claude, hazme una factura a Juan García de 2 camisetas y 1 pantalón"
+→ Crea factura automáticamente
+"¿Cuánto vendimos ayer?"
+→ Responde con total de ventas
+"Muéstrame el stock de camisetas talla M"
+→ Consulta inventario
+"Crea un presupuesto para Empresa ABC con 10 ordenadores"
+→ Genera presupuesto
+"Envía email a todos los clientes VIP sobre la promoción"
+→ Crea y envía campaña
+
+**Tecnología**:
+- Web Speech API (navegador)
+- Deepgram (servidor)
+- OpenAI Whisper (transcripción)
+- GPT-4 (interpretación y ejecución)
+### 9.2 Chat IA Integrado
+**Interfaz de chat**:
+
+Usuario: "Necesito saber qué productos están bajo mínimo de stock"
+IA: "Hay 12 productos por debajo del stock mínimo:
+- Camiseta Blanca M: 5 uds (mínimo: 20)
+- Pantalón Negro 42: 8 uds (mínimo: 15)
+- ...
+¿Quieres que genere un pedido de reposición?"
+Usuario: "Sí, genera pedido al proveedor habitual"
+IA: "✓ Pedido PED-2025-00234 creado con los 12 productos.
+Total: 1.245,50€. ¿Quieres enviarlo ahora?"
+
+### 9.3 OCR para Facturas de Proveedor
+**Proceso automatizado**:
+1. Usuario sube foto/PDF de factura
+2. OCR extrae datos automáticamente
+3. IA reconoce: proveedor, fecha, número factura, líneas, totales
+4. Sistema crea factura de compra pre-rellenada
+5. Usuario revisa y confirma
+**Precisión**: 95%+ en facturas estándar
+### 9.4 Predicciones Inteligentes
+**Stock predictivo**:
+```javascript
+// Machine Learning analiza histórico
+{
+producto: "Cerveza Estrella",
+stockActual: 45,
+prediccionConsumo7dias: 67,
+recomendacion: "Pedir 30 unidades antes del viernes",
+confianza: 89 // %
+}
+```
+**Predicción de ventas**:
+Basado en:
+- Histórico de ventas
+- Estacionalidad
+- Tendencias
+- Eventos (festivos, promociones)
+### 9.5 Sugerencias Automáticas
+**En el TPV**:
+- "Clientes que compraron X también compraron Y"
+- "Este cliente suele pedir Z, ¿añadir al pedido?"
+**En compras**:
+- "Es buen momento para comprar este producto (precio bajo histórico)"
+- "Proveedor alternativo con mejor precio detectado"
+**En CRM**:
+- "Momento óptimo para contactar cliente inactivo"
+- "Cliente con alto riesgo de abandono (no compra hace 4 meses)"
+
+### 9.6 Automatizaciones Configurables
+**Triggers → Acciones**:
+Ejemplos:
+
+SI stock < mínimo
+→ Crear pedido automático a proveedor
+SI factura vencida hace 7 días
+→ Enviar email recordatorio
+SI nueva venta > 1000€
+→ Notificar a gerente
+SI ticket sin respuesta 2 horas
+→ Escalar a supervisor
+SI cliente cumple años
+→ Enviar email felicitación con cupón 10%
+SI producto sin ventas 90 días
+→ Sugerir promoción o descatalogación
+
+--## 10. SEGURIDAD Y CUMPLIMIENTO LEGAL {#10-seguridad}
+### 10.1 Seguridad
+**Autenticación**:
+- Contraseñas hasheadas (bcrypt)
+- JWT tokens con refresh
+- 2FA opcional (TOTP)
+- Sesiones seguras
+**Autorización**:
+- Permisos granulares por módulo
+- Middleware de verificación en cada endpoint
+- Segregación multi-tenant estricta
+**Encriptación**:
+- HTTPS obligatorio
+- Datos sensibles encriptados (AES-256)
+- Credenciales en vault seguro
+**Auditoría**:
+- Log completo de acciones
+- Trazabilidad de cambios
+- IP y user-agent registrados
+**Backups**:
+- Backup automático cada 6 horas
+- Retención 30 días
+- Backup mensual archivado 1 año
+- Recuperación ante desastres (disaster recovery)
+**Rate Limiting**:
+- API limitada a X requests/minuto
+- Protección DDoS con Cloudflare
+**Pentesting**:
+- Auditorías de seguridad trimestrales
+- Bug bounty program
+### 10.2 RGPD (Reglamento General de Protección de Datos)
+**Cumplimiento**:
+-
+
+Consentimiento explícito para datos personales
+
+-
+
+Derecho de acceso (exportar datos)
+
+-
+
+Derecho de rectificación
+
+-
+
+Derecho al olvido (eliminar datos)
+
+-
+
+Portabilidad de datos
+
+-
+
+Política de privacidad clara
+
+-
+
+Registro de tratamientos
+
+-
+
+DPO (Data Protection Officer) en empresas grandes
+
+**Funcionalidades**:
+- Cliente puede solicitar sus datos
+- Cliente puede solicitar eliminación
+- Anonimización de datos históricos
+- Consentimiento registrado con timestamp
+### 10.3 Ley Antifraude (España)
+**Requisitos**:
+-
+
+Software certificado
+
+-
+
+Registro inalterable de operaciones
+
+-
+
+Trazabilidad completa
+
+-
+
+Firma electrónica de datos
+
+-
+
+No permite eliminar/modificar ventas históricas
+
+-
+
+Backup automático en cloud
+
+-
+
+Generación de código QR en tickets
+
+**Implementación**:
+- Hash criptográfico de cada venta
+- Cadena de bloques de tickets
+- Log inmutable
+- API de verificación para Hacienda
+### 10.4 TicketBAI (País Vasco)
+**Características**:
+-
+
+Software homologado
+
+-
+
+Generación de XML firmado
+
+-
+
+Código QR en ticket
+
+-
+
+Envío automático a Hacienda
+
+-
+
+Libro registro de facturas
+
+-
+
+Firma con certificado digital
+
+### 10.5 Verifactu (Resto de España)
+**Similar a TicketBAI**:
+-
+
+Registro de ventas en tiempo real
+
+-
+
+Sistema de doble firma
+
+-
+
+QR de verificación
+
+-
+
+Comunicación con AEAT
+
+### 10.6 Facturación Electrónica Obligatoria
+**A partir de 2025 en España**:
+-
+
+Sistema de facturación electrónica
+
+-
+
+Formato estructurado (Facturae, UBL)
+
+-
+
+Envío a través de plataformas certificadas
+
+-
+
+SII (Suministro Inmediato de Información)
+
+--## 11. NOTIFICACIONES {#11-notificaciones}
+### 11.1 Tipos de Notificaciones
+**Por canal**:
+-
+
+**In-app**: Dentro de la aplicación
+
+-
+
+**Email**: Correo electrónico
+
+-
+
+**SMS**: Mensaje de texto
+
+-
+
+**WhatsApp**: Mensaje WhatsApp Business
+
+-
+
+**Push**: Notificación de navegador/app móvil
+
+### 11.2 Eventos que Generan Notificaciones
+**Ventas**:
+- Nueva venta registrada
+- Presupuesto aceptado/rechazado
+- Pedido confirmado
+- Pedido enviado
+- Pedido entregado
+**Compras**:
+- Pedido a proveedor confirmado
+- Albarán recibido
+- Factura de proveedor registrada
+**Inventario**:
+- Stock mínimo alcanzado (
+- Stock a cero (
+
+)
+
+)
+
+- Producto próximo a caducar
+- Movimiento de inventario inusual
+**Financiero**:
+- Factura vencida
+
+- Pago recibido
+- Límite de crédito alcanzado
+**Taller**:
+- Vehículo listo para entrega
+- Presupuesto OT pendiente aprobación
+- ITV próxima del vehículo
+**Informática**:
+- Ticket asignado
+- Ticket sin respuesta (SLA en riesgo)
+- Licencia próxima a vencer
+- Mantenimiento preventivo programado
+**Proyectos**:
+- Tarea asignada
+- Tarea vencida
+- Hito completado
+- Proyecto en riesgo
+**RRHH**:
+- Solicitud de vacaciones pendiente
+- Fichaje anómalo
+- Cumpleaños de empleado
+**Restauración**:
+- Mesa ocupada más de X minutos
+- Comanda lista en cocina
+- Reserva próxima
+**CRM**:
+- Nueva oportunidad
+- Seguimiento pendiente
+- Cliente inactivo (reactivación)
+### 11.3 Centro de Notificaciones
+**Interfaz**:
+
+┌─────────────────────────────────────────┐
+│
+
+Notificaciones (5 nuevas)
+
+│
+
+├─────────────────────────────────────────┤
+│
+│
+
+Stock bajo: Camiseta M (5 uds)
+Hace 5 minutos
+
+│
+
+│
+
+│
+
+│
+
+│
+
+Nueva venta: 245,50€
+
+│
+
+│
+│
+│
+│
+
+Hace 12 minutos
+
+│
+│
+
+**Configuración por usuario**:
+
+Email: Cliente pregunta por pedido │
+
+Cada usuario decide qué notificaciones recibir y por qué canal.
+
+Hace 1 hora
+
+│ --│
+
+│
+
+│
+Ticket asignado: #TKT-234
+
+│
+
+12. ROADMAP
+│ ##Hace
+2 horas DE DESARROLLO
+│ {#12-roadmap}
+
+│
+│
+
+│
+
+### FASE 1: MVP Core (3-4 meses)
+
+Proyecto: Fase 2 completada
+
+│ **Prioridad
+Hace 3 horas
+ALTA**:
+
+│
+
+│
+
+└─────────────────────────────────────────┘
+Autenticación y usuarios
+-
+
+Sistema de licencias
+
+-
+
+Clientes y proveedores (CRUD)
+
+-
+
+Productos simples
+
+-
+
+Familias
+
+-
+
+Presupuestos y facturas de venta
+
+-
+
+Inventario básico (1 almacén)
+
+-
+
+TPV básico offline
+
+-
+
+Dashboard simple
+
+-
+
+Reportes básicos
+
+**Objetivo**: Sistema funcional para comercio retail básico
+--### FASE 2: Ciclo Comercial Completo (2-3 meses)
+-
+
+Pedidos y albaranes (ventas y compras)
+
+-
+
+Compras completas
+
+-
+
+Multi-almacén
+
+-
+
+Variantes de productos
+
+-
+
+Formas de pago múltiples
+
+-
+
+Series de numeración
+
+-
+
+Sincronización TPV mejorada
+
+-
+
+Impresión documentos
+
+-
+
+Envío emails automáticos
+
+**Objetivo**: ERP completo para retail
+--### FASE 3: Módulos Verticales (3-4 meses)
+**Módulo Restauración**:
+- Gestión de mesas
+
+- KDS (Kitchen Display System)
+- Comandas
+- Impresoras por zonas
+- Escandallos para recetas
+**Módulo Taller**:
+- Vehículos
+- Órdenes de trabajo
+- Partes de trabajo
+**Módulo Informática**:
+- Tickets
+- Equipos
+- Contratos de mantenimiento
+**Objetivo**: Sistema multi-vertical
+--### FASE 4: Características Avanzadas (2-3 meses)
+-
+
+Sistema de Escandallos/BOM universal
+
+-
+
+Proyectos y tareas
+
+-
+
+Certificaciones
+
+-
+
+RRHH y fichajes
+
+-
+
+Comisiones
+
+-
+
+CRM y pipeline
+
+-
+
+Gestión documental
+
+-
+
+Chat interno
+
+-
+
+Portal del cliente
+
+**Objetivo**: ERP empresarial completo
+--### FASE 5: IA y Automatización (2 meses)
+-
+
+Asistente de voz
+
+-
+
+Chat IA integrado
+
+-
+
+OCR facturas
+
+-
+
+Predicciones de stock
+
+-
+
+Sugerencias inteligentes
+
+-
+
+Automatizaciones configurables
+
+**Objetivo**: Sistema inteligente
+
+--### FASE 6: Integraciones (2 meses)
+-
+
+Contabilidad
+
+-
+
+eCommerce
+
+-
+
+Marketplaces
+
+-
+
+Transportistas
+
+-
+
+Bancos
+
+-
+
+Email marketing
+
+-
+
+Delivery
+
+**Objetivo**: Ecosistema conectado
+--### FASE 7: Cumplimiento Legal (1-2 meses)
+-
+
+Ley Antifraude
+
+-
+
+TicketBAI
+
+-
+
+Verifactu
+
+-
+
+RGPD completo
+
+-
+
+Factura electrónica
+
+-
+
+SII
+
+**Objetivo**: 100% legal en España
+--### FASE 8: Optimización y Pulido (1-2 meses)
+-
+
+Performance optimization
+
+-
+
+Testing exhaustivo
+
+-
+
+Documentación completa
+
+-
+
+Tutoriales interactivos
+
+-
+
+Onboarding mejorado
+
+-
+
+UI/UX refinado
+
+**Objetivo**: Producto listo para producción
+--### FASE 9: Expansión (Continuo)
+-
+
+App móvil nativa
+
+-
+
+Más idiomas
+
+-
+
+Internacionalización (otros países)
+
+-
+
+Más funciones de IA
+
+-
+
+Nuevos módulos verticales
+
+-
+
+Escalabilidad mejorada
+
+--##
+
+RESUMEN EJECUTIVO
+
+### Alcance Total del Proyecto
+**Módulos principales**: 16
+- Autenticación y usuarios
+- Clientes y proveedores
+- Productos y escandallos
+- Ciclo comercial (ventas/compras)
+- TPV Local
+- Inventario multi-almacén
+- Restauración/Hostelería
+- Taller mecánico
+- Informática/IT
+- Proyectos
+- RRHH y fichajes
+- CRM y Marketing
+- Reportes y BI
+- Gestión documental
+- Comunicación
+- Portal del cliente
+**Tecnologías**: 40+
+**Integraciones**: 30+
+**Endpoints API**: 200+
+**Modelos de datos**: 50+
+### Tiempo Estimado de Desarrollo
+**Total**: 18-24 meses (con equipo de 4-6 desarrolladores)
+**Alternativa MVP rápido**: 3-4 meses (solo Fase 1)
+### Equipo Recomendado
+**Desarrollo**:
+- 2 Full-stack developers (Next.js + MongoDB)
+- 1 Frontend specialist (React + Tailwind)
+- 1 Backend specialist (APIs + Integraciones)
+- 1 Mobile developer (TPV Electron/PWA)
+
+**Otros**:
+- 1 UI/UX Designer
+- 1 QA Tester
+- 1 DevOps
+- 1 Product Manager
+### Costes Estimados (Mensual)
+**Infraestructura**:
+- MongoDB Atlas: 100-500€
+- Vercel Pro: 20-100€
+- AWS S3: 50-200€
+- Servicios externos (email, SMS): 100-300€
+- **Total**: 300-1.200€/mes
+**Desarrollo** (outsourcing):
+- Junior: 2.000-3.000€/mes
+- Mid: 3.000-4.500€/mes
+- Senior: 4.500-6.500€/mes
+--##
+
+PRÓXIMOS PASOS
+
+### 1. Validación del Documento
+-
+
+Revisar toda la documentación
+
+-
+
+Confirmar requisitos
+
+-
+
+Priorizar funcionalidades
+
+### 2. Setup Inicial
+- Crear repositorio Git
+- Configurar Next.js + MongoDB
+- Setup CI/CD
+- Configurar entornos (dev, staging, prod)
+### 3. Comenzar Desarrollo
+- Empezar por Fase 1 (MVP)
+- Desarrollo iterativo
+- Sprints de 2 semanas
+- Testing continuo
+### 4. Feedback y Ajustes
+- Demos semanales
+- Feedback de usuarios beta
+- Ajustes según uso real
+
+--##
+
+CONTACTO Y SOPORTE
+
+**Documentación viva**: Este documento se actualizará según evolucione el proyecto.
+**Versión**: 1.0
+**Fecha**: Octubre 2025
+**Última actualización**: 03/10/2025
+--##
+
+CHECKLIST DE CARACTERÍSTICAS
+
+### Core
+- [x] Autenticación JWT + 2FA
+- [x] Multi-tenant (segregación por empresa)
+- [x] Sistema de licencias SaaS
+- [x] Roles y permisos granulares
+- [x] Multi-idioma (ES, CA, EN)
+- [x] Responsive (mobile, tablet, desktop)
+- [x] PWA instalable
+- [x] Modo offline básico
+### Productos
+- [x] Productos simples
+- [x] Productos con variantes (tallas, colores)
+- [x] Sistema universal de Escandallos/BOM
+- [x] Familias jerárquicas ilimitadas
+- [x] Control de stock multi-almacén
+- [x] Precios y tarifas personalizadas
+- [x] Códigos de barras/EAN
+- [x] Imágenes múltiples
+- [x] Importación masiva
+### Ciclo Comercial
+- [x] Presupuestos (venta/compra)
+- [x] Pedidos (venta/compra)
+- [x] Albaranes (venta/compra)
+- [x] Facturas (venta/compra)
+- [x] Facturas rectificativas y abonos
+- [x] Conversión entre documentos
+- [x] Series de numeración configurables
+- [x] Múltiples formas de pago
+- [x] Vencimientos múltiples
+- [x] Generación PDF personalizable
+
+### TPV Local
+- [x] Funcionamiento 100% offline
+- [x] Base de datos local (MongoDB/IndexedDB)
+- [x] Sincronización bidireccional
+- [x] Interfaz táctil optimizada
+- [x] Lector código de barras
+- [x] Impresora térmica
+- [x] Cajón de dinero
+- [x] Pantalla dual cliente
+- [x] Apertura/cierre de caja
+- [x] Múltiples TPVs por local
+### Restauración
+- [x] Diseñador visual de mesas (drag&drop)
+- [x] Gestión de salones
+- [x] Sistema de comandas
+- [x] KDS (Kitchen Display System)
+- [x] Impresoras por zonas
+- [x] Modificadores de productos
+- [x] Escandallos para recetas
+- [x] Menú del día configurable
+- [x] Carta digital con QR
+- [x] Happy hour / Precios por franja
+- [x] Control de propinas
+- [x] División de cuenta
+- [x] Gestión de camareros
+- [x] Stock productos a granel
+### Taller Mecánico
+- [x] Gestión de vehículos
+- [x] Órdenes de trabajo completas
+- [x] Partes de trabajo
+- [x] Checklist de inspección
+- [x] Presupuestos integrados en OT
+- [x] Firma digital cliente
+- [x] Fotos vehículo
+- [x] Gestión de garantías
+- [x] Recordatorios ITV/Seguro
+### Informática/IT
+- [x] Sistema de tickets/incidencias
+- [x] SLA configurables
+- [x] Gestión de equipos
+- [x] Contratos de mantenimiento
+- [x] Consumo de horas
+
+- [x] Gestión de licencias software
+- [x] Accesos remotos registrados
+- [x] Base de conocimiento (wiki)
+- [x] Mantenimientos preventivos
+### Proyectos
+- [x] Gestión de proyectos
+- [x] Fases del proyecto
+- [x] Hitos
+- [x] Gestión de tareas (Kanban)
+- [x] Dependencias entre tareas
+- [x] Certificaciones de obra
+- [x] Facturación por hitos
+- [x] Control de costes y rentabilidad
+### RRHH
+- [x] Gestión de empleados
+- [x] Fichajes (integración Anviz, ZKTeco)
+- [x] Control de horarios
+- [x] Gestión de vacaciones
+- [x] Ausencias y permisos
+- [x] Cálculo de comisiones
+- [x] Dashboard de productividad
+### CRM y Marketing
+- [x] Pipeline de ventas (embudo)
+- [x] Oportunidades
+- [x] Seguimiento de interacciones
+- [x] Campañas de email marketing
+- [x] Segmentación de clientes
+- [x] Scoring de clientes
+### Reportes
+- [x] Dashboard personalizable
+- [x] Reportes predefinidos
+- [x] Generador de reportes personalizados
+- [x] Gráficos interactivos
+- [x] Exportación PDF/Excel
+- [x] Envío programado
+### Gestión Documental
+- [x] Repositorio de documentos
+- [x] Control de versiones
+- [x] Alertas de caducidad
+- [x] Firma digital de documentos
+- [x] Metadatos y tags
+
+### Comunicación
+- [x] Chat interno en tiempo real
+- [x] Notificaciones push
+- [x] Email automático
+- [x] SMS
+- [x] WhatsApp Business
+- [x] Centro de notificaciones
+### Portal del Cliente
+- [x] Acceso seguro para clientes
+- [x] Consulta de facturas
+- [x] Descarga de documentos
+- [x] Estado de pedidos
+- [x] Apertura de tickets
+- [x] Pagos online
+### IA y Automatización
+- [x] Asistente de voz
+- [x] Chat IA integrado
+- [x] OCR para facturas
+- [x] Predicción de stock
+- [x] Sugerencias inteligentes
+- [x] Automatizaciones configurables
+### Integraciones
+- [x] Contabilidad
+- [x] eCommerce (WooCommerce, Shopify)
+- [x] Marketplaces (Amazon, eBay)
+- [x] Transportistas (MRW, SEUR, Correos)
+- [x] Bancos (Norma43)
+- [x] Pasarelas de pago
+- [x] Email marketing
+- [x] Delivery (Glovo, Uber Eats)
+### Legal
+- [x] RGPD completo
+- [x] Ley Antifraude
+- [x] TicketBAI
+- [x] Verifactu
+- [x] Facturación electrónica
+- [x] SII (Suministro Inmediato)
+### Seguridad
+- [x] Autenticación segura
+- [x] Encriptación de datos
+- [x] Backups automáticos
+
+- [x] Audit logs
+- [x] Rate limiting
+- [x] Multi-tenant isolation
+--#
+
+FIN DEL DOCUMENTO
+
+Este documento contiene **TODA** la información necesaria para desarrollar el sistema ERP completo.
+**Total de páginas**: ~150 (si se imprime)
+**Palabras**: ~45.000
+**Tiempo de lectura**: ~3 horas
+Ahora puedes:
+1. Usar este documento como especificación completa
+2. Desarrollar módulo a módulo
+3. Escalar según necesidades
+4. Añadir nuevos módulos fácilmente (arquitectura modular)
+¿Listo para empezar a construir el ERP más completo del mercado?
+
+**Carta digital con QR**:
+
+- Cliente escanea QR en mesa
+- Ve carta actualizada en tiempo real
+- Filtros por alérgenos
+- Fotos de platos
+- Puede hacer pedido directo (opcional)
+- Multi-idioma automático
+**Happy Hour / Precios por franjas**:
+```javascript
+{
+producto: "Mojito",
+precioBase: 7.00,
+franjas: [
+{ horario: "18:00-20:00", dias: ["lunes", "martes", "miercoles", "jueves"], precio: 5.00 },
+{ horario: "20:00-22:00", dias: ["viernes"], precio: 6.00 }
+]
+}
+```
+**Sugerencias del chef / Platos del día**:
+- Destacar en carta digital
+- Avisar a camareros
+- Promoción en TPV
+#### 5.7.6 Control de Stocks Hostelería
+
+**Productos a granel**:
+```javascript
+// Barril de cerveza
+{
+producto: "Cerveza Estrella Barril 50L",
+tipo: "barril",
+capacidadTotal: 50, // litros
+cantidadActual: 32.5,
+unidadVenta: "caña", // se vende por cañas de 0.25L
+precioVentaUnidad: 2.50,
+costoPorLitro: 1.80,
+alertaBajo: 10 // litros
+}
+// Vino a granel
+{
+producto: "Vino tinto casa",
+tipo: "granel",
+capacidadTotal: 25, // litros en damajuana
+cantidadActual: 18.3,
+unidadVenta: "copa", // 0.15L por copa
+precioVentaCopa: 2.00,
+costoPorLitro: 3.50
+}
+```
+**Inventario de bebidas por botella/copa**:
+```javascript
+{
+producto: "Whisky Johnnie Walker Black Label",
+tipo: "botella",
+capacidadBotella: 0.7, // litros
+botellasCompletas: 3,
+botellaAbierta: {
+cantidad: 0.35, // litros restantes
+fechaApertura: "2025-10-01"
+},
+unidadVenta: "copa", // 0.05L por copa
+copasDisponibles: 54, // calculado automáticamente
+precioVentaCopa: 6.50
+}
+```
+**Control de fechas de caducidad**:
+- Alertas automáticas (7, 3, 1 día antes)
+- Listado de productos próximos a caducar
+
+- Sugerencia de promociones para productos cercanos a caducar
+- Registro de mermas por caducidad
+#### 5.7.7 Gestión de Propinas
+**Propinas sugeridas**:
+```javascript
+{
+ticket: 45.50,
+propinaSugerida: [
+{ porcentaje: 5, importe: 2.28 },
+{ porcentaje: 10, importe: 4.55 },
+{ porcentaje: 15, importe: 6.83 }
+],
+propinaPorDefecto: 10,
+propinaDejada: 5.00, // cliente decide
+destinatario: "María García" // camarero que atendió
+}
+```
+**División de cuenta**:
+```javascript
+// División equitativa
+{
+totalCuenta: 85.00,
+numeroPersonas: 4,
+importePorPersona: 21.25
+}
+// División por consumo individual
+{
+totalCuenta: 85.00,
+divisiones: [
+{ persona: "Juan", items: ["Solomillo", "Cerveza"], total: 24.50 },
+{ persona: "María", items: ["Ensalada", "Agua"], total: 10.50 },
+{ persona: "Pedro", items: ["Lubina", "Vino"], total: 28.00 },
+{ persona: "Ana", items: ["Pasta", "Refresco"], total: 12.00 }
+],
+itemsComunes: ["Pan", "Postre compartido"], // se dividen entre todos
+totalComunes: 10.00
+}
+```
+#### 5.7.8 Control de Camareros
+**Asignación de secciones**:
+
+```javascript
+{
+camarero: "María García",
+turno: "comida", // comida | cena | continuo
+fecha: "2025-10-03",
+seccionAsignada: "Terraza",
+mesas: ["Mesa 1", "Mesa 2", "Mesa 3", "Mesa 4", "Mesa 5"],
+estado: "activo"
+}
+```
+**Estadísticas por camarero**:
+```javascript
+{
+camarero: "María García",
+periodo: "2025-10",
+numTickets: 156,
+totalVendido: 8450.00,
+ticketMedio: 54.17,
+propinas: 845.00,
+comisionVentas: 169.00, // 2% sobre ventas
+errores: 3, // pedidos cancelados/devueltos
+valoracionClientes: 4.7, // si hay sistema de feedback
+topProductosVendidos: ["Solomillo", "Ensalada César", "Tarta de queso"]
+}
+```
+#### 5.7.9 Informes Específicos Restauración
+**Z diario (Cierre de caja)**:
+```javascript
+{
+fecha: "2025-10-03",
+turno: "cena",
+camarero: "María García",
+resumenVentas: {
+numTickets: 47,
+comensales: 132,
+ticketMedio: 38.50,
+totalBruto: 1809.50,
+descuentos: 90.48,
+totalNeto: 1719.02
+},
+ventasPorFamilia: [
+{ familia: "Carnes", cantidad: 35, importe: 770.00 },
+
+{ familia: "Pescados", cantidad: 28, importe: 616.00 },
+{ familia: "Bebidas", cantidad: 98, importe: 245.00 },
+{ familia: "Postres", cantidad: 31, importe: 88.02 }
+],
+formasPago: [
+{ tipo: "Efectivo", numOperaciones: 18, importe: 687.00 },
+{ tipo: "Tarjeta", numOperaciones: 26, importe: 987.02 },
+{ tipo: "Bizum", numOperaciones: 3, importe: 45.00 }
+],
+propinas: 171.90,
+ratios: {
+rotacionMesas: 2.3, // veces que se ocupó cada mesa de media
+tiempoMedioMesa: 78, // minutos
+ocupacionMedia: 85 // % de mesas ocupadas
+}
+}
+```
+**Food Cost / Beverage Cost**:
+```javascript
+{
+periodo: "2025-10",
+ventasAlimentos: 45680.00,
+costoAlimentos: 13704.00,
+foodCost: 30.00, // % (objetivo: 28-32%)
+ventasBebidas: 18920.00,
+costoBebidas: 5676.00,
+beverageCost: 30.00, // % (objetivo: 25-30%)
+totalVentas: 64600.00,
+totalCostos: 19380.00,
+costoTotal: 30.00 // % (objetivo: < 35%)
+}
+```
+**Control de desperdicios**:
+- Registro diario de mermas
+- Causas (caducidad, rotura, devolución)
+- Coste de desperdicios
+- Análisis de tendencias
+
+--### 5.8 MÓDULO TALLER MECÁNICO
+#### 5.8.1 Gestión de Vehículos
+**Ficha completa del vehículo**:
+```javascript
+{
+// Identificación
+matricula: "1234ABC",
+bastidor: "WVWZZZ1KZBW123456",
+marca: "Volkswagen",
+modelo: "Golf",
+version: "1.5 TSI 150CV DSG",
+año: 2023,
+color: "Gris Urano",
+// Datos técnicos
+combustible: "Gasolina",
+transmision: "Automático",
+cilindrada: 1498,
+potencia: 150,
+numeroMotor: "DADA123456",
+kilometrajeActual: 45230,
+// Propietario
+clienteId: ObjectId,
+fechaCompra: "2023-05-15",
+// ITV y seguros
+fechaMatriculacion: "2023-05-10",
+fechaProximaITV: "2027-05-10",
+numeroPoliza: "POL-2023-78945",
+companiaSeguro: "Mapfre",
+fechaVencimientoSeguro: "2026-05-15",
+// Mantenimiento
+fechaUltimoMantenimiento: "2025-08-15",
+kilometrajeUltimoMantenimiento: 40000,
+fechaProximoMantenimiento: "2026-02-15",
+kilometrajeProximoMantenimiento: 50000,
+// Historial
+ordenesTrabajoIds: [ObjectId, ObjectId, ...],
+
+// Documentos
+imagenes: ["foto-frontal.jpg", "foto-lateral.jpg"],
+documentos: ["permiso-circulacion.pdf", "ficha-tecnica.pdf"],
+// Observaciones
+observaciones: "Lleva enganche de remolque",
+accesorios: ["Navegador GPS", "Sensores parking", "Cámara trasera"],
+activo: true
+}
+```
+**Recordatorios automáticos**:
+- ITV próxima (30, 15, 7 días antes)
+- Seguro a vencer
+- Mantenimiento programado por km o tiempo
+- Email/SMS al cliente
+#### 5.8.2 Órdenes de Trabajo (OT)
+**Estructura completa**:
+```javascript
+{
+// Identificación
+numero: "OT-2025-00523",
+serie: "OT",
+fecha: "2025-10-03T09:30:00Z",
+// Fechas
+fechaRecepcion: "2025-10-03T09:30:00Z",
+fechaEntregaEstimada: "2025-10-05T18:00:00Z",
+fechaEntregaReal: null,
+horaRecepcion: "09:30",
+// Cliente y vehículo
+clienteId: ObjectId,
+vehiculoId: ObjectId,
+vehiculoData: {
+matricula: "1234ABC",
+marca: "Volkswagen",
+modelo: "Golf 1.5 TSI"
+},
+kilometrajeEntrada: 45230,
+// Recepción del vehículo
+recepcion: {
+nivelCombustible: "3/4",
+
+estadoCarroceria: "Pequeño arañazo puerta trasera izquierda",
+estadoInterior: "Limpio, buen estado",
+estadoNeumaticos: "Desgaste normal, presión correcta",
+objetosValor: ["Navegador GPS portátil en guantera"],
+fotosRecepcion: ["foto1.jpg", "foto2.jpg", "foto3.jpg"],
+recibidoPor: "Juan Técnico"
+},
+// Diagnóstico
+motivoVisita: "Revisión de los 40.000 km + Ruido en frenos delanteros",
+descripcionProblema: `
+Cliente reporta ruido metálico al frenar, especialmente en frío.
+Solicita también revisión de los 40.000 km según libro de mantenimiento.
+`,
+diagnostico: `
+- Pastillas freno delanteras gastadas al 85%
+- Discos con ligero escalón
+- Resto de sistemas OK
+- Aceite motor necesita cambio (según intervalo)
+- Filtros aire y habitáculo muy sucios
+`,
+// Checklist de inspección
+checklistInspeccion: [
+{ item: "Nivel aceite motor", estado: "atencion", obs: "Bajo, necesita cambio" },
+{ item: "Nivel líquido frenos", estado: "ok" },
+{ item: "Nivel líquido refrigerante", estado: "ok" },
+{ item: "Estado correa distribución", estado: "ok" },
+{ item: "Estado pastillas freno delanteras", estado: "urgente", obs: "85% desgaste" },
+{ item: "Estado pastillas freno traseras", estado: "ok" },
+{ item: "Estado neumáticos", estado: "ok" },
+{ item: "Luces", estado: "ok" },
+{ item: "Batería", estado: "ok", obs: "12.6V - Estado óptimo" }
+],
+fotosDiagnostico: ["pastillas.jpg", "discos.jpg", "aceite.jpg"],
+// Presupuesto
+presupuestoAprobado: true,
+firmaAprobacion: "data:image/png;base64,...",
+fechaAprobacion: "2025-10-03T11:00:00Z",
+importePresupuesto: 456.80,
+// Trabajos a realizar
+lineasManoObra: [
+{
+
+descripcion: "Cambio pastillas y discos freno delanteros",
+tecnicoId: ObjectId,
+tecnico: "Juan Pérez",
+horasEstimadas: 1.5,
+horasReales: 1.7,
+tarifaHora: 45.00,
+subtotal: 67.50
+},
+{
+descripcion: "Cambio aceite y filtro motor",
+tecnicoId: ObjectId,
+tecnico: "Juan Pérez",
+horasEstimadas: 0.5,
+horasReales: 0.5,
+tarifaHora: 45.00,
+subtotal: 22.50
+},
+{
+descripcion: "Cambio filtro aire y filtro habitáculo",
+tecnicoId: ObjectId,
+tecnico: "Carlos López",
+horasEstimadas: 0.3,
+horasReales: 0.3,
+tarifaHora: 45.00,
+subtotal: 13.50
+}
+],
+lineasRepuestos: [
+{
+productoId: ObjectId,
+referencia: "BRK-001-VW",
+descripcion: "Kit pastillas freno delanteras VW Golf VII",
+cantidad: 1,
+precioUnitario: 85.00,
+descuento: 0,
+subtotal: 85.00,
+aplicado: true
+},
+{
+productoId: ObjectId,
+referencia: "BRK-002-VW",
+descripcion: "Kit discos freno delanteros VW Golf VII",
+cantidad: 1,
+precioUnitario: 145.00,
+descuento: 0,
+subtotal: 145.00,
+
+aplicado: true
+},
+{
+productoId: ObjectId,
+referencia: "OIL-5W30-5L",
+descripcion: "Aceite 5W30 Castrol Edge (5L)",
+cantidad: 1,
+precioUnitario: 42.00,
+descuento: 0,
+subtotal: 42.00,
+aplicado: true
+},
+{
+productoId: ObjectId,
+referencia: "FLT-OIL-VW",
+descripcion: "Filtro aceite VW",
+cantidad: 1,
+precioUnitario: 8.50,
+descuento: 0,
+subtotal: 8.50,
+aplicado: true
+},
+{
+productoId: ObjectId,
+referencia: "FLT-AIR-VW",
+descripcion: "Filtro aire motor",
+cantidad: 1,
+precioUnitario: 18.30,
+descuento: 0,
+subtotal: 18.30,
+aplicado: true
+},
+{
+productoId: ObjectId,
+referencia: "FLT-CAB-VW",
+descripcion: "Filtro habitáculo con carbón activo",
+cantidad: 1,
+precioUnitario: 22.00,
+descuento: 0,
+subtotal: 22.00,
+aplicado: true
+}
+],
+lineasSubcontratacion: [],
+
+// Totales
+totalManoObra: 103.50,
+totalRepuestos: 320.80,
+totalSubcontratacion: 0,
+subtotal: 424.30,
+descuento: 0,
+baseImponible: 424.30,
+iva: 89.10, // 21%
+total: 513.40,
+// Partes de trabajo (seguimiento detallado)
+partesTrabajo: [
+{
+orden: 1,
+descripcion: "Cambio frenos delanteros",
+tecnicoId: ObjectId,
+tecnico: "Juan Pérez",
+estado: "finalizado",
+fechaInicio: "2025-10-03T12:00:00Z",
+fechaFin: "2025-10-03T13:42:00Z",
+tiempoEmpleado: 102, // minutos
+observaciones: "Discos tenían ligero escalón, limpiados portapinzas",
+fotos: ["trabajo1.jpg", "trabajo2.jpg"]
+},
+{
+orden: 2,
+descripcion: "Cambio aceite y filtros",
+tecnicoId: ObjectId,
+tecnico: "Carlos López",
+estado: "finalizado",
+fechaInicio: "2025-10-03T13:45:00Z",
+fechaFin: "2025-10-03T14:15:00Z",
+tiempoEmpleado: 30,
+observaciones: "Aceite muy sucio, recomendado cambio antes en próxima revisión"
+}
+],
+// Estado y prioridad
+estado: "finalizado", // recibido | diagnosis | presupuestado | aprobado | trabajo | finalizado | entregado | cancelado
+prioridad: "normal", // baja | normal | alta | urgente
+// Control de calidad
+checklistCalidad: [
+{ item: "Verificar funcionamiento frenos", verificado: true },
+{ item: "Comprobar nivel aceite", verificado: true },
+{ item: "Verificar no hay fugas", verificado: true },
+{ item: "Limpiar vehículo exterior", verificado: true },
+
+{ item: "Aspirar interior", verificado: true }
+],
+pruebaCarretera: true,
+observacionesPrueba: "Frenos funcionan perfectamente, sin ruidos",
+lavado: true,
+// Entrega
+entregadoA: "Juan García (propietario)",
+firmaEntrega: "data:image/png;base64,...",
+fotosEntrega: ["entrega1.jpg"],
+fechaEntrega: "2025-10-05T17:30:00Z",
+kilometrajeSalida: 45245,
+// Facturación
+facturaId: ObjectId,
+facturado: true,
+numeroFactura: "FAC-2025-00789",
+// Garantía
+trabajosGarantia: false,
+garantiaPiezas: "2 años",
+garantiaManoObra: "1 año",
+// Seguimiento y comunicación
+notificacionesEnviadas: [
+{ tipo: "recepcion_vehiculo", fecha: "2025-10-03T09:35:00Z", metodo: "email" },
+{ tipo: "diagnostico_realizado", fecha: "2025-10-03T10:45:00Z", metodo: "email" },
+{ tipo: "presupuesto_enviado", fecha: "2025-10-03T10:50:00Z", metodo: "email" },
+{ tipo: "trabajo_iniciado", fecha: "2025-10-03T12:05:00Z", metodo: "sms" },
+{ tipo: "vehiculo_listo", fecha: "2025-10-05T14:30:00Z", metodo: "sms+email" }
+],
+// Observaciones
+observaciones: "Cliente muy satisfecho con el servicio",
+observacionesInternas: "Revisar stock pastillas VW Golf, nivel bajo",
+// Auditoría
+asesorId: ObjectId,
+asesor: "María Recepcionista",
+creadoPor: ObjectId,
+modificadoPor: ObjectId,
+createdAt: "2025-10-03T09:30:00Z",
+updatedAt: "2025-10-05T17:30:00Z"
+}
+```
+
+#### 5.8.3 Seguimiento de Garantías
+```javascript
+{
+otId: ObjectId,
+vehiculoId: ObjectId,
+piezasEnGarantia: [
+{
+pieza: "Kit frenos delanteros",
+fechaInstalacion: "2025-10-03",
+fechaVencimiento: "2027-10-03",
+kilometrajeInstalacion: 45230,
+kilometrajeGarantia: 40000, // km o lo que ocurra primero
+proveedor: "Bosch",
+numeroGarantia: "GAR-2025-123456",
+estado: "activa"
+}
+],
+manoObraGarantia: {
+descripcion: "Cambio frenos",
+fechaVencimiento: "2026-10-03",
+estado: "activa"
+}
+}
+```
+**Gestión de reclamaciones de garantía**:
+- Cliente reporta problema en pieza con garantía
+- Sistema verifica vigencia
+- Crear OT de garantía (sin coste para cliente)
+- Reclamar a proveedor si procede
+--### 5.9 MÓDULO INFORMÁTICA / IT
+#### 5.9.1 Gestión de Equipos del Cliente
+**Ficha de equipo**:
+```javascript
+{
+// Identificación
+tipo: "ordenador", // ordenador | servidor | impresora | switch | router | firewall | nas | otro
+marca: "Dell",
+modelo: "Optiplex 7090",
+numeroSerie: "SN-DELL-12345678",
+
+hostname: "PC-CONTA-01",
+// Propietario
+clienteId: ObjectId,
+ubicacion: "Oficina Contabilidad - Mesa 3",
+usuarioPrincipal: "Laura Martínez",
+// Especificaciones técnicas
+especificaciones: {
+procesador: "Intel Core i7-11700",
+ram: "32GB DDR4",
+almacenamiento: "512GB SSD NVMe + 1TB HDD",
+grafica: "Intel UHD Graphics 750",
+sistemaOperativo: "Windows 11 Pro",
+office: "Microsoft 365 Business",
+antivirus: "Bitdefender GravityZone"
+},
+// Componentes (BOM del equipo)
+componentes: [
+{ tipo: "Placa base", modelo: "Dell 0GY6Y8", serie: "..." },
+{ tipo: "Procesador", modelo: "Intel i7-11700", serie: "..." },
+{ tipo: "RAM", modelo: "Kingston 16GB DDR4", cantidad: 2, serie: ["...", "..."] },
+{ tipo: "SSD", modelo: "Samsung 970 EVO 512GB", serie: "..." },
+{ tipo: "HDD", modelo: "Seagate 1TB", serie: "..." }
+],
+// Red
+direccionIP: "192.168.1.105",
+direccionMAC: "AA:BB:CC:DD:EE:FF",
+nombreRed: "OFICINA-WIFI",
+// Accesos remotos
+accesosRemotos: [
+{
+tipo: "TeamViewer",
+id: "123 456 789",
+password: "encriptado",
+activo: true
+},
+{
+tipo: "AnyDesk",
+id: "987654321",
+activo: true
+}
+],
+
+// Credenciales (encriptadas)
+credenciales: [
+{
+servicio: "Windows Admin",
+usuario: "Administrador",
+password: "encriptado",
+notas: "Usuario administrador local"
+},
+{
+servicio: "BIOS",
+password: "encriptado"
+}
+],
+// Licencias asociadas
+licenciasId: [ObjectId, ObjectId],
+// Fechas importantes
+fechaCompra: "2023-06-15",
+fechaInstalacion: "2023-06-20",
+garantiaHasta: "2026-06-15",
+proximoMantenimiento: "2025-12-20",
+// Contratos
+contratoMantenimientoId: ObjectId,
+// Historial
+ticketsId: [ObjectId, ObjectId, ...],
+mantenimientosId: [ObjectId, ...],
+// Documentos
+documentos: ["factura-compra.pdf", "certificado-garantia.pdf", "manual.pdf"],
+// Estado
+estado: "operativo", // operativo | averia | mantenimiento | baja
+observaciones: "Equipo principal de contabilidad, crítico",
+createdAt: "2023-06-20T10:00:00Z",
+updatedAt: "2025-10-03T14:30:00Z"
+}
+```
+#### 5.9.2 Sistema de Tickets / Incidencias
+**Ticket completo**:
+```javascript
+
+{
+// Identificación
+numero: "TKT-2025-00234",
+titulo: "Impresora no imprime en red",
+// Clasificación
+tipo: "incidencia", // incidencia | solicitud | consulta | cambio
+categoria: "Hardware", // Hardware | Software | Red | Email | Otro
+subcategoria: "Impresoras",
+// Prioridad y SLA
+prioridad: "alta", // baja | normal | alta | critica
+sla: {
+tipoSLA: "premium", // basico | estandar | premium | 24/7
+tiempoRespuesta: 2, // horas
+tiempoResolucion: 8, // horas
+fechaLimiteRespuesta: "2025-10-03T12:00:00Z",
+fechaLimiteResolucion: "2025-10-03T18:00:00Z",
+cumplido: true,
+penalizacion: 0
+},
+// Origen
+clienteId: ObjectId,
+cliente: "Empresa XYZ SL",
+contacto: "Laura Martínez",
+telefono: "+34666777888",
+email: "laura@empresa.com",
+// Equipo afectado
+equipoId: ObjectId,
+equipo: "HP LaserJet Pro M404dn - SN: ABC123456",
+ubicacion: "Oficina planta 2",
+// Descripción
+descripcion: `
+La impresora HP de la planta 2 no responde a trabajos de impresión desde esta mañana.
+Todos los ordenadores muestran el mensaje "Impresora sin conexión" al intentar imprimir.
+La impresora enciende correctamente y la pantalla muestra "Lista".
+`,
+// Archivos adjuntos
+adjuntos: ["captura-error.png", "log-sistema.txt"],
+// Asignación
+asignadoA: ObjectId,
+tecnico: "Pedro García",
+
+equipoAsignado: "Soporte Nivel 2",
+// Fechas
+fechaCreacion: "2025-10-03T10:15:00Z",
+fechaAsignacion: "2025-10-03T10:20:00Z",
+fechaPrimeraRespuesta: "2025-10-03T10:35:00Z",
+fechaResolucion: "2025-10-03T11:45:00Z",
+fechaCierre: "2025-10-03T12:00:00Z",
+// Estado
+estado: "resuelto", // nuevo | asignado | en_proceso | pendiente_cliente | resuelto | cerrado | reabierto
+// Seguimiento
+actualizaciones: [
+{
+fecha: "2025-10-03T10:35:00Z",
+usuario: "Pedro García",
+tipo: "respuesta_tecnico",
+comentario: "Ticket asignado. Revisando remotamente configuración de red.",
+interno: false // visible para cliente
+},
+{
+fecha: "2025-10-03T10:50:00Z",
+usuario: "Pedro García",
+tipo: "diagnostico",
+comentario: `
+Diagnóstico realizado:
+- Impresora tiene IP correcta (192.168.1.50)
+- Responde a ping
+- Puerto de impresión TCP/IP cerrado en firewall
+- Causa: Actualización de firewall anoche cerró puerto 9100
+`,
+interno: false
+},
+{
+fecha: "2025-10-03T11:00:00Z",
+usuario: "Pedro García",
+tipo: "trabajo_realizado",
+comentario: "Accediendo remotamente al firewall para abrir puerto",
+interno: true // nota interna, no visible para cliente
+},
+{
+fecha: "2025-10-03T11:45:00Z",
+usuario: "Pedro García",
+tipo: "solucion",
+comentario: `
+
+SOLUCIÓN APLICADA:
+- Abierto puerto 9100/TCP en firewall para IP impresora
+- Verificado funcionamiento desde 3 equip#
+
+DOCUMENTACIÓN COMPLETA - SISTEMA ERP CLOUD
+
+MULTI-NEGOCIO
+**Versión**: 1.0
+**Fecha**: Octubre 2025
+**Sistema**: ERP Cloud SaaS Multi-tenant con TPV Local
+--##
+
+ÍNDICE COMPLETO
+
+1. [Visión General del Proyecto](#1-visión-general)
+2. [Arquitectura del Sistema](#2-arquitectura)
+3. [Stack Tecnológico](#3-stack-tecnológico)
+4. [Sistema de Licencias y Planes](#4-licencias)
+5. [Módulos del Sistema](#5-módulos)
+- 5.1 Autenticación y Usuarios
+- 5.2 Clientes y Proveedores
+- 5.3 Productos y Escandallos
+- 5.4 Ciclo Comercial (Ventas/Compras)
+- 5.5 TPV Local Offline
+- 5.6 Inventario Multi-almacén
+- 5.7 Módulo Restauración/Hostelería
+- 5.8 Módulo Taller Mecánico
+- 5.9 Módulo Informática
+- 5.10 Módulo Proyectos
+- 5.11 RRHH y Fichajes
+- 5.12 CRM y Marketing
+- 5.13 Reportes y BI
+- 5.14 Gestión Documental
+- 5.15 Comunicación
+- 5.16 Portal del Cliente
+6. [Modelos de Base de Datos](#6-base-de-datos)
+7. [APIs y Endpoints](#7-apis)
+8. [Integraciones](#8-integraciones)
+9. [IA y Automatización](#9-ia)
+10. [Seguridad y Cumplimiento Legal](#10-seguridad)
+11. [Notificaciones](#11-notificaciones)
+12. [Roadmap de Desarrollo](#12-roadmap)
+--## 1. VISIÓN GENERAL DEL PROYECTO {#1-visión-general}
+
+### 1.1 Descripción
+Sistema ERP Cloud (SaaS Multi-tenant) modular, escalable y adaptable a múltiples verticales de negocio. Arquitectura
+híbrida: backend 100% cloud + TPV local offline-first.
+### 1.2 Tipos de Negocio Soportados
+| Tipo | Módulos Principales |
+|------|---------------------|
+| **Retail/Comercio** | Productos, Ventas, TPV, Inventario, eCommerce |
+| **Restauración** | Mesas, KDS, Comandas, Escandallos, Carta Digital |
+| **Taller Mecánico** | Vehículos, OT, Partes de Trabajo, Recambios |
+| **Informática** | Tickets, Equipos, Contratos, Mantenimientos, Licencias |
+| **Servicios** | Proyectos, Tareas, Certificaciones, Facturación por hitos |
+| **Producción** | BOM, Producción, Control de calidad |
+### 1.3 Características Clave
+-
+
+**100% Cloud**: Backend centralizado en MongoDB Atlas
+
+-
+
+**TPV Offline**: Aplicación local con sincronización inteligente
+
+-
+
+**Modular**: Activar/desactivar módulos según negocio
+
+-
+
+**Multi-idioma**: ES, CA, EN (expandible)
+
+-
+
+**IA Integrada**: Asistente de voz, predicciones, OCR
+
+-
+
+**Responsive PWA**: Funciona en cualquier dispositivo
+
+-
+
+**Legal**: RGPD, Ley Antifraude, TicketBAI, Verifactu
+
+-
+
+**Sincronización**: Bidireccional cloud ↔ TPV local
+
+--## 2. ARQUITECTURA DEL SISTEMA {#2-arquitectura}
+### 2.1 Diagrama de Arquitectura
+```
+┌─────────────────────────────────────────────────────────────────┐
+│
+
+CLOUD BACKEND (SaaS)
+
+│
+
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ Next.js 14+ App Router + React 18
+
+││
+
+│ │ - Server Components (SSR)
+
+││
+
+│ │ - API Routes (REST)
+
+││
+
+│ │ - Server Actions (mutations)
+
+││
+
+│ │ - WebSockets (real-time)
+
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ MongoDB Atlas (Multi-tenant)
+
+││
+
+│ │ - Segregación por empresaId
+
+││
+
+│ │ - Sharding para escalabilidad
+
+││
+
+│ │ - Backups automáticos cada 6h
+
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ Servicios Auxiliares
+
+││
+
+│ │ - Jobs (facturación recurrente, alertas, limpieza)
+
+││
+
+│ │ - IA (OpenAI GPT-4 / Claude)
+
+││
+
+│ │ - Email (Resend), SMS (Twilio), WhatsApp (Twilio API)
+│ │ - Storage (S3 / Cloudinary)
+
+││
+
+││
+
+│ │ - OCR (Tesseract.js / Google Vision)
+
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+↕ HTTPS + WSS
+┌─────────────────────────────────────────────────────────────────┐
+│
+
+WEB APP (Responsive PWA)
+
+│
+
+│ - Administración completa
+
+│
+
+│ - Acceso desde cualquier navegador/dispositivo
+
+│
+
+│ - Offline básico (Service Workers)
+
+│
+
+└─────────────────────────────────────────────────────────────────┘
+↕ Sincronización
+┌─────────────────────────────────────────────────────────────────┐
+│
+
+TPV LOCAL (Offline-first)
+
+│
+
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ App Electron (Windows/Linux/Mac) o PWA Instalable
+│ │ - Interfaz táctil optimizada
+
+││
+
+││
+
+│ │ - Funciona 100% sin internet
+
+││
+
+│ │ - Pantalla dual cliente (opcional)
+
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ Base de Datos Local
+
+││
+
+│ │ - MongoDB Embedded o IndexedDB + Dexie.js
+
+││
+
+│ │ - Productos, clientes, configuración sincronizados
+│ │ - Cola de ventas pendientes de subir
+
+││
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ Hardware Integrado
+
+││
+
+│ │ - Impresora térmica (tickets)
+
+││
+
+│ │ - Lector código de barras / QR
+
+││
+
+│ │ - Cajón de dinero / CashKeeper
+
+││
+
+│ │ - Báscula
+
+││
+
+│ │ - Pantalla dual (display cliente)
+│ │ - Terminal de pago (Redsys, SumUp, etc)
+
+││
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+
+2.2 Multi-tenant Strategy
+
+• Tenant = Empresa: Cada empresa es un tenant independiente
+• Segregación de datos: Todas las queries filtran por empresaId
+• Base de datos compartida: Todas las empresas en MongoDB Atlas
+• Aislamiento total: Middleware verifica tenant en cada request
+• Escalabilidad: Sharding por empresaId cuando sea necesario
+
+2.3 Sincronización TPV ↔ Cloud
+Datos que bajan del cloud al TPV:
+•
+
+Productos completos (con variantes, precios, stock)
+
+•
+
+Familias y categorías
+
+•
+
+Clientes frecuentes (últimos 6 meses)
+
+•
+
+Formas de pago
+
+•
+
+Configuración del TPV (impuestos, impresora, etc)
+
+•
+
+Promociones activas
+
+Datos que suben del TPV al cloud:
+•
+
+Ventas realizadas
+
+•
+
+Movimientos de caja
+
+•
+
+Movimientos de stock
+
+•
+
+Nuevos clientes creados en TPV
+
+Estrategia de sincronización:
+
+javascript
+
+// Sincronización inteligente
+{
+// Automática cada X minutos (configurable: 5, 10, 15, 30 min)
+autoSync: true,
+intervalo: 10, // minutos
+// Sincronización al iniciar TPV
+syncOnOpen: true,
+// Sincronización al cerrar caja
+syncOnClose: true,
+// Sincronización manual on-demand
+manualSync: true,
+// Resolución de conflictos
+resolucion: "servidor-gana", // o "timestamp" o "manual"
+// Cola de operaciones
+cola: [
+{ tipo: "venta", id: "...", timestamp: "...", data: {...} },
+{ tipo: "cliente", id: "...", timestamp: "...", data: {...} }
+],
+// Retry automático si falla
+maxReintentos: 3,
+tiempoEspera: 30000 // 30 segundos
+}
+
+3. STACK TECNOLÓGICO {#3-stack-tecnológico}
+3.1 Frontend
+
+Tecnología
+
+Uso
+
+Next.js 14+
+
+Framework principal (App Router)
+
+React 18+
+
+UI Library
+
+TypeScript
+
+Tipado estático
+
+Tailwind CSS
+
+Estilos
+
+shadcn/ui
+
+Componentes UI base
+
+Lucide React
+
+Iconos
+
+React Hook Form
+
+Gestión formularios
+
+Zod
+
+Validación schemas
+
+Zustand
+
+State management
+
+SWR
+
+Data fetching y cache
+
+Recharts
+
+Gráficos y visualizaciones
+
+React-PDF
+
+Generación PDFs
+
+date-fns
+
+Manejo fechas
+
+dnd-kit
+
+Drag & drop (mesas, tareas)
+
+Socket.io-client
+
+Real-time
+
+3.2 Backend
+Tecnología
+
+Uso
+
+Node.js 20+
+
+Runtime
+
+Next.js API Routes
+
+Endpoints REST
+
+Next.js Server Actions
+
+Mutations
+
+MongoDB
+
+Base de datos principal
+
+Mongoose
+
+ODM
+
+NextAuth.js v5
+
+Autenticación
+
+Socket.io
+
+WebSockets real-time
+
+Bull / BullMQ
+
+Cola de trabajos
+
+Resend
+
+Email transaccional
+
+Twilio
+
+SMS y WhatsApp
+
+AWS S3 / Cloudinary
+
+Almacenamiento archivos
+
+Redis
+
+Cache (opcional)
+
+3.3 TPV Local
+
+Tecnología
+
+Uso
+
+Electron
+
+App desktop multiplataforma
+
+MongoDB Embedded
+
+BD local (alternativa: IndexedDB)
+
+Dexie.js
+
+Wrapper IndexedDB
+
+node-thermal-printer
+
+Impresión tickets
+
+@zxing/library
+
+Lectura códigos barras/QR
+
+serialport
+
+Hardware (cajón, báscula)
+
+3.4 IA y Automatización
+Tecnología
+
+Uso
+
+OpenAI GPT-4
+
+Asistente IA, comandos de voz
+
+Anthropic Claude
+
+Análisis de documentos
+
+Tesseract.js
+
+OCR (escanear facturas)
+
+Web Speech API
+
+Reconocimiento de voz
+
+TensorFlow.js
+
+Predicciones de stock
+
+3.5 DevOps
+Tecnología
+
+Uso
+
+Vercel
+
+Hosting Next.js
+
+MongoDB Atlas
+
+Database cloud
+
+Cloudflare
+
+CDN y protección DDoS
+
+GitHub Actions
+
+CI/CD
+
+Sentry
+
+Monitoreo de errores
+
+Vercel Analytics
+
+Analytics
+
+4. SISTEMA DE LICENCIAS Y PLANES {#4-licencias}
+4.1 Modelo de Negocio
+SaaS (Software as a Service) con suscripción mensual/anual.
+
+4.2 Planes Disponibles
+PLAN DEMO (30 días gratis)
+Precio: €0
+Características:
+
+•
+
+Todas las funcionalidades
+
+•
+
+2 usuarios simultáneos
+
+•
+
+100 documentos durante trial
+
+•
+
+500 productos
+
+•
+
+1 almacén
+
+•
+
+1 TPV
+
+•
+
+500 MB almacenamiento
+
+•
+
+Marca de agua en documentos
+
+STARTER
+Precio: €29/mes o €290/año
+Límites:
+•
+
+3 usuarios simultáneos (5 cuentas)
+
+•
+
+500 facturas/mes
+
+•
+
+1.000 productos
+
+•
+
+1 almacén
+
+•
+
+500 clientes
+
+•
+
+1 TPV
+
+•
+
+2 GB
+
+•
+
+500 emails/mes
+
+Módulos: Ventas, Compras, Inventario básico, TPV, Reportes básicos
+
+PROFESSIONAL
+Precio: €79/mes o €790/año
+Límites:
+
+•
+
+10 usuarios simultáneos (20 cuentas)
+
+•
+
+2.000 facturas/mes
+
+•
+
+10.000 productos
+
+•
+
+3 almacenes
+
+•
+
+3 TPVs
+
+•
+
+10 GB
+
+•
+
+2.000 emails/mes
+
+•
+
+500 SMS/mes
+
+Módulos: Todo Starter + Inventario avanzado, CRM, Proyectos, RRHH, Chat interno, API REST
+
+BUSINESS
+Precio: €149/mes o €1.490/año
+Límites:
+•
+
+25 usuarios simultáneos (50 cuentas)
+
+•
+
+Facturas ilimitadas
+
+•
+
+Productos ilimitados
+
+•
+
+Almacenes ilimitados
+
+•
+
+10 TPVs
+
+•
+
+50 GB
+
+•
+
+10.000 emails/mes
+
+•
+
+2.000 SMS/mes
+
+Módulos: Todo Professional + Todos los módulos verticales (Taller, Informática, Restauración)
+
+ENTERPRISE
+Precio: Personalizado
+Características:
+
+•
+
+Todo ilimitado
+
+•
+
+On-premise opcional
+
+•
+
+White-label (marca blanca)
+
+•
+
+Gestor de cuenta dedicado
+
+•
+
+SLA garantizado 99.9%
+
+•
+
+Desarrollos personalizados
+
+•
+
+Soporte 24/7
+
+4.3 Add-ons (Módulos Extra)
+Add-on
+
+Precio/mes
+
+Módulo Taller Mecánico
+
++€20
+
+Módulo Informática/Tickets
+
++€20
+
+Módulo Restauración
+
++€30
+
+Módulo Proyectos Avanzado
+
++€20
+
+TPV adicional
+
++€10/TPV
+
+Usuario adicional
+
++€5/usuario
+
+Almacenamiento extra (10GB)
+
++€5
+
+API avanzada
+
++€30
+
+White-label
+
++€100
+
+4.4 Control de Límites
+El sistema controla en tiempo real:
+•
+
+Usuarios simultáneos conectados
+
+•
+
+Documentos creados en el período
+
+•
+
+Productos en catálogo
+
+•
+
+Almacenamiento usado
+
+•
+
+Llamadas a API
+
+•
+
+Emails/SMS enviados
+
+Comportamiento al alcanzar límite:
+
+•
+
+80% del límite → Alerta amarilla
+
+•
+
+90% del límite → Alerta naranja
+
+•
+
+100% del límite → Bloqueo de creación + sugerencia upgrade
+
+5. MÓDULOS DEL SISTEMA {#5-módulos}
+5.1 Autenticación y Usuarios
+Funcionalidades:
+• Login con email/password
+• Registro de empresas
+• Recuperación de contraseña
+• Autenticación 2FA (opcional)
+• Sesiones con JWT
+• Roles y permisos granulares
+Roles predefinidos:
+•
+
+Super Admin (multi-empresa, solo para plataforma)
+
+•
+
+Administrador
+
+•
+
+Gerente
+
+•
+
+Vendedor
+
+•
+
+Camarero (restauración)
+
+•
+
+Técnico/Mecánico
+
+•
+
+Soporte IT
+
+•
+
+Almacenero
+
+•
+
+Visualizador (solo lectura)
+
+Permisos granulares por módulo:
+
+javascript
+
+{
+modulo: "ventas",
+permisos: {
+presupuestos: { ver: true, crear: true, editar: true, eliminar: false, aprobar: false },
+facturas: { ver: true, crear: false, editar: false, eliminar: false }
+}
+}
+
+5.2 Clientes y Proveedores
+Clientes
+Campos:
+• Tipo: Particular, Empresa, Autónomo
+• Nombre/Razón Social, NIF/CIF/DNI
+• Emails (múltiples), Teléfonos (múltiples)
+• Direcciones (facturación, envío, otras)
+• Persona de contacto
+• Categoría (Minorista, Mayorista, VIP, etc)
+• Forma de pago predeterminada
+• Plazo de pago (días)
+• Límite de crédito
+• Descuento general (%)
+• Tarifa de precios asignada
+• Observaciones
+• Documentos adjuntos
+• Estado (Activo/Inactivo/Bloqueado)
+Campos específicos por negocio:
+• Taller: Vehículos asociados, preferencias contacto
+• Informática: Equipos, contratos, licencias
+• Restauración: Alergias, preferencias mesa
+
+Funcionalidades:
+• CRUD completo
+• Importación masiva (Excel, CSV)
+• Exportación
+• Fusión de duplicados
+• Historial completo de interacciones
+• Cuentas por cobrar (aging report)
+• Portal del cliente (autoservicio)
+Proveedores
+Similar a clientes pero para compras.
+
+5.3 Productos y Escandallos/BOM
+5.3.1 Productos Base
+Tipos de producto:
+1. Producto simple: Artículo individual vendible
+2. Producto con variantes: Ej: Camiseta (tallas y colores)
+3. Producto compuesto (BOM/Escandallo): Se fabrica/ensambla a partir de otros productos
+4. Servicio: No tiene stock físico
+5. Materia prima: Solo para comprar, no para vender directo
+Campos principales:
+
+• SKU único
+• EAN/Código de barras
+• Referencia proveedor
+• Nombre
+• Descripción corta/larga
+• Familia/Categoría (jerárquica)
+• Marca
+• Proveedor habitual
+• Unidad de medida (ud, kg, litros, m, etc)
+• Tipo de IVA
+• Control de stock (Sí/No)
+• Estado (Activo, Descatalogado, Próximamente)
+Precios:
+• Precio de compra (coste)
+• Precio de venta (PVP)
+• Tarifas personalizadas (por cliente o categoría)
+• Margen de beneficio (%)
+• Historial de precios
+Stock:
+• Stock actual (por almacén)
+• Stock mínimo
+• Stock máximo
+• Punto de pedido
+• Stock reservado (pedidos pendientes)
+• Stock disponible (calculado)
+• Ubicación en almacén
+5.3.2 Sistema de Variantes
+Configuración de atributos:
+
+javascript
+
+{
+producto: "Camiseta Básica",
+tieneVariantes: true,
+atributos: [
+{
+nombre: "Talla",
+valores: ["XS", "S", "M", "L", "XL", "XXL"],
+tipoVisualizacion: "botones" // o "dropdown"
+},
+{
+nombre: "Color",
+valores: [
+{ valor: "Blanco", hexColor: "#FFFFFF" },
+{ valor: "Negro", hexColor: "#000000" },
+{ valor: "Azul", hexColor: "#0000FF" },
+{ valor: "Rojo", hexColor: "#FF0000" }
+],
+tipoVisualizacion: "colores"
+}
+],
+// Generación automática de todas las combinaciones
+variantes: [
+{
+sku: "CAM-BAS-XS-BLC",
+combinacion: { talla: "XS", color: "Blanco" },
+stock: 15,
+precioExtra: 0,
+imagenes: ["url1.jpg"]
+},
+{
+sku: "CAM-BAS-S-BLC",
+combinacion: { talla: "S", color: "Blanco" },
+stock: 25,
+precioExtra: 0,
+imagenes: ["url1.jpg"]
+}
+// ... resto de combinaciones (24 variantes en total)
+]
+}
+
+Generador automático: El sistema genera todas las combinaciones posibles automáticamente.
+5.3.3 Sistema Universal de Escandallos/BOM
+
+Bill of Materials (BOM) = Lista de materiales/componentes necesarios para fabricar o ensamblar un producto
+final.
+Estructura:
+
+javascript
+
+{
+productoFinal: {
+id: ObjectId,
+nombre: "Hamburguesa Clásica",
+tipo: "producto_compuesto",
+precioVenta: 8.50
+},
+// Lista de componentes
+componentes: [
+{
+productoId: ObjectId,
+nombre: "Pan de hamburguesa",
+cantidad: 1,
+unidad: "ud",
+costoUnitario: 0.40,
+costoTotal: 0.40,
+merma: 0 // % de desperdicio
+},
+{
+productoId: ObjectId,
+nombre: "Carne de ternera",
+cantidad: 150,
+unidad: "g",
+costoUnitario: 0.012, // por gramo
+costoTotal: 1.80,
+merma: 5 // 5% de merma en cocción
+},
+{
+productoId: ObjectId,
+nombre: "Queso cheddar",
+cantidad: 2,
+unidad: "lonchas",
+costoUnitario: 0.25,
+costoTotal: 0.50,
+merma: 0
+},
+{
+productoId: ObjectId,
+nombre: "Lechuga",
+cantidad: 30,
+unidad: "g",
+costoUnitario: 0.003,
+costoTotal: 0.09,
+
+merma: 10 // 10% de hojas no aprovechables
+},
+{
+productoId: ObjectId,
+nombre: "Tomate",
+cantidad: 50,
+unidad: "g",
+costoUnitario: 0.004,
+costoTotal: 0.20,
+merma: 15
+},
+{
+productoId: ObjectId,
+nombre: "Salsa especial",
+cantidad: 30,
+unidad: "ml",
+costoUnitario: 0.015,
+costoTotal: 0.45,
+merma: 5
+}
+],
+// Cálculos automáticos
+costoTotalComponentes: 3.44,
+mermaTotal: 0.21, // Suma de mermas
+costoReal: 3.65, // Componentes + merma
+precioVenta: 8.50,
+margenBruto: 4.85,
+porcentajeMargen: 57.06,
+// Información adicional
+tiempoPreparacion: 8, // minutos
+dificultad: "media",
+alergenos: ["gluten", "lactosa"],
+// Para restauración
+categoria: "Hamburguesas",
+disponibleEnCarta: true,
+// Control de stock automático
+descontarStock: true, // Al vender 1 hamburguesa, descuenta todos los componentes
+// Notas
+instruccionesPreparacion: "Cocinar carne a término medio...",
+observaciones: "Incluye patatas fritas como guarnición"
+}
+
+Casos
+de uso por negocio:
+RESTAURACIÓN:
+javascript
+
+// Ejemplo: Mojito
+{
+productoFinal: "Mojito",
+componentes: [
+{ producto: "Ron blanco", cantidad: 50, unidad: "ml", costo: 0.75 },
+{ producto: "Lima", cantidad: 1, unidad: "ud", costo: 0.30 },
+{ producto: "Hierbabuena", cantidad: 10, unidad: "hojas", costo: 0.10 },
+{ producto: "Azúcar", cantidad: 15, unidad: "g", costo: 0.02 },
+{ producto: "Soda", cantidad: 100, unidad: "ml", costo: 0.15 },
+{ producto: "Hielo", cantidad: 150, unidad: "g", costo: 0.05 }
+],
+costoTotal: 1.37,
+precioVenta: 7.00,
+margen: 5.63
+}
+
+INFORMÁTICA:
+javascript
+
+// Ejemplo: PC Gaming Custom
+{
+productoFinal: "PC Gaming Pro 2025",
+componentes: [
+{ producto: "Placa Base ASUS ROG", cantidad: 1, unidad: "ud", costo: 180 },
+{ producto: "Intel i7-14700K", cantidad: 1, unidad: "ud", costo: 380 },
+{ producto: "RAM DDR5 32GB", cantidad: 2, unidad: "ud", costo: 120 },
+{ producto: "RTX 4070", cantidad: 1, unidad: "ud", costo: 650 },
+{ producto: "SSD 1TB NVMe", cantidad: 1, unidad: "ud", costo: 90 },
+{ producto: "Fuente 850W", cantidad: 1, unidad: "ud", costo: 120 },
+{ producto: "Torre ATX", cantidad: 1, unidad: "ud", costo: 80 },
+{ producto: "Ventiladores RGB", cantidad: 3, unidad: "ud", costo: 15 }
+],
+manoDeObra: { descripcion: "Ensamblaje y testeo", horas: 2, tarifaHora: 30, costo: 60 },
+costoTotal: 1755,
+precioVenta: 2299,
+margen: 544
+}
+
+TALLER MECÁNICO:
+
+javascript
+
+// Ejemplo: Cambio de aceite completo
+{
+productoFinal: "Cambio de aceite 5W30",
+componentes: [
+{ producto: "Aceite 5W30", cantidad: 5, unidad: "litros", costo: 6.50 },
+{ producto: "Filtro de aceite", cantidad: 1, unidad: "ud", costo: 8.00 },
+{ producto: "Junta carter", cantidad: 1, unidad: "ud", costo: 2.50 }
+],
+manoDeObra: { descripcion: "Cambio de aceite", horas: 0.5, tarifaHora: 45, costo: 22.50 },
+costoTotal: 55.50,
+precioVenta: 89.90,
+margen: 34.40
+}
+
+PRODUCCIÓN/MANUFACTURA:
+javascript
+
+// Ejemplo: Mesa de madera artesanal
+{
+productoFinal: "Mesa comedor roble 180x90cm",
+componentes: [
+{ producto: "Tablero roble macizo", cantidad: 1, unidad: "ud", costo: 180 },
+{ producto: "Pata torneada roble", cantidad: 4, unidad: "ud", costo: 35 },
+{ producto: "Tornillos 6x60", cantidad: 20, unidad: "ud", costo: 0.15 },
+{ producto: "Cola de carpintero", cantidad: 200, unidad: "ml", costo: 0.05 },
+{ producto: "Barniz satinado", cantidad: 250, unidad: "ml", costo: 0.12 },
+{ producto: "Lija grano 120", cantidad: 3, unidad: "hojas", costo: 1.20 }
+],
+manoDeObra: { descripcion: "Corte, ensamblaje, lijado y barnizado", horas: 6, tarifaHora: 25, costo: 150 },
+costoTotal: 514.50,
+precioVenta: 899.00,
+margen: 384.50
+}
+
+Funcionalidades del sistema BOM/Escandallos:
+
+•
+
+Creación de recetas/componentes ilimitados
+
+•
+
+Cálculo automático de costes con mermas
+
+•
+
+Descuento automático de stock al vender producto compuesto
+
+•
+
+Alertas si falta algún componente
+
+•
+
+Histórico de cambios de receta
+
+•
+
+Cálculo de rentabilidad en tiempo real
+
+•
+
+Simulador de precios (ajustar PVP según coste)
+
+•
+
+Exportación de recetas a PDF
+
+•
+
+Control de alérgenos (restauración)
+
+5.3.4 Familias y Categorías
+Estructura jerárquica ilimitada:
+Electrónica
+├── Ordenadores
+│ ├── Portátiles
+│ │ ├── Gaming
+│ │ ├── Ultrabooks
+│ │ └── Workstations
+│ └── Sobremesa
+│
+
+├── Gaming
+
+│
+
+└── Oficina
+
+└── Componentes
+├── Procesadores
+├── Tarjetas Gráficas
+└── Memoria RAM
+
+Configuración por familia:
+• Imagen representativa
+• Atributos personalizados
+• Descuentos automáticos
+• Comisiones específicas
+• Plantilla de producto (campos predefinidos)
+
+5.4 Ciclo Comercial Completo (Ventas y Compras)
+
+Flujo estándar: Presupuesto → Pedido → Albarán → Factura
+5.4.1 PRESUPUESTOS
+Funcionalidades:
+• Creación rápida desde plantillas
+• Añadir líneas de productos (con variantes)
+• Añadir líneas de servicios
+• Añadir líneas de texto libre
+• Descuentos por línea
+• Descuento general sobre total
+• Validez del presupuesto (días)
+• Conversión a pedido con 1 clic
+• Envío por email automático
+• Versiones (v1, v2, v3...)
+• Duplicar presupuesto
+• Comparador de presupuestos (en compras)
+Estados:
+•
+
+Borrador
+
+•
+
+Enviado
+
+•
+
+Aceptado
+
+•
+
+Rechazado
+
+•
+
+Caducado
+
+Documento PDF generado:
+
+• Logo empresa
+• Datos fiscales
+• Datos cliente
+• Líneas detalladas
+• Totales con IVA desglosado
+• Condiciones de pago
+• Validez
+• Firma digital (opcional)
+5.4.2 PEDIDOS
+Características adicionales:
+• Fecha de entrega estimada
+• Prioridad (Baja, Normal, Alta, Urgente)
+• Reserva automática de stock
+• Estados de preparación
+• División en varios albaranes (entregas parciales)
+• Control de cantidad servida vs pendiente
+• Notificaciones automáticas al cliente
+• Integración con transportistas
+Estados:
+•
+
+Pendiente
+
+•
+
+Confirmado
+
+•
+
+En preparación
+
+•
+
+Preparado
+
+•
+
+Enviado
+
+•
+
+Entregado
+
+•
+
+Cancelado
+
+5.4.3 ALBARANES (Entregas)
+Funcionalidades:
+
+• Generación desde pedido
+• Entregas parciales (múltiples albaranes por pedido)
+• Control de cantidades
+• Geolocalización de entrega
+• Firma digital del receptor
+• Fotos de la entrega
+• Registro de incidencias
+• Integración con rutas de reparto
+Información adicional:
+• Transportista
+• Número de seguimiento
+• Número de bultos
+• Peso total
+• Fecha y hora de entrega
+• Receptor (nombre, DNI, firma)
+5.4.4 FACTURAS
+Tipos de factura:
+1. Factura normal
+2. Factura simplificada (< 400€)
+3. Factura rectificativa
+4. Factura proforma
+5. Abono / Nota de crédito
+Características:
+
+• Generación desde albaranes o pedidos
+• Facturación masiva (seleccionar múltiples albaranes)
+• Series de numeración configurables
+• Vencimientos múltiples
+• Desglose de IVA por tipos
+• Recargo de equivalencia
+• Retención IRPF
+• Estados de pago
+• Integración contabilidad
+• Envío automático SII (Suministro Inmediato de Información)
+• Cumplimiento TicketBAI / Verifactu
+Estados financieros:
+•
+
+Emitida
+
+•
+
+Pagada parcialmente
+
+•
+
+Pagada
+
+•
+
+Vencida
+
+•
+
+Impagada
+
+Control de vencimientos:
+javascript
+
+{
+factura: "FAC-2025-00123",
+total: 1200,
+vencimientos: [
+{ fecha: "2025-11-03", importe: 400, pagado: true, fechaPago: "2025-11-01", metodo: "transferencia" },
+{ fecha: "2025-12-03", importe: 400, pagado: false },
+{ fecha: "2026-01-03", importe: 400, pagado: false }
+],
+totalPagado: 400,
+totalPendiente: 800
+}
+
+5.5 TPV LOCAL OFFLINE-FIRST
+5.5.1 Características Principales
+Aplicación independiente:
+• Desktop: Electron (Windows, Mac, Linux)
+• Alternativa: PWA instalable avanzada
+• Interfaz táctil optimizada
+• Funciona 100% sin conexión a internet
+• Sincronización automática al reconectar
+Pantalla TPV:
+┌─────────────────────────────────┬───────────────────────────────┐
+│ BÚSQUEDA Y PRODUCTOS
+│
+│[
+
+│
+
+│
+
+│
+
+│
+
+Buscar producto/código]
+
+│
+
+CARRITO / TICKET
+
+│ Cliente: Juan Pérez
+
+│
+
+│ ──────────────────────────── │
+
+│ ┌────────┐ ┌────────┐ ┌────────┐│ Hamburguesa x2
+│ │Bebidas │ │Comidas │ │Postres ││ Coca-Cola x1
+
+2.50€ │
+
+│ └────────┘ └────────┘ └────────┘│ Café x1
+│
+
+1.80€ │
+
+│ ──────────────────────────── │
+
+│ [Producto 1] [Producto 2]
+
+│ Subtotal:
+
+21.30€ │
+
+│ [Producto 3] [Producto 4]
+
+│ Descuento:
+
+-2.13€ │
+
+│ [Producto 5] [Producto 6]
+
+│ IVA (10%):
+
+1.92€ │
+
+│
+
+17.00€ │
+
+│ ──────────────────────────── │
+
+│ [Más productos...]
+
+│ TOTAL:
+
+21.09€ │
+
+│
+
+│
+
+│
+
+│
+
+│ [
+
+│
+
+│
+
+│
+
+│ [ COBRAR (F12) ]
+
+] [
+
+] [
+
+] [
+
+]
+
+│
+
+│
+│
+
+└─────────────────────────────────┴───────────────────────────────┘
+
+Funcionalidades del TPV:
+
+•
+
+Búsqueda rápida (código, nombre, EAN)
+
+•
+
+Escaneo de código de barras
+
+•
+
+Selección de variantes (talla, color)
+
+•
+
+Modificadores de productos (restauración)
+
+•
+
+Calculadora integrada
+
+•
+
+Cambio de precio (con permisos)
+
+•
+
+Descuentos por línea
+
+•
+
+Descuento general
+
+•
+
+Selección de cliente
+
+•
+
+Múltiples formas de pago en una venta
+
+•
+
+División de pago (pagar entre varios)
+
+•
+
+Tickets en espera (aparcar venta)
+
+•
+
+Devoluciones
+
+•
+
+Apertura y cierre de caja
+
+•
+
+Movimientos de efectivo (entrada/salida)
+
+•
+
+Impresión de ticket
+
+•
+
+Envío de ticket por email
+
+•
+
+Pantalla dual para cliente (opcional)
+
+Atajos de teclado:
+• F1 - Ayuda
+• F2 - Buscar producto
+• F3 - Buscar cliente
+• F4 - Descuento
+• F5 - Aparcar ticket
+• F6 - Recuperar ticket
+• F12 - Cobrar
+• ESC - Cancelar
+• + / - - Cantidad
+
+5.5.2 Base de Datos Local
+Opción 1: MongoDB Embedded
+javascript
+
+// Colecciones locales
+{
+productos: [...],
+
+// Sincronizados desde cloud
+
+clientes: [...],
+
+// Clientes frecuentes
+
+ventas_pendientes: [], // Cola para subir
+configuracion: {...}, // Config del TPV
+caja_actual: {...}
+
+// Estado de caja abierta
+
+}
+
+Opción 2: IndexedDB + Dexie.js
+javascript
+
+const db = new Dexie('TPV_Database');
+db.version(1).stores({
+productos: 'id, sku, nombre, ean',
+clientes: 'id, nombre, nif',
+ventas: '++id, fecha, total, sincronizado',
+configuracion: 'clave'
+});
+
+5.5.3 Gestión de Caja
+Apertura de caja:
+javascript
+
+{
+fecha: "2025-10-03T08:00:00Z",
+usuario: "María García",
+tpv: "TPV-001",
+efectivoInicial: 200.00,
+estado: "abierta"
+}
+
+Movimientos durante el día:
+
+• Ventas (con detalle forma de pago)
+• Entradas de efectivo (reposición)
+• Salidas de efectivo (gastos, cambio)
+Cierre de caja:
+javascript
+
+{
+fechaCierre: "2025-10-03T22:00:00Z",
+resumenVentas: {
+numVentas: 87,
+totalBruto: 2847.50
+},
+resumenFormasPago: [
+{ formaPago: "Efectivo", numOperaciones: 45, importe: 1234.50 },
+{ formaPago: "Tarjeta", numOperaciones: 38, importe: 1523.00 },
+{ formaPago: "Bizum", numOperaciones: 4, importe: 90.00 }
+],
+efectivoTeoricoFinal: 1434.50,
+efectivoRealFinal: 1430.00,
+diferencia: -4.50,
+observaciones: "Falta 4.50€ por error en cambio"
+}
+
+5.5.4 Hardware Integrado
+Impresora térmica de tickets:
+• Conexión: USB, Serial, Ethernet, Bluetooth
+• Tamaño: 58mm o 80mm
+• Velocidad: Alta para no esperas
+• Auto-corte de papel
+Lector de código de barras:
+• 1D y 2D (QR)
+• Conexión: USB (emula teclado)
+• Escaneo automático
+Cajón de dinero:
+
+• Apertura automática al cobrar efectivo
+• Apertura manual con permiso
+• Conexión vía impresora térmica
+CashKeeper / Gestoras de efectivo:
+• Integración para contar billetes/monedas
+• Validación automática
+• Reducción de errores
+Báscula:
+• Para productos a peso (frutería, charcutería)
+• Conexión Serial/USB
+Pantalla dual:
+• Monitor secundario mirando al cliente
+• Muestra productos, precios, total
+• Publicidad entre ventas
+Terminal de pago (TPV físico):
+• Redsys, SumUp, iZettle
+• Conexión por API o manual
+
+5.6 Inventario Multi-almacén
+5.6.1 Almacenes
+Configuración:
+
+javascript
+
+{
+codigo: "ALM-001",
+nombre: "Almacén Central",
+tipo: "principal", // principal | secundario | transito | tienda
+direccion: {...},
+responsable: "Juan López",
+esTPV: false,
+zonas: [
+{ codigo: "A1", nombre: "Estantería A - Nivel 1" },
+{ codigo: "A2", nombre: "Estantería A - Nivel 2" },
+{ codigo: "B1", nombre: "Cámara frigorífica" }
+],
+activo: true
+}
+
+5.6.2 Movimientos de Inventario
+Tipos de movimiento:
+1. Entrada por compra: Al recibir albarán de proveedor
+2. Salida por venta: Al generar albarán de venta
+3. Traspaso entre almacenes: Mover stock
+4. Ajuste de inventario: Correcciones manuales
+5. Producción/Transformación: Usar BOM (consumir componentes, crear producto final)
+6. Merma: Pérdidas, roturas, caducidad
+7. Devolución cliente: Entrada
+8. Devolución a proveedor: Salida
+Registro de movimiento:
+
+javascript
+
+{
+fecha: "2025-10-03T14:30:00Z",
+tipo: "salida_venta",
+productoId: ObjectId,
+varianteId: "...",
+almacenOrigenId: ObjectId,
+almacenDestinoId: null,
+cantidad: 2,
+unidad: "ud",
+valorUnitario: 45.50,
+valorTotal: 91.00,
+metodoValoracion: "pmp", // precio medio ponderado
+lote: "L2025-034",
+numeroSerie: null,
+fechaCaducidad: null,
+documentoTipo: "albaran_venta",
+documentoId: ObjectId,
+documentoNumero: "ALB-2025-00456",
+ubicacion: "A1-B3",
+motivo: "Venta a cliente",
+usuarioId: ObjectId,
+aprobado: true
+}
+
+5.6.3 Control de Stock
+Stock por almacén:
+
+javascript
+
+{
+productoId: ObjectId,
+stockPorAlmacen: [
+{
+almacenId: ObjectId,
+almacen: "Almacén Central",
+stock: 150,
+stockReservado: 12,
+stockDisponible: 138,
+ubicacion: "A1-B3",
+stockMinimo: 20,
+stockMaximo: 200
+},
+{
+almacenId: ObjectId,
+almacen: "Tienda Centro",
+stock: 25,
+stockReservado: 3,
+stockDisponible: 22,
+ubicacion: "Estante 5"
+}
+],
+stockTotalGlobal: 175,
+stockDisponibleGlobal: 160
+}
+
+Alertas automáticas:
+•
+
+Stock por debajo del mínimo
+
+•
+
+Stock a cero
+
+•
+
+Stock negativo (error)
+
+•
+
+Productos próximos a caducar (7, 15, 30 días)
+
+5.6.4 Inventario Físico (Recuento)
+Proceso:
+
+1. Crear recuento (seleccionar almacén y productos)
+2. Congelar movimientos durante recuento (opcional)
+3. Ingresar cantidades físicas reales
+4. Comparar con stock teórico
+5. Generar diferencias
+6. Aprobar y ajustar stock
+Tipos de recuento:
+• Completo: Todos los productos del almacén
+• Parcial: Solo una familia o zona
+• Rotativo: Un grupo de productos cada día
+
+5.7 MÓDULO RESTAURACIÓN / HOSTELERÍA
+5.7.1 Gestión de Salones y Mesas
+Diseñador visual de mesas (drag & drop):
+
+javascript
+
+{
+salonId: ObjectId,
+nombre: "Salón Principal",
+layout: {
+ancho: 1200, // px
+alto: 800,
+mesas: [
+{
+id: "mesa-01",
+numero: 1,
+tipo: "rectangular", // rectangular | redonda | cuadrada
+capacidad: 4,
+posX: 100,
+posY: 100,
+ancho: 120,
+alto: 80,
+estado: "libre", // libre | ocupada | reservada | sucia
+camarero: null,
+horaOcupacion: null
+},
+{
+id: "mesa-02",
+numero: 2,
+tipo: "redonda",
+capacidad: 6,
+posX: 300,
+posY: 150,
+radio: 70,
+estado: "ocupada",
+camarero: "María",
+horaOcupacion: "2025-10-03T14:30:00Z",
+comensales: 5,
+ticketId: ObjectId
+}
+// ... más mesas
+],
+elementos: [
+{ tipo: "barra", posX: 50, posY: 50, ancho: 300, alto: 80 },
+{ tipo: "puerta", posX: 600, posY: 0 },
+{ tipo: "ventana", posX: 0, posY: 200 }
+]
+}
+}
+
+Funcionalidades de mesas:
+•
+
+Crear layout visual (arrastrar/soltar)
+
+•
+
+Cambiar estado de mesa con un clic
+
+•
+
+Unir mesas (para grupos grandes)
+
+•
+
+Transferir mesa a otro camarero
+
+•
+
+Ver tiempo de ocupación
+
+•
+
+Códigos de color por estado
+
+•
+
+Mapa de calor (mesas más rentables)
+
+Reservas de mesas:
+javascript
+
+{
+fecha: "2025-10-05",
+hora: "21:00",
+comensales: 4,
+cliente: "Laura Martínez",
+telefono: "+34666777888",
+email: "laura@email.com",
+mesaAsignada: "mesa-05",
+observaciones: "Cumpleaños, preparar postre",
+estado: "confirmada", // pendiente | confirmada | cancelada | completada
+recordatorioEnviado: true
+}
+
+5.7.2 Sistema de Comandas
+Flujo de comanda:
+1. Camarero toma pedido en mesa
+2. Envía comanda a cocina
+3. Cocina recibe en impresora o KDS
+4. Prepara platos
+5. Marca como listo
+6. Camarero sirve
+7. Cliente paga
+
+Estructura de comanda:
+
+javascript
+
+{
+numero: "CMD-2025-00523",
+fecha: "2025-10-03T14:35:00Z",
+mesa: "Mesa 7",
+salon: "Terraza",
+camarero: "Pedro García",
+comensales: 3,
+lineas: [
+{
+producto: "Ensalada César",
+cantidad: 2,
+precio: 8.50,
+modificadores: ["Sin anchoas", "Extra parmesano"],
+alergenos: ["gluten", "lactosa", "pescado"],
+notasCocina: "Cliente alérgico a frutos secos",
+zona: "cocina_fria",
+estado: "pendiente", // pendiente | preparando | listo | servido
+prioridad: "normal",
+horaEnvio: "2025-10-03T14:35:10Z",
+horaInicio: null,
+horaFin: null
+},
+{
+producto: "Solomillo al punto",
+cantidad: 1,
+precio: 22.00,
+modificadores: ["Al punto", "Sin guarnición"],
+zona: "cocina_caliente",
+estado: "preparando",
+cocinero: "Chef Antonio"
+},
+{
+producto: "Cerveza Estrella",
+cantidad: 3,
+precio: 2.50,
+zona: "barra",
+estado: "servido"
+}
+],
+estado: "en_curso", // abierta | en_curso | completada | pagada
+total: 32.50
+}
+
+Modificadores de productos: Configurables por producto:
+javascript
+
+{
+producto: "Hamburguesa",
+modificadoresDisponibles: [
+{
+grupo: "Punto de carne",
+opciones: ["Poco hecha", "Al punto", "Muy hecha"],
+obligatorio: true,
+precioExtra: 0
+},
+{
+grupo: "Extras",
+opciones: [
+{ nombre: "Extra queso", precio: 1.00 },
+{ nombre: "Extra bacon", precio: 1.50 },
+{ nombre: "Aguacate", precio: 2.00 }
+],
+obligatorio: false,
+multiple: true
+},
+{
+grupo: "Sin ingredientes",
+opciones: ["Sin cebolla", "Sin tomate", "Sin lechuga"],
+precioExtra: 0,
+multiple: true
+}
+]
+}
+
+5.7.3 Kitchen Display System (KDS)
+Pantalla táctil en cocina que reemplaza tickets impresos:
+
+┌────────────────────────────────────────────────────────────┐
+│ COCINA CALIENTE
+
+Pedidos: 8
+
+Tiempo promedio: 12m │
+
+├────────────────────────────────────────────────────────────┤
+│
+
+│
+
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ │ Mesa 3
+
+│ │ Mesa 7
+
+││
+
+│ │
+
+│ │
+
+│ │
+
+│
+
+│
+│
+
+│
+
+│
+
+│ │ AL PUNTO │ │ MUY HECHO │ │ asado
+
+│
+
+│
+
+│ │ [ INICIAR ] │ │ [EN PROCESO] │ │ [ LISTO ] │
+
+│
+
+│ │
+
+15:35
+
+│
+
+│
+
+││
+
+15:32
+
+│ │ Mesa 12
+15:37
+│
+
+│ │ 2x Solomillo │ │ 1x Entrecot │ │ 3x Pollo
+│ │ 1x Lubina
+
+│ │ 1x Merluza │ │
+
+│ │ a la sal │ │
+││
+
+│ │
+
+│ │
+
+│
+│
+
+│ │
+
+│
+
+│
+
+│ │
+
+│
+
+│
+
+│ │ celebración │ │
+
+│ │
+
+│
+
+│
+
+│ │
+
+│ │
+
+│
+
+│
+
+│
+
+│ │ Nota: Mesa │ │
+││
+
+│
+
+│ └──────────────┘ └──────────────┘ └──────────────┘
+│
+
+│
+
+│
+
+│
+
+│ ┌──────────────┐ ┌──────────────┐
+│ │ Mesa 15
+
+│ │ Llevar #34 │
+
+│
+
+││
+
+│ │
+
+│
+
+15:33
+
+15:36
+
+│
+
+│ └──────────────┘ └──────────────┘
+
+│
+
+│
+
+└────────────────────────────────────────────────────────────┘
+
+Código de colores por tiempo:
+•
+
+Verde: < 10 minutos
+
+•
+
+Amarillo: 10-15 minutos
+
+•
+
+Rojo: > 15 minutos (urgente)
+
+•
+
+Negro: > 30 minutos (crítico)
+
+Funcionalidades KDS:
+
+•
+
+Visualización en tiempo real
+
+•
+
+Ordenación automática por prioridad/tiempo
+
+•
+
+Táctil (iniciar, finalizar platos)
+
+•
+
+Avisos sonoros en platos urgentes
+
+•
+
+Filtros por zona (caliente, fría, postres)
+
+•
+
+Estadísticas de tiempos
+
+•
+
+Bump bar (botón físico para marcar listo)
+
+Impresoras por zona: Alternativa o complemento al KDS:
+• Cocina caliente: Carnes, pescados, arroces
+• Cocina fría: Ensaladas, entrantes fríos
+• Barra: Bebidas
+• Postres: Postres y cafés
+Cada zona recibe solo sus comandas.
+5.7.4 Tipos de Servicio
+1. Servicio en mesa tradicional:
+• Camarero asignado por sección
+• Comandas desde tablet o TPV
+• Pago en mesa o en caja
+2. Fast Food / Para llevar:
+• TPV de mostrador
+• Número de pedido
+• Preparación rápida
+• Entrega en ventanilla
+3. Delivery:
+
+• Pedidos online (web/app)
+• Integración con Glovo, Uber Eats, Just Eat
+• Asignación de repartidor
+• Tracking en tiempo real
+4. Autoservicio / Buffet:
+• Cliente se sirve
+• Pago por peso o precio fijo
+• Control de salidas
+5.7.5 Menús y Carta Digital
+Menú del día:
+
+javascript
+
+{
+nombre: "Menú del día",
+precio: 12.50,
+disponible: ["lunes", "martes", "miercoles", "jueves", "viernes"],
+horario: { inicio: "13:00", fin: "16:00" },
+estructura: [
+{
+seccion: "Primeros",
+elige: 1,
+opciones: [
+"Ensalada mixta",
+"Lentejas estofadas",
+"Sopa del día",
+"Pasta carbonara"
+]
+},
+{
+seccion: "Segundos",
+elige: 1,
+opciones: [
+"Pollo asado",
+"Merluza a la plancha",
+"Solomillo de cerdo",
+"Tortilla española"
+]
+},
+{
+seccion: "Postres",
+elige: 1,
+opciones: [
+"Fruta del tiempo",
+"Flan casero",
+"Helado",
+"Yogur"
+]
+},
+{
+seccion: "Bebida",
+incluido: true,
+opciones: ["Agua", "Vino", "Cerveza", "Refresco"]
+}
+],
+
+incluye: "Pan y postre",
+observaciones: "IVA incluido"
+}
+
+Carta digital con QR:
+• Cliente escanea QR en mesa
+• Ve carta actualizada en tiempo real
+• Filtros por alérgenos
+• Fotos de platos
+•
+
+

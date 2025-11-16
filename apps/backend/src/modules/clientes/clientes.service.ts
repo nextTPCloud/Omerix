@@ -1,6 +1,8 @@
-import mongoose from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import { CreateClienteDto, UpdateClienteDto, GetClientesQueryDto } from './clientes.dto';
 import { Cliente, ICliente } from '@/modules/clientes/Cliente';
+import { IDatabaseConfig } from '@/models/Empresa';
+import { getClienteModel } from '@/utils/dynamic-models.helper';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -15,16 +17,29 @@ interface findAllResult {
 }
 
 export class ClientesService {
-  
-// ============================================
+
+  /**
+   * Obtener modelo de Cliente para una empresa específica
+   */
+  private async getModeloCliente(
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<Model<ICliente>> {
+    return await getClienteModel(empresaId, dbConfig);
+  }
+
+  // ============================================
   // CREAR CLIENTE
   // ============================================
-  
+
   async crear(
     createClienteDto: CreateClienteDto,
     empresaId: mongoose.Types.ObjectId,
-    usuarioId: mongoose.Types.ObjectId
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ): Promise<ICliente> {
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
     const clienteData = {
       ...createClienteDto,
       empresaId,
@@ -32,20 +47,23 @@ export class ClientesService {
       fechaCreacion: new Date(),
     };
 
-    const cliente = new Cliente(clienteData);
+    const cliente = new ClienteModel(clienteData);
     await cliente.save();
-    
+
     return cliente;
   }
 
   // ============================================
   // OBTENER TODOS CON FILTROS Y PAGINACIÓN
   // ============================================
-  
+
   async findAll(
     empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
     query: Partial<GetClientesQueryDto>
   ) {
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
     const {
       search,
       sortBy = 'fechaCreacion',
@@ -61,8 +79,8 @@ export class ClientesService {
       tags,
     } = query;
 
-    // Construir filtro
-    const filter: any = { empresaId };
+    // Construir filtro (YA NO necesitamos empresaId porque cada empresa tiene su propia DB)
+    const filter: any = {};
 
     // Búsqueda por texto - INCLUYE TODOS LOS CAMPOS
     if (search) {
@@ -118,14 +136,14 @@ export class ClientesService {
 
     // Ejecutar consulta
     const [clientes, total] = await Promise.all([
-      Cliente.find(filter)
+      ClienteModel.find(filter)
         .sort(sort)
         .skip(skip)
         .limit(limit)
         .populate('vendedorId', 'nombre email')
         .populate('categoriaId', 'nombre')
         .lean(),
-      Cliente.countDocuments(filter),
+      ClienteModel.countDocuments(filter),
     ]);
 
     return {
@@ -140,14 +158,16 @@ export class ClientesService {
   // ============================================
   // OBTENER POR ID
   // ============================================
-  
+
   async findById(
     id: string,
-    empresaId: mongoose.Types.ObjectId
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ): Promise<ICliente | null> {
-    const cliente = await Cliente.findOne({
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    const cliente = await ClienteModel.findOne({
       _id: id,
-      empresaId,
     })
       .populate('vendedorId', 'nombre email')
       .populate('categoriaId', 'nombre')
@@ -159,15 +179,18 @@ export class ClientesService {
   // ============================================
   // ACTUALIZAR
   // ============================================
-  
+
   async actualizar(
     id: string,
     updateClienteDto: UpdateClienteDto,
     empresaId: mongoose.Types.ObjectId,
-    usuarioId: mongoose.Types.ObjectId
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ): Promise<ICliente | null> {
-    const cliente = await Cliente.findOneAndUpdate(
-      { _id: id, empresaId },
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    const cliente = await ClienteModel.findOneAndUpdate(
+      { _id: id },
       {
         ...updateClienteDto,
         modificadoPor: usuarioId,
@@ -182,14 +205,16 @@ export class ClientesService {
   // ============================================
   // ELIMINAR
   // ============================================
-  
+
   async eliminar(
     id: string,
-    empresaId: mongoose.Types.ObjectId
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ): Promise<boolean> {
-    const resultado = await Cliente.deleteOne({
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    const resultado = await ClienteModel.deleteOne({
       _id: id,
-      empresaId,
     });
 
     return resultado.deletedCount > 0;
@@ -198,14 +223,16 @@ export class ClientesService {
   // ============================================
   // ELIMINACIÓN MÚLTIPLE
   // ============================================
-  
+
   async eliminarMultiples(
     ids: string[],
-    empresaId: mongoose.Types.ObjectId
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ): Promise<number> {
-    const resultado = await Cliente.deleteMany({
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    const resultado = await ClienteModel.deleteMany({
       _id: { $in: ids },
-      empresaId,
     });
 
     return resultado.deletedCount || 0;
@@ -214,15 +241,18 @@ export class ClientesService {
   // ============================================
   // ACTIVAR/DESACTIVAR
   // ============================================
-  
+
   async cambiarEstado(
     id: string,
     activo: boolean,
     empresaId: mongoose.Types.ObjectId,
-    usuarioId: mongoose.Types.ObjectId
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ): Promise<ICliente | null> {
-    const cliente = await Cliente.findOneAndUpdate(
-      { _id: id, empresaId },
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    const cliente = await ClienteModel.findOneAndUpdate(
+      { _id: id },
       {
         activo,
         modificadoPor: usuarioId,
@@ -237,17 +267,42 @@ export class ClientesService {
   // ============================================
   // OBTENER ESTADÍSTICAS
   // ============================================
-  
+
   async obtenerEstadisticas(
-    empresaId: mongoose.Types.ObjectId
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ) {
-    return await Cliente.obtenerEstadisticas(empresaId);
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    // Recrear el método estático en el modelo dinámico
+    const [totales, activos, inactivos, excedenCredito] = await Promise.all([
+      ClienteModel.countDocuments({}),
+      ClienteModel.countDocuments({ activo: true }),
+      ClienteModel.countDocuments({ activo: false }),
+      ClienteModel.countDocuments({
+        activo: true,
+        $expr: { $gt: ['$riesgoActual', '$limiteCredito'] }
+      })
+    ]);
+
+    const riesgoTotal = await ClienteModel.aggregate([
+      { $match: { activo: true } },
+      { $group: { _id: null, total: { $sum: '$riesgoActual' } } }
+    ]);
+
+    return {
+      total: totales,
+      activos,
+      inactivos,
+      excedenCredito,
+      riesgoTotal: riesgoTotal[0]?.total || 0
+    };
   }
 
   // ============================================
   // SUBIR ARCHIVO
   // ============================================
-  
+
   async subirArchivo(
     id: string,
     archivo: {
@@ -257,10 +312,13 @@ export class ClientesService {
       tamaño: number;
     },
     empresaId: mongoose.Types.ObjectId,
-    usuarioId: mongoose.Types.ObjectId
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ): Promise<ICliente | null> {
-    const cliente = await Cliente.findOneAndUpdate(
-      { _id: id, empresaId },
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    const cliente = await ClienteModel.findOneAndUpdate(
+      { _id: id },
       {
         $push: {
           archivos: {
@@ -281,15 +339,18 @@ export class ClientesService {
   // ============================================
   // ELIMINAR ARCHIVO
   // ============================================
-  
+
   async eliminarArchivo(
     id: string,
     archivoUrl: string,
     empresaId: mongoose.Types.ObjectId,
-    usuarioId: mongoose.Types.ObjectId
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ): Promise<ICliente | null> {
-    const cliente = await Cliente.findOneAndUpdate(
-      { _id: id, empresaId },
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    const cliente = await ClienteModel.findOneAndUpdate(
+      { _id: id },
       {
         $pull: {
           archivos: { url: archivoUrl },
@@ -306,31 +367,37 @@ export class ClientesService {
   // ============================================
   // VERIFICAR DUPLICADOS
   // ============================================
-  
+
   async verificarDuplicados(
     nif: string,
     empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
     excludeId?: string
   ): Promise<boolean> {
-    const filter: any = { empresaId, nif };
-    
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    const filter: any = { nif };
+
     if (excludeId) {
       filter._id = { $ne: excludeId };
     }
 
-    const count = await Cliente.countDocuments(filter);
+    const count = await ClienteModel.countDocuments(filter);
     return count > 0;
   }
 
   // ============================================
   // EXPORTAR A CSV
   // ============================================
-  
+
   async exportarCSV(
     empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
     filtros?: Partial<GetClientesQueryDto>
   ): Promise<any[]> {
-    const filter: any = { empresaId };
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    const filter: any = {};
 
     if (filtros?.activo !== undefined) {
       filter.activo = filtros.activo;
@@ -340,7 +407,7 @@ export class ClientesService {
       filter.vendedorId = filtros.vendedorId;
     }
 
-    const clientes = await Cliente.find(filter)
+    const clientes = await ClienteModel.find(filter)
       .populate('vendedorId', 'nombre')
       .populate('categoriaId', 'nombre')
       .lean();
@@ -355,10 +422,13 @@ export class ClientesService {
   async actualizarRiesgo(
     id: string,
     nuevoRiesgo: number,
-    empresaId: mongoose.Types.ObjectId
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ): Promise<ICliente | null> {
-    const cliente = await Cliente.findOneAndUpdate(
-      { _id: id, empresaId },
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
+    const cliente = await ClienteModel.findOneAndUpdate(
+      { _id: id },
       { riesgoActual: nuevoRiesgo },
       { new: true }
     );
@@ -372,12 +442,15 @@ export class ClientesService {
 
   async sugerirSiguienteCodigo(
     empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
     prefijo?: string
   ): Promise<string> {
+    const ClienteModel = await this.getModeloCliente(String(empresaId), dbConfig);
+
     // Si no se proporciona prefijo, buscar el patrón más común
     if (!prefijo || prefijo.trim() === '') {
       // Buscar todos los códigos y extraer el prefijo más común
-      const clientes = await Cliente.find({ empresaId })
+      const clientes = await ClienteModel.find({})
         .select('codigo')
         .sort({ codigo: -1 })
         .limit(10)
@@ -410,8 +483,7 @@ export class ClientesService {
 
     // Buscar el último código con ese prefijo
     const regex = new RegExp(`^${prefijo}(\\d+)$`, 'i');
-    const clientes = await Cliente.find({
-      empresaId,
+    const clientes = await ClienteModel.find({
       codigo: regex,
     })
       .select('codigo')

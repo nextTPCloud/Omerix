@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
-    "seed:plans": "tsx src/scripts/seedPlans.ts"
+    "seed:plans": "tsx src/scripts/seed-plans.ts",
+    "seed:clientes": "tsx src/scripts/seedClientes.ts",
+    "migrate:multidb": "tsx src/scripts/migrateToMultiDB.ts"
   },
   "keywords": [],
   "author": "",

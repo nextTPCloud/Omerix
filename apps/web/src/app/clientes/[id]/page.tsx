@@ -39,10 +39,13 @@ import {
   FileUp,
   Download,
   MoreHorizontal,
+  MoreVertical,
   CheckCircle2,
   XCircle,
   Users,
   Target,
+  Plus,
+  ChevronDown,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -52,6 +55,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export default function ClienteDetailPage() {
   const params = useParams()
@@ -59,6 +72,7 @@ export default function ClienteDetailPage() {
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('general')
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   useEffect(() => {
     loadCliente()
@@ -78,9 +92,7 @@ export default function ClienteDetailPage() {
   }
 
   const handleDelete = async () => {
-    if (!cliente || !confirm(`¿Estás seguro de desactivar al cliente "${cliente.nombre}"?`)) {
-      return
-    }
+    if (!cliente) return
 
     try {
       await clientesService.delete(cliente._id)
@@ -88,6 +100,8 @@ export default function ClienteDetailPage() {
       router.push('/clientes')
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error al desactivar cliente')
+    } finally {
+      setShowDeleteDialog(false)
     }
   }
 
@@ -148,41 +162,126 @@ export default function ClienteDetailPage() {
         {/* CABECERA CON INFORMACIÓN CLAVE Y ACCIONES */}
         {/* ========================================== */}
         <div className="flex flex-col gap-4">
-          {/* Navegación y título */}
-          <div className="flex items-center gap-3">
+          {/* Navegación y título con Toolbar */}
+          <div className="flex items-start gap-3">
             <Link href="/clientes">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="mt-1">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-3xl font-bold tracking-tight">{cliente.nombre}</h1>
-                <Badge variant={cliente.activo ? 'default' : 'secondary'} className={
-                  cliente.activo
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-                }>
-                  {cliente.activo ? 'Activo' : 'Inactivo'}
-                </Badge>
-                <Badge variant={cliente.tipoCliente === 'empresa' ? 'default' : 'secondary'}>
-                  {cliente.tipoCliente === 'empresa' ? (
-                    <><Building2 className="mr-1 h-3 w-3" />Empresa</>
-                  ) : (
-                    <><User className="mr-1 h-3 w-3" />Particular</>
-                  )}
-                </Badge>
-                {excedeCredito && (
-                  <Badge variant="destructive">
-                    <AlertCircle className="mr-1 h-3 w-3" />
-                    Excede crédito
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                <span className="font-mono">{cliente.codigo}</span>
-                <span>•</span>
-                <span className="font-mono">{cliente.nif}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                {/* Título y badges */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="text-3xl font-bold tracking-tight">{cliente.nombre}</h1>
+                    <Badge variant={cliente.activo ? 'default' : 'secondary'} className={
+                      cliente.activo
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                    }>
+                      {cliente.activo ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                    <Badge variant={cliente.tipoCliente === 'empresa' ? 'default' : 'secondary'}>
+                      {cliente.tipoCliente === 'empresa' ? (
+                        <><Building2 className="mr-1 h-3 w-3" />Empresa</>
+                      ) : (
+                        <><User className="mr-1 h-3 w-3" />Particular</>
+                      )}
+                    </Badge>
+                    {excedeCredito && (
+                      <Badge variant="destructive">
+                        <AlertCircle className="mr-1 h-3 w-3" />
+                        Excede crédito
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                    <span className="font-mono">{cliente.codigo}</span>
+                    <span>•</span>
+                    <span className="font-mono">{cliente.nif}</span>
+                  </div>
+                </div>
+
+                {/* Toolbar de acciones */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/clientes/${cliente._id}/editar`)}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar
+                  </Button>
+
+                  <Separator orientation="vertical" className="h-8" />
+
+                  {/* Dropdown: Nuevo Documento */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nuevo Documento
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuLabel>Crear documento</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleCreateDocument('presupuesto')}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Presupuesto
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleCreateDocument('pedido')}>
+                        <Package className="mr-2 h-4 w-4" />
+                        Pedido
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleCreateDocument('albaran')}>
+                        <Truck className="mr-2 h-4 w-4" />
+                        Albarán
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleCreateDocument('factura')}>
+                        <Receipt className="mr-2 h-4 w-4" />
+                        Factura
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleCreateDocument('parte')}>
+                        <Wrench className="mr-2 h-4 w-4" />
+                        Parte de Trabajo
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Separator orientation="vertical" className="h-8" />
+
+                  {/* Dropdown: Más acciones */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => toast.info('Exportar a PDF - En desarrollo')}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Exportar a PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toast.info('Enviar email - En desarrollo')}>
+                        <Mail className="mr-2 h-4 w-4" />
+                        Enviar email
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setShowDeleteDialog(true)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Desactivar cliente
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
             </div>
           </div>
@@ -266,99 +365,6 @@ export default function ClienteDetailPage() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Acciones Rápidas */}
-          <Card className="bg-muted/30">
-            <CardContent className="pt-4">
-              <div className="flex flex-wrap gap-2 items-center">
-                <p className="text-sm font-medium mr-2">Acciones rápidas:</p>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => router.push(`/clientes/${cliente._id}/editar`)}
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Editar
-                </Button>
-
-                <Separator orientation="vertical" className="h-8" />
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleCreateDocument('presupuesto')}
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Presupuesto
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleCreateDocument('pedido')}
-                >
-                  <Package className="mr-2 h-4 w-4" />
-                  Pedido
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleCreateDocument('albaran')}
-                >
-                  <Truck className="mr-2 h-4 w-4" />
-                  Albarán
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleCreateDocument('factura')}
-                >
-                  <Receipt className="mr-2 h-4 w-4" />
-                  Factura
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleCreateDocument('parte')}
-                >
-                  <Wrench className="mr-2 h-4 w-4" />
-                  Parte
-                </Button>
-
-                <Separator orientation="vertical" className="h-8" />
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline">
-                      <MoreHorizontal className="h-4 w-4 mr-2" />
-                      Más acciones
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => toast.info('Exportar a PDF - En desarrollo')}>
-                      <Download className="mr-2 h-4 w-4" />
-                      Exportar a PDF
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toast.info('Enviar email - En desarrollo')}>
-                      <Mail className="mr-2 h-4 w-4" />
-                      Enviar email
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Desactivar cliente
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* ========================================== */}
@@ -949,6 +955,29 @@ export default function ClienteDetailPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Diálogo de confirmación para desactivar cliente */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Desactivar cliente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estás a punto de desactivar al cliente <span className="font-semibold">{cliente.nombre}</span>.
+              Esta acción no eliminará el cliente de forma permanente, pero lo marcará como inactivo
+              y no aparecerá en las búsquedas por defecto.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Desactivar cliente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   )
 }

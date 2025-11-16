@@ -38,10 +38,59 @@ export const authService = {
     return response.data.data.usuario;
   },
 
-  // Logout (local)
-  logout: () => {
+  // Refresh token
+  refreshToken: async (refreshToken: string): Promise<{ accessToken: string }> => {
+    const response = await api.post('/auth/refresh-token', { refreshToken });
+    return response.data;
+  },
+
+  // Logout (revocar token en servidor)
+  logout: async (refreshToken: string): Promise<void> => {
+    try {
+      await api.post('/auth/logout', { refreshToken });
+    } catch (error) {
+      console.error('Error al revocar token en servidor:', error);
+    } finally {
+      // Limpiar localStorage siempre, incluso si falla la revocación
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+    }
+  },
+
+  // Logout local (sin revocar en servidor)
+  logoutLocal: () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+  },
+
+  // Obtener sesiones activas
+  getActiveSessions: async (): Promise<{
+    success: boolean;
+    data: Array<{
+      id: string;
+      deviceInfo: string;
+      ipAddress: string;
+      createdAt: string;
+      expiresAt: string;
+    }>;
+  }> => {
+    const response = await api.get('/auth/sessions');
+    return response.data;
+  },
+
+  // Cerrar todas las sesiones
+  logoutAllSessions: async (): Promise<{
+    success: boolean;
+    message: string;
+    count: number;
+  }> => {
+    const response = await api.post('/auth/logout-all');
+    // Limpiar localStorage también
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    return response.data;
   },
 };

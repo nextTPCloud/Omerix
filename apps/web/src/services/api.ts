@@ -76,12 +76,12 @@ api.interceptors.response.use(
     }
 
     try {
-      // ✅ CORREGIDO: Paréntesis con template literal
-      const response = await axios.post(`${API_URL}/auth/refresh`, {
+      // Intentar refrescar el token
+      const response = await axios.post(`${API_URL}/auth/refresh-token`, {
         refreshToken,
       });
 
-      const { accessToken } = response.data.data;
+      const { accessToken } = response.data;
 
       localStorage.setItem('accessToken', accessToken);
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;

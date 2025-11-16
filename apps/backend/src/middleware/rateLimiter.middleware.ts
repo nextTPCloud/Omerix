@@ -85,9 +85,29 @@ export const registerLimiter = rateLimit({
   },
 });
 
+/**
+ * Rate limiter para recuperación de contraseña
+ */
+export const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: config.isDevelopment ? 50 : 3,
+  handler: (req, res) => {
+    logger.warn('Rate limit de recuperación de contraseña excedido', {
+      ip: req.ip,
+      email: req.body?.email,
+    });
+
+    res.status(429).json({
+      success: false,
+      message: 'Demasiadas solicitudes de recuperación. Por favor, intenta de nuevo en 1 hora.',
+    });
+  },
+});
+
 export default {
   generalLimiter,
   authLimiter,
   twoFactorLimiter,
   registerLimiter,
+  passwordResetLimiter,
 };

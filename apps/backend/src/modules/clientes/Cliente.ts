@@ -51,8 +51,8 @@ export interface IArchivo {
 
 export interface ICliente extends Document {
   _id: mongoose.Types.ObjectId;
-  empresaId: mongoose.Types.ObjectId;
-  
+  empresaId?: mongoose.Types.ObjectId; // OPCIONAL: Multi-DB (cada empresa tiene su propia BD)
+
   // Tipo
   tipoCliente: TipoCliente;
   
@@ -118,8 +118,8 @@ export interface ICliente extends Document {
 
 // Métodos estáticos del modelo
 export interface IClienteModel extends Model<ICliente> {
-  generarCodigo(empresaId: mongoose.Types.ObjectId): Promise<string>;
-  obtenerEstadisticas(empresaId: mongoose.Types.ObjectId): Promise<{
+  generarCodigo(): Promise<string>; // Multi-DB: empresaId ya no es necesario
+  obtenerEstadisticas(): Promise<{
     total: number;
     activos: number;
     inactivos: number;
@@ -170,11 +170,13 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
     required: true,
     auto: true,
   },
+  // Multi-DB: empresaId ya no es necesario (cada empresa tiene su propia BD)
+  // Mantenido como opcional para compatibilidad con datos legacy
   empresaId: {
     type: Schema.Types.ObjectId,
     ref: 'Empresa',
-    required: true,
-    index: true,
+    required: false,
+    index: false,
   },
   
   // Tipo
@@ -190,26 +192,23 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
     type: String,
     required: true,
     unique: true,
-    index: true,
   },
   nombre: {
     type: String,
     required: true,
     trim: true,
-    index: true,
   },
   nombreComercial: {
     type: String,
     trim: true,
   },
-  
+
   // Fiscal
   nif: {
     type: String,
     required: true,
     unique: true,
     uppercase: true,
-    index: true,
   },
   
   // Contacto
@@ -312,7 +311,6 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
   activo: {
     type: Boolean,
     default: true,
-    index: true,
   },
   observaciones: {
     type: String,
@@ -357,15 +355,18 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
 });
 
 // ============================================
-// ÍNDICES COMPUESTOS
+// ÍNDICES (Multi-DB: Ya no necesitan empresaId)
 // ============================================
 
-ClienteSchema.index({ empresaId: 1, codigo: 1 }, { unique: true });
-ClienteSchema.index({ empresaId: 1, nif: 1 }, { unique: true });
-ClienteSchema.index({ empresaId: 1, activo: 1 });
-ClienteSchema.index({ empresaId: 1, nombre: 1 });
-ClienteSchema.index({ empresaId: 1, tags: 1 });
-ClienteSchema.index({ empresaId: 1, vendedorId: 1 });
+// Únicos por base de datos (no por empresa, porque cada empresa tiene su propia BD)
+ClienteSchema.index({ codigo: 1 }, { unique: true });
+ClienteSchema.index({ nif: 1 }, { unique: true });
+
+// Búsquedas y filtros
+ClienteSchema.index({ activo: 1 });
+ClienteSchema.index({ nombre: 1 });
+ClienteSchema.index({ tags: 1 });
+ClienteSchema.index({ vendedorId: 1 });
 
 // ============================================
 // VIRTUALS
@@ -388,10 +389,9 @@ ClienteSchema.virtual('creditoDisponible').get(function() {
 // MÉTODOS ESTÁTICOS
 // ============================================
 
-ClienteSchema.statics.generarCodigo = async function(
-  empresaId: mongoose.Types.ObjectId
-): Promise<string> {
-  const ultimoCliente = await this.findOne({ empresaId })
+// Multi-DB: Ya no necesita empresaId (cada empresa tiene su propia BD)
+ClienteSchema.statics.generarCodigo = async function(): Promise<string> {
+  const ultimoCliente = await this.findOne()
     .sort({ codigo: -1 })
     .select('codigo');
 
@@ -404,22 +404,20 @@ ClienteSchema.statics.generarCodigo = async function(
   return `CLI-${nuevoNumero.toString().padStart(3, '0')}`;
 };
 
-ClienteSchema.statics.obtenerEstadisticas = async function(
-  empresaId: mongoose.Types.ObjectId
-) {
+// Multi-DB: Ya no necesita empresaId (cada empresa tiene su propia BD)
+ClienteSchema.statics.obtenerEstadisticas = async function() {
   const [totales, activos, inactivos, excedenCredito] = await Promise.all([
-    this.countDocuments({ empresaId }),
-    this.countDocuments({ empresaId, activo: true }),
-    this.countDocuments({ empresaId, activo: false }),
+    this.countDocuments(),
+    this.countDocuments({ activo: true }),
+    this.countDocuments({ activo: false }),
     this.countDocuments({
-      empresaId,
       activo: true,
       $expr: { $gt: ['$riesgoActual', '$limiteCredito'] }
     })
   ]);
 
   const riesgoTotal = await this.aggregate([
-    { $match: { empresaId, activo: true } },
+    { $match: { activo: true } },
     { $group: { _id: null, total: { $sum: '$riesgoActual' } } }
   ]);
 
@@ -443,14 +441,15 @@ ClienteSchema.pre('save', async function(next) {
     }
     if (!this.codigo) {
       const ClienteModel = this.constructor as IClienteModel;
-      this.codigo = await ClienteModel.generarCodigo(this.empresaId);
+      // Multi-DB: Ya no necesita empresaId
+      this.codigo = await ClienteModel.generarCodigo();
     }
   }
-  
+
   if (this.isModified() && !this.isNew) {
     this.fechaModificacion = new Date();
   }
-  
+
   // Normalizar NIF
   if (this.nif) {
     this.nif = this.nif.toUpperCase().trim();
@@ -460,7 +459,7 @@ ClienteSchema.pre('save', async function(next) {
   if (this.riesgoActual === undefined || this.riesgoActual === null) {
     this.riesgoActual = 0;
   }
-  
+
   next();
 });
 

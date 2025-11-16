@@ -10,7 +10,7 @@ import { IModuleConfig } from '../configuracion-usuario/ConfiguracionUsuario';
 export interface IVistaGuardada extends Document {
   _id: mongoose.Types.ObjectId;
   usuarioId: mongoose.Types.ObjectId;
-  empresaId: mongoose.Types.ObjectId;
+  empresaId?: mongoose.Types.ObjectId; // OPCIONAL: Multi-DB (cada empresa tiene su propia BD)
   modulo: string; // 'clientes', 'productos', etc.
   nombre: string; // Nombre personalizado de la vista
   descripcion?: string; // Descripción opcional
@@ -42,11 +42,13 @@ const VistaGuardadaSchema = new Schema<IVistaGuardada>(
       required: [true, 'El usuario es obligatorio'],
       index: true,
     },
+    // Multi-DB: empresaId ya no es necesario (cada empresa tiene su propia BD)
+    // Mantenido como opcional para compatibilidad con datos legacy
     empresaId: {
       type: Schema.Types.ObjectId,
       ref: 'Empresa',
-      required: [true, 'La empresa es obligatoria'],
-      index: true,
+      required: false,
+      index: false,
     },
     modulo: {
       type: String,
@@ -90,16 +92,16 @@ const VistaGuardadaSchema = new Schema<IVistaGuardada>(
 
 /**
  * ============================================
- * ÍNDICES
+ * ÍNDICES (Multi-DB: Ya no necesitan empresaId)
  * ============================================
  */
 
-// Índice compuesto para búsquedas rápidas
-VistaGuardadaSchema.index({ usuarioId: 1, empresaId: 1, modulo: 1 });
+// Índice compuesto para búsquedas rápidas (sin empresaId)
+VistaGuardadaSchema.index({ usuarioId: 1, modulo: 1 });
 
-// Índice único para vista default por módulo y usuario
+// Índice único para vista default por módulo y usuario (sin empresaId)
 VistaGuardadaSchema.index(
-  { usuarioId: 1, empresaId: 1, modulo: 1, esDefault: 1 },
+  { usuarioId: 1, modulo: 1, esDefault: 1 },
   {
     unique: true,
     partialFilterExpression: { esDefault: true },
@@ -112,13 +114,13 @@ VistaGuardadaSchema.index(
  * ============================================
  */
 
-// Antes de guardar, si es default, quitar el default de las demás vistas del mismo módulo
+// Multi-DB: Antes de guardar, si es default, quitar el default de las demás vistas del mismo módulo
+// Ya no necesita empresaId porque cada empresa tiene su propia BD
 VistaGuardadaSchema.pre('save', async function (next) {
   if (this.isModified('esDefault') && this.esDefault) {
     await mongoose.model('VistaGuardada').updateMany(
       {
         usuarioId: this.usuarioId,
-        empresaId: this.empresaId,
         modulo: this.modulo,
         _id: { $ne: this._id },
       },

@@ -46,9 +46,13 @@ export interface RegisterData {
 export interface LoginData {
   email: string;
   password: string;
+  deviceInfo?: string;
+  ipAddress?: string;
 }
 
 export interface Verify2FAData {
   userId: string;
   code: string;
+  deviceInfo?: string;
+  ipAddress?: string;
 }

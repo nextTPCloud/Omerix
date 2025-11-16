@@ -1,0 +1,546 @@
+'use client'
+
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { DashboardLayout } from '@/components/layout/DashboardLayout'
+import { familiasService } from '@/services/familias.service'
+import { Familia } from '@/types/familia.types'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Plus,
+  Search,
+  Edit,
+  Eye,
+  Trash2,
+  MoreHorizontal,
+  RefreshCw,
+  FolderTree,
+  Columns,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import { useModuleConfig } from '@/hooks/useModuleConfig'
+import { ColumnaConfig } from '@/services/configuracion.service'
+import { DensitySelector, useDensityClasses } from '@/components/ui/DensitySelector'
+import { VistasGuardadasManager } from '@/components/ui/VistasGuardadasManager'
+import { ExportButton } from '@/components/ui/ExportButton'
+import { TableSelect } from '@/components/ui/tableSelect'
+import { PrintButton } from '@/components/ui/PrintButton'
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay)
+    return () => clearTimeout(handler)
+  }, [value, delay])
+  return debouncedValue
+}
+
+const DEFAULT_FAMILIAS_CONFIG = {
+  columnas: [
+    { key: 'codigo', visible: true, orden: 0 },
+    { key: 'nombre', visible: true, orden: 1 },
+    { key: 'descripcion', visible: false, orden: 2 },
+    { key: 'familiaPadre', visible: true, orden: 3 },
+    { key: 'orden', visible: false, orden: 4 },
+    { key: 'activo', visible: true, orden: 5 },
+  ] as ColumnaConfig[],
+  sortConfig: { key: 'orden', direction: 'asc' as const },
+  columnFilters: { activo: 'true' },
+  paginacion: { limit: 25 as const },
+  densidad: 'normal' as const,
+}
+
+export default function FamiliasPage() {
+  const router = useRouter()
+  const isInitialLoad = useRef(true)
+  const [familias, setFamilias] = useState<Familia[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedFamilias, setSelectedFamilias] = useState<string[]>([])
+  const [selectAll, setSelectAll] = useState(false)
+  const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, pages: 0 })
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean
+    familiaIds: string[]
+    familiaNombres: string[]
+  }>({ open: false, familiaIds: [], familiaNombres: [] })
+
+  const [columnasDisponibles] = useState([
+    { key: 'codigo', label: 'Código', sortable: true },
+    { key: 'nombre', label: 'Nombre', sortable: true },
+    { key: 'descripcion', label: 'Descripción', sortable: false },
+    { key: 'familiaPadre', label: 'Familia Padre', sortable: false },
+    { key: 'orden', label: 'Orden', sortable: true },
+    { key: 'activo', label: 'Activo', sortable: false },
+  ])
+
+  const {
+    config: moduleConfig,
+    updateColumnas,
+    updateColumnFilters,
+    updateSortConfig,
+    updateDensidad,
+  } = useModuleConfig('familias', DEFAULT_FAMILIAS_CONFIG, {
+    autoSave: true,
+    debounceMs: 1000,
+  })
+
+  // Derivar valores desde la configuración
+  const columnas = useMemo(() => moduleConfig?.columnas || DEFAULT_FAMILIAS_CONFIG.columnas, [moduleConfig])
+  const sortConfig = useMemo(() => moduleConfig?.sortConfig || DEFAULT_FAMILIAS_CONFIG.sortConfig, [moduleConfig])
+  const columnFilters = useMemo(() => moduleConfig?.columnFilters || DEFAULT_FAMILIAS_CONFIG.columnFilters, [moduleConfig])
+  const densidad = useMemo(() => moduleConfig?.densidad || DEFAULT_FAMILIAS_CONFIG.densidad, [moduleConfig])
+
+  const densityClasses = useDensityClasses(densidad)
+
+  const fetchFamilias = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const params: any = {
+        page: pagination.page,
+        limit: pagination.limit,
+        sortBy: sortConfig.key,
+        sortOrder: sortConfig.direction,
+      }
+
+      // Combinar búsqueda general con filtros de columnas de texto
+      const searchTerms: string[] = []
+      if (searchTerm.trim()) searchTerms.push(searchTerm.trim())
+
+      // Añadir filtros de texto de columnas
+      const textFilterFields = ['codigo', 'nombre', 'descripcion']
+      textFilterFields.forEach(field => {
+        if (columnFilters[field] && String(columnFilters[field]).trim()) {
+          searchTerms.push(String(columnFilters[field]).trim())
+        }
+      })
+
+      if (searchTerms.length > 0) {
+        params.q = searchTerms.join(' ')
+      }
+
+      // Filtro de activo
+      if (columnFilters.activo && columnFilters.activo !== 'all') {
+        params.activo = columnFilters.activo === 'true'
+      }
+
+      const response = await familiasService.getAll(params)
+      setFamilias(response.data)
+      if (response.pagination) {
+        setPagination({
+          page: response.pagination.page,
+          limit: response.pagination.limit,
+          total: response.pagination.total,
+          pages: response.pagination.totalPages || Math.ceil(response.pagination.total / response.pagination.limit),
+        })
+      }
+    } catch (error: any) {
+      console.error('Error al cargar familias:', error)
+      toast.error(error.response?.data?.message || 'Error al cargar las familias')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [pagination.page, pagination.limit, sortConfig, searchTerm, columnFilters])
+
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false
+      return
+    }
+    fetchFamilias()
+  }, [fetchFamilias])
+
+  useEffect(() => { fetchFamilias() }, [])
+
+  const handleSearch = useCallback((value: string) => {
+    setSearchTerm(value)
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [])
+
+  const handleSort = (key: string) => {
+    const newDirection = sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc'
+    updateSortConfig({ key, direction: newDirection })
+  }
+
+  const handleColumnFilterChange = (columnKey: string, value: string) => {
+    updateColumnFilters({ ...columnFilters, [columnKey]: value })
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }
+
+  const handleDelete = async (ids: string[]) => {
+    try {
+      for (const id of ids) await familiasService.delete(id)
+      toast.success(`${ids.length} familia(s) eliminada(s)`)
+      setSelectedFamilias([])
+      setSelectAll(false)
+      setDeleteDialog({ open: false, familiaIds: [], familiaNombres: [] })
+      fetchFamilias()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al eliminar familias')
+    }
+  }
+
+  const handleSelectAll = () => {
+    if (selectAll) setSelectedFamilias([])
+    else setSelectedFamilias(familias.map(f => f._id))
+    setSelectAll(!selectAll)
+  }
+
+  const handleSelectFamilia = (id: string) => {
+    setSelectedFamilias(prev =>
+      prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]
+    )
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <FolderTree className="h-8 w-8 text-primary" />
+              Familias
+            </h1>
+            <p className="text-muted-foreground mt-1">Organiza tus productos en categorías</p>
+          </div>
+          <Button onClick={() => router.push('/familias/nuevo')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Familia
+          </Button>
+        </div>
+
+        <Card className="p-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nombre o código..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <VistasGuardadasManager
+                  modulo="familias"
+                  onAplicarVista={(configuracion) => {
+                    if (configuracion.columnas) updateColumnas(configuracion.columnas)
+                    if (configuracion.sortConfig) updateSortConfig(configuracion.sortConfig)
+                    if (configuracion.columnFilters) updateColumnFilters(configuracion.columnFilters)
+                    if (configuracion.paginacion) setPagination(prev => ({ ...prev, limit: configuracion.paginacion.limit }))
+                    if (configuracion.densidad) updateDensidad(configuracion.densidad)
+                  }}
+                  onGuardarVista={async (nombre, descripcion, esDefault, vistaIdActualizar) => {
+                    // Esta función es manejada internamente por VistasGuardadasManager
+                  }}
+                  configuracionActual={{
+                    columnas,
+                    sortConfig,
+                    columnFilters,
+                    paginacion: { limit: pagination.limit },
+                    densidad,
+                  }}
+                />
+                <DensitySelector value={densidad} onChange={updateDensidad} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon"><Columns className="h-4 w-4" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuLabel>Columnas visibles</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {columnasDisponibles.map((col) => {
+                      const columna = columnas?.find((c: ColumnaConfig) => c.key === col.key)
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={col.key}
+                          checked={columna?.visible ?? false}
+                          onCheckedChange={(checked) => {
+                            if (!columnas) return
+                            updateColumnas(columnas.map((c: ColumnaConfig) =>
+                              c.key === col.key ? { ...c, visible: checked } : c
+                            ))
+                          }}
+                        >
+                          {col.label}
+                        </DropdownMenuCheckboxItem>
+                      )
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <ExportButton
+                  data={familias}
+                  columns={(columnas || []).filter((c: ColumnaConfig) => c.visible).map((c: ColumnaConfig) => ({
+                    key: c.key,
+                    label: columnasDisponibles.find(cd => cd.key === c.key)?.label || c.key,
+                  }))}
+                  filename="familias"
+                />
+                <PrintButton
+                  data={familias}
+                  columns={(columnas || []).filter((c: ColumnaConfig) => c.visible).map((c: ColumnaConfig) => ({
+                    key: c.key,
+                    label: columnasDisponibles.find(cd => cd.key === c.key)?.label || c.key,
+                  }))}
+                />
+                <Button variant="outline" size="icon" onClick={fetchFamilias} disabled={isLoading}>
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            </div>
+
+            {selectedFamilias.length > 0 && (
+              <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                <span className="text-sm font-medium">{selectedFamilias.length} seleccionado(s)</span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    const familiasAEliminar = familias.filter(f => selectedFamilias.includes(f._id))
+                    setDeleteDialog({
+                      open: true,
+                      familiaIds: selectedFamilias,
+                      familiaNombres: familiasAEliminar.map(f => f.nombre),
+                    })
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar seleccionados
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="border-b bg-muted/50">
+                <tr>
+                  <th className={`${densityClasses.header} text-left`}>
+                    <Checkbox checked={selectAll} onCheckedChange={handleSelectAll} />
+                  </th>
+                  {(columnas || []).filter((c: ColumnaConfig) => c.visible).sort((a: ColumnaConfig, b: ColumnaConfig) => a.orden - b.orden).map((columna: ColumnaConfig) => {
+                    const colDef = columnasDisponibles.find(c => c.key === columna.key)
+                    return (
+                      <th key={columna.key} className={`${densityClasses.header} text-left`}>
+                        {colDef?.sortable ? (
+                          <button onClick={() => handleSort(columna.key)} className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors">
+                            {colDef.label}
+                            {sortConfig.key === columna.key && (
+                              sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />
+                            )}
+                            {sortConfig.key !== columna.key && <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />}
+                          </button>
+                        ) : (
+                          <span className="text-xs font-semibold uppercase tracking-wider">{colDef?.label}</span>
+                        )}
+                      </th>
+                    )
+                  })}
+                  <th className={`${densityClasses.header} text-right`}>
+                    <span className="text-xs font-semibold uppercase tracking-wider">Acciones</span>
+                  </th>
+                </tr>
+                <tr className="border-b">
+                  <th className={densityClasses.header}></th>
+                  {(columnas || []).filter((c: ColumnaConfig) => c.visible).sort((a: ColumnaConfig, b: ColumnaConfig) => a.orden - b.orden).map((columna: ColumnaConfig) => (
+                    <th key={`filter-${columna.key}`} className={densityClasses.header}>
+                      {columna.key === 'codigo' && (
+                        <Input
+                          placeholder="Filtrar código..."
+                          value={String(columnFilters[columna.key] || '')}
+                          onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      )}
+                      {columna.key === 'nombre' && (
+                        <Input
+                          placeholder="Filtrar nombre..."
+                          value={String(columnFilters[columna.key] || '')}
+                          onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      )}
+                      {columna.key === 'descripcion' && (
+                        <Input
+                          placeholder="Filtrar descripción..."
+                          value={String(columnFilters[columna.key] || '')}
+                          onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      )}
+                      {columna.key === 'activo' && (
+                        <TableSelect
+                          value={String(columnFilters[columna.key] || '')}
+                          onValueChange={(value) => handleColumnFilterChange(columna.key, value)}
+                          placeholder="Todos"
+                          options={[
+                            { value: 'true', label: 'Activas' },
+                            { value: 'false', label: 'Inactivas' },
+                          ]}
+                        />
+                      )}
+                    </th>
+                  ))}
+                  <th className={densityClasses.header}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={(columnas || []).filter((c: ColumnaConfig) => c.visible).length + 2} className="text-center py-12">
+                      <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                    </td>
+                  </tr>
+                ) : familias.length === 0 ? (
+                  <tr>
+                    <td colSpan={(columnas || []).filter((c: ColumnaConfig) => c.visible).length + 2} className="text-center py-12">
+                      <FolderTree className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                      <p className="text-muted-foreground">No se encontraron familias</p>
+                    </td>
+                  </tr>
+                ) : (
+                  familias.map((familia) => (
+                    <tr key={familia._id} className="border-b hover:bg-muted/50 transition-colors">
+                      <td className={densityClasses.cell}>
+                        <Checkbox
+                          checked={selectedFamilias.includes(familia._id)}
+                          onCheckedChange={() => handleSelectFamilia(familia._id)}
+                        />
+                      </td>
+                      {(columnas || []).filter((c: ColumnaConfig) => c.visible).sort((a: ColumnaConfig, b: ColumnaConfig) => a.orden - b.orden).map((columna: ColumnaConfig) => (
+                        <td key={`${familia._id}-${columna.key}`} className={densityClasses.cell}>
+                          {columna.key === 'codigo' && (familia.codigo || '-')}
+                          {columna.key === 'nombre' && <div className="font-medium">{familia.nombre}</div>}
+                          {columna.key === 'descripcion' && (
+                            <div className="text-sm text-muted-foreground truncate max-w-xs">
+                              {familia.descripcion || '-'}
+                            </div>
+                          )}
+                          {columna.key === 'familiaPadre' && (
+                            <span className="text-sm">{familia.familiaPadre?.nombre || '-'}</span>
+                          )}
+                          {columna.key === 'orden' && <span className="text-sm">{familia.orden}</span>}
+                          {columna.key === 'activo' && (
+                            <Badge variant={familia.activo ? 'default' : 'secondary'}>
+                              {familia.activo ? 'Activa' : 'Inactiva'}
+                            </Badge>
+                          )}
+                        </td>
+                      ))}
+                      <td className={`text-right ${densityClasses.cell}`}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => router.push(`/familias/${familia._id}`)}>
+                              <Eye className="h-4 w-4 mr-2" />Ver
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/familias/${familia._id}/editar`)}>
+                              <Edit className="h-4 w-4 mr-2" />Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setDeleteDialog({
+                                open: true,
+                                familiaIds: [familia._id],
+                                familiaNombres: [familia.nombre],
+                              })}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-between p-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Mostrando {(pagination.page - 1) * pagination.limit + 1} a{' '}
+                {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total} familias
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={() => setPagination(prev => ({ ...prev, page: 1 }))} disabled={pagination.page === 1}>
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))} disabled={pagination.page === 1}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm">Página {pagination.page} de {pagination.pages}</span>
+                <Button variant="outline" size="icon" onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))} disabled={pagination.page === pagination.pages}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => setPagination(prev => ({ ...prev, page: pagination.pages }))} disabled={pagination.page === pagination.pages}>
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <Dialog open={deleteDialog.open} onOpenChange={(open) => !open && setDeleteDialog({ open: false, familiaIds: [], familiaNombres: [] })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar eliminación</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas eliminar {deleteDialog.familiaIds.length === 1 ? 'esta familia' : 'estas familias'}?
+              {deleteDialog.familiaNombres.length > 0 && (
+                <ul className="mt-2 list-disc list-inside">
+                  {deleteDialog.familiaNombres.map((nombre, i) => <li key={i}>{nombre}</li>)}
+                </ul>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, familiaIds: [], familiaNombres: [] })}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={() => handleDelete(deleteDialog.familiaIds)}>
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </DashboardLayout>
+  )
+}

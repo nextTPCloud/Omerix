@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
+import Empresa from '../models/Empresa';
 
 /**
- * Middleware Multi-tenant
- * Asegura que todas las queries filtren por empresaId automáticamente
+ * Middleware Multi-tenant con soporte para múltiples bases de datos
+ * Carga la configuración de base de datos de la empresa y la adjunta al request
  */
-export const tenantMiddleware = (
+export const tenantMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -21,7 +22,8 @@ export const tenantMiddleware = (
         message: 'Empresa no identificada. Autenticación requerida.',
       });
     }
- // Si empresaId es un objeto (populate), extraer el _id
+
+    // Si empresaId es un objeto (populate), extraer el _id
     if (typeof empresaId === 'object' && empresaId._id) {
       console.log('🔍 Es un objeto, extrayendo _id');
       empresaId = String(empresaId._id);
@@ -55,10 +57,37 @@ export const tenantMiddleware = (
       });
     }
 
-    // El empresaId ya está en req.empresaId (del authMiddleware)
-    // Los controladores deberán usarlo para filtrar datos
+    // Cargar configuración de base de datos de la empresa desde DB principal
+    // IMPORTANTE: Necesitamos el password, por eso usamos select('+databaseConfig.password')
+    const empresa = await Empresa.findById(empresaId)
+      .select('+databaseConfig.password +databaseConfig.uri')
+      .lean();
 
-    console.log(`🏢 Tenant: ${empresaId}`);
+    if (!empresa) {
+      return res.status(404).json({
+        success: false,
+        message: 'Empresa no encontrada',
+      });
+    }
+
+    if (empresa.estado !== 'activa') {
+      return res.status(403).json({
+        success: false,
+        message: `Empresa ${empresa.estado}. Contacte con soporte.`,
+      });
+    }
+
+    if (!empresa.databaseConfig) {
+      return res.status(500).json({
+        success: false,
+        message: 'Configuración de base de datos no encontrada para esta empresa',
+      });
+    }
+
+    // Adjuntar configuración de DB al request para que los servicios la usen
+    req.empresaDbConfig = empresa.databaseConfig;
+
+    console.log(`🏢 Tenant: ${empresaId} | DB: ${empresa.databaseConfig.name}`);
     next();
   } catch (error: any) {
     console.error('Error en tenantMiddleware:', error);
@@ -72,6 +101,7 @@ export const tenantMiddleware = (
 
 /**
  * Helper para añadir automáticamente empresaId a queries
+ * @deprecated Ya no se usa con la arquitectura multi-DB, cada empresa tiene su propia DB
  */
 export const addTenantToQuery = (req: Request, query: any = {}) => {
   return {

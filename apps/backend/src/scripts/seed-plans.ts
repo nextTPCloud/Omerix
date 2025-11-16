@@ -1,0 +1,213 @@
+import mongoose from 'mongoose';
+import Plan from '../models/Plan';
+import { config } from '../config/env';
+import { logger } from '../config/logger';
+
+/**
+ * Script para poblar la base de datos con planes iniciales
+ * Ejecutar: npm run seed:plans
+ */
+async function seedPlans() {
+  try {
+    logger.info('🌱 Iniciando seed de planes...\n');
+
+    // Conectar a DB principal
+    await mongoose.connect(config.database.uri);
+    logger.info('✅ Conectado a DB principal\n');
+
+    // Eliminar planes existentes (solo en desarrollo)
+    const count = await Plan.countDocuments();
+    if (count > 0) {
+      logger.warn(`⚠️  Existen ${count} planes en la base de datos`);
+      logger.info('🗑️  Eliminando planes existentes...');
+      await Plan.deleteMany({});
+      logger.info('✅ Planes eliminados\n');
+    }
+
+    // Definir planes
+    const planes = [
+      {
+        nombre: 'Demo',
+        slug: 'demo',
+        descripcion: 'Plan de prueba gratuito de 30 días',
+        precio: {
+          mensual: 0,
+          anual: 0,
+        },
+        limites: {
+          usuariosSimultaneos: 3,
+          usuariosTotales: 5,
+          facturasMes: 50,
+          productosCatalogo: 100,
+          almacenes: 1,
+          clientes: 100,
+          tpvsActivos: 1,
+          almacenamientoGB: 1,
+          llamadasAPIDia: 500,
+          emailsMes: 100,
+          smsMes: 0,
+          whatsappMes: 0,
+        },
+        modulosIncluidos: [
+          'clientes',
+          'productos',
+          'ventas',
+          'compras',
+          'inventario',
+        ],
+        activo: true,
+        visible: false, // No visible en página de precios (solo para trials)
+      },
+      {
+        nombre: 'Básico',
+        slug: 'basico',
+        descripcion: 'Plan ideal para pequeños negocios',
+        precio: {
+          mensual: 29,
+          anual: 290, // ~24€/mes (2 meses gratis)
+        },
+        limites: {
+          usuariosSimultaneos: 5,
+          usuariosTotales: 10,
+          facturasMes: 200,
+          productosCatalogo: 500,
+          almacenes: 2,
+          clientes: 500,
+          tpvsActivos: 2,
+          almacenamientoGB: 5,
+          llamadasAPIDia: 2000,
+          emailsMes: 500,
+          smsMes: 50,
+          whatsappMes: 50,
+        },
+        modulosIncluidos: [
+          'clientes',
+          'productos',
+          'ventas',
+          'compras',
+          'inventario',
+          'informes',
+        ],
+        activo: true,
+        visible: true,
+      },
+      {
+        nombre: 'Profesional',
+        slug: 'profesional',
+        descripcion: 'Plan completo para negocios en crecimiento',
+        precio: {
+          mensual: 79,
+          anual: 790, // ~65€/mes (2 meses gratis)
+        },
+        limites: {
+          usuariosSimultaneos: 15,
+          usuariosTotales: 30,
+          facturasMes: 1000,
+          productosCatalogo: 5000,
+          almacenes: 5,
+          clientes: 5000,
+          tpvsActivos: 5,
+          almacenamientoGB: 20,
+          llamadasAPIDia: 10000,
+          emailsMes: 2000,
+          smsMes: 200,
+          whatsappMes: 200,
+        },
+        modulosIncluidos: [
+          'clientes',
+          'productos',
+          'ventas',
+          'compras',
+          'inventario',
+          'informes',
+          'contabilidad',
+          'proyectos',
+          'crm',
+          'tpv',
+        ],
+        activo: true,
+        visible: true,
+      },
+      {
+        nombre: 'Enterprise',
+        slug: 'enterprise',
+        descripcion: 'Plan sin límites para grandes empresas',
+        precio: {
+          mensual: 199,
+          anual: 1990, // ~165€/mes (2 meses gratis)
+        },
+        limites: {
+          usuariosSimultaneos: -1, // -1 = ilimitado
+          usuariosTotales: -1,
+          facturasMes: -1,
+          productosCatalogo: -1,
+          almacenes: -1,
+          clientes: -1,
+          tpvsActivos: -1,
+          almacenamientoGB: 100,
+          llamadasAPIDia: 100000,
+          emailsMes: 10000,
+          smsMes: 1000,
+          whatsappMes: 1000,
+        },
+        modulosIncluidos: [
+          'clientes',
+          'productos',
+          'ventas',
+          'compras',
+          'inventario',
+          'informes',
+          'contabilidad',
+          'proyectos',
+          'crm',
+          'tpv',
+          'api',
+          'integraciones',
+          'soporte-prioritario',
+        ],
+        activo: true,
+        visible: true,
+      },
+    ];
+
+    // Insertar planes
+    logger.info('📝 Creando planes...\n');
+    const createdPlans = await Plan.insertMany(planes);
+
+    logger.info('✅ Planes creados exitosamente:\n');
+    createdPlans.forEach((plan) => {
+      logger.info(`   • ${plan.nombre} (${plan.slug})`);
+      logger.info(`     - Precio: ${plan.precio.mensual}€/mes | ${plan.precio.anual}€/año`);
+      logger.info(`     - Usuarios: ${plan.limites.usuariosTotales === -1 ? 'Ilimitados' : plan.limites.usuariosTotales}`);
+      logger.info(`     - Facturas/mes: ${plan.limites.facturasMes === -1 ? 'Ilimitadas' : plan.limites.facturasMes}`);
+      logger.info(`     - Visible: ${plan.visible ? 'Sí' : 'No (solo trials)'}\n`);
+    });
+
+    logger.info(`\n🎉 Seed completado: ${createdPlans.length} planes creados\n`);
+    logger.info('✅ Ahora puedes registrar empresas en el sistema\n');
+
+  } catch (error: any) {
+    logger.error('❌ Error en seed de planes:', error.message);
+    logger.error(error.stack);
+    throw error;
+  } finally {
+    await mongoose.connection.close();
+    logger.info('🔌 Conexión cerrada');
+  }
+}
+
+// Ejecutar
+if (require.main === module) {
+  seedPlans()
+    .then(() => {
+      logger.info('\n✅ Script finalizado exitosamente');
+      process.exit(0);
+    })
+    .catch((error) => {
+      logger.error('\n❌ Script finalizado con errores');
+      console.error(error);
+      process.exit(1);
+    });
+}
+
+export default seedPlans;

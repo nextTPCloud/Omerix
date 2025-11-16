@@ -11,12 +11,14 @@ import Empresa from './models/Empresa';
 // Importar rutas
 import authRoutes from './modules/auth/auth.routes';
 import logsRoutes from './modules/logs/logs.routes'; // 🆕 NUEVO
-import licenciasRoutes from './modules/licencias/licencias.routes'; 
+import licenciasRoutes from './modules/licencias/licencias.routes';
 import pagosRoutes from './modules/pagos/pagos.routes'; // ← AÑADIR
+import adminRoutes from './modules/admin/admin.routes'; // 🆕 Panel de administración
 
-// Importar rutas de operatividad 
-import clientesRoutes from './modules/clientes/clientes.routes'; 
+// Importar rutas de operatividad
+import clientesRoutes from './modules/clientes/clientes.routes';
 import productosRoutes from './modules/productos/productos.routes';
+import familiasRoutes from './modules/familias/familias.routes';
 import configuracionUsuarioRoutes from './modules/configuracion-usuario/configuracion-usuario.routes';
 import vistas from './modules/vistasGuardadas/vistas-guardadas.routes';
 import exportRoutes from './modules/export/export.routes';
@@ -187,10 +189,12 @@ app.post('/api/test', async (req: Request, res: Response) => {
 // ============================================
 
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes); // 🆕 Panel de administración (requiere superadmin)
 app.use('/api/licencias', licenciasRoutes); // ← AÑADIR
 app.use('/api/logs', logsRoutes); // 🆕 NUEVO: Rutas de logs
 app.use('/api/clientes', clientesRoutes); // ← AÑADIR
 app.use('/api/productos', productosRoutes);
+app.use('/api/familias', familiasRoutes);
 app.use('/api/pagos', pagosRoutes); // ← AÑADIR
 app.use('/api/configuraciones', configuracionUsuarioRoutes);
 app.use('/api/vistas-guardadas',vistas)

@@ -1,0 +1,1140 @@
+DOCUMENTACIÓN COMPLETA - SISTEMA ERP CLOUD
+MULTI-NEGOCIO
+Versión: 1.0
+Fecha: Octubre 2025
+Sistema: ERP Cloud SaaS Multi-tenant con TPV Local
+
+ÍNDICE COMPLETO
+
+1. Visión General del Proyecto
+2. Arquitectura del Sistema
+3. Stack Tecnológico
+4. Sistema de Licencias y Planes
+5. Módulos del Sistema
+• 5.1 Autenticación y Usuarios
+• 5.2 Clientes y Proveedores
+• 5.3 Productos y Escandallos
+• 5.4 Ciclo Comercial (Ventas/Compras)
+• 5.5 TPV Local Offline
+• 5.6 Inventario Multi-almacén
+• 5.7 Módulo Restauración/Hostelería
+• 5.8 Módulo Taller Mecánico
+• 5.9 Módulo Informática
+• 5.10 Módulo Proyectos
+• 5.11 RRHH y Fichajes
+• 5.12 CRM y Marketing
+• 5.13 Reportes y BI
+• 5.14 Gestión Documental
+• 5.15 Comunicación
+• 5.16 Portal del Cliente
+6. Modelos de Base de Datos
+7. APIs y Endpoints
+8. Integraciones
+9. IA y Automatización
+10. Seguridad y Cumplimiento Legal
+11. Notificaciones
+12. Roadmap de Desarrollo
+
+1. VISIÓN GENERAL DEL PROYECTO {#1-visión-general}
+1.1 Descripción
+Sistema ERP Cloud (SaaS Multi-tenant) modular, escalable y adaptable a múltiples verticales de negocio.
+Arquitectura híbrida: backend 100% cloud + TPV local offline-first.
+
+1.2 Tipos de Negocio Soportados
+Tipo
+
+Módulos Principales
+
+Retail/Comercio
+
+Productos, Ventas, TPV, Inventario, eCommerce
+
+Restauración
+
+Mesas, KDS, Comandas, Escandallos, Carta Digital
+
+Taller Mecánico
+
+Vehículos, OT, Partes de Trabajo, Recambios
+
+Informática
+
+Tickets, Equipos, Contratos, Mantenimientos, Licencias
+
+Servicios
+
+Proyectos, Tareas, Certificaciones, Facturación por hitos
+
+Producción
+
+BOM, Producción, Control de calidad
+
+1.3 Características Clave
+•
+
+100% Cloud: Backend centralizado en MongoDB Atlas
+
+•
+
+TPV Offline: Aplicación local con sincronización inteligente
+
+•
+
+Modular: Activar/desactivar módulos según negocio
+
+•
+
+Multi-idioma: ES, CA, EN (expandible)
+
+•
+
+IA Integrada: Asistente de voz, predicciones, OCR
+
+•
+
+Responsive PWA: Funciona en cualquier dispositivo
+
+•
+
+Legal: RGPD, Ley Antifraude, TicketBAI, Verifactu
+
+•
+
+Sincronización: Bidireccional cloud ↔ TPV local
+
+2. ARQUITECTURA DEL SISTEMA {#2-arquitectura}
+2.1 Diagrama de Arquitectura
+
+┌─────────────────────────────────────────────────────────────────┐
+│
+
+CLOUD BACKEND (SaaS)
+
+│
+
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ Next.js 14+ App Router + React 18
+
+││
+
+│ │ - Server Components (SSR)
+
+││
+
+│ │ - API Routes (REST)
+
+││
+
+│ │ - Server Actions (mutations)
+
+││
+
+│ │ - WebSockets (real-time)
+
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ MongoDB Atlas (Multi-tenant)
+
+││
+
+│ │ - Segregación por empresaId
+
+││
+
+│ │ - Sharding para escalabilidad
+
+││
+
+│ │ - Backups automáticos cada 6h
+
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ Servicios Auxiliares
+
+││
+
+│ │ - Jobs (facturación recurrente, alertas, limpieza)
+
+││
+
+│ │ - IA (OpenAI GPT-4 / Claude)
+
+││
+
+│ │ - Email (Resend), SMS (Twilio), WhatsApp (Twilio API)
+│ │ - Storage (S3 / Cloudinary)
+
+││
+
+││
+
+│ │ - OCR (Tesseract.js / Google Vision)
+
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+↕ HTTPS + WSS
+┌─────────────────────────────────────────────────────────────────┐
+│
+
+WEB APP (Responsive PWA)
+
+│ - Administración completa
+
+│
+│
+
+│ - Acceso desde cualquier navegador/dispositivo
+
+│
+
+│ - Offline básico (Service Workers)
+
+│
+
+└─────────────────────────────────────────────────────────────────┘
+↕ Sincronización
+┌─────────────────────────────────────────────────────────────────┐
+│
+
+TPV LOCAL (Offline-first)
+
+│
+
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ App Electron (Windows/Linux/Mac) o PWA Instalable
+│ │ - Interfaz táctil optimizada
+
+││
+
+││
+
+│ │ - Funciona 100% sin internet
+
+││
+
+│ │ - Pantalla dual cliente (opcional)
+
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ Base de Datos Local
+
+││
+
+│ │ - MongoDB Embedded o IndexedDB + Dexie.js
+
+││
+
+│ │ - Productos, clientes, configuración sincronizados
+│ │ - Cola de ventas pendientes de subir
+
+││
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+
+│ ┌────────────────────────────────────────────────────────────┐ │
+│ │ Hardware Integrado
+
+││
+
+│ │ - Impresora térmica (tickets)
+
+││
+
+│ │ - Lector código de barras / QR
+
+││
+
+│ │ - Cajón de dinero / CashKeeper
+
+││
+
+│ │ - Báscula
+
+││
+
+│ │ - Pantalla dual (display cliente)
+│ │ - Terminal de pago (Redsys, SumUp, etc)
+
+││
+││
+
+│ └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+
+2.2 Multi-tenant Strategy
+• Tenant = Empresa: Cada empresa es un tenant independiente
+• Segregación de datos: Todas las queries filtran por empresaId
+• Base de datos compartida: Todas las empresas en MongoDB Atlas
+• Aislamiento total: Middleware verifica tenant en cada request
+• Escalabilidad: Sharding por empresaId cuando sea necesario
+
+2.3 Sincronización TPV ↔ Cloud
+Datos que bajan del cloud al TPV:
+•
+
+Productos completos (con variantes, precios, stock)
+
+•
+
+Familias y categorías
+
+•
+
+Clientes frecuentes (últimos 6 meses)
+
+•
+
+Formas de pago
+
+•
+
+Configuración del TPV (impuestos, impresora, etc)
+
+•
+
+Promociones activas
+
+Datos que suben del TPV al cloud:
+•
+
+Ventas realizadas
+
+•
+
+Movimientos de caja
+
+•
+
+Movimientos de stock
+
+•
+
+Nuevos clientes creados en TPV
+
+Estrategia de sincronización:
+
+javascript
+
+// Sincronización inteligente
+{
+// Automática cada X minutos (configurable: 5, 10, 15, 30 min)
+autoSync: true,
+intervalo: 10, // minutos
+// Sincronización al iniciar TPV
+syncOnOpen: true,
+// Sincronización al cerrar caja
+syncOnClose: true,
+// Sincronización manual on-demand
+manualSync: true,
+// Resolución de conflictos
+resolucion: "servidor-gana", // o "timestamp" o "manual"
+// Cola de operaciones
+cola: [
+{ tipo: "venta", id: "...", timestamp: "...", data: {...} },
+{ tipo: "cliente", id: "...", timestamp: "...", data: {...} }
+],
+// Retry automático si falla
+maxReintentos: 3,
+tiempoEspera: 30000 // 30 segundos
+}
+
+3. STACK TECNOLÓGICO {#3-stack-tecnológico}
+3.1 Frontend
+
+Tecnología
+
+Uso
+
+Next.js 14+
+
+Framework principal (App Router)
+
+React 18+
+
+UI Library
+
+TypeScript
+
+Tipado estático
+
+Tailwind CSS
+
+Estilos
+
+shadcn/ui
+
+Componentes UI base
+
+Lucide React
+
+Iconos
+
+React Hook Form
+
+Gestión formularios
+
+Zod
+
+Validación schemas
+
+Zustand
+
+State management
+
+SWR
+
+Data fetching y cache
+
+Recharts
+
+Gráficos y visualizaciones
+
+React-PDF
+
+Generación PDFs
+
+date-fns
+
+Manejo fechas
+
+dnd-kit
+
+Drag & drop (mesas, tareas)
+
+Socket.io-client
+
+Real-time
+
+3.2 Backend
+Tecnología
+
+Uso
+
+Node.js 20+
+
+Runtime
+
+Next.js API Routes
+
+Endpoints REST
+
+Next.js Server Actions
+
+Mutations
+
+MongoDB
+
+Base de datos principal
+
+Mongoose
+
+ODM
+
+NextAuth.js v5
+
+Autenticación
+
+Socket.io
+
+WebSockets real-time
+
+Bull / BullMQ
+
+Cola de trabajos
+
+Resend
+
+Email transaccional
+
+Twilio
+
+SMS y WhatsApp
+
+AWS S3 / Cloudinary
+
+Almacenamiento archivos
+
+Redis
+
+Cache (opcional)
+
+3.3 TPV Local
+
+Tecnología
+
+Uso
+
+Electron
+
+App desktop multiplataforma
+
+MongoDB Embedded
+
+BD local (alternativa: IndexedDB)
+
+Dexie.js
+
+Wrapper IndexedDB
+
+node-thermal-printer
+
+Impresión tickets
+
+@zxing/library
+
+Lectura códigos barras/QR
+
+serialport
+
+Hardware (cajón, báscula)
+
+3.4 IA y Automatización
+Tecnología
+
+Uso
+
+OpenAI GPT-4
+
+Asistente IA, comandos de voz
+
+Anthropic Claude
+
+Análisis de documentos
+
+Tesseract.js
+
+OCR (escanear facturas)
+
+Web Speech API
+
+Reconocimiento de voz
+
+TensorFlow.js
+
+Predicciones de stock
+
+3.5 DevOps
+Tecnología
+
+Uso
+
+Vercel
+
+Hosting Next.js
+
+MongoDB Atlas
+
+Database cloud
+
+Cloudflare
+
+CDN y protección DDoS
+
+GitHub Actions
+
+CI/CD
+
+Sentry
+
+Monitoreo de errores
+
+Vercel Analytics
+
+Analytics
+
+4. SISTEMA DE LICENCIAS Y PLANES {#4-licencias}
+4.1 Modelo de Negocio
+SaaS (Software as a Service) con suscripción mensual/anual.
+
+4.2 Planes Disponibles
+PLAN DEMO (30 días gratis)
+Precio: €0
+Características:
+
+•
+
+Todas las funcionalidades
+
+•
+
+2 usuarios simultáneos
+
+•
+
+100 documentos durante trial
+
+•
+
+500 productos
+
+•
+
+1 almacén
+
+•
+
+1 TPV
+
+•
+
+500 MB almacenamiento
+
+•
+
+Marca de agua en documentos
+
+STARTER
+Precio: €29/mes o €290/año
+Límites:
+•
+
+3 usuarios simultáneos (5 cuentas)
+
+•
+
+500 facturas/mes
+
+•
+
+1.000 productos
+
+•
+
+1 almacén
+
+•
+
+500 clientes
+
+•
+
+1 TPV
+
+•
+
+2 GB
+
+•
+
+500 emails/mes
+
+Módulos: Ventas, Compras, Inventario básico, TPV, Reportes básicos
+
+PROFESSIONAL
+Precio: €79/mes o €790/año
+Límites:
+
+•
+
+10 usuarios simultáneos (20 cuentas)
+
+•
+
+2.000 facturas/mes
+
+•
+
+10.000 productos
+
+•
+
+3 almacenes
+
+•
+
+3 TPVs
+
+•
+
+10 GB
+
+•
+
+2.000 emails/mes
+
+•
+
+500 SMS/mes
+
+Módulos: Todo Starter + Inventario avanzado, CRM, Proyectos, RRHH, Chat interno, API REST
+
+BUSINESS
+Precio: €149/mes o €1.490/año
+Límites:
+•
+
+25 usuarios simultáneos (50 cuentas)
+
+•
+
+Facturas ilimitadas
+
+•
+
+Productos ilimitados
+
+•
+
+Almacenes ilimitados
+
+•
+
+10 TPVs
+
+•
+
+50 GB
+
+•
+
+10.000 emails/mes
+
+•
+
+2.000 SMS/mes
+
+Módulos: Todo Professional + Todos los módulos verticales (Taller, Informática, Restauración)
+
+ENTERPRISE
+Precio: Personalizado
+Características:
+
+•
+
+Todo ilimitado
+
+•
+
+On-premise opcional
+
+•
+
+White-label (marca blanca)
+
+•
+
+Gestor de cuenta dedicado
+
+•
+
+SLA garantizado 99.9%
+
+•
+
+Desarrollos personalizados
+
+•
+
+Soporte 24/7
+
+4.3 Add-ons (Módulos Extra)
+Add-on
+
+Precio/mes
+
+Módulo Taller Mecánico
+
++€20
+
+Módulo Informática/Tickets
+
++€20
+
+Módulo Restauración
+
++€30
+
+Módulo Proyectos Avanzado
+
++€20
+
+TPV adicional
+
++€10/TPV
+
+Usuario adicional
+
++€5/usuario
+
+Almacenamiento extra (10GB)
+
++€5
+
+API avanzada
+
++€30
+
+White-label
+
++€100
+
+4.4 Control de Límites
+El sistema controla en tiempo real:
+•
+
+Usuarios simultáneos conectados
+
+•
+
+Documentos creados en el período
+
+•
+
+Productos en catálogo
+
+•
+
+Almacenamiento usado
+
+•
+
+Llamadas a API
+
+•
+
+Emails/SMS enviados
+
+Comportamiento al alcanzar límite:
+
+•
+
+80% del límite → Alerta amarilla
+
+•
+
+90% del límite → Alerta naranja
+
+•
+
+100% del límite → Bloqueo de creación + sugerencia upgrade
+
+5. MÓDULOS DEL SISTEMA {#5-módulos}
+5.1 Autenticación y Usuarios
+Funcionalidades:
+• Login con email/password
+• Registro de empresas
+• Recuperación de contraseña
+• Autenticación 2FA (opcional)
+• Sesiones con JWT
+• Roles y permisos granulares
+Roles predefinidos:
+•
+
+Super Admin (multi-empresa, solo para plataforma)
+
+•
+
+Administrador
+
+•
+
+Gerente
+
+•
+
+Vendedor
+
+•
+
+Camarero (restauración)
+
+•
+
+Técnico/Mecánico
+
+•
+
+Soporte IT
+
+•
+
+Almacenero
+
+•
+
+Visualizador (solo lectura)
+
+Permisos granulares por módulo:
+
+javascript
+
+{
+modulo: "ventas",
+permisos: {
+presupuestos: { ver: true, crear: true, editar: true, eliminar: false, aprobar: false },
+facturas: { ver: true, crear: false, editar: false, eliminar: false }
+}
+}
+
+5.2 Clientes y Proveedores
+Clientes
+Campos:
+• Tipo: Particular, Empresa, Autónomo
+• Nombre/Razón Social, NIF/CIF/DNI
+• Emails (múltiples), Teléfonos (múltiples)
+• Direcciones (facturación, envío, otras)
+• Persona de contacto
+• Categoría (Minorista, Mayorista, VIP, etc)
+• Forma de pago predeterminada
+• Plazo de pago (días)
+• Límite de crédito
+• Descuento general (%)
+• Tarifa de precios asignada
+• Observaciones
+• Documentos adjuntos
+• Estado (Activo/Inactivo/Bloqueado)
+Campos específicos por negocio:
+• Taller: Vehículos asociados, preferencias contacto
+• Informática: Equipos, contratos, licencias
+• Restauración: Alergias, preferencias mesa
+
+Funcionalidades:
+• CRUD completo
+• Importación masiva (Excel, CSV)
+• Exportación
+• Fusión de duplicados
+• Historial completo de interacciones
+• Cuentas por cobrar (aging report)
+• Portal del cliente (autoservicio)
+Proveedores
+Similar a clientes pero para compras.
+
+5.3 Productos y Escandallos/BOM
+5.3.1 Productos Base
+Tipos de producto:
+1. Producto simple: Artículo individual vendible
+2. Producto con variantes: Ej: Camiseta (tallas y colores)
+3. Producto compuesto (BOM/Escandallo): Se fabrica/ensambla a partir de otros productos
+4. Servicio: No tiene stock físico
+5. Materia prima: Solo para comprar, no para vender directo
+Campos principales:
+
+• SKU único
+• EAN/Código de barras
+• Referencia proveedor
+• Nombre
+• Descripción corta/larga
+• Familia/Categoría (jerárquica)
+• Marca
+• Proveedor habitual
+• Unidad de medida (ud, kg, litros, m, etc)
+• Tipo de IVA
+• Control de stock (Sí/No)
+• Estado (Activo, Descatalogado, Próximamente)
+Precios:
+• Precio de compra (coste)
+• Precio de venta (PVP)
+• Tarifas personalizadas (por cliente o categoría)
+• Margen de beneficio (%)
+• Historial de precios
+Stock:
+• Stock actual (por almacén)
+• Stock mínimo
+• Stock máximo
+• Punto de pedido
+• Stock reservado (pedidos pendientes)
+• Stock disponible (calculado)
+• Ubicación en almacén
+5.3.2 Sistema de Variantes
+Configuración de atributos:
+
+javascript
+
+{
+producto: "Camiseta Básica",
+tieneVariantes: true,
+atributos: [
+{
+nombre: "Talla",
+valores: ["XS", "S", "M", "L", "XL", "XXL"],
+tipoVisualizacion: "botones" // o "dropdown"
+},
+{
+nombre: "Color",
+valores: [
+{ valor: "Blanco", hexColor: "#FFFFFF" },
+{ valor: "Negro", hexColor: "#000000" },
+{ valor: "Azul", hexColor: "#0000FF" },
+{ valor: "Rojo", hexColor: "#FF0000" }
+],
+tipoVisualizacion: "colores"
+}
+],
+// Generación automática de todas las combinaciones
+variantes: [
+{
+sku: "CAM-BAS-XS-BLC",
+combinacion: { talla: "XS", color: "Blanco" },
+stock: 15,
+precioExtra: 0,
+imagenes: ["url1.jpg"]
+},
+{
+sku: "CAM-BAS-S-BLC",
+combinacion: { talla: "S", color: "Blanco" },
+stock: 25,
+precioExtra: 0,
+imagenes: ["url1.jpg"]
+}
+// ... resto de combinaciones (24 variantes en total)
+]
+}
+
+Generador automático: El sistema genera todas las combinaciones posibles automáticamente.
+5.3.3 Sistema Universal de Escandallos/BOM
+
+Bill of Materials (BOM) = Lista de materiales/componentes necesarios para fabricar o ensamblar un producto
+final.
+Estructura:
+
+javascript
+
+{
+productoFinal: {
+id: ObjectId,
+nombre: "Hamburguesa Clásica",
+tipo: "producto_compuesto",
+precioVenta: 8.50
+},
+// Lista de componentes
+componentes: [
+{
+productoId: ObjectId,
+nombre: "Pan de hamburguesa",
+cantidad: 1,
+unidad: "ud",
+costoUnitario: 0.40,
+costoTotal: 0.40,
+merma: 0 // % de desperdicio
+},
+{
+productoId: ObjectId,
+nombre: "Carne de ternera",
+cantidad: 150,
+unidad: "g",
+costoUnitario: 0.012, // por gramo
+costoTotal: 1.80,
+merma: 5 // 5% de merma en cocción
+},
+{
+productoId: ObjectId,
+nombre: "Queso cheddar",
+cantidad: 2,
+unidad: "lonchas",
+costoUnitario: 0.25,
+costoTotal: 0.50,
+merma: 0
+},
+{
+productoId: ObjectId,
+nombre: "Lechuga",
+cantidad: 30,
+unidad: "g",
+costoUnitario: 0.003,
+costoTotal: 0.09,
+
+merma: 10 // 10% de hojas no aprovechables
+},
+{
+productoId: ObjectId,
+nombre: "Tomate",
+cantidad: 50,
+unidad: "g",
+costoUnitario: 0.004,
+costoTotal: 0.20,
+merma: 15
+},
+{
+productoId: ObjectId,
+nombre: "Salsa especial",
+cantidad: 30,
+unidad: "ml",
+costoUnitario: 0.015,
+costoTotal: 0.45,
+merma: 5
+}
+],
+// Cálculos automáticos
+costoTotalComponentes: 3.44,
+mermaTotal: 0.21, // Suma de mermas
+costoReal: 3.65, // Componentes + merma
+precioVenta: 8.50,
+margenBruto: 4.85,
+porcentajeMargen: 57.06,
+// Información adicional
+tiempoPreparacion: 8, // minutos
+dificultad: "media",
+alergenos: ["gluten", "lactosa"],
+// Para restauración
+categoria: "Hamburguesas",
+disponibleEnCarta: true,
+// Control de stock automático
+descontarStock: true, // Al vender 1 hamburguesa, descuenta todos los componentes
+// Notas
+instruccionesPreparacion: "Cocinar carne a término medio...",
+observaciones: "Incluye patatas fritas como guarnición"
+}
+
+Casos
+de uso por negocio:
+RESTAURACIÓN:
+javascript
+
+// Ejemplo: Mojito
+{
+productoFinal: "Mojito",
+componentes: [
+{ producto: "Ron blanco", cantidad: 50, unidad: "ml", costo: 0.75 },
+{ producto: "Lima", cantidad: 1, unidad: "ud", costo: 0.30 },
+{ producto: "Hierbabuena", cantidad: 10, unidad: "hojas", costo: 0.10 },
+{ producto: "Azúcar", cantidad: 15, unidad: "g", costo: 0.02 },
+{ producto: "Soda", cantidad: 100, unidad: "ml", costo: 0.15 },
+{ producto: "Hielo", cantidad: 150, unidad: "g", costo: 0.05 }
+],
+costoTotal: 1.37,
+precioVenta: 7.00,
+margen: 5.63
+}
+
+INFORMÁTICA:
+javascript
+
+// Ejemplo: PC Gaming Custom
+{
+productoFinal: "PC Gaming Pro 2025",
+componentes: [
+{ producto: "Placa Base ASUS ROG", cantidad: 1, unidad: "ud", costo: 180 },
+{ producto: "Intel i7-14700K", cantidad: 1, unidad: "ud", costo: 380 },
+{ producto: "RAM DDR5 32GB", cantidad: 2, unidad: "ud", costo: 120 },
+{ producto: "RTX 4070", cantidad: 1, unidad: "ud", costo: 650 },
+{ producto: "SSD 1TB NVMe", cantidad: 1, unidad: "ud", costo: 90 },
+{ producto: "Fuente 850W", cantidad: 1, unidad: "ud", costo: 120 },
+{ producto: "Torre ATX", cantidad: 1, unidad: "ud", costo: 80 },
+{ producto: "Ventiladores RGB", cantidad: 3, unidad: "ud", costo: 15 }
+],
+manoDeObra: { descripcion: "Ensamblaje y testeo", horas: 2, tarifaHora: 30, costo: 60 },
+costoTotal: 1755,
+precioVenta: 2299,
+margen: 544
+}
+
+TALLER MECÁNICO:
+
+javascript
+
+// Ejemplo: Cambio de aceite completo
+{
+productoFinal: "Cambio de aceite 5W30",
+componentes: [
+{ producto: "Aceite 5W30", cantidad: 5, unidad: "litros", costo: 6.50 },
+
+

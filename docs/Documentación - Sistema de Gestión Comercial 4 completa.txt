@@ -1,0 +1,1214 @@
+DOCUMENTACIÓN COMPLETA - SISTEMA ERP CLOUD
+MULTI-NEGOCIO
+ÍNDICE
+1. Información General
+2. Arquitectura del Sistema
+3. Stack Tecnológico
+4. Sistema de Licencias y Planes
+5. Módulos del Sistema
+6. Modelos de Base de Datos
+7. APIs y Endpoints
+8. Sistema TPV Local
+9. Integraciones
+10. Seguridad y Cumplimiento Legal
+11. IA y Automatización
+12. Roadmap de Desarrollo
+
+1. INFORMACIÓN GENERAL
+1.1 Descripción del Proyecto
+Sistema ERP Cloud (SaaS Multi-tenant) completamente escalable y modular, diseñado para adaptarse a
+múltiples tipos de negocio: retail, talleres mecánicos, empresas de informática, servicios profesionales, etc.
+Características Principales:
+•
+
+100% Cloud (backend centralizado)
+
+•
+
+TPV Local con sincronización inteligente
+
+•
+
+Modular y escalable
+
+•
+
+Multi-idioma (ES, CA, EN)
+
+•
+
+IA integrada para automatización
+
+•
+
+Responsive y PWA
+
+•
+
+Cumplimiento legal total (RGPD, Ley Antifraude, TicketBAI, Verifactu)
+
+1.2 Tipos de Negocio Soportados
+• Retail/Comercio: Tiendas físicas y online
+• Taller Mecánico: Reparación de vehículos, órdenes de trabajo
+• Informática: Tickets, mantenimientos, equipos, contratos
+• Servicios Profesionales: Consultorías, proyectos
+• Hostelería: Restaurantes, bares (futuro)
+• Industria: Producción y manufactura (futuro)
+• Personalizado: Configuración a medida
+
+2. ARQUITECTURA DEL SISTEMA
+2.1 Arquitectura General
+
+┌─────────────────────────────────────────────────────────────┐
+│
+
+CLOUD (Backend SaaS)
+
+│
+
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ Next.js 14+ (App Router) + React 18
+
+││
+
+│ │ API Routes + Server Actions
+
+││
+
+│ └────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ MongoDB Atlas (Multi-tenant)
+
+││
+
+│ │ - Colecciones segregadas por empresaId
+
+││
+
+│ │ - Índices compuestos para performance
+
+││
+
+│ └────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ Microservicios Auxiliares
+
+││
+
+│ │ - Facturación recurrente (cron jobs)
+
+││
+
+│ │ - Notificaciones (email, SMS, WhatsApp)
+
+││
+
+│ │ - Backups automáticos
+
+││
+
+│ │ - IA y Machine Learning
+
+││
+
+│ └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+↕ HTTPS + WebSockets
+┌─────────────────────────────────────────────────────────────┐
+│
+
+CLIENTES (Multi-dispositivo)
+
+│
+
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ │ Desktop
+
+│ │
+
+Mobile
+
+│ │ (Navegador) │ │
+
+(PWA)
+
+│ │
+
+Tablet
+
+│ │
+
+│
+
+│
+
+│
+
+(PWA)
+
+│
+
+│
+
+│ └──────────────┘ └──────────────┘ └──────────────┘
+
+│
+
+└─────────────────────────────────────────────────────────────┘
+↕ Sincronización
+┌─────────────────────────────────────────────────────────────┐
+│
+
+TPV LOCAL (Offline-first)
+
+│
+
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ Electron App o PWA Instalable
+
+││
+
+│ │ - Interfaz táctil optimizada
+
+││
+
+│ │ - Funciona 100% offline
+
+││
+
+│ └────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ MongoDB Local (Embedded) o IndexedDB
+│ │ - Productos sincronizados
+│ │ - Clientes frecuentes
+│ │ - Cola de ventas pendientes
+
+││
+
+││
+││
+││
+
+│ └────────────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────────────┐ │
+│ │ Hardware Integrado
+
+││
+
+│ │ - Impresora térmica
+
+││
+
+│ │ - Lector código de barras
+
+││
+
+│ │ - Cajón de dinero / CashKeeper
+
+││
+
+│ │ - Pantalla dual (opcional)
+
+││
+
+│ └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+2.2 Modelo Multi-tenant
+• Database segregation: Cada empresa (tenant) tiene sus colecciones segregadas por empresaId
+• Shared schema: Todas las empresas comparten la misma estructura de base de datos
+• Isolation: Total aislamiento de datos entre empresas
+• Scalability: Fácil escalado horizontal con sharding
+
+2.3 Estructura de Carpetas
+
+/proyecto-erp
+├── /app
+
+# Next.js App Router
+
+│ ├── /(auth)
+
+# Rutas públicas
+
+│ │ ├── /login
+│ │ ├── /registro
+│ │ ├── /recuperar-password
+│ │ └── /activar-cuenta
+│ │
+│ ├── /(dashboard)
+
+# Rutas protegidas
+
+│ │ ├── /dashboard
+
+# Dashboard principal
+
+│ │ │
+│ │ ├── /clientes
+│ │ │ ├── page.tsx
+
+# Lista
+
+│ │ │ ├── /nuevo
+│ │ │ ├── /[id]
+│ │ │ └── /[id]/historial
+│ │ │
+│ │ ├── /proveedores
+│ │ │ └── [estructura similar]
+│ │ │
+│ │ ├── /productos
+│ │ │ ├── page.tsx
+│ │ │ ├── /nuevo
+│ │ │ ├── /[id]
+│ │ │ ├── /variantes
+│ │ │ ├── /familias
+│ │ │ └── /importar
+│ │ │
+│ │ ├── /ventas
+│ │ │ ├── /presupuestos
+│ │ │ ├── /pedidos
+│ │ │ ├── /albaranes
+│ │ │ └── /facturas
+│ │ │
+│ │ ├── /compras
+│ │ │ ├── /presupuestos
+│ │ │ ├── /pedidos
+│ │ │ ├── /albaranes
+│ │ │ └── /facturas
+│ │ │
+│ │ ├── /tpv
+
+# TPV web (no local)
+
+│ │ │ └── /[cajaId]
+│ │ │
+│ │ ├── /inventario
+│ │ │ ├── /stock
+│ │ │ ├── /movimientos
+
+│ │ │ ├── /almacenes
+│ │ │ ├── /transferencias
+│ │ │ └── /recuento
+│ │ │
+│ │ ├── /taller
+
+# Módulo taller
+
+│ │ │ ├── /ordenes-trabajo
+│ │ │ ├── /vehiculos
+│ │ │ ├── /partes-trabajo
+│ │ │ └── /calendario
+│ │ │
+│ │ ├── /informatica
+
+# Módulo informática
+
+│ │ │ ├── /tickets
+│ │ │ ├── /equipos
+│ │ │ ├── /contratos
+│ │ │ ├── /mantenimientos
+│ │ │ ├── /licencias
+│ │ │ └── /base-conocimiento
+│ │ │
+│ │ ├── /proyectos
+│ │ │ ├── /lista
+│ │ │ ├── /[id]
+│ │ │ ├── /tareas
+│ │ │ └── /certificaciones
+│ │ │
+│ │ ├── /rrhh
+
+# Recursos Humanos
+
+│ │ │ ├── /empleados
+│ │ │ ├── /fichajes
+│ │ │ ├── /vacaciones
+│ │ │ ├── /ausencias
+│ │ │ └── /comisiones
+│ │ │
+│ │ ├── /crm
+│ │ │ ├── /oportunidades
+│ │ │ ├── /pipeline
+│ │ │ ├── /campanas
+│ │ │ └── /seguimiento
+│ │ │
+│ │ ├── /reportes
+│ │ │ ├── /ventas
+│ │ │ ├── /compras
+│ │ │ ├── /inventario
+│ │ │ ├── /financiero
+│ │ │ └── /personalizado
+│ │ │
+│ │ ├── /documentos
+│ │ │ ├── /repositorio
+
+# Gestor documental
+
+│ │ │ ├── /plantillas
+│ │ │ └── /caducidades
+│ │ │
+│ │ ├── /comunicacion
+│ │ │ ├── /chat
+│ │ │ ├── /notificaciones
+│ │ │ └── /mensajes
+│ │ │
+│ │ └── /configuracion
+│ │
+
+├── /empresa
+
+│ │
+
+├── /usuarios
+
+│ │
+
+├── /permisos
+
+│ │
+
+├── /series
+
+│ │
+
+├── /formas-pago
+
+│ │
+
+├── /impuestos
+
+│ │
+
+├── /plantillas-documentos
+
+│ │
+
+├── /integraciones
+
+│ │
+
+├── /licencia
+
+│ │
+
+└── /personalizacion
+
+│ │
+│ ├── /api
+
+# API Routes
+
+│ │ ├── /auth
+│ │ ├── /clientes
+│ │ ├── /proveedores
+│ │ ├── /productos
+│ │ ├── /ventas
+│ │ ├── /compras
+│ │ ├── /inventario
+│ │ ├── /taller
+│ │ ├── /informatica
+│ │ ├── /proyectos
+│ │ ├── /rrhh
+│ │ ├── /reportes
+│ │ ├── /notificaciones
+│ │ ├── /sync
+
+# Sincronización TPV
+
+│ │ ├── /webhooks
+│ │ ├── /ia
+
+# Endpoints IA
+
+│ │ └── /licencias
+│ │
+│ └── /portal-cliente
+│
+
+├── /login
+
+│
+
+├── /dashboard
+
+│
+
+├── /facturas
+
+│
+
+├── /presupuestos
+
+│
+
+└── /tickets
+
+│
+
+# Portal del cliente
+
+├── /components
+│ ├── /ui
+
+# Componentes base (shadcn/ui)
+
+│ │ ├── button.tsx
+│ │ ├── input.tsx
+│ │ ├── select.tsx
+│ │ ├── modal.tsx
+│ │ ├── table.tsx
+│ │ ├── card.tsx
+│ │ ├── badge.tsx
+│ │ ├── alert.tsx
+│ │ ├── tabs.tsx
+│ │ └── ...
+│ │
+│ ├── /layouts
+│ │ ├── MainLayout.tsx
+│ │ ├── AuthLayout.tsx
+│ │ ├── DashboardLayout.tsx
+│ │ └── TPVLayout.tsx
+│ │
+│ ├── /forms
+│ │ ├── ClienteForm.tsx
+│ │ ├── ProductoForm.tsx
+│ │ ├── VentaForm.tsx
+│ │ └── ...
+│ │
+│ ├── /tables
+│ │ ├── DataTable.tsx
+
+# Tabla genérica reutilizable
+
+│ │ ├── ClientesTable.tsx
+│ │ ├── ProductosTable.tsx
+│ │ └── ...
+│ │
+│ ├── /charts
+│ │ ├── LineChart.tsx
+│ │ ├── BarChart.tsx
+│ │ ├── PieChart.tsx
+│ │ └── DashboardWidget.tsx
+│ │
+│ ├── /pdf
+│ │ ├── FacturaPDF.tsx
+│ │ ├── AlbaranPDF.tsx
+│ │ ├── PresupuestoPDF.tsx
+│ │ └── TicketPDF.tsx
+│ │
+│ ├── /tpv
+│ │ ├── TPVProductGrid.tsx
+│ │ ├── TPVCart.tsx
+│ │ ├── TPVPayment.tsx
+
+│ │ └── TPVCustomerDisplay.tsx
+│ │
+│ ├── /chat
+│ │ ├── ChatWindow.tsx
+│ │ ├── ChatList.tsx
+│ │ └── MessageBubble.tsx
+│ │
+│ └── /ai
+│
+
+├── AIAssistant.tsx
+
+│
+
+├── VoiceCommand.tsx
+
+│
+
+└── SmartSuggestions.tsx
+
+│
+├── /lib
+│ ├── /db
+│ │ ├── mongodb.ts
+
+# Conexión MongoDB
+
+│ │ ├── queries.ts
+
+# Queries reutilizables
+
+│ │ └── indexeddb.ts
+
+# Para TPV local
+
+│ │
+│ ├── /sync
+│ │ ├── syncManager.ts
+
+# Gestor sincronización TPV
+
+│ │ ├── conflictResolver.ts
+│ │ └── queue.ts
+│ │
+│ ├── /utils
+│ │ ├── format.ts
+
+# Formateo de datos
+
+│ │ ├── calculations.ts
+
+# Cálculos (IVA, totales, etc)
+
+│ │ ├── date.ts
+│ │ ├── currency.ts
+
+# Manejo de fechas
+# Monedas
+
+│ │ └── helpers.ts
+│ │
+│ ├── /validations
+│ │ ├── schemas.ts
+
+# Zod schemas
+
+│ │ └── rules.ts
+│ │
+│ ├── /pdf
+│ │ ├── generator.ts
+│ │ └── templates.ts
+│ │
+│ ├── /notifications
+│ │ ├── email.ts
+│ │ ├── sms.ts
+│ │ ├── whatsapp.ts
+│ │ ├── push.ts
+│ │ └── inapp.ts
+│ │
+│ ├── /ai
+
+# Generación PDFs
+
+│ │ ├── assistant.ts
+
+# Asistente IA
+
+│ │ ├── voice.ts
+
+# Comandos de voz
+
+│ │ ├── predictions.ts
+
+# Predicciones
+
+│ │ └── ocr.ts
+
+# OCR
+
+│ │
+│ ├── /integrations
+│ │ ├── contabilidad.ts
+│ │ ├── ecommerce.ts
+│ │ ├── email-marketing.ts
+│ │ ├── transportistas.ts
+│ │ └── banks.ts
+│ │
+│ └── /legal
+│
+
+├── antifraude.ts
+
+│
+
+├── ticketbai.ts
+
+│
+
+├── verifactu.ts
+
+│
+
+└── rgpd.ts
+
+# Ley Antifraude
+
+│
+├── /hooks
+│ ├── useAuth.ts
+│ ├── useClientes.ts
+│ ├── useProductos.ts
+│ ├── useVentas.ts
+│ ├── useSync.ts
+
+# Hook sincronización TPV
+
+│ ├── useNotifications.ts
+│ ├── usePermissions.ts
+│ └── useAI.ts
+│
+├── /types
+│ ├── index.ts
+│ ├── cliente.ts
+│ ├── producto.ts
+│ ├── venta.ts
+│ ├── inventario.ts
+│ └── ...
+│
+├── /models
+│ ├── Empresa.ts
+│ ├── Usuario.ts
+│ ├── Cliente.ts
+│ ├── Proveedor.ts
+│ ├── Producto.ts
+│ ├── Familia.ts
+│ ├── Presupuesto.ts
+│ ├── Pedido.ts
+│ ├── Albaran.ts
+│ ├── Factura.ts
+
+# Mongoose Schemas
+
+│ ├── MovimientoInventario.ts
+│ ├── Vehiculo.ts
+│ ├── OrdenTrabajo.ts
+│ ├── Ticket.ts
+│ ├── Equipo.ts
+│ ├── Contrato.ts
+│ ├── Proyecto.ts
+│ ├── Tarea.ts
+│ ├── Empleado.ts
+│ ├── Fichaje.ts
+│ └── ...
+│
+├── /store
+
+# Zustand stores
+
+│ ├── authStore.ts
+│ ├── cartStore.ts
+│ ├── notificationStore.ts
+│ └── settingsStore.ts
+│
+├── /middleware
+│ ├── auth.ts
+
+# Verificación autenticación
+
+│ ├── tenant.ts
+
+# Verificación tenant
+
+│ ├── permissions.ts
+
+# Verificación permisos
+
+│ └── rateLimit.ts
+│
+├── /workers
+
+# Service Workers
+
+│ ├── sw.ts
+
+# Service Worker principal
+
+│ ├── sync-worker.ts
+
+# Worker sincronización
+
+│ └── notification-worker.ts
+│
+├── /public
+│ ├── /images
+│ ├── /icons
+│ └── /locales
+│
+
+├── es.json
+
+│
+
+├── ca.json
+
+│
+
+└── en.json
+
+# Traducciones
+
+│
+├── /scripts
+
+# Scripts auxiliares
+
+│ ├── seed.ts
+
+# Datos de prueba
+
+│ ├── migrate.ts
+
+# Migraciones
+
+│ └── backup.ts
+│
+├── /tests
+│ ├── /unit
+│ ├── /integration
+│ └── /e2e
+
+│
+├── /tpv-electron
+
+# App Electron para TPV
+
+│ ├── /main
+
+# Proceso principal
+
+│ ├── /renderer
+
+# Proceso renderer
+
+│ └── /preload
+│
+└── /docs
+├── /api
+├── /user-manual
+└── /developer-guide
+
+3. STACK TECNOLÓGICO
+3.1 Frontend
+• Framework: Next.js 14+ (App Router)
+• UI Library: React 18+
+• Styling: Tailwind CSS 3+
+• Component Library: shadcn/ui
+• Icons: Lucide React
+• Forms: React Hook Form + Zod
+• State Management: Zustand
+• Data Fetching: SWR
+• Charts: Recharts / Chart.js
+• PDF Generation: react-pdf / jsPDF
+• Date Management: date-fns
+• Drag & Drop: dnd-kit
+• Rich Text: Tiptap o Lexical
+
+3.2 Backend
+
+• Runtime: Node.js 20+
+• Framework: Next.js API Routes + Server Actions
+• Database: MongoDB Atlas
+• ODM: Mongoose
+• Authentication: NextAuth.js v5 (Auth.js)
+• File Upload: Uploadthing o AWS S3
+• Caching: Redis (opcional)
+• Queue: Bull o BullMQ (para jobs)
+• Real-time: Socket.io o Pusher
+• Email: Resend o Sendgrid
+• SMS: Twilio
+• WhatsApp: Twilio WhatsApp API
+
+3.3 TPV Local
+• Desktop App: Electron
+• Database Local: MongoDB embedded o IndexedDB + Dexie.js
+• Sync: Custom sync engine con WebSockets
+• Print: electron-printer o node-thermal-printer
+• Barcode: @zxing/library o QuaggaJS
+• Hardware: Integración con Serial Port para cajones, básculas, etc.
+
+3.4 IA y Machine Learning
+• LLM: OpenAI GPT-4 o Anthropic Claude
+• Voice Recognition: Web Speech API o Deepgram
+• OCR: Tesseract.js o Google Cloud Vision
+• Predictions: TensorFlow.js o Python microservice
+• NLP: Natural language processing para comandos
+
+3.5 DevOps y Infraestructura
+
+• Hosting: Vercel (Next.js) o Railway
+• Database: MongoDB Atlas (M10+)
+• CDN: Cloudflare o Vercel Edge
+• Storage: AWS S3 o Cloudinary (imágenes)
+• Monitoring: Sentry (errores) + Vercel Analytics
+• Logging: Winston o Pino
+• CI/CD: GitHub Actions
+• Testing: Jest + React Testing Library + Playwright
+
+3.6 Seguridad
+• Encryption: bcrypt (passwords), crypto (datos sensibles)
+• JWT: jsonwebtoken
+• 2FA: speakeasy
+• Rate Limiting: express-rate-limit o Upstash
+• CORS: cors middleware
+• Helmet: Security headers
+• HTTPS: Forzado en producción
+
+4. SISTEMA DE LICENCIAS Y PLANES
+4.1 Arquitectura de Licencias
+El sistema es 100% Cloud (SaaS) con modelo de suscripción:
+
+javascript
+
+// Modelo de License
+{
+empresaId: ObjectId,
+plan: "starter" | "professional" | "business" | "enterprise" | "custom",
+estado: "trial" | "activa" | "suspendida" | "cancelada" | "expirada",
+// Trial
+esTrial: Boolean,
+fechaInicioTrial: Date,
+fechaFinTrial: Date,
+diasTrialRestantes: Number,
+// Fechas
+fechaInicio: Date,
+fechaRenovacion: Date,
+fechaCancelacion: Date,
+// Límites del plan
+limites: {
+usuariosSimultaneos: Number,
+
+// Conexiones activas al mismo tiempo
+
+usuariosTotales: Number,
+
+// Cuentas creadas
+
+facturasMes: Number,
+
+// Facturas por mes
+
+productosCatalogo: Number,
+
+// Productos en catálogo
+
+almacenes: Number,
+
+// Número de almacenes
+
+clientes: Number,
+
+// Clientes en base de datos
+
+tpvsActivos: Number,
+
+// TPVs que pueden sincronizar
+
+almacenamientoGB: Number,
+
+// Espacio para imágenes/docs
+
+llamadasAPIDia: Number,
+
+// API rate limit
+
+emailsMes: Number,
+
+// Emails automáticos
+
+smsMes: Number,
+
+// SMS automáticos
+
+whatsappMes: Number
+
+// WhatsApp mensajes
+
+},
+// Uso actual (se actualiza en tiempo real)
+usoActual: {
+usuariosSimultaneos: Number,
+usuariosTotales: Number,
+facturasEsteMes: Number,
+productosActuales: Number,
+almacenesActuales: Number,
+clientesActuales: Number,
+tpvsActivos: Number,
+almacenamientoUsadoGB: Number,
+llamadasAPIDia: Number,
+
+emailsEsteMes: Number,
+smsEsteMes: Number,
+whatsappEsteMes: Number
+},
+// Módulos activos
+modulosActivos: [String],
+addons: [String],
+
+// ["ventas", "compras", "taller", "informatica", "proyectos", etc]
+// ["tpv_extra", "api_avanzada", "whitelabel", etc]
+
+// Facturación
+precioMensual: Number,
+precioAnual: Number,
+moneda: String,
+metodoPago: String,
+proximaCobro: Date,
+// Configuración especial
+whiteLabel: Boolean,
+
+// Marca blanca
+
+dominioPersonalizado: String,
+soportePrioritario: Boolean,
+gestorCuentaDedicado: Boolean,
+slaGarantizado: String,
+// Alertas
+alertas: [{
+tipo: String,
+limite: Number,
+porcentajeAlerta: Number,
+
+// Avisar al 80%, 90%, 100%
+
+notificado: Boolean
+}],
+createdAt: Date,
+updatedAt: Date
+}
+
+4.2 Planes Disponibles
+PLAN DEMO / TRIAL (30 días)
+Precio: Gratuito
+Límites:
+
+•
+
+Todas las funcionalidades
+
+•
+
+2 usuarios simultáneos
+
+•
+
+100 facturas durante el trial
+
+•
+
+500 productos
+
+•
+
+1 almacén
+
+•
+
+500 MB almacenamiento
+
+•
+
+Marca de agua en documentos
+
+•
+
+Soporte por email
+
+Restricciones:
+• Se convierte en plan de pago o se suspende al finalizar
+• Datos se mantienen 30 días después del trial
+
+PLAN STARTER
+Precio: 29€/mes o 290€/año (2 meses gratis)
+Límites:
+•
+
+3 usuarios simultáneos (5 cuentas totales)
+
+•
+
+500 facturas/mes
+
+•
+
+1.000 productos
+
+•
+
+1 almacén
+
+•
+
+500 clientes
+
+•
+
+1 TPV
+
+•
+
+2 GB almacenamiento
+
+•
+
+1.000 llamadas API/día
+
+•
+
+500 emails/mes
+
+•
+
+100 SMS/mes
+
+Módulos Incluidos:
+
+•
+
+Clientes y proveedores
+
+•
+
+Productos y familias
+
+•
+
+Ventas (presupuestos, pedidos, albaranes, facturas)
+
+•
+
+Compras (presupuestos, pedidos, albaranes, facturas)
+
+•
+
+Inventario básico
+
+•
+
+TPV básico
+
+•
+
+Reportes básicos
+
+•
+
+Portal del cliente básico
+
+Soporte: Email (24-48h respuesta)
+
+PLAN PROFESSIONAL
+Precio: 79€/mes o 790€/año (2 meses gratis)
+Límites:
+•
+
+10 usuarios simultáneos (20 cuentas totales)
+
+•
+
+2.000 facturas/mes
+
+•
+
+10.000 productos
+
+•
+
+3 almacenes
+
+•
+
+5.000 clientes
+
+•
+
+3 TPVs
+
+•
+
+10 GB almacenamiento
+
+•
+
+5.000 llamadas API/día
+
+•
+
+2.000 emails/mes
+
+•
+
+500 SMS/mes
+
+•
+
+200 WhatsApp/mes
+
+Módulos Incluidos:
+
+•
+
+Todo de Starter +
+
+•
+
+Inventario avanzado (multi-almacén, transferencias)
+
+•
+
+CRM básico
+
+•
+
+Proyectos básico
+
+•
+
+Recursos Humanos (fichajes, vacaciones)
+
+•
+
+Comunicación interna (chat)
+
+•
+
+Reportes avanzados
+
+•
+
+API REST completa
+
+•
+
+Integraciones (ecommerce, contabilidad básica)
+
+•
+
+Multi-idioma
+
+Soporte: Email prioritario (12-24h respuesta) + Chat
+
+PLAN BUSINESS
+Precio: 149€/mes o 1.490€/año (2 meses gratis)
+Límites:
+•
+
+25 usuarios simultáneos (50 cuentas totales)
+
+•
+
+Facturas ilimitadas
+
+•
+
+Productos ilimitados
+
+•
+
+Almacenes ilimitados
+
+•
+
+Clientes ilimitados
+
+•
+
+10 TPVs
+
+•
+
+50 GB almacenamiento
+
+•
+
+20.000 llamadas API/día
+
+•
+
+10
+
+

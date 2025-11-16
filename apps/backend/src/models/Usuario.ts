@@ -12,7 +12,7 @@ export interface IUsuario extends Document {
   avatar?: string;
   
   // Rol y permisos
-  rol: 'super_admin' | 'admin' | 'gerente' | 'vendedor' | 'tecnico' | 'almacenero' | 'visualizador';
+  rol: 'superadmin' | 'admin' | 'gerente' | 'vendedor' | 'tecnico' | 'almacenero' | 'visualizador';
   permisos: any;
   
   // 2FA
@@ -92,7 +92,7 @@ const UsuarioSchema = new Schema<IUsuario>(
     // Rol y permisos
     rol: {
       type: String,
-      enum: ['super_admin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador'],
+      enum: ['superadmin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador'],
       default: 'vendedor',
     },
     permisos: {

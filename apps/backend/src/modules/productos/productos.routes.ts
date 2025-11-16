@@ -1,33 +1,211 @@
 import { Router } from 'express';
+import { productosController } from './productos.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
-import {
-  createProducto,
-  getProducto,
-  getProductoBySku,
-  getProductoByCodigoBarras,
-  searchProductos,
-  updateProducto,
-  deleteProducto,
-  deleteProductoPermanente,
-  updateStock,
-  getEstadisticas,
-  getCategorias,
-  getSubcategorias,
-  getMarcas,
-  getTags,
-  getProductosStockBajo,
-} from './productos.controller';
 
 const router = Router();
 
-// Todas las rutas requieren autenticación y tenant
+// Aplicar middleware de autenticación y tenant a todas las rutas
 router.use(authMiddleware);
 router.use(tenantMiddleware);
 
-// ============================================
-// RUTAS CRUD
-// ============================================
+/**
+ * @swagger
+ * tags:
+ *   name: Productos
+ *   description: Gestión de productos y catálogo
+ */
+
+/**
+ * @swagger
+ * /api/productos/stock-bajo:
+ *   get:
+ *     summary: Obtener productos con stock bajo
+ *     tags: [Productos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Listado de productos con stock bajo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/stock-bajo', productosController.obtenerStockBajo.bind(productosController));
+
+/**
+ * @swagger
+ * /api/productos/sku/{sku}:
+ *   get:
+ *     summary: Obtener producto por SKU
+ *     tags: [Productos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sku
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: SKU del producto
+ *     responses:
+ *       200:
+ *         description: Producto encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *       404:
+ *         description: Producto no encontrado
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/sku/:sku', productosController.obtenerPorSku.bind(productosController));
+
+/**
+ * @swagger
+ * /api/productos/barcode/{codigoBarras}:
+ *   get:
+ *     summary: Obtener producto por código de barras
+ *     tags: [Productos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: codigoBarras
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Código de barras del producto
+ *     responses:
+ *       200:
+ *         description: Producto encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *       404:
+ *         description: Producto no encontrado
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/barcode/:codigoBarras', productosController.obtenerPorCodigoBarras.bind(productosController));
+
+/**
+ * @swagger
+ * /api/productos:
+ *   get:
+ *     summary: Obtener listado de productos con paginación
+ *     tags: [Productos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Número de página
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Elementos por página
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Búsqueda por nombre, SKU o código de barras
+ *       - in: query
+ *         name: familiaId
+ *         schema:
+ *           type: string
+ *         description: Filtrar por familia
+ *       - in: query
+ *         name: activo
+ *         schema:
+ *           type: boolean
+ *         description: Filtrar por estado activo
+ *     responses:
+ *       200:
+ *         description: Listado de productos obtenido exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/', productosController.obtenerTodos.bind(productosController));
+
+/**
+ * @swagger
+ * /api/productos/{id}:
+ *   get:
+ *     summary: Obtener producto por ID
+ *     tags: [Productos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del producto
+ *     responses:
+ *       200:
+ *         description: Producto encontrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *       404:
+ *         description: Producto no encontrado
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/:id', productosController.obtenerPorId.bind(productosController));
 
 /**
  * @swagger
@@ -46,51 +224,31 @@ router.use(tenantMiddleware);
  *             required:
  *               - nombre
  *               - sku
- *               - precios
  *             properties:
  *               nombre:
  *                 type: string
- *                 example: Laptop Dell XPS 15
- *               descripcion:
- *                 type: string
- *                 example: Laptop de alta gama con pantalla 4K
+ *                 example: "Portátil Dell XPS 15"
  *               sku:
  *                 type: string
- *                 example: LAP-DELL-XPS15
+ *                 example: "DELL-XPS-15-001"
+ *               descripcion:
+ *                 type: string
+ *                 example: "Portátil de alto rendimiento"
+ *               familiaId:
+ *                 type: string
+ *                 description: ID de la familia del producto
  *               codigoBarras:
  *                 type: string
- *                 example: "7501234567890"
- *               referencia:
- *                 type: string
- *                 example: DELL-XPS15-2024
- *               categoria:
- *                 type: string
- *                 example: Electrónica
- *               subcategoria:
- *                 type: string
- *                 example: Laptops
- *               marca:
- *                 type: string
- *                 example: Dell
- *               tags:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: [premium, gaming, 4k]
- *               precios:
+ *                 example: "1234567890123"
+ *               precio:
  *                 type: object
- *                 required:
- *                   - venta
  *                 properties:
- *                   compra:
+ *                   base:
  *                     type: number
- *                     example: 1200
+ *                     example: 1000
  *                   venta:
  *                     type: number
- *                     example: 1800
- *                   pvp:
- *                     type: number
- *                     example: 1999
+ *                     example: 1200
  *               stock:
  *                 type: object
  *                 properties:
@@ -99,268 +257,38 @@ router.use(tenantMiddleware);
  *                     example: 10
  *                   minimo:
  *                     type: number
- *                     example: 2
- *                   maximo:
- *                     type: number
- *                     example: 50
- *                   ubicacion:
- *                     type: string
- *                     example: Almacén A - Estante 3
- *               gestionaStock:
- *                 type: boolean
- *                 default: true
- *               iva:
- *                 type: number
- *                 default: 21
- *               tipoImpuesto:
- *                 type: string
- *                 enum: [iva, igic, exento]
- *                 default: iva
+ *                     example: 5
  *               activo:
  *                 type: boolean
  *                 default: true
- *               disponible:
- *                 type: boolean
- *                 default: true
- *               destacado:
- *                 type: boolean
- *                 default: false
  *     responses:
  *       201:
  *         description: Producto creado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                 message:
+ *                   type: string
+ *                   example: "Producto creado correctamente"
  *       400:
  *         description: Datos inválidos
- *       403:
- *         description: Límite de productos alcanzado
+ *       401:
+ *         description: No autorizado
  */
-router.post('/', createProducto);
+router.post('/', productosController.crear.bind(productosController));
 
 /**
  * @swagger
- * /api/productos:
- *   get:
- *     summary: Listar y buscar productos
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: q
- *         schema:
- *           type: string
- *         description: Búsqueda de texto (nombre, SKU, código de barras)
- *       - in: query
- *         name: categoria
- *         schema:
- *           type: string
- *       - in: query
- *         name: subcategoria
- *         schema:
- *           type: string
- *       - in: query
- *         name: marca
- *         schema:
- *           type: string
- *       - in: query
- *         name: tags
- *         schema:
- *           type: string
- *         description: Tags separados por comas
- *       - in: query
- *         name: activo
- *         schema:
- *           type: boolean
- *       - in: query
- *         name: disponible
- *         schema:
- *           type: boolean
- *       - in: query
- *         name: destacado
- *         schema:
- *           type: boolean
- *       - in: query
- *         name: sinStock
- *         schema:
- *           type: boolean
- *       - in: query
- *         name: stockBajo
- *         schema:
- *           type: boolean
- *       - in: query
- *         name: precioMin
- *         schema:
- *           type: number
- *       - in: query
- *         name: precioMax
- *         schema:
- *           type: number
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *       - in: query
- *         name: sortBy
- *         schema:
- *           type: string
- *           default: createdAt
- *       - in: query
- *         name: sortOrder
- *         schema:
- *           type: string
- *           enum: [asc, desc]
- *           default: desc
- *     responses:
- *       200:
- *         description: Lista de productos con paginación
- */
-router.get('/', searchProductos);
-
-/**
- * @swagger
- * /api/productos/alertas/stock-bajo:
- *   get:
- *     summary: Obtener productos con stock bajo
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Lista de productos con stock bajo
- */
-router.get('/alertas/stock-bajo', getProductosStockBajo);
-
-
-/**
- * @swagger
- * /api/productos/estadisticas/resumen:
- *   get:
- *     summary: Obtener estadísticas de productos
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Estadísticas generales
- */
-router.get('/estadisticas/resumen', getEstadisticas);
-
-/**
- * @swagger
- * /api/productos/meta/categorias:
- *   get:
- *     summary: Obtener lista de categorías únicas
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Lista de categorías
- */
-router.get('/meta/categorias', getCategorias);
-
-/**
- * @swagger
- * /api/productos/meta/subcategorias:
- *   get:
- *     summary: Obtener lista de subcategorías únicas
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: categoria
- *         schema:
- *           type: string
- *         description: Filtrar por categoría
- *     responses:
- *       200:
- *         description: Lista de subcategorías
- */
-router.get('/meta/subcategorias', getSubcategorias);
-
-/**
- * @swagger
- * /api/productos/meta/marcas:
- *   get:
- *     summary: Obtener lista de marcas únicas
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Lista de marcas
- */
-router.get('/meta/marcas', getMarcas);
-
-/**
- * @swagger
- * /api/productos/meta/tags:
- *   get:
- *     summary: Obtener lista de tags únicos
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Lista de tags
- */
-router.get('/meta/tags', getTags);
-
-/**
- * @swagger
- * /api/productos/sku/{sku}:
- *   get:
- *     summary: Obtener producto por SKU
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: sku
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Datos del producto
- *       404:
- *         description: Producto no encontrado
- */
-router.get('/sku/:sku', getProductoBySku);
-
-/**
- * @swagger
- * /api/productos/barcode/{codigo}:
- *   get:
- *     summary: Obtener producto por código de barras
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: codigo
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Datos del producto
- *       404:
- *         description: Producto no encontrado
- */
-router.get('/barcode/:codigo', getProductoByCodigoBarras);
-
-/**
- * @swagger
- * /api/productos/{id}:
- *   get:
- *     summary: Obtener producto por ID
+ * /api/productos/{id}/variantes:
+ *   post:
+ *     summary: Generar variantes de un producto
  *     tags: [Productos]
  *     security:
  *       - bearerAuth: []
@@ -370,19 +298,57 @@ router.get('/barcode/:codigo', getProductoByCodigoBarras);
  *         required: true
  *         schema:
  *           type: string
+ *         description: ID del producto base
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - atributos
+ *             properties:
+ *               atributos:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     nombre:
+ *                       type: string
+ *                       example: "Color"
+ *                     valores:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["Rojo", "Azul", "Negro"]
  *     responses:
  *       200:
- *         description: Datos del producto
- *       404:
- *         description: Producto no encontrado
+ *         description: Variantes generadas exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                 message:
+ *                   type: string
+ *                   example: "Variantes generadas correctamente"
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
  */
-router.get('/:id', getProducto);
+router.post('/:id/variantes', productosController.generarVariantes.bind(productosController));
 
 /**
  * @swagger
  * /api/productos/{id}:
  *   put:
- *     summary: Actualizar producto
+ *     summary: Actualizar producto existente
  *     tags: [Productos]
  *     security:
  *       - bearerAuth: []
@@ -392,6 +358,7 @@ router.get('/:id', getProducto);
  *         required: true
  *         schema:
  *           type: string
+ *         description: ID del producto
  *     requestBody:
  *       required: true
  *       content:
@@ -403,71 +370,42 @@ router.get('/:id', getProducto);
  *                 type: string
  *               descripcion:
  *                 type: string
- *               precios:
+ *               familiaId:
+ *                 type: string
+ *               precio:
  *                 type: object
  *               stock:
  *                 type: object
+ *               activo:
+ *                 type: boolean
  *     responses:
  *       200:
- *         description: Producto actualizado
+ *         description: Producto actualizado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                 message:
+ *                   type: string
+ *                   example: "Producto actualizado correctamente"
  *       404:
  *         description: Producto no encontrado
+ *       401:
+ *         description: No autorizado
  */
-router.put('/:id', updateProducto);
-
-/**
- * @swagger
- * /api/productos/{id}:
- *   delete:
- *     summary: Desactivar producto (soft delete)
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Producto desactivado
- *       404:
- *         description: Producto no encontrado
- */
-router.delete('/:id', deleteProducto);
-
-/**
- * @swagger
- * /api/productos/{id}/permanente:
- *   delete:
- *     summary: Eliminar producto permanentemente
- *     tags: [Productos]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Producto eliminado permanentemente
- *       404:
- *         description: Producto no encontrado
- */
-router.delete('/:id/permanente', deleteProductoPermanente);
-
-// ============================================
-// RUTAS DE STOCK
-// ============================================
+router.put('/:id', productosController.actualizar.bind(productosController));
 
 /**
  * @swagger
  * /api/productos/{id}/stock:
  *   put:
- *     summary: Actualizar stock de producto
+ *     summary: Actualizar stock de un producto
  *     tags: [Productos]
  *     security:
  *       - bearerAuth: []
@@ -477,39 +415,76 @@ router.delete('/:id/permanente', deleteProductoPermanente);
  *         required: true
  *         schema:
  *           type: string
+ *         description: ID del producto
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - cantidad
- *               - tipo
  *             properties:
  *               cantidad:
  *                 type: number
+ *                 example: 50
+ *               minimo:
+ *                 type: number
  *                 example: 10
- *               tipo:
- *                 type: string
- *                 enum: [entrada, salida, ajuste]
- *                 example: entrada
- *               motivo:
- *                 type: string
- *                 example: Compra a proveedor
  *     responses:
  *       200:
- *         description: Stock actualizado
+ *         description: Stock actualizado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                 message:
+ *                   type: string
+ *                   example: "Stock actualizado correctamente"
+ *       404:
+ *         description: Producto no encontrado
+ *       401:
+ *         description: No autorizado
  */
-router.put('/:id/stock', updateStock);
+router.put('/:id/stock', productosController.actualizarStock.bind(productosController));
 
-
-
-// ============================================
-// RUTAS DE INFORMACIÓN
-// ============================================
-
-
-
+/**
+ * @swagger
+ * /api/productos/{id}:
+ *   delete:
+ *     summary: Eliminar producto
+ *     tags: [Productos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del producto
+ *     responses:
+ *       200:
+ *         description: Producto eliminado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Producto no encontrado
+ *       401:
+ *         description: No autorizado
+ */
+router.delete('/:id', productosController.eliminar.bind(productosController));
 
 export default router;

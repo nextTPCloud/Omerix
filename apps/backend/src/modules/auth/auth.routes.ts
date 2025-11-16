@@ -16,8 +16,17 @@ import {
   resetPassword,
   verifyResetToken,
   forgotPassword,
+  logout,
+  getActiveSessions,
+  logoutAllSessions,
 } from './auth.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
+import {
+  authLimiter,
+  registerLimiter,
+  twoFactorLimiter,
+  passwordResetLimiter,
+} from '../../middleware/rateLimiter.middleware';
 
 const router = Router();
 
@@ -83,7 +92,7 @@ const router = Router();
  *       400:
  *         description: Datos inválidos
  */
-router.post('/register', register);
+router.post('/register', registerLimiter, register);
 
 /**
  * @swagger
@@ -115,7 +124,7 @@ router.post('/register', register);
  *       401:
  *         description: Credenciales inválidas
  */
-router.post('/login', login);
+router.post('/login', authLimiter, login);
 
 /**
  * @swagger
@@ -145,7 +154,7 @@ router.post('/login', login);
  *       401:
  *         description: Código inválido
  */
-router.post('/verify-2fa', verify2FA);
+router.post('/verify-2fa', twoFactorLimiter, verify2FA);
 
 /**
  * @swagger
@@ -235,7 +244,7 @@ router.post('/refresh', refreshToken);
  *       200:
  *         description: Email de recuperación enviado (si existe)
  */
-router.post('/forgot-password', forgotPassword);
+router.post('/forgot-password', passwordResetLimiter, forgotPassword);
 
 /**
  * @swagger
@@ -424,5 +433,106 @@ router.post('/2fa/confirm/sms', authMiddleware, confirm2FASMS);
  *         description: 2FA desactivado
  */
 router.post('/2fa/disable', authMiddleware, disable2FA);
+
+// ============================================
+// GESTIÓN DE SESIONES Y TOKENS
+// ============================================
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Cerrar sesión (revocar refresh token)
+ *     tags: [Autenticación]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *     responses:
+ *       200:
+ *         description: Sesión cerrada exitosamente
+ *       400:
+ *         description: Refresh token es requerido
+ */
+router.post('/logout', logout);
+
+/**
+ * @swagger
+ * /api/auth/sessions:
+ *   get:
+ *     summary: Obtener sesiones activas del usuario
+ *     tags: [Autenticación]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de sesiones activas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       deviceInfo:
+ *                         type: string
+ *                       ipAddress:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       expiresAt:
+ *                         type: string
+ *                         format: date-time
+ *       401:
+ *         description: No autenticado
+ */
+router.get('/sessions', authMiddleware, getActiveSessions);
+
+/**
+ * @swagger
+ * /api/auth/logout-all:
+ *   post:
+ *     summary: Cerrar todas las sesiones activas del usuario
+ *     tags: [Autenticación]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Todas las sesiones cerradas exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Se cerraron 3 sesiones activas"
+ *                 count:
+ *                   type: number
+ *                   example: 3
+ *       401:
+ *         description: No autenticado
+ */
+router.post('/logout-all', authMiddleware, logoutAllSessions);
 
 export default router;

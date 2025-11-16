@@ -4,11 +4,11 @@ import mongoose from 'mongoose';
 import { CreateClienteSchema } from './clientes.dto';
 
 export class ClientesController {
-  
+
   // ============================================
   // CREAR CLIENTE
   // ============================================
-  
+
   async create(req: Request, res: Response) {
     try {
       // ✅ FIX: Eliminar campo codigo si viene vacío o undefined
@@ -16,23 +16,34 @@ export class ClientesController {
       if (req.body.codigo === '' || req.body.codigo === undefined || req.body.codigo === null) {
         delete req.body.codigo;
       }
+
+      // Validar autenticación
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
           success: false,
           message: 'No autenticado',
         });
-      }       
+      }
+
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
       const validatedData = CreateClienteSchema.parse(req.body);
 
-      
-    // Obtener empresaId y usuarioId del request (añadidos por middleware)
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
-      const usuarioId = new mongoose.Types.ObjectId(req.userId); // Del middleware de autenticación
+      // Obtener empresaId y usuarioId del request (añadidos por middleware)
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const usuarioId = new mongoose.Types.ObjectId(req.userId);
 
       // Verificar duplicados
       const existeDuplicado = await clientesService.verificarDuplicados(
         req.body.nif,
-        empresaId
+        empresaId,
+        req.empresaDbConfig  // ← AÑADIDO
       );
 
       if (existeDuplicado) {
@@ -45,7 +56,8 @@ export class ClientesController {
       const cliente = await clientesService.crear(
         req.body,
         empresaId,
-        usuarioId
+        usuarioId,
+        req.empresaDbConfig  // ← AÑADIDO
       );
 
       res.status(201).json({
@@ -65,7 +77,7 @@ export class ClientesController {
   // ============================================
   // OBTENER TODOS
   // ============================================
-  
+
   async findAll(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
@@ -75,10 +87,21 @@ export class ClientesController {
         });
       }
 
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
-      
-      // ✅ FIX: Desestructurar el resultado para evitar errores de TypeScript
-      const { clientes, total, page, limit, totalPages } = await clientesService.findAll(empresaId, req.query);
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+
+      const { clientes, total, page, limit, totalPages } = await clientesService.findAll(
+        empresaId,
+        req.empresaDbConfig,  // ← AÑADIDO
+        req.query
+      );
 
       res.json({
         success: true,
@@ -87,7 +110,7 @@ export class ClientesController {
           total,
           page,
           limit,
-          pages: totalPages,  // ← CAMBIO: pages en lugar de totalPages
+          pages: totalPages,
         },
       });
     } catch (error: any) {
@@ -102,7 +125,7 @@ export class ClientesController {
   // ============================================
   // OBTENER POR ID
   // ============================================
-  
+
   async findById(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
@@ -112,8 +135,20 @@ export class ClientesController {
         });
       }
 
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
-      const cliente = await clientesService.findById(req.params.id, empresaId);
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const cliente = await clientesService.findById(
+        req.params.id,
+        empresaId,
+        req.empresaDbConfig  // ← AÑADIDO
+      );
 
       if (!cliente) {
         return res.status(404).json({
@@ -138,7 +173,7 @@ export class ClientesController {
   // ============================================
   // ACTUALIZAR
   // ============================================
-  
+
   async update(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
@@ -148,7 +183,15 @@ export class ClientesController {
         });
       }
 
-      const empresaId = new mongoose.Types.ObjectId(req.empresaId); // Del middleware de autenticación
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
       const usuarioId = new mongoose.Types.ObjectId(req.userId);
 
       // Verificar duplicados si se cambia el NIF
@@ -156,6 +199,7 @@ export class ClientesController {
         const existeDuplicado = await clientesService.verificarDuplicados(
           req.body.nif,
           empresaId,
+          req.empresaDbConfig,  // ← AÑADIDO
           req.params.id
         );
 
@@ -171,7 +215,8 @@ export class ClientesController {
         req.params.id,
         req.body,
         empresaId,
-        usuarioId
+        usuarioId,
+        req.empresaDbConfig  // ← AÑADIDO
       );
 
       if (!cliente) {
@@ -208,10 +253,22 @@ export class ClientesController {
         });
       }
 
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
       const empresaId = new mongoose.Types.ObjectId(req.empresaId);
       const prefijo = req.query.prefijo as string | undefined;
 
-      const codigoSugerido = await clientesService.sugerirSiguienteCodigo(empresaId, prefijo);
+      const codigoSugerido = await clientesService.sugerirSiguienteCodigo(
+        empresaId,
+        req.empresaDbConfig,  // ← AÑADIDO
+        prefijo
+      );
 
       res.json({
         success: true,
@@ -239,8 +296,20 @@ export class ClientesController {
         });
       }
 
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
       const empresaId = new mongoose.Types.ObjectId(req.empresaId);
-      const resultado = await clientesService.eliminar(req.params.id, empresaId);
+      const resultado = await clientesService.eliminar(
+        req.params.id,
+        empresaId,
+        req.empresaDbConfig  // ← AÑADIDO
+      );
 
       if (!resultado) {
         return res.status(404).json({
@@ -265,13 +334,21 @@ export class ClientesController {
   // ============================================
   // ELIMINACIÓN MÚLTIPLE
   // ============================================
-  
+
   async bulkDelete(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
           success: false,
           message: 'No autenticado',
+        });
+      }
+
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
         });
       }
 
@@ -285,7 +362,11 @@ export class ClientesController {
         });
       }
 
-      const count = await clientesService.eliminarMultiples(ids, empresaId);
+      const count = await clientesService.eliminarMultiples(
+        ids,
+        empresaId,
+        req.empresaDbConfig  // ← AÑADIDO
+      );
 
       res.json({
         success: true,
@@ -304,13 +385,21 @@ export class ClientesController {
   // ============================================
   // CAMBIAR ESTADO (ACTIVAR/DESACTIVAR)
   // ============================================
-  
+
   async changeStatus(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
           success: false,
           message: 'No autenticado',
+        });
+      }
+
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
         });
       }
 
@@ -329,7 +418,8 @@ export class ClientesController {
         req.params.id,
         activo,
         empresaId,
-        usuarioId
+        usuarioId,
+        req.empresaDbConfig  // ← AÑADIDO
       );
 
       if (!cliente) {
@@ -356,7 +446,7 @@ export class ClientesController {
   // ============================================
   // OBTENER ESTADÍSTICAS
   // ============================================
-  
+
   async obtenerEstadisticas(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
@@ -366,8 +456,19 @@ export class ClientesController {
         });
       }
 
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
       const empresaId = new mongoose.Types.ObjectId(req.empresaId);
-      const estadisticas = await clientesService.obtenerEstadisticas(empresaId);
+      const estadisticas = await clientesService.obtenerEstadisticas(
+        empresaId,
+        req.empresaDbConfig  // ← AÑADIDO
+      );
 
       res.json({
         success: true,
@@ -385,7 +486,7 @@ export class ClientesController {
   // ============================================
   // EXPORTAR CSV
   // ============================================
-  
+
   async exportarCSV(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
@@ -395,8 +496,20 @@ export class ClientesController {
         });
       }
 
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
       const empresaId = new mongoose.Types.ObjectId(req.empresaId);
-      const clientes = await clientesService.exportarCSV(empresaId, req.query);
+      const clientes = await clientesService.exportarCSV(
+        empresaId,
+        req.empresaDbConfig,  // ← AÑADIDO
+        req.query
+      );
 
       // Configurar headers para descarga
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -423,13 +536,21 @@ export class ClientesController {
   // ============================================
   // SUBIR ARCHIVO
   // ============================================
-  
+
   async subirArchivo(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
           success: false,
           message: 'No autenticado',
+        });
+      }
+
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
         });
       }
 
@@ -454,7 +575,8 @@ export class ClientesController {
         req.params.id,
         archivo,
         empresaId,
-        usuarioId
+        usuarioId,
+        req.empresaDbConfig  // ← AÑADIDO
       );
 
       if (!cliente) {
@@ -481,13 +603,21 @@ export class ClientesController {
   // ============================================
   // ELIMINAR ARCHIVO
   // ============================================
-  
+
   async eliminarArchivo(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
           success: false,
           message: 'No autenticado',
+        });
+      }
+
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
         });
       }
 
@@ -506,7 +636,8 @@ export class ClientesController {
         req.params.id,
         url,
         empresaId,
-        usuarioId
+        usuarioId,
+        req.empresaDbConfig  // ← AÑADIDO
       );
 
       if (!cliente) {
@@ -533,13 +664,21 @@ export class ClientesController {
   // ============================================
   // ACTUALIZAR RIESGO
   // ============================================
-  
+
   async actualizarRiesgo(req: Request, res: Response) {
     try {
       if (!req.empresaId || !req.userId) {
         return res.status(401).json({
           success: false,
           message: 'No autenticado',
+        });
+      }
+
+      // ✅ MULTI-DB: Verificar que existe configuración de DB
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
         });
       }
 
@@ -556,7 +695,8 @@ export class ClientesController {
       const cliente = await clientesService.actualizarRiesgo(
         req.params.id,
         riesgo,
-        empresaId
+        empresaId,
+        req.empresaDbConfig  // ← AÑADIDO
       );
 
       if (!cliente) {

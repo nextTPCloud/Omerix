@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { clientesController } from './clientes.controller';
-import { 
-  CreateClienteSchema, 
-  UpdateClienteSchema, 
+import {
+  CreateClienteSchema,
+  UpdateClienteSchema,
   BulkDeleteClientesSchema,
   ChangeStatusSchema,
 } from './clientes.dto';
 import multer from 'multer';
 import { authMiddleware } from '@/middleware/auth.middleware';
+import { tenantMiddleware } from '@/middleware/tenant.middleware';
 import { validateBody } from '@/middleware/validation.middleware';
 
 const router = Router();
@@ -55,8 +56,9 @@ const upload = multer({
   },
 });
 
-// Todas las rutas requieren autenticación
+// Todas las rutas requieren autenticación y tenant
 router.use(authMiddleware);
+router.use(tenantMiddleware);
 
 // ============================================
 // RUTAS CRUD BÁSICAS

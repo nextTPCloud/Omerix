@@ -1,5 +1,14 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 
+export interface IDatabaseConfig {
+  host: string;
+  port: number;
+  name: string;
+  user?: string;
+  password?: string;
+  uri?: string; // URI completa de MongoDB
+}
+
 export interface IEmpresa extends Document {
   _id: Types.ObjectId;
   nombre: string;
@@ -16,7 +25,11 @@ export interface IEmpresa extends Document {
   tipoNegocio: 'retail' | 'restauracion' | 'taller' | 'informatica' | 'servicios' | 'otro';
   estado: 'activa' | 'suspendida' | 'cancelada';
   fechaAlta: Date;
-   // IDs de pasarelas de pago ← AÑADIR ESTO
+
+  // Configuración de base de datos dedicada
+  databaseConfig: IDatabaseConfig;
+
+  // IDs de pasarelas de pago
   stripeCustomerId?: string;
   paypalCustomerId?: string;
   redsysCustomerId?: string;
@@ -25,6 +38,15 @@ export interface IEmpresa extends Document {
   updatedAt: Date;
 }
 
+const DatabaseConfigSchema = new Schema<IDatabaseConfig>({
+  host: { type: String, required: true },
+  port: { type: Number, required: true, default: 27017 },
+  name: { type: String, required: true },
+  user: { type: String },
+  password: { type: String, select: false }, // No se devuelve por defecto por seguridad
+  uri: { type: String, select: false }, // URI completa, tampoco se devuelve por defecto
+}, { _id: false });
+
 const EmpresaSchema = new Schema<IEmpresa>(
   {
      _id: {
@@ -32,7 +54,7 @@ const EmpresaSchema = new Schema<IEmpresa>(
       required: true,
       auto: true,
     },
-    
+
     nombre: {
       type: String,
       required: [true, 'El nombre es obligatorio'],
@@ -79,7 +101,14 @@ const EmpresaSchema = new Schema<IEmpresa>(
       type: Date,
       default: Date.now,
     },
-     // IDs de pasarelas de pago ← AÑADIR ESTO
+
+    // Configuración de base de datos dedicada para esta empresa
+    databaseConfig: {
+      type: DatabaseConfigSchema,
+      required: true,
+    },
+
+    // IDs de pasarelas de pago
     stripeCustomerId: String,
     paypalCustomerId: String,
     redsysCustomerId: String,

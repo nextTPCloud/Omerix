@@ -8,7 +8,7 @@ import {
 
 /**
  * ============================================
- * VISTAS GUARDADAS CONTROLLER
+ * VISTAS GUARDADAS CONTROLLER (Multi-DB)
  * ============================================
  */
 
@@ -36,10 +36,21 @@ class VistasGuardadasController {
 
       const usuarioId = (req as any).userId;
       const empresaId = (req as any).empresaId;
+      const empresaDbConfig = (req as any).empresaDbConfig;
+
+      // Multi-DB: Verificar que existe la configuración de BD
+      if (!empresaDbConfig) {
+        res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+        return;
+      }
 
       const vistas = await VistasGuardadasService.findAll(
         usuarioId,
         empresaId,
+        empresaDbConfig,
         validation.data
       );
 
@@ -67,11 +78,21 @@ class VistasGuardadasController {
       const { id } = req.params;
       const usuarioId = (req as any).userId;
       const empresaId = (req as any).empresaId;
+      const empresaDbConfig = (req as any).empresaDbConfig;
+
+      if (!empresaDbConfig) {
+        res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+        return;
+      }
 
       const vista = await VistasGuardadasService.findById(
         id,
         usuarioId,
-        empresaId
+        empresaId,
+        empresaDbConfig
       );
 
       if (!vista) {
@@ -106,10 +127,20 @@ class VistasGuardadasController {
       const { modulo } = req.params;
       const usuarioId = (req as any).userId;
       const empresaId = (req as any).empresaId;
+      const empresaDbConfig = (req as any).empresaDbConfig;
+
+      if (!empresaDbConfig) {
+        res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+        return;
+      }
 
       const vista = await VistasGuardadasService.findDefault(
         usuarioId,
         empresaId,
+        empresaDbConfig,
         modulo
       );
 
@@ -158,10 +189,20 @@ class VistasGuardadasController {
 
       const usuarioId = (req as any).userId;
       const empresaId = (req as any).empresaId;
+      const empresaDbConfig = (req as any).empresaDbConfig;
+
+      if (!empresaDbConfig) {
+        res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+        return;
+      }
 
       const vista = await VistasGuardadasService.create(
         usuarioId,
         empresaId,
+        empresaDbConfig,
         validation.data
       );
 
@@ -204,11 +245,21 @@ class VistasGuardadasController {
 
       const usuarioId = (req as any).userId;
       const empresaId = (req as any).empresaId;
+      const empresaDbConfig = (req as any).empresaDbConfig;
+
+      if (!empresaDbConfig) {
+        res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+        return;
+      }
 
       const vista = await VistasGuardadasService.update(
         id,
         usuarioId,
         empresaId,
+        empresaDbConfig,
         validation.data
       );
 
@@ -245,11 +296,21 @@ class VistasGuardadasController {
       const { id } = req.params;
       const usuarioId = (req as any).userId;
       const empresaId = (req as any).empresaId;
+      const empresaDbConfig = (req as any).empresaDbConfig;
+
+      if (!empresaDbConfig) {
+        res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+        return;
+      }
 
       const deleted = await VistasGuardadasService.delete(
         id,
         usuarioId,
-        empresaId
+        empresaId,
+        empresaDbConfig
       );
 
       if (!deleted) {
@@ -285,11 +346,21 @@ class VistasGuardadasController {
       const { nuevoNombre } = req.body;
       const usuarioId = (req as any).userId;
       const empresaId = (req as any).empresaId;
+      const empresaDbConfig = (req as any).empresaDbConfig;
+
+      if (!empresaDbConfig) {
+        res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+        return;
+      }
 
       const vistaDuplicada = await VistasGuardadasService.duplicate(
         id,
         usuarioId,
         empresaId,
+        empresaDbConfig,
         nuevoNombre
       );
 
@@ -326,11 +397,21 @@ class VistasGuardadasController {
       const { id } = req.params;
       const usuarioId = (req as any).userId;
       const empresaId = (req as any).empresaId;
+      const empresaDbConfig = (req as any).empresaDbConfig;
+
+      if (!empresaDbConfig) {
+        res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+        return;
+      }
 
       const vista = await VistasGuardadasService.setDefault(
         id,
         usuarioId,
-        empresaId
+        empresaId,
+        empresaDbConfig
       );
 
       if (!vista) {

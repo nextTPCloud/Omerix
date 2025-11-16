@@ -40,18 +40,29 @@ const {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     try {
-      const response = await authService.login(data)
+      // Capturar información del dispositivo
+      const deviceInfo = navigator.userAgent
+
+      const response = await authService.login({
+        ...data,
+        deviceInfo,
+      })
 
       if (response.requires2FA) {
-        setRequires2FA(true)
-        setUserId(response.userId!)
-        setTwoFactorMethod(response.twoFactorMethod!)
+        // Redirigir a la página de verificación 2FA
         toast.info('Introduce el código de verificación')
+        router.push(`/verify-2fa?userId=${response.userId}&method=${response.twoFactorMethod}`)
       } else {
         // Login exitoso sin 2FA
         setAuth(response.data!.usuario, response.data!.accessToken, response.data!.refreshToken)
         toast.success('¡Bienvenido!')
-        router.push('/dashboard')
+
+        // Redirigir según el rol del usuario
+        if (response.data!.usuario.rol === 'superadmin') {
+          router.push('/admin')
+        } else {
+          router.push('/dashboard')
+        }
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error al iniciar sesión')

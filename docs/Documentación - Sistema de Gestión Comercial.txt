@@ -1,0 +1,407 @@
+Documentación del Sistema de Gestión Comercial
+1. Información General del Proyecto
+1.1 Descripción
+Sistema web de gestión comercial integral para PyMEs que permite administrar clientes, productos, ventas,
+inventario y reportes en tiempo real.
+
+1.2 Stack Tecnológico
+• Frontend: Next.js 14+ (App Router)
+• Framework UI: React 18+
+• Estilos: Tailwind CSS
+• Base de datos: PostgreSQL / MongoDB (a definir)
+• ORM: Prisma / Mongoose
+• Autenticación: NextAuth.js
+• Estado global: Zustand / Context API
+• Validación: Zod
+• Formularios: React Hook Form
+
+2. Arquitectura del Sistema
+2.1 Estructura de Carpetas
+
+/app
+/(auth)
+/login
+/registro
+/(dashboard)
+/clientes
+/productos
+/ventas
+/inventario
+/reportes
+/configuracion
+/api
+/clientes
+/productos
+/ventas
+/inventario
+/auth
+/components
+/ui (componentes base)
+/layouts
+/forms
+/tables
+/charts
+/lib
+/db
+/utils
+/validations
+/hooks
+/types
+/public
+
+2.2 Patrones de Diseño
+• Server Components por defecto para mejor rendimiento
+• Client Components solo cuando sea necesario (interactividad)
+• API Routes para operaciones del servidor
+• Middleware para protección de rutas
+
+3. Módulos Principales
+3.1 Módulo de Autenticación
+
+Funcionalidades:
+• Registro de usuarios
+• Login con email/password
+• Recuperación de contraseña
+• Gestión de sesiones
+• Roles y permisos (Admin, Vendedor, Visualizador)
+Pantallas:
+• /login - Inicio de sesión
+• /registro - Registro de nuevos usuarios
+• /recuperar-password - Recuperación de contraseña
+
+3.2 Módulo de Clientes
+Funcionalidades:
+• CRUD completo de clientes
+• Búsqueda y filtrado avanzado
+• Historial de compras por cliente
+• Datos de contacto y facturación
+• Categorización de clientes
+Campos del Cliente:
+
+• ID (auto-generado)
+• Nombre/Razón Social
+• DNI/CUIT
+• Email
+• Teléfono
+• Dirección
+• Ciudad/Provincia/País
+• Categoría (Regular, VIP, Mayorista)
+• Límite de crédito
+• Saldo pendiente
+• Fecha de registro
+• Estado (Activo/Inactivo)
+Pantallas:
+• /clientes - Lista de clientes
+• /clientes/nuevo - Crear cliente
+• /clientes/[id] - Ver/Editar cliente
+• /clientes/[id]/historial - Historial de compras
+
+3.3 Módulo de Productos
+Funcionalidades:
+• CRUD de productos
+• Gestión de categorías
+• Control de stock
+• Precios y descuentos
+• Imágenes de productos
+• Códigos de barras/SKU
+Campos del Producto:
+
+• ID/SKU
+• Nombre
+• Descripción
+• Categoría
+• Precio de costo
+• Precio de venta
+• Stock actual
+• Stock mínimo
+• Stock máximo
+• Unidad de medida
+• Código de barras
+• Proveedor
+• Imágenes
+• Estado (Activo/Inactivo/Descontinuado)
+Pantallas:
+• /productos - Lista de productos
+• /productos/nuevo - Crear producto
+• /productos/[id] - Ver/Editar producto
+• /productos/categorias - Gestión de categorías
+
+3.4 Módulo de Ventas
+Funcionalidades:
+
+• Punto de venta (POS)
+• Generación de presupuestos
+• Conversión de presupuesto a venta
+• Facturas y comprobantes
+• Múltiples formas de pago
+• Descuentos por producto o total
+• Devoluciones y notas de crédito
+Campos de la Venta:
+• Número de venta
+• Fecha y hora
+• Cliente
+• Vendedor
+• Items (productos, cantidad, precio)
+• Subtotal
+• Descuentos
+• Impuestos
+• Total
+• Forma de pago (Efectivo, Tarjeta, Transferencia, Crédito)
+• Estado (Pendiente, Pagada, Cancelada)
+• Observaciones
+Pantallas:
+• /ventas - Lista de ventas
+• /ventas/nueva - Punto de venta
+• /ventas/[id] - Detalle de venta
+• /ventas/presupuestos - Gestión de presupuestos
+
+3.5 Módulo de Inventario
+Funcionalidades:
+
+• Control de stock en tiempo real
+• Alertas de stock mínimo
+• Movimientos de inventario
+• Ajustes de inventario
+• Transferencias entre depósitos
+• Historial de movimientos
+Tipos de Movimientos:
+• Entrada por compra
+• Salida por venta
+• Ajuste manual
+• Devolución
+• Transferencia
+Pantallas:
+• /inventario - Estado del inventario
+• /inventario/movimientos - Historial de movimientos
+• /inventario/ajustes - Ajustes de inventario
+• /inventario/alertas - Productos con stock bajo
+
+3.6 Módulo de Reportes
+Funcionalidades:
+• Dashboard con métricas clave
+• Reportes de ventas
+• Reportes de inventario
+• Reportes de clientes
+• Análisis de productos más vendidos
+• Gráficos y visualizaciones
+• Exportación a PDF/Excel
+Reportes Principales:
+
+• Ventas del día/semana/mes/año
+• Top productos vendidos
+• Ventas por vendedor
+• Ventas por cliente
+• Estado del inventario
+• Productos con mayor rotación
+• Análisis de rentabilidad
+Pantallas:
+• /reportes - Dashboard general
+• /reportes/ventas - Reportes de ventas
+• /reportes/inventario - Reportes de inventario
+• /reportes/financiero - Análisis financiero
+
+4. Componentes UI Reutilizables
+4.1 Componentes Base
+• Button - Botones con variantes
+• Input - Campos de entrada
+• Select - Selectores desplegables
+• Modal - Ventanas modales
+• Table - Tablas con paginación y ordenamiento
+• Card - Tarjetas de contenido
+• Badge - Etiquetas de estado
+• Alert - Alertas y notificaciones
+• Loader - Indicadores de carga
+• Pagination - Paginación de datos
+
+4.2 Componentes Complejos
+
+• DataTable - Tabla con búsqueda, filtros y acciones
+• FormBuilder - Constructor de formularios
+• ChartWidget - Gráficos (líneas, barras, torta)
+• SearchBar - Barra de búsqueda avanzada
+• FileUpload - Carga de archivos/imágenes
+• DateRangePicker - Selector de rango de fechas
+• StatsCard - Tarjeta de estadísticas
+
+5. Base de Datos
+5.1 Modelos Principales
+Users
+• id, email, password, nombre, rol, estado, createdAt
+Clientes
+• id, nombre, dni, email, telefono, direccion, categoria, limiteCredito, saldo, estado, createdAt
+Productos
+• id, sku, nombre, descripcion, categoriaId, precioCosto, precioVenta, stock, stockMinimo, estado, createdAt
+Categorias
+• id, nombre, descripcion, estado
+Ventas
+• id, clienteId, vendedorId, fecha, subtotal, descuento, impuestos, total, formaPago, estado, createdAt
+VentasItems
+• id, ventaId, productoId, cantidad, precioUnitario, descuento, subtotal
+MovimientosInventario
+• id, productoId, tipo, cantidad, motivo, usuarioId, fecha
+
+6. APIs y Endpoints
+6.1 Autenticación
+
+• POST /api/auth/register - Registro
+• POST /api/auth/login - Login
+• POST /api/auth/logout - Logout
+• POST /api/auth/forgot-password - Recuperar contraseña
+
+6.2 Clientes
+• GET /api/clientes - Listar clientes
+• POST /api/clientes - Crear cliente
+• GET /api/clientes/:id - Obtener cliente
+• PUT /api/clientes/:id - Actualizar cliente
+• DELETE /api/clientes/:id - Eliminar cliente
+
+6.3 Productos
+• GET /api/productos - Listar productos
+• POST /api/productos - Crear producto
+• GET /api/productos/:id - Obtener producto
+• PUT /api/productos/:id - Actualizar producto
+• DELETE /api/productos/:id - Eliminar producto
+
+6.4 Ventas
+• GET /api/ventas - Listar ventas
+• POST /api/ventas - Crear venta
+• GET /api/ventas/:id - Obtener venta
+• PUT /api/ventas/:id - Actualizar venta
+• DELETE /api/ventas/:id - Cancelar venta
+
+6.5 Inventario
+• GET /api/inventario - Estado del inventario
+• POST /api/inventario/movimientos - Registrar movimiento
+• GET /api/inventario/movimientos - Listar movimientos
+
+7. Características Adicionales
+7.1 Funcionalidades Extra
+• Búsqueda global - Buscar en toda la aplicación
+• Notificaciones - Alertas en tiempo real
+• Temas - Modo claro/oscuro
+• Responsive - Adaptable a todos los dispositivos
+• PWA - Instalable como app móvil
+• Offline mode - Funcionamiento sin conexión básico
+• Multi-idioma - Soporte para varios idiomas
+• Backup automático - Respaldo de datos
+
+7.2 Seguridad
+• Autenticación JWT
+• Validación de datos en servidor
+• Sanitización de inputs
+• Rate limiting en APIs
+• Encriptación de datos sensibles
+• Logs de auditoría
+
+8. Flujos de Trabajo Principales
+8.1 Flujo de Venta
+1. Buscar/seleccionar cliente
+2. Agregar productos al carrito
+3. Aplicar descuentos si aplica
+4. Seleccionar forma de pago
+5. Confirmar venta
+6. Generar comprobante
+7. Actualizar inventario automáticamente
+
+8.2 Flujo de Inventario
+
+1. Recepción de productos
+2. Registro en sistema
+3. Actualización de stock
+4. Alertas automáticas de stock bajo
+5. Reorden automático (opcional)
+
+9. Métricas y KPIs
+9.1 Dashboard Principal
+• Ventas del día
+• Ventas del mes
+• Productos con stock bajo
+• Top 5 productos vendidos
+• Gráfico de ventas últimos 7 días
+• Total de clientes activos
+• Ventas pendientes de pago
+
+10. Roadmap de Desarrollo
+Fase 1 - MVP (4 semanas)
+• Autenticación básica
+• CRUD de clientes
+• CRUD de productos
+• Punto de venta simple
+• Control de inventario básico
+
+Fase 2 - Funcionalidades Avanzadas (3 semanas)
+
+• Reportes y dashboard
+• Sistema de permisos
+• Categorías avanzadas
+• Formas de pago múltiples
+• Búsqueda avanzada
+
+Fase 3 - Optimización (2 semanas)
+• Optimización de rendimiento
+• Responsive design
+• Testing
+• Documentación
+
+Fase 4 - Características Extra (según necesidad)
+• Integración con APIs externas
+• App móvil
+• Modo offline
+• Multi-sucursal
+
+11. Consideraciones Técnicas
+11.1 Performance
+• Server-side rendering por defecto
+• Lazy loading de componentes
+• Optimización de imágenes con Next.js Image
+• Caché de datos frecuentes
+• Paginación en listados grandes
+
+11.2 SEO y Accesibilidad
+
+• Metadata optimizado
+• Semantic HTML
+• ARIA labels
+• Navegación por teclado
+• Contrast ratios adecuados
+
+12. Testing
+12.1 Tipos de Test
+• Unit tests (componentes)
+• Integration tests (flujos)
+• E2E tests (Cypress/Playwright)
+• API tests
+
+13. Deployment
+13.1 Opciones de Deploy
+• Vercel (recomendado para Next.js)
+• Railway
+• AWS
+• Digital Ocean
+
+13.2 Variables de Entorno
+DATABASE_URL
+NEXTAUTH_SECRET
+NEXTAUTH_URL
+NEXT_PUBLIC_API_URL
+
+14. Documentación de Usuario
+14.1 Manuales
+
+• Manual de usuario final
+• Manual de administrador
+• Guía de configuración inicial
+• FAQs
+
+15. Notas Adicionales
+• Todos los formularios deben tener validación
+• Confirmar acciones destructivas (eliminar)
+• Mensajes de éxito/error claros
+• Loading states en todas las operaciones
+• Manejo de errores consistente
+• Logs de auditoría para acciones críticas
+
+Versión del documento: 1.0
+Última actualización: 03/10/2025
+
+

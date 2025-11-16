@@ -54,9 +54,13 @@ export const LoginSchema = z.object({
   email: z.string()
     .email('Email inválido')
     .toLowerCase(),
-  
+
   password: z.string()
     .min(1, 'La contraseña es obligatoria'),
+
+  // Opcionales: se agregan desde el controller
+  deviceInfo: z.string().optional(),
+  ipAddress: z.string().optional(),
 });
 
 export type LoginDTO = z.infer<typeof LoginSchema>;
@@ -68,10 +72,14 @@ export type LoginDTO = z.infer<typeof LoginSchema>;
 export const Verify2FASchema = z.object({
   userId: z.string()
     .min(1, 'UserId es obligatorio'),
-  
+
   code: z.string()
     .length(6, 'El código debe tener 6 dígitos')
     .regex(/^\d{6}$/, 'El código debe ser numérico'),
+
+  // Opcionales: se agregan desde el controller
+  deviceInfo: z.string().optional(),
+  ipAddress: z.string().optional(),
 });
 
 export type Verify2FADTO = z.infer<typeof Verify2FASchema>;

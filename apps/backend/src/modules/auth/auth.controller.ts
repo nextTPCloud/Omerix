@@ -571,7 +571,7 @@ export const resendSMSCode = async (req: Request, res: Response) => {
   try {
     // Validar
     const validation = validateRequest<ResendSMSDTO>(ResendSMSSchema, req.body);
-    
+
     if (!validation.success) {
       return res.status(400).json({
         success: false,
@@ -588,10 +588,137 @@ export const resendSMSCode = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error reenviando SMS:', error);
-    
+
     res.status(500).json({
       success: false,
       message: error.message || 'Error reenviando código',
+    });
+  }
+};
+
+// ============================================
+// 🆕 LOGOUT (REVOCAR REFRESH TOKEN)
+// ============================================
+
+export const logout = async (req: Request, res: Response) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Refresh token es requerido',
+      });
+    }
+
+    await authService.logout(refreshToken);
+
+    res.json({
+      success: true,
+      message: 'Sesión cerrada exitosamente',
+    });
+  } catch (error: any) {
+    console.error('Error en logout:', error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al cerrar sesión',
+    });
+  }
+};
+
+// ============================================
+// 🆕 OBTENER SESIONES ACTIVAS
+// ============================================
+
+export const getActiveSessions = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId; // Del middleware de autenticación
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'No autenticado',
+      });
+    }
+
+    const sessions = await authService.getActiveSessions(userId);
+
+    res.json({
+      success: true,
+      data: sessions,
+    });
+  } catch (error: any) {
+    console.error('Error obteniendo sesiones:', error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al obtener sesiones',
+    });
+  }
+};
+
+// ============================================
+// 🆕 REVOCAR UNA SESIÓN ESPECÍFICA
+// ============================================
+
+export const revokeSession = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    const { sessionId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'No autenticado',
+      });
+    }
+
+    // TODO: Implementar método para revocar por sessionId
+    // Por ahora usaremos el método de revocar por token
+
+    res.json({
+      success: true,
+      message: 'Sesión revocada (pendiente implementación completa)',
+    });
+  } catch (error: any) {
+    console.error('Error revocando sesión:', error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al revocar sesión',
+    });
+  }
+};
+
+// ============================================
+// 🆕 CERRAR TODAS LAS SESIONES
+// ============================================
+
+export const logoutAllSessions = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'No autenticado',
+      });
+    }
+
+    const count = await authService.revokeAllUserTokens(userId, 'user_logout_all');
+
+    res.json({
+      success: true,
+      message: `Se cerraron ${count} sesiones activas`,
+      count,
+    });
+  } catch (error: any) {
+    console.error('Error cerrando todas las sesiones:', error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al cerrar todas las sesiones',
     });
   }
 };

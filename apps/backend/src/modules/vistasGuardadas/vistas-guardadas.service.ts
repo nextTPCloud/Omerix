@@ -1,14 +1,16 @@
 import mongoose from 'mongoose';
-import VistaGuardada, { IVistaGuardada } from './VistaGuardada';
+import { IVistaGuardada } from './VistaGuardada';
 import {
   CreateVistaGuardadaDto,
   UpdateVistaGuardadaDto,
   GetVistasGuardadasQueryDto,
 } from './vistas-guardadas.dto';
+import { getVistaGuardadaModel } from '@/utils/dynamic-models.helper';
+import { IDatabaseConfig } from '@/models/Empresa';
 
 /**
  * ============================================
- * VISTAS GUARDADAS SERVICE
+ * VISTAS GUARDADAS SERVICE (Multi-DB)
  * ============================================
  */
 
@@ -19,10 +21,12 @@ class VistasGuardadasService {
   async findAll(
     usuarioId: string,
     empresaId: string,
+    dbConfig: IDatabaseConfig,
     query: GetVistasGuardadasQueryDto
   ): Promise<IVistaGuardada[]> {
+    const VistaGuardadaModel = await getVistaGuardadaModel(empresaId, dbConfig);
+
     const filter: any = {
-      empresaId: new mongoose.Types.ObjectId(empresaId),
       modulo: query.modulo,
     };
 
@@ -36,8 +40,7 @@ class VistasGuardadasService {
       filter.usuarioId = new mongoose.Types.ObjectId(usuarioId);
     }
 
-    // 🔧 CORREGIDO: Quitar .lean() para mantener compatibilidad de tipos
-    const vistas = await VistaGuardada.find(filter)
+    const vistas = await VistaGuardadaModel.find(filter)
       .sort({ esDefault: -1, createdAt: -1 });
 
     return vistas;
@@ -49,16 +52,17 @@ class VistasGuardadasService {
   async findById(
     id: string,
     usuarioId: string,
-    empresaId: string
+    empresaId: string,
+    dbConfig: IDatabaseConfig
   ): Promise<IVistaGuardada | null> {
-    // 🔧 CORREGIDO: Quitar .lean()
-    const vista = await VistaGuardada.findOne({
+    const VistaGuardadaModel = await getVistaGuardadaModel(empresaId, dbConfig);
+
+    const vista = await VistaGuardadaModel.findOne({
       _id: new mongoose.Types.ObjectId(id),
       $or: [
         { usuarioId: new mongoose.Types.ObjectId(usuarioId) },
         { compartida: true },
       ],
-      empresaId: new mongoose.Types.ObjectId(empresaId),
     });
 
     return vista;
@@ -70,12 +74,13 @@ class VistasGuardadasService {
   async findDefault(
     usuarioId: string,
     empresaId: string,
+    dbConfig: IDatabaseConfig,
     modulo: string
   ): Promise<IVistaGuardada | null> {
-    // 🔧 CORREGIDO: Quitar .lean()
-    const vista = await VistaGuardada.findOne({
+    const VistaGuardadaModel = await getVistaGuardadaModel(empresaId, dbConfig);
+
+    const vista = await VistaGuardadaModel.findOne({
       usuarioId: new mongoose.Types.ObjectId(usuarioId),
-      empresaId: new mongoose.Types.ObjectId(empresaId),
       modulo,
       esDefault: true,
     });
@@ -89,24 +94,25 @@ class VistasGuardadasService {
   async create(
     usuarioId: string,
     empresaId: string,
+    dbConfig: IDatabaseConfig,
     data: CreateVistaGuardadaDto
   ): Promise<IVistaGuardada> {
+    const VistaGuardadaModel = await getVistaGuardadaModel(empresaId, dbConfig);
+
     // Si se marca como default, quitar el default de las demás vistas
     if (data.esDefault) {
-      await VistaGuardada.updateMany(
+      await VistaGuardadaModel.updateMany(
         {
           usuarioId: new mongoose.Types.ObjectId(usuarioId),
-          empresaId: new mongoose.Types.ObjectId(empresaId),
           modulo: data.modulo,
         },
         { $set: { esDefault: false } }
       );
     }
 
-    const vista = new VistaGuardada({
+    const vista = new VistaGuardadaModel({
       _id: new mongoose.Types.ObjectId(),
       usuarioId: new mongoose.Types.ObjectId(usuarioId),
-      empresaId: new mongoose.Types.ObjectId(empresaId),
       ...data,
     });
 
@@ -121,13 +127,15 @@ class VistasGuardadasService {
     id: string,
     usuarioId: string,
     empresaId: string,
+    dbConfig: IDatabaseConfig,
     data: UpdateVistaGuardadaDto
   ): Promise<IVistaGuardada | null> {
+    const VistaGuardadaModel = await getVistaGuardadaModel(empresaId, dbConfig);
+
     // Verificar que la vista existe y pertenece al usuario
-    const vista = await VistaGuardada.findOne({
+    const vista = await VistaGuardadaModel.findOne({
       _id: new mongoose.Types.ObjectId(id),
       usuarioId: new mongoose.Types.ObjectId(usuarioId),
-      empresaId: new mongoose.Types.ObjectId(empresaId),
     });
 
     if (!vista) {
@@ -136,10 +144,9 @@ class VistasGuardadasService {
 
     // Si se marca como default, quitar el default de las demás vistas
     if (data.esDefault && !vista.esDefault) {
-      await VistaGuardada.updateMany(
+      await VistaGuardadaModel.updateMany(
         {
           usuarioId: new mongoose.Types.ObjectId(usuarioId),
-          empresaId: new mongoose.Types.ObjectId(empresaId),
           modulo: vista.modulo,
           _id: { $ne: vista._id },
         },
@@ -160,12 +167,14 @@ class VistasGuardadasService {
   async delete(
     id: string,
     usuarioId: string,
-    empresaId: string
+    empresaId: string,
+    dbConfig: IDatabaseConfig
   ): Promise<boolean> {
-    const result = await VistaGuardada.deleteOne({
+    const VistaGuardadaModel = await getVistaGuardadaModel(empresaId, dbConfig);
+
+    const result = await VistaGuardadaModel.deleteOne({
       _id: new mongoose.Types.ObjectId(id),
       usuarioId: new mongoose.Types.ObjectId(usuarioId),
-      empresaId: new mongoose.Types.ObjectId(empresaId),
     });
 
     return result.deletedCount > 0;
@@ -178,18 +187,20 @@ class VistasGuardadasService {
     id: string,
     usuarioId: string,
     empresaId: string,
+    dbConfig: IDatabaseConfig,
     nuevoNombre?: string
   ): Promise<IVistaGuardada | null> {
-    const vistaOriginal = await this.findById(id, usuarioId, empresaId);
+    const VistaGuardadaModel = await getVistaGuardadaModel(empresaId, dbConfig);
+
+    const vistaOriginal = await this.findById(id, usuarioId, empresaId, dbConfig);
 
     if (!vistaOriginal) {
       return null;
     }
 
-    const vistaDuplicada = new VistaGuardada({
+    const vistaDuplicada = new VistaGuardadaModel({
       _id: new mongoose.Types.ObjectId(),
       usuarioId: new mongoose.Types.ObjectId(usuarioId),
-      empresaId: new mongoose.Types.ObjectId(empresaId),
       modulo: vistaOriginal.modulo,
       nombre: nuevoNombre || `${vistaOriginal.nombre} (copia)`,
       descripcion: vistaOriginal.descripcion,
@@ -210,12 +221,14 @@ class VistasGuardadasService {
   async setDefault(
     id: string,
     usuarioId: string,
-    empresaId: string
+    empresaId: string,
+    dbConfig: IDatabaseConfig
   ): Promise<IVistaGuardada | null> {
-    const vista = await VistaGuardada.findOne({
+    const VistaGuardadaModel = await getVistaGuardadaModel(empresaId, dbConfig);
+
+    const vista = await VistaGuardadaModel.findOne({
       _id: new mongoose.Types.ObjectId(id),
       usuarioId: new mongoose.Types.ObjectId(usuarioId),
-      empresaId: new mongoose.Types.ObjectId(empresaId),
     });
 
     if (!vista) {
@@ -223,10 +236,9 @@ class VistasGuardadasService {
     }
 
     // Quitar default de todas las demás vistas del módulo
-    await VistaGuardada.updateMany(
+    await VistaGuardadaModel.updateMany(
       {
         usuarioId: new mongoose.Types.ObjectId(usuarioId),
-        empresaId: new mongoose.Types.ObjectId(empresaId),
         modulo: vista.modulo,
         _id: { $ne: vista._id },
       },

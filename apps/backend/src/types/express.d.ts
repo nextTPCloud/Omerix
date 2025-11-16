@@ -1,4 +1,5 @@
 import { Request } from 'express';
+import { IDatabaseConfig } from '../models/Empresa';
 
 /**
  * Extensión del Request de Express para incluir usuario autenticado
@@ -11,7 +12,7 @@ declare global {
       empresaId?: string;
       userEmail?: string;
       userRole?: string;
-      
+
       // User completo (para el nuevo sistema)
       user?: {
         userId: string;
@@ -19,8 +20,12 @@ declare global {
         email: string;
         rol: string;
       };
+
+      // Configuración de base de datos de la empresa (multi-tenant)
+      empresaDbConfig?: IDatabaseConfig;
     }
   }
 }
 
-export {};
+// Exportar la interfaz para poder usarla en otros archivos
+export { IDatabaseConfig };

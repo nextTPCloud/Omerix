@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import VistasGuardadasController from './vistas-guardadas.controller';
 import { authMiddleware } from '@/middleware/auth.middleware';
+import { tenantMiddleware } from '@/middleware/tenant.middleware';
 
 const router = Router();
 
@@ -11,8 +12,9 @@ const router = Router();
  *   description: Gestión de vistas personalizadas guardadas por módulo
  */
 
-// Todas las rutas requieren autenticación
+// Todas las rutas requieren autenticación y tenant
 router.use(authMiddleware);
+router.use(tenantMiddleware);
 
 /**
  * @swagger

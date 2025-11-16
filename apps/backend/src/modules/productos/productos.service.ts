@@ -1,25 +1,40 @@
-import  { Producto } from '../../models/Producto';
+import mongoose from 'mongoose';
+import { Producto } from '../../models/Producto';
+import { Familia } from '../familias/Familia';
 import Licencia from '../../models/Licencia';
-import { CreateProductoDTO, UpdateProductoDTO, SearchProductosDTO, UpdateStockDTO } from './productos.dto';
+import Plan from '../../models/Plan';
+import {
+  CreateProductoDTO,
+  UpdateProductoDTO,
+  SearchProductosDTO,
+  UpdateStockDTO,
+  GenerarVariantesDTO,
+  AtributoDTO,
+} from './productos.dto';
+import { IDatabaseConfig } from '../../types/express';
 
 export class ProductosService {
-  
   // ============================================
   // CREAR PRODUCTO
   // ============================================
-  
-  async createProducto(empresaId: string, data: CreateProductoDTO) {
-    // 1. Verificar límite de productos según licencia
-    await this.verificarLimiteProductos(empresaId);
 
-    // 2. Verificar que no exista el SKU en esta empresa
+  async createProducto(
+    data: CreateProductoDTO,
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ) {
+    // 1. Verificar límite de productos según licencia
+    await this.verificarLimiteProductos(empresaId.toString());
+
+    // 2. Verificar que no exista el SKU
     const existente = await Producto.findOne({
       empresaId,
       sku: data.sku.toUpperCase(),
     });
 
     if (existente) {
-      throw new Error('Ya existe un producto con este SKU en tu empresa');
+      throw new Error('Ya existe un producto con este SKU');
     }
 
     // 3. Si tiene código de barras, verificar que no exista
@@ -34,15 +49,35 @@ export class ProductosService {
       }
     }
 
-    // 4. Crear producto
+    // 4. Si tiene familia, verificar que exista
+    if (data.familiaId) {
+      const familia = await Familia.findOne({
+        _id: data.familiaId,
+        empresaId,
+        activo: true,
+      });
+
+      if (!familia) {
+        throw new Error('La familia seleccionada no existe');
+      }
+    }
+
+    // 5. Crear producto
     const producto = await Producto.create({
       ...data,
       empresaId,
       sku: data.sku.toUpperCase(),
     });
 
-    // 5. Incrementar contador de uso
-    await this.incrementarContadorProductos(empresaId);
+    // 6. Incrementar contador en estadísticas de familia
+    if (producto.familiaId) {
+      await Familia.findByIdAndUpdate(producto.familiaId, {
+        $inc: { 'estadisticas.totalProductos': 1 },
+      });
+    }
+
+    // 7. Incrementar contador de uso en licencia
+    await this.incrementarContadorProductos(empresaId.toString());
 
     console.log('✅ Producto creado:', producto.nombre);
 
@@ -50,14 +85,101 @@ export class ProductosService {
   }
 
   // ============================================
-  // OBTENER PRODUCTO POR ID
+  // GENERAR VARIANTES AUTOMÁTICAMENTE
   // ============================================
-  
-  async getProductoById(empresaId: string, productoId: string) {
+
+  async generarVariantes(
+    productoId: string,
+    atributos: AtributoDTO[],
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ) {
     const producto = await Producto.findOne({
       _id: productoId,
       empresaId,
-    }).populate('proveedorId', 'nombre nif');
+    });
+
+    if (!producto) {
+      throw new Error('Producto no encontrado');
+    }
+
+    // Generar todas las combinaciones posibles
+    const combinaciones = this.generarCombinaciones(atributos);
+
+    // Crear variantes para cada combinación
+    const variantes = combinaciones.map((combinacion, index) => {
+      // Generar SKU único para la variante
+      const sufijo = Object.values(combinacion)
+        .map((v) => v.substring(0, 3).toUpperCase())
+        .join('-');
+      const varianteSku = `${producto.sku}-${sufijo}`;
+
+      return {
+        sku: varianteSku,
+        combinacion,
+        stock: {
+          cantidad: 0,
+          minimo: 0,
+          maximo: 0,
+        },
+        precioExtra: 0,
+        activo: true,
+      };
+    });
+
+    // Actualizar producto con atributos y variantes
+    producto.tieneVariantes = true;
+    producto.atributos = atributos;
+    producto.variantes = variantes as any;
+    producto.tipo = 'variantes';
+
+    await producto.save();
+
+    console.log(`✅ Generadas ${variantes.length} variantes para ${producto.nombre}`);
+
+    return producto;
+  }
+
+  // Generar todas las combinaciones de atributos
+  private generarCombinaciones(atributos: AtributoDTO[]): Record<string, string>[] {
+    if (atributos.length === 0) return [];
+
+    const resultado: Record<string, string>[] = [];
+
+    const generar = (index: number, actual: Record<string, string>) => {
+      if (index === atributos.length) {
+        resultado.push({ ...actual });
+        return;
+      }
+
+      const atributo = atributos[index];
+      for (const valor of atributo.valores) {
+        if (valor.activo) {
+          actual[atributo.nombre.toLowerCase()] = valor.valor;
+          generar(index + 1, actual);
+        }
+      }
+    };
+
+    generar(0, {});
+    return resultado;
+  }
+
+  // ============================================
+  // OBTENER PRODUCTO POR ID
+  // ============================================
+
+  async getProductoById(
+    productoId: string,
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ) {
+    const producto = await Producto.findOne({
+      _id: productoId,
+      empresaId,
+    })
+      .populate('familiaId', 'nombre codigo')
+      .populate('proveedorId', 'nombre nif');
 
     if (!producto) {
       throw new Error('Producto no encontrado');
@@ -69,8 +191,12 @@ export class ProductosService {
   // ============================================
   // OBTENER PRODUCTO POR SKU
   // ============================================
-  
-  async getProductoBySku(empresaId: string, sku: string) {
+
+  async getProductoBySku(
+    sku: string,
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ) {
     const producto = await Producto.findOne({
       empresaId,
       sku: sku.toUpperCase(),
@@ -86,12 +212,25 @@ export class ProductosService {
   // ============================================
   // OBTENER PRODUCTO POR CÓDIGO DE BARRAS
   // ============================================
-  
-  async getProductoByCodigoBarras(empresaId: string, codigoBarras: string) {
-    const producto = await Producto.findOne({
+
+  async getProductoByCodigoBarras(
+    codigoBarras: string,
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ) {
+    // Buscar en productos principales
+    let producto = await Producto.findOne({
       empresaId,
       codigoBarras,
     });
+
+    // Si no se encuentra, buscar en variantes
+    if (!producto) {
+      producto = await Producto.findOne({
+        empresaId,
+        'variantes.codigoBarras': codigoBarras,
+      });
+    }
 
     if (!producto) {
       throw new Error('Producto no encontrado');
@@ -103,13 +242,17 @@ export class ProductosService {
   // ============================================
   // LISTAR PRODUCTOS CON BÚSQUEDA Y FILTROS
   // ============================================
-  
-  async searchProductos(empresaId: string, filters: SearchProductosDTO) {
+
+  async searchProductos(
+    empresaId: mongoose.Types.ObjectId,
+    filters: SearchProductosDTO,
+    dbConfig: IDatabaseConfig
+  ) {
     const {
       q,
-      categoria,
-      subcategoria,
+      familiaId,
       marca,
+      tipo,
       tags,
       activo,
       disponible,
@@ -129,20 +272,26 @@ export class ProductosService {
 
     // Búsqueda de texto
     if (q) {
-      query.$text = { $search: q };
+      query.$or = [
+        { nombre: { $regex: q, $options: 'i' } },
+        { sku: { $regex: q, $options: 'i' } },
+        { codigoBarras: { $regex: q, $options: 'i' } },
+        { marca: { $regex: q, $options: 'i' } },
+        { descripcion: { $regex: q, $options: 'i' } },
+      ];
     }
 
     // Filtros
-    if (categoria) query.categoria = categoria;
-    if (subcategoria) query.subcategoria = subcategoria;
+    if (familiaId) query.familiaId = familiaId;
     if (marca) query.marca = marca;
+    if (tipo) query.tipo = tipo;
     if (activo !== undefined) query.activo = activo;
     if (disponible !== undefined) query.disponible = disponible;
     if (destacado !== undefined) query.destacado = destacado;
 
     // Tags
     if (tags) {
-      const tagsArray = tags.split(',').map(t => t.trim());
+      const tagsArray = tags.split(',').map((t) => t.trim());
       query.tags = { $in: tagsArray };
     }
 
@@ -171,6 +320,7 @@ export class ProductosService {
     // Ejecutar query
     const [productos, total] = await Promise.all([
       Producto.find(query)
+        .populate('familiaId', 'nombre codigo')
         .populate('proveedorId', 'nombre')
         .sort(sort)
         .skip(skip)
@@ -193,11 +343,12 @@ export class ProductosService {
   // ============================================
   // ACTUALIZAR PRODUCTO
   // ============================================
-  
+
   async updateProducto(
-    empresaId: string,
     productoId: string,
-    data: UpdateProductoDTO
+    data: UpdateProductoDTO,
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ) {
     const producto = await Producto.findOne({
       _id: productoId,
@@ -208,8 +359,8 @@ export class ProductosService {
       throw new Error('Producto no encontrado');
     }
 
-    // Si se cambia el SKU, verificar que no exista
-    if (data.sku && data.sku.toUpperCase() !== producto.sku) {
+    // Verificar SKU único si se está cambiando
+    if (data.sku && data.sku !== producto.sku) {
       const existente = await Producto.findOne({
         empresaId,
         sku: data.sku.toUpperCase(),
@@ -221,7 +372,7 @@ export class ProductosService {
       }
     }
 
-    // Si se cambia el código de barras, verificar que no exista
+    // Verificar código de barras único si se está cambiando
     if (data.codigoBarras && data.codigoBarras !== producto.codigoBarras) {
       const existenteBarras = await Producto.findOne({
         empresaId,
@@ -234,13 +385,23 @@ export class ProductosService {
       }
     }
 
-    // Actualizar
-    Object.assign(producto, data);
+    // Si cambia de familia, actualizar contadores
+    if (data.familiaId && data.familiaId !== producto.familiaId?.toString()) {
+      // Decrementar contador de familia anterior
+      if (producto.familiaId) {
+        await Familia.findByIdAndUpdate(producto.familiaId, {
+          $inc: { 'estadisticas.totalProductos': -1 },
+        });
+      }
 
-    if (data.sku) {
-      producto.sku = data.sku.toUpperCase();
+      // Incrementar contador de nueva familia
+      await Familia.findByIdAndUpdate(data.familiaId, {
+        $inc: { 'estadisticas.totalProductos': 1 },
+      });
     }
 
+    // Actualizar producto
+    Object.assign(producto, data);
     await producto.save();
 
     console.log('✅ Producto actualizado:', producto.nombre);
@@ -251,61 +412,11 @@ export class ProductosService {
   // ============================================
   // ELIMINAR PRODUCTO (SOFT DELETE)
   // ============================================
-  
-  async deleteProducto(empresaId: string, productoId: string) {
-    const producto = await Producto.findOne({
-      _id: productoId,
-      empresaId,
-    });
 
-    if (!producto) {
-      throw new Error('Producto no encontrado');
-    }
-
-    // Soft delete (desactivar)
-    producto.activo = false;
-    await producto.save();
-
-    // Decrementar contador
-    await this.decrementarContadorProductos(empresaId);
-
-    console.log('✅ Producto desactivado:', producto.nombre);
-
-    return { success: true, message: 'Producto desactivado' };
-  }
-
-  // ============================================
-  // ELIMINAR PERMANENTEMENTE
-  // ============================================
-  
-  async deleteProductoPermanente(empresaId: string, productoId: string) {
-    const producto = await Producto.findOneAndDelete({
-      _id: productoId,
-      empresaId,
-    });
-
-    if (!producto) {
-      throw new Error('Producto no encontrado');
-    }
-
-    // Decrementar contador si estaba activo
-    if (producto.activo) {
-      await this.decrementarContadorProductos(empresaId);
-    }
-
-    console.log('✅ Producto eliminado permanentemente:', producto.nombre);
-
-    return { success: true, message: 'Producto eliminado permanentemente' };
-  }
-
-  // ============================================
-  // ACTUALIZAR STOCK
-  // ============================================
-  
-  async updateStock(
-    empresaId: string,
+  async deleteProducto(
     productoId: string,
-    data: UpdateStockDTO
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ) {
     const producto = await Producto.findOne({
       _id: productoId,
@@ -316,155 +427,106 @@ export class ProductosService {
       throw new Error('Producto no encontrado');
     }
 
-    if (!producto.gestionaStock) {
-      throw new Error('Este producto no gestiona stock');
+    // Marcar como inactivo
+    producto.activo = false;
+    await producto.save();
+
+    // Decrementar contador en familia
+    if (producto.familiaId) {
+      await Familia.findByIdAndUpdate(producto.familiaId, {
+        $inc: { 'estadisticas.totalProductos': -1 },
+      });
     }
 
-    const stockActual = producto.stock.cantidad;
+    console.log('✅ Producto eliminado (soft delete):', producto.nombre);
 
-    switch (data.tipo) {
-      case 'entrada':
+    return { message: 'Producto eliminado correctamente' };
+  }
+
+  // ============================================
+  // ACTUALIZAR STOCK
+  // ============================================
+
+  async updateStock(
+    productoId: string,
+    data: UpdateStockDTO,
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ) {
+    const producto = await Producto.findOne({
+      _id: productoId,
+      empresaId,
+    });
+
+    if (!producto) {
+      throw new Error('Producto no encontrado');
+    }
+
+    // Si tiene variantes y se especifica varianteId
+    if (producto.tieneVariantes && data.varianteId) {
+      const variante = producto.variantes.find(
+        (v: any) => v._id.toString() === data.varianteId
+      );
+
+      if (!variante) {
+        throw new Error('Variante no encontrada');
+      }
+
+      // Actualizar stock de variante según tipo
+      if (data.tipo === 'entrada') {
+        variante.stock!.cantidad += data.cantidad;
+      } else if (data.tipo === 'salida') {
+        if (variante.stock!.cantidad < data.cantidad) {
+          throw new Error('Stock insuficiente');
+        }
+        variante.stock!.cantidad -= data.cantidad;
+      } else if (data.tipo === 'ajuste') {
+        variante.stock!.cantidad = data.cantidad;
+      }
+    } else {
+      // Actualizar stock del producto principal
+      if (data.tipo === 'entrada') {
         producto.stock.cantidad += data.cantidad;
-        break;
-      case 'salida':
-        if (stockActual < data.cantidad) {
+      } else if (data.tipo === 'salida') {
+        if (producto.stock.cantidad < data.cantidad) {
           throw new Error('Stock insuficiente');
         }
         producto.stock.cantidad -= data.cantidad;
-        break;
-      case 'ajuste':
+      } else if (data.tipo === 'ajuste') {
         producto.stock.cantidad = data.cantidad;
-        break;
+      }
     }
 
     await producto.save();
 
-    console.log(
-      `✅ Stock actualizado: ${producto.nombre} - ${stockActual} → ${producto.stock.cantidad}`
-    );
+    console.log('✅ Stock actualizado:', producto.nombre);
 
     return producto;
   }
 
   // ============================================
-  // ESTADÍSTICAS DE PRODUCTOS
+  // OBTENER PRODUCTOS CON STOCK BAJO
   // ============================================
-  
-  async getEstadisticas(empresaId: string) {
-    const [
-      total,
-      activos,
-      disponibles,
-      sinStock,
-      stockBajo,
-      destacados,
-      valorInventario,
-    ] = await Promise.all([
-      Producto.countDocuments({ empresaId }),
-      Producto.countDocuments({ empresaId, activo: true }),
-      Producto.countDocuments({ empresaId, disponible: true }),
-      Producto.countDocuments({ empresaId, 'stock.cantidad': 0, gestionaStock: true }),
-      Producto.countDocuments({
-        empresaId,
-        $expr: { $lte: ['$stock.cantidad', '$stock.minimo'] },
-        gestionaStock: true,
-      }),
-      Producto.countDocuments({ empresaId, destacado: true }),
-      Producto.aggregate([
-        { $match: { empresaId: empresaId as any } },
-        {
-          $group: {
-            _id: null,
-            valor: {
-              $sum: { $multiply: ['$stock.cantidad', '$precios.compra'] },
-            },
-          },
-        },
-      ]),
-    ]);
 
-    return {
-      total,
-      activos,
-      inactivos: total - activos,
-      disponibles,
-      sinStock,
-      stockBajo,
-      destacados,
-      valorInventario: valorInventario[0]?.valor || 0,
-    };
-  }
-
-  // ============================================
-  // OBTENER CATEGORÍAS ÚNICAS
-  // ============================================
-  
-  async getCategorias(empresaId: string) {
-    const categorias = await Producto.distinct('categoria', {
-      empresaId,
-      categoria: { $ne: null },
-    });
-    return categorias;
-  }
-
-  // ============================================
-  // OBTENER SUBCATEGORÍAS ÚNICAS
-  // ============================================
-  
-  async getSubcategorias(empresaId: string, categoria?: string) {
-    const query: any = {
-      empresaId,
-      subcategoria: { $ne: null },
-    };
-
-    if (categoria) {
-      query.categoria = categoria;
-    }
-
-    const subcategorias = await Producto.distinct('subcategoria', query);
-    return subcategorias;
-  }
-
-  // ============================================
-  // OBTENER MARCAS ÚNICAS
-  // ============================================
-  
-  async getMarcas(empresaId: string) {
-    const marcas = await Producto.distinct('marca', {
-      empresaId,
-      marca: { $ne: null },
-    });
-    return marcas;
-  }
-
-  // ============================================
-  // OBTENER TAGS ÚNICOS
-  // ============================================
-  
-  async getTags(empresaId: string) {
-    const tags = await Producto.distinct('tags', { empresaId });
-    return tags;
-  }
-
-  // ============================================
-  // PRODUCTOS CON STOCK BAJO
-  // ============================================
-  
-  async getProductosStockBajo(empresaId: string) {
+  async getProductosStockBajo(
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ) {
     const productos = await Producto.find({
       empresaId,
+      activo: true,
       gestionaStock: true,
       $expr: { $lte: ['$stock.cantidad', '$stock.minimo'] },
     })
-      .select('nombre sku stock precios')
-      .limit(50)
+      .populate('familiaId', 'nombre codigo')
+      .sort({ 'stock.cantidad': 1 })
       .lean();
 
     return productos;
   }
 
   // ============================================
-  // HELPERS PRIVADOS
+  // VERIFICACIONES Y HELPERS
   // ============================================
 
   private async verificarLimiteProductos(empresaId: string) {
@@ -474,27 +536,26 @@ export class ProductosService {
       throw new Error('Licencia no encontrada');
     }
 
-    const plan = licencia.planId as any;
-    const limite = plan.limites.productosCatalogo;
+    // Obtener el plan asociado a la licencia
+    const plan = await Plan.findById(licencia.planId);
 
-    // -1 = ilimitado
-    if (limite === -1) {
+    if (!plan) {
+      throw new Error('Plan no encontrado');
+    }
+
+    const totalProductos = await Producto.countDocuments({
+      empresaId,
+      activo: true,
+    });
+
+    // Si el límite es -1, significa ilimitado
+    if (plan.limites.productosCatalogo === -1) {
       return;
     }
 
-    const productosActuales = licencia.usoActual.productosActuales;
-
-    if (productosActuales >= limite) {
+    if (totalProductos >= plan.limites.productosCatalogo) {
       throw new Error(
-        `Has alcanzado el límite de ${limite} productos de tu plan ${plan.nombre}. Actualiza tu plan para crear más productos.`
-      );
-    }
-
-    // Advertencia al 90%
-    const porcentaje = (productosActuales / limite) * 100;
-    if (porcentaje >= 90) {
-      console.warn(
-        `⚠️ Empresa ${empresaId} está al ${porcentaje.toFixed(0)}% del límite de productos`
+        `Has alcanzado el límite de productos (${plan.limites.productosCatalogo}). Actualiza tu plan para crear más productos.`
       );
     }
   }
@@ -505,11 +566,6 @@ export class ProductosService {
       { $inc: { 'usoActual.productosActuales': 1 } }
     );
   }
-
-  private async decrementarContadorProductos(empresaId: string) {
-    await Licencia.findOneAndUpdate(
-      { empresaId },
-      { $inc: { 'usoActual.productosActuales': -1 } }
-    );
-  }
 }
+
+export const productosService = new ProductosService();
