@@ -26,6 +26,8 @@ import {
   ChevronsRight,
   BookOpen,
   FolderTree,
+  Warehouse,
+  Percent,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -183,6 +185,16 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
         title: 'Familias',
         href: '/familias',
         icon: FolderTree,
+      },
+      {
+        title: 'Almacenes',
+        href: '/almacenes',
+        icon: Warehouse,
+      },
+      {
+        title: 'Tipos de Impuesto',
+        href: '/tipos-impuesto',
+        icon: Percent,
       },
     ],
   },

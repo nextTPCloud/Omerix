@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { productosService } from '@/services/productos.service';
 import { Producto } from '@/types/producto.types';
 import { Card } from '@/components/ui/card';
@@ -73,26 +74,30 @@ export default function ProductoDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando producto...</p>
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Cargando producto...</p>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   if (error || !producto) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <p className="text-destructive text-lg mb-4">{error || 'Producto no encontrado'}</p>
-          <Button onClick={() => router.push('/productos')}>
-            Volver al listado
-          </Button>
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <p className="text-destructive text-lg mb-4">{error || 'Producto no encontrado'}</p>
+            <Button onClick={() => router.push('/productos')}>
+              Volver al listado
+            </Button>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
@@ -102,7 +107,8 @@ export default function ProductoDetailPage() {
     : '0.00';
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-6xl">
+    <DashboardLayout>
+      <div className="w-full space-y-4">
       {/* Header */}
       <div className="mb-6">
         <Button variant="ghost" onClick={() => router.back()} className="mb-4">
@@ -378,6 +384,7 @@ export default function ProductoDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

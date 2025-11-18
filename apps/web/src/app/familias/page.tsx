@@ -48,11 +48,16 @@ import {
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
 import { ColumnaConfig } from '@/services/configuracion.service'
-import { DensitySelector, useDensityClasses } from '@/components/ui/DensitySelector'
-import { VistasGuardadasManager } from '@/components/ui/VistasGuardadasManager'
+import { useDensityClasses } from '@/components/ui/DensitySelector'
+import { SettingsMenu } from '@/components/ui/SettingsMenu'
 import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
 import { PrintButton } from '@/components/ui/PrintButton'
+import vistasService from '@/services/vistas-guardadas.service'
+
+interface ColumnFilters {
+  [key: string]: string | number | boolean
+}
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value)
@@ -108,6 +113,7 @@ export default function FamiliasPage() {
     updateColumnFilters,
     updateSortConfig,
     updateDensidad,
+    resetConfig,
   } = useModuleConfig('familias', DEFAULT_FAMILIAS_CONFIG, {
     autoSave: true,
     debounceMs: 1000,
@@ -116,7 +122,7 @@ export default function FamiliasPage() {
   // Derivar valores desde la configuración
   const columnas = useMemo(() => moduleConfig?.columnas || DEFAULT_FAMILIAS_CONFIG.columnas, [moduleConfig])
   const sortConfig = useMemo(() => moduleConfig?.sortConfig || DEFAULT_FAMILIAS_CONFIG.sortConfig, [moduleConfig])
-  const columnFilters = useMemo(() => moduleConfig?.columnFilters || DEFAULT_FAMILIAS_CONFIG.columnFilters, [moduleConfig])
+  const columnFilters = useMemo(() => (moduleConfig?.columnFilters || DEFAULT_FAMILIAS_CONFIG.columnFilters) as ColumnFilters, [moduleConfig])
   const densidad = useMemo(() => moduleConfig?.densidad || DEFAULT_FAMILIAS_CONFIG.densidad, [moduleConfig])
 
   const densityClasses = useDensityClasses(densidad)
@@ -136,7 +142,7 @@ export default function FamiliasPage() {
       if (searchTerm.trim()) searchTerms.push(searchTerm.trim())
 
       // Añadir filtros de texto de columnas
-      const textFilterFields = ['codigo', 'nombre', 'descripcion']
+      const textFilterFields = ['codigo', 'nombre', 'descripcion', 'familiaPadre', 'orden']
       textFilterFields.forEach(field => {
         if (columnFilters[field] && String(columnFilters[field]).trim()) {
           searchTerms.push(String(columnFilters[field]).trim())
@@ -177,6 +183,30 @@ export default function FamiliasPage() {
     }
     fetchFamilias()
   }, [fetchFamilias])
+
+  // Cargar y aplicar vista por defecto al iniciar
+  useEffect(() => {
+    const cargarVistaDefault = async () => {
+      try {
+        const vistas = await vistasService.getAll('familias', true)
+        const vistaDefault = vistas?.find((v: any) => v.esDefault)
+
+        if (vistaDefault && vistaDefault.configuracion) {
+          // Aplicar la configuración de la vista por defecto
+          if (vistaDefault.configuracion.columnas) updateColumnas(vistaDefault.configuracion.columnas)
+          if (vistaDefault.configuracion.sortConfig) updateSortConfig(vistaDefault.configuracion.sortConfig)
+          if (vistaDefault.configuracion.columnFilters) updateColumnFilters(vistaDefault.configuracion.columnFilters)
+          if (vistaDefault.configuracion.paginacion) setPagination(prev => ({ ...prev, limit: vistaDefault.configuracion.paginacion.limit }))
+          if (vistaDefault.configuracion.densidad) updateDensidad(vistaDefault.configuracion.densidad)
+          console.log('✅ Vista por defecto aplicada:', vistaDefault.nombre)
+        }
+      } catch (error) {
+        console.error('Error al cargar vista por defecto:', error)
+      }
+    }
+
+    cargarVistaDefault()
+  }, [])
 
   useEffect(() => { fetchFamilias() }, [])
 
@@ -222,14 +252,14 @@ export default function FamiliasPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
+      <div className="w-full space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <FolderTree className="h-8 w-8 text-primary" />
+              <FolderTree className="h-7 w-7 text-primary" />
               Familias
             </h1>
-            <p className="text-muted-foreground mt-1">Organiza tus productos en categorías</p>
+            <p className="text-sm text-muted-foreground mt-1">Organiza tus productos en categorías</p>
           </div>
           <Button onClick={() => router.push('/familias/nuevo')}>
             <Plus className="h-4 w-4 mr-2" />
@@ -250,19 +280,15 @@ export default function FamiliasPage() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <VistasGuardadasManager
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* MENÚ DE CONFIGURACIÓN (Densidad + Vistas + Restablecer) */}
+                <SettingsMenu
+                  densidad={densidad}
+                  onDensidadChange={(newDensity) => {
+                    updateDensidad(newDensity)
+                    toast.success(`Densidad cambiada a ${newDensity}`)
+                  }}
                   modulo="familias"
-                  onAplicarVista={(configuracion) => {
-                    if (configuracion.columnas) updateColumnas(configuracion.columnas)
-                    if (configuracion.sortConfig) updateSortConfig(configuracion.sortConfig)
-                    if (configuracion.columnFilters) updateColumnFilters(configuracion.columnFilters)
-                    if (configuracion.paginacion) setPagination(prev => ({ ...prev, limit: configuracion.paginacion.limit }))
-                    if (configuracion.densidad) updateDensidad(configuracion.densidad)
-                  }}
-                  onGuardarVista={async (nombre, descripcion, esDefault, vistaIdActualizar) => {
-                    // Esta función es manejada internamente por VistasGuardadasManager
-                  }}
                   configuracionActual={{
                     columnas,
                     sortConfig,
@@ -270,13 +296,71 @@ export default function FamiliasPage() {
                     paginacion: { limit: pagination.limit },
                     densidad,
                   }}
+                  onAplicarVista={(configuracion) => {
+                    if (configuracion.columnas) updateColumnas(configuracion.columnas)
+                    if (configuracion.sortConfig) updateSortConfig(configuracion.sortConfig)
+                    if (configuracion.columnFilters) updateColumnFilters(configuracion.columnFilters)
+                    if (configuracion.paginacion) setPagination(prev => ({ ...prev, limit: configuracion.paginacion.limit }))
+                    if (configuracion.densidad) updateDensidad(configuracion.densidad)
+                  }}
+                  onGuardarVista={async (nombre, descripcion, esDefault, vistaId) => {
+                    try {
+                      console.log('💾 Guardando vista:', { nombre, descripcion, esDefault, vistaId })
+
+                      if (vistaId) {
+                        // Actualizar vista existente
+                        await vistasService.update(vistaId, {
+                          modulo: 'familias',
+                          nombre,
+                          descripcion,
+                          configuracion: {
+                            columnas,
+                            sortConfig,
+                            columnFilters,
+                            paginacion: { limit: pagination.limit },
+                            densidad,
+                          },
+                          esDefault: esDefault || false,
+                        })
+                        toast.success(`Vista "${nombre}" actualizada correctamente`)
+                      } else {
+                        // Crear nueva vista
+                        await vistasService.create({
+                          modulo: 'familias',
+                          nombre,
+                          descripcion,
+                          configuracion: {
+                            columnas,
+                            sortConfig,
+                            columnFilters,
+                            paginacion: { limit: pagination.limit },
+                            densidad,
+                          },
+                          esDefault: esDefault || false,
+                        })
+                        toast.success(`Vista "${nombre}" guardada correctamente`)
+                      }
+                    } catch (error) {
+                      console.error('Error al guardar vista:', error)
+                      toast.error('Error al guardar la vista')
+                      throw error
+                    }
+                  }}
+                  onRestablecer={async () => {
+                    await resetConfig()
+                    toast.success('Configuración restablecida')
+                  }}
                 />
-                <DensitySelector value={densidad} onChange={updateDensidad} />
+
+                {/* SELECTOR DE COLUMNAS */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon"><Columns className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm">
+                      <Columns className="h-4 w-4 sm:mr-2 shrink-0" />
+                      <span className="hidden sm:inline">Columnas</span>
+                    </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>Columnas visibles</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {columnasDisponibles.map((col) => {
@@ -298,6 +382,8 @@ export default function FamiliasPage() {
                     })}
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                {/* EXPORTACIÓN */}
                 <ExportButton
                   data={familias}
                   columns={(columnas || []).filter((c: ColumnaConfig) => c.visible).map((c: ColumnaConfig) => ({
@@ -306,15 +392,21 @@ export default function FamiliasPage() {
                   }))}
                   filename="familias"
                 />
+
+                {/* IMPRIMIR */}
                 <PrintButton
                   data={familias}
                   columns={(columnas || []).filter((c: ColumnaConfig) => c.visible).map((c: ColumnaConfig) => ({
                     key: c.key,
                     label: columnasDisponibles.find(cd => cd.key === c.key)?.label || c.key,
                   }))}
+                  title="Listado de Familias"
                 />
-                <Button variant="outline" size="icon" onClick={fetchFamilias} disabled={isLoading}>
-                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+
+                {/* ACTUALIZAR */}
+                <Button variant="outline" size="sm" onClick={fetchFamilias} disabled={isLoading}>
+                  <RefreshCw className={`h-4 w-4 sm:mr-2 shrink-0 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Actualizar</span>
                 </Button>
               </div>
             </div>
@@ -381,7 +473,7 @@ export default function FamiliasPage() {
                           placeholder="Filtrar código..."
                           value={String(columnFilters[columna.key] || '')}
                           onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
-                          className="h-8 text-xs"
+                          className="h-7 text-xs placeholder:text-muted-foreground"
                         />
                       )}
                       {columna.key === 'nombre' && (
@@ -389,7 +481,7 @@ export default function FamiliasPage() {
                           placeholder="Filtrar nombre..."
                           value={String(columnFilters[columna.key] || '')}
                           onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
-                          className="h-8 text-xs"
+                          className="h-7 text-xs placeholder:text-muted-foreground"
                         />
                       )}
                       {columna.key === 'descripcion' && (
@@ -397,7 +489,23 @@ export default function FamiliasPage() {
                           placeholder="Filtrar descripción..."
                           value={String(columnFilters[columna.key] || '')}
                           onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
-                          className="h-8 text-xs"
+                          className="h-7 text-xs placeholder:text-muted-foreground"
+                        />
+                      )}
+                      {columna.key === 'familiaPadre' && (
+                        <Input
+                          placeholder="Filtrar familia..."
+                          value={String(columnFilters[columna.key] || '')}
+                          onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                          className="h-7 text-xs placeholder:text-muted-foreground"
+                        />
+                      )}
+                      {columna.key === 'orden' && (
+                        <Input
+                          placeholder="Filtrar orden..."
+                          value={String(columnFilters[columna.key] || '')}
+                          onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                          className="h-7 text-xs placeholder:text-muted-foreground"
                         />
                       )}
                       {columna.key === 'activo' && (
@@ -440,18 +548,18 @@ export default function FamiliasPage() {
                         />
                       </td>
                       {(columnas || []).filter((c: ColumnaConfig) => c.visible).sort((a: ColumnaConfig, b: ColumnaConfig) => a.orden - b.orden).map((columna: ColumnaConfig) => (
-                        <td key={`${familia._id}-${columna.key}`} className={densityClasses.cell}>
+                        <td key={`${familia._id}-${columna.key}`} className={`${densityClasses.cell} ${densityClasses.text}`}>
                           {columna.key === 'codigo' && (familia.codigo || '-')}
                           {columna.key === 'nombre' && <div className="font-medium">{familia.nombre}</div>}
                           {columna.key === 'descripcion' && (
-                            <div className="text-sm text-muted-foreground truncate max-w-xs">
+                            <div className="text-muted-foreground truncate max-w-xs">
                               {familia.descripcion || '-'}
                             </div>
                           )}
                           {columna.key === 'familiaPadre' && (
-                            <span className="text-sm">{familia.familiaPadre?.nombre || '-'}</span>
+                            <span>{familia.familiaPadre?.nombre || '-'}</span>
                           )}
-                          {columna.key === 'orden' && <span className="text-sm">{familia.orden}</span>}
+                          {columna.key === 'orden' && <span>{familia.orden}</span>}
                           {columna.key === 'activo' && (
                             <Badge variant={familia.activo ? 'default' : 'secondary'}>
                               {familia.activo ? 'Activa' : 'Inactiva'}
@@ -459,10 +567,12 @@ export default function FamiliasPage() {
                           )}
                         </td>
                       ))}
-                      <td className={`text-right ${densityClasses.cell}`}>
+                      <td className={`${densityClasses.cell} text-right`}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => router.push(`/familias/${familia._id}`)}>

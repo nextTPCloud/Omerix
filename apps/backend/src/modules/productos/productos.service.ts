@@ -1,6 +1,6 @@
-import mongoose from 'mongoose';
-import { Producto } from '../../models/Producto';
-import { Familia } from '../familias/Familia';
+import mongoose, { Model } from 'mongoose';
+import { Producto, IProducto } from '../../models/Producto';
+import { Familia, IFamilia } from '../familias/Familia';
 import Licencia from '../../models/Licencia';
 import Plan from '../../models/Plan';
 import {
@@ -12,8 +12,29 @@ import {
   AtributoDTO,
 } from './productos.dto';
 import { IDatabaseConfig } from '../../types/express';
+import { getProductoModel, getFamiliaModel } from '../../utils/dynamic-models.helper';
 
 export class ProductosService {
+  /**
+   * Obtener modelo de Producto para una empresa específica
+   */
+  private async getModeloProducto(
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<Model<IProducto>> {
+    return await getProductoModel(empresaId, dbConfig);
+  }
+
+  /**
+   * Obtener modelo de Familia para una empresa específica
+   */
+  private async getModeloFamilia(
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<Model<IFamilia>> {
+    return await getFamiliaModel(empresaId, dbConfig);
+  }
+
   // ============================================
   // CREAR PRODUCTO
   // ============================================
@@ -24,12 +45,14 @@ export class ProductosService {
     usuarioId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
     // 1. Verificar límite de productos según licencia
-    await this.verificarLimiteProductos(empresaId.toString());
+    await this.verificarLimiteProductos(empresaId.toString(), dbConfig);
 
     // 2. Verificar que no exista el SKU
-    const existente = await Producto.findOne({
-      empresaId,
+    const existente = await ProductoModel.findOne({
       sku: data.sku.toUpperCase(),
     });
 
@@ -39,8 +62,7 @@ export class ProductosService {
 
     // 3. Si tiene código de barras, verificar que no exista
     if (data.codigoBarras) {
-      const existenteBarras = await Producto.findOne({
-        empresaId,
+      const existenteBarras = await ProductoModel.findOne({
         codigoBarras: data.codigoBarras,
       });
 
@@ -51,9 +73,8 @@ export class ProductosService {
 
     // 4. Si tiene familia, verificar que exista
     if (data.familiaId) {
-      const familia = await Familia.findOne({
+      const familia = await FamiliaModel.findOne({
         _id: data.familiaId,
-        empresaId,
         activo: true,
       });
 
@@ -63,7 +84,7 @@ export class ProductosService {
     }
 
     // 5. Crear producto
-    const producto = await Producto.create({
+    const producto = await ProductoModel.create({
       ...data,
       empresaId,
       sku: data.sku.toUpperCase(),
@@ -71,7 +92,7 @@ export class ProductosService {
 
     // 6. Incrementar contador en estadísticas de familia
     if (producto.familiaId) {
-      await Familia.findByIdAndUpdate(producto.familiaId, {
+      await FamiliaModel.findByIdAndUpdate(producto.familiaId, {
         $inc: { 'estadisticas.totalProductos': 1 },
       });
     }
@@ -529,7 +550,7 @@ export class ProductosService {
   // VERIFICACIONES Y HELPERS
   // ============================================
 
-  private async verificarLimiteProductos(empresaId: string) {
+  private async verificarLimiteProductos(empresaId: string, dbConfig: IDatabaseConfig) {
     const licencia = await Licencia.findOne({ empresaId }).populate('planId');
 
     if (!licencia) {
@@ -543,8 +564,8 @@ export class ProductosService {
       throw new Error('Plan no encontrado');
     }
 
-    const totalProductos = await Producto.countDocuments({
-      empresaId,
+    const ProductoModel = await this.getModeloProducto(empresaId, dbConfig);
+    const totalProductos = await ProductoModel.countDocuments({
       activo: true,
     });
 

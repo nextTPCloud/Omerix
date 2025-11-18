@@ -22,6 +22,15 @@ export interface IFamilia extends Document {
   // Orden
   orden: number; // Para ordenar en listados
 
+  // TPV
+  usarEnTPV: boolean; // Mostrar en TPV
+  posicionTPV?: number; // Posición visual en TPV
+  descripcionAbreviada?: string; // Descripción corta para TPV
+
+  // Módulos específicos
+  obligatorio: boolean; // Para módulo de lavanderías
+  renting: boolean; // Familia para renting
+
   // Estado
   activo: boolean;
 
@@ -98,6 +107,30 @@ const FamiliaSchema = new Schema<IFamilia>(
     orden: {
       type: Number,
       default: 0,
+    },
+
+    // TPV
+    usarEnTPV: {
+      type: Boolean,
+      default: false,
+    },
+    posicionTPV: {
+      type: Number,
+      min: 0,
+    },
+    descripcionAbreviada: {
+      type: String,
+      trim: true,
+    },
+
+    // Módulos específicos
+    obligatorio: {
+      type: Boolean,
+      default: false,
+    },
+    renting: {
+      type: Boolean,
+      default: false,
     },
 
     // Estado

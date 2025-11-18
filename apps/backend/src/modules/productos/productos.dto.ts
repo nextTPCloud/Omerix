@@ -50,12 +50,20 @@ const DimensionesSchema = z.object({
   alto: z.number().min(0),
 });
 
+const ComponenteKitSchema = z.object({
+  productoId: z.string().min(1, 'ID del producto componente requerido'),
+  cantidad: z.number().min(1, 'Cantidad requerida').default(1),
+  opcional: z.boolean().default(false),
+  orden: z.number().default(0),
+});
+
 // Schema base
 const ProductoBaseSchema = z.object({
   nombre: z.string().min(1, 'Nombre requerido'),
   descripcion: z.string().optional(),
   sku: z.string().min(1, 'SKU requerido'),
   codigoBarras: z.string().optional(),
+  codigosAlternativos: z.array(z.string()).default([]),
   referencia: z.string().optional(),
 
   // Categorización
@@ -65,6 +73,9 @@ const ProductoBaseSchema = z.object({
 
   // Tipo de producto
   tipo: z.enum(['simple', 'variantes', 'compuesto', 'servicio', 'materia_prima']).default('simple'),
+
+  // Kit/Partidas (para productos compuestos)
+  componentesKit: z.array(ComponenteKitSchema).default([]),
 
   // Precios
   precios: PrecioSchema,
@@ -160,3 +171,4 @@ export type GenerarVariantesDTO = z.infer<typeof GenerarVariantesSchema>;
 export type AtributoDTO = z.infer<typeof AtributoSchema>;
 export type VarianteDTO = z.infer<typeof VarianteSchema>;
 export type ValorAtributoDTO = z.infer<typeof ValorAtributoSchema>;
+export type ComponenteKitDTO = z.infer<typeof ComponenteKitSchema>;

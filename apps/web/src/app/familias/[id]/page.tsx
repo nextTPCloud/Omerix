@@ -2,11 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { familiasService } from '@/services/familias.service';
+import { productosService } from '@/services/productos.service';
 import { Familia } from '@/types/familia.types';
+import { Producto } from '@/types/producto.types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +50,8 @@ export default function FamiliaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [familia, setFamilia] = useState<Familia | null>(null);
   const [estadisticas, setEstadisticas] = useState<FamiliaEstadisticas | null>(null);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [loadingProductos, setLoadingProductos] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState(false);
 
@@ -79,6 +85,21 @@ export default function FamiliaDetailPage() {
     }
   };
 
+  const fetchProductos = async () => {
+    try {
+      setLoadingProductos(true);
+      const response = await productosService.getAll({
+        familiaId: id,
+        limit: 1000,
+      });
+      setProductos(response.data || []);
+    } catch (err: any) {
+      console.error('Error al cargar productos:', err);
+    } finally {
+      setLoadingProductos(false);
+    }
+  };
+
   const handleDelete = async () => {
     try {
       await familiasService.delete(id);
@@ -91,31 +112,36 @@ export default function FamiliaDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando familia...</p>
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Cargando familia...</p>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   if (error || !familia) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-          <p className="text-destructive text-lg mb-4">{error || 'Familia no encontrada'}</p>
-          <Button onClick={() => router.push('/familias')}>
-            Volver al listado
-          </Button>
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <p className="text-destructive text-lg mb-4">{error || 'Familia no encontrada'}</p>
+            <Button onClick={() => router.push('/familias')}>
+              Volver al listado
+            </Button>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-6xl">
+    <DashboardLayout>
+      <div className="w-full space-y-4">
       {/* Header */}
       <div className="mb-6">
         <Button variant="ghost" onClick={() => router.back()} className="mb-4">
@@ -178,11 +204,20 @@ export default function FamiliaDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Columna principal */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Información básica */}
-          <Card className="p-6">
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="tpv" onClick={() => productos.length === 0 && fetchProductos()}>
+            TPV y Productos
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+            {/* Columna principal */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Información básica */}
+              <Card className="p-6">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Tag className="h-5 w-5 text-primary" />
               Información Básica
@@ -417,6 +452,139 @@ export default function FamiliaDetailPage() {
           )}
         </div>
       </div>
+    </TabsContent>
+
+    <TabsContent value="tpv" className="mt-6">
+      <div className="space-y-6">
+        {/* Configuración TPV */}
+        <Card className="p-6">
+          <h2 className="text-lg font-semibold mb-4">Configuración TPV</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Usar en TPV</label>
+              <div className="mt-1">
+                <Badge variant={familia.usarEnTPV ? 'default' : 'secondary'}>
+                  {familia.usarEnTPV ? 'Sí' : 'No'}
+                </Badge>
+              </div>
+            </div>
+
+            {familia.posicionTPV !== undefined && (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Posición en TPV</label>
+                <div className="mt-1">
+                  <p className="font-semibold">{familia.posicionTPV}</p>
+                </div>
+              </div>
+            )}
+
+            {familia.descripcionAbreviada && (
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-muted-foreground">Descripción Abreviada (TPV)</label>
+                <p className="mt-1">{familia.descripcionAbreviada}</p>
+              </div>
+            )}
+
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Obligatorio (Lavanderías)</label>
+              <div className="mt-1">
+                <Badge variant={familia.obligatorio ? 'default' : 'secondary'}>
+                  {familia.obligatorio ? 'Sí' : 'No'}
+                </Badge>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Renting</label>
+              <div className="mt-1">
+                <Badge variant={familia.renting ? 'default' : 'secondary'}>
+                  {familia.renting ? 'Sí' : 'No'}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Productos de la familia */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              Productos de esta Familia ({productos.length})
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/productos?familiaId=${familia._id}`)}
+            >
+              Ver todos en Productos
+            </Button>
+          </div>
+
+          {loadingProductos ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm text-muted-foreground">Cargando productos...</p>
+            </div>
+          ) : productos.length === 0 ? (
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 mx-auto text-muted-foreground mb-2 opacity-20" />
+              <p className="text-muted-foreground">No hay productos en esta familia</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b">
+                  <tr className="text-sm text-muted-foreground">
+                    <th className="text-left py-2 px-2">SKU</th>
+                    <th className="text-left py-2 px-2">Nombre</th>
+                    <th className="text-right py-2 px-2">Precio Venta</th>
+                    <th className="text-right py-2 px-2">Stock</th>
+                    <th className="text-center py-2 px-2">Estado</th>
+                    <th className="text-right py-2 px-2">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {productos.map((producto) => (
+                    <tr key={producto._id} className="hover:bg-muted/50">
+                      <td className="py-2 px-2">
+                        <span className="font-mono text-sm">{producto.sku}</span>
+                      </td>
+                      <td className="py-2 px-2">
+                        <span className="font-medium">{producto.nombre}</span>
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        <span className="font-semibold">{producto.precio.venta.toFixed(2)} €</span>
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        <span className={producto.stock.cantidad <= producto.stock.minimo ? 'text-destructive font-semibold' : ''}>
+                          {producto.stock.cantidad}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        <Badge variant={producto.activo ? 'default' : 'secondary'} className="text-xs">
+                          {producto.activo ? 'Activo' : 'Inactivo'}
+                        </Badge>
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push(`/productos/${producto._id}`)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
+    </TabsContent>
+  </Tabs>
 
       {/* Diálogo de confirmación de eliminación */}
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
@@ -454,6 +622,7 @@ export default function FamiliaDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

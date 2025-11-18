@@ -11,6 +11,15 @@ export interface Familia {
   createdAt: string;
   updatedAt: string;
 
+  // TPV
+  usarEnTPV?: boolean;
+  posicionTPV?: number;
+  descripcionAbreviada?: string;
+
+  // Módulos específicos
+  obligatorio?: boolean;
+  renting?: boolean;
+
   // Campos calculados
   totalProductos?: number;
   nivel?: number;
@@ -24,6 +33,13 @@ export interface CreateFamiliaDTO {
   familiaPadreId?: string;
   orden?: number;
   activo?: boolean;
+  // TPV
+  usarEnTPV?: boolean;
+  posicionTPV?: number;
+  descripcionAbreviada?: string;
+  // Módulos específicos
+  obligatorio?: boolean;
+  renting?: boolean;
 }
 
 export interface UpdateFamiliaDTO {
@@ -33,6 +49,13 @@ export interface UpdateFamiliaDTO {
   familiaPadreId?: string;
   orden?: number;
   activo?: boolean;
+  // TPV
+  usarEnTPV?: boolean;
+  posicionTPV?: number;
+  descripcionAbreviada?: string;
+  // Módulos específicos
+  obligatorio?: boolean;
+  renting?: boolean;
 }
 
 export interface FamiliaEstadisticas {

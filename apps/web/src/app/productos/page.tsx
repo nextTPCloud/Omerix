@@ -62,8 +62,8 @@ import { useModuleConfig } from '@/hooks/useModuleConfig'
 import { ColumnaConfig } from '@/services/configuracion.service'
 
 // Componentes reutilizables
-import { DensitySelector, useDensityClasses } from '@/components/ui/DensitySelector'
-import { VistasGuardadasManager } from '@/components/ui/VistasGuardadasManager'
+import { useDensityClasses } from '@/components/ui/DensitySelector'
+import { SettingsMenu } from '@/components/ui/SettingsMenu'
 import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
 import { PrintButton } from '@/components/ui/PrintButton'
@@ -93,7 +93,7 @@ function useDebounce<T>(value: T, delay: number): T {
 // ============================================
 
 interface ColumnFilters {
-  [key: string]: string
+  [key: string]: string | number | boolean
 }
 
 // ============================================
@@ -201,7 +201,7 @@ export default function ProductosPage() {
   // Derivar valores desde la configuración
   const columnas = useMemo(() => moduleConfig?.columnas || DEFAULT_PRODUCTOS_CONFIG.columnas, [moduleConfig])
   const sortConfig = useMemo(() => moduleConfig?.sortConfig || DEFAULT_PRODUCTOS_CONFIG.sortConfig, [moduleConfig])
-  const columnFilters = useMemo(() => moduleConfig?.columnFilters || DEFAULT_PRODUCTOS_CONFIG.columnFilters, [moduleConfig])
+  const columnFilters = useMemo(() => (moduleConfig?.columnFilters || DEFAULT_PRODUCTOS_CONFIG.columnFilters) as ColumnFilters, [moduleConfig])
   const densidad = useMemo(() => moduleConfig?.densidad || DEFAULT_PRODUCTOS_CONFIG.densidad, [moduleConfig])
 
   const densityClasses = useDensityClasses(densidad)
@@ -221,21 +221,36 @@ export default function ProductosPage() {
         sortOrder: sortConfig.direction,
       }
 
-      // Búsqueda general
+      // Combinar búsqueda general con filtros de texto de columnas
+      const searchTerms: string[] = []
       if (searchTerm.trim()) {
-        params.search = searchTerm.trim()
+        searchTerms.push(searchTerm.trim())
       }
 
-      // Filtros por columna
-      Object.entries(columnFilters).forEach(([key, value]) => {
-        if (value) {
-          if (key === 'familiaId') {
-            params.familiaId = value
-          } else if (key === 'activo') {
-            params.activo = value === 'true'
-          }
+      // Añadir filtros de texto de columnas
+      const textFilterFields = ['sku', 'nombre', 'descripcion', 'codigoBarras', 'precioBase', 'precioVenta', 'stockCantidad', 'stockMinimo']
+      textFilterFields.forEach(field => {
+        if (columnFilters[field] && String(columnFilters[field]).trim()) {
+          searchTerms.push(String(columnFilters[field]).trim())
         }
       })
+
+      if (searchTerms.length > 0) {
+        params.search = searchTerms.join(' ')
+      }
+
+      // Filtros de select
+      if (columnFilters.familiaId) {
+        params.familiaId = columnFilters.familiaId
+      }
+
+      if (columnFilters.activo && columnFilters.activo !== 'all') {
+        params.activo = columnFilters.activo === 'true'
+      }
+
+      if (columnFilters.visible && columnFilters.visible !== 'all') {
+        params.visible = columnFilters.visible === 'true'
+      }
 
       const response = await productosService.getAll(params)
 
@@ -268,6 +283,39 @@ export default function ProductosPage() {
       }
     }
     fetchFamilias()
+  }, [])
+
+  // Cargar y aplicar vista por defecto al montar el componente
+  useEffect(() => {
+    const cargarVistaDefault = async () => {
+      try {
+        const vistas = await vistasService.getAll('productos', true)
+        const vistaDefault = vistas?.find((v: any) => v.esDefault)
+
+        if (vistaDefault && vistaDefault.configuracion) {
+          if (vistaDefault.configuracion.columnas) {
+            updateColumnas(vistaDefault.configuracion.columnas)
+          }
+          if (vistaDefault.configuracion.sortConfig) {
+            updateSortConfig(vistaDefault.configuracion.sortConfig)
+          }
+          if (vistaDefault.configuracion.columnFilters) {
+            updateColumnFilters(vistaDefault.configuracion.columnFilters)
+          }
+          if (vistaDefault.configuracion.paginacion) {
+            setPagination(prev => ({ ...prev, limit: vistaDefault.configuracion.paginacion.limit }))
+          }
+          if (vistaDefault.configuracion.densidad) {
+            updateDensidad(vistaDefault.configuracion.densidad)
+          }
+          console.log('✅ Vista por defecto aplicada:', vistaDefault.nombre)
+        }
+      } catch (error) {
+        console.error('Error al cargar vista por defecto:', error)
+      }
+    }
+
+    cargarVistaDefault()
   }, [])
 
   useEffect(() => {
@@ -344,15 +392,15 @@ export default function ProductosPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-6">
+      <div className="w-full space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <Package className="h-8 w-8 text-primary" />
+              <Package className="h-7 w-7 text-primary" />
               Productos
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Gestiona tu catálogo de productos
             </p>
           </div>
@@ -380,20 +428,15 @@ export default function ProductosPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                {/* Vistas Guardadas */}
-                <VistasGuardadasManager
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* MENÚ DE CONFIGURACIÓN (Densidad + Vistas + Restablecer) */}
+                <SettingsMenu
+                  densidad={densidad}
+                  onDensidadChange={(newDensity) => {
+                    updateDensidad(newDensity)
+                    toast.success(`Densidad cambiada a ${newDensity}`)
+                  }}
                   modulo="productos"
-                  onAplicarVista={(configuracion) => {
-                    if (configuracion.columnas) updateColumnas(configuracion.columnas)
-                    if (configuracion.sortConfig) updateSortConfig(configuracion.sortConfig)
-                    if (configuracion.columnFilters) updateColumnFilters(configuracion.columnFilters)
-                    if (configuracion.paginacion) setPagination(prev => ({ ...prev, limit: configuracion.paginacion.limit }))
-                    if (configuracion.densidad) updateDensidad(configuracion.densidad)
-                  }}
-                  onGuardarVista={async (nombre, descripcion, esDefault, vistaIdActualizar) => {
-                    // Esta función es manejada internamente por VistasGuardadasManager
-                  }}
                   configuracionActual={{
                     columnas,
                     sortConfig,
@@ -401,22 +444,71 @@ export default function ProductosPage() {
                     paginacion: { limit: pagination.limit },
                     densidad,
                   }}
+                  onAplicarVista={(configuracion) => {
+                    if (configuracion.columnas) updateColumnas(configuracion.columnas)
+                    if (configuracion.sortConfig) updateSortConfig(configuracion.sortConfig)
+                    if (configuracion.columnFilters) updateColumnFilters(configuracion.columnFilters)
+                    if (configuracion.paginacion) setPagination(prev => ({ ...prev, limit: configuracion.paginacion.limit }))
+                    if (configuracion.densidad) updateDensidad(configuracion.densidad)
+                  }}
+                  onGuardarVista={async (nombre, descripcion, esDefault, vistaId) => {
+                    try {
+                      console.log('💾 Guardando vista:', { nombre, descripcion, esDefault, vistaId })
+
+                      if (vistaId) {
+                        // Actualizar vista existente
+                        await vistasService.update(vistaId, {
+                          modulo: 'productos',
+                          nombre,
+                          descripcion,
+                          configuracion: {
+                            columnas,
+                            sortConfig,
+                            columnFilters,
+                            paginacion: { limit: pagination.limit },
+                            densidad,
+                          },
+                          esDefault: esDefault || false,
+                        })
+                        toast.success(`Vista "${nombre}" actualizada correctamente`)
+                      } else {
+                        // Crear nueva vista
+                        await vistasService.create({
+                          modulo: 'productos',
+                          nombre,
+                          descripcion,
+                          configuracion: {
+                            columnas,
+                            sortConfig,
+                            columnFilters,
+                            paginacion: { limit: pagination.limit },
+                            densidad,
+                          },
+                          esDefault: esDefault || false,
+                        })
+                        toast.success(`Vista "${nombre}" guardada correctamente`)
+                      }
+                    } catch (error) {
+                      console.error('Error al guardar vista:', error)
+                      toast.error('Error al guardar la vista')
+                      throw error
+                    }
+                  }}
+                  onRestablecer={async () => {
+                    await resetConfig()
+                    toast.success('Configuración restablecida')
+                  }}
                 />
 
-                {/* Selector de densidad */}
-                <DensitySelector
-                  value={densidad}
-                  onChange={updateDensidad}
-                />
-
-                {/* Selector de columnas */}
+                {/* SELECTOR DE COLUMNAS */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <Columns className="h-4 w-4" />
+                    <Button variant="outline" size="sm">
+                      <Columns className="h-4 w-4 sm:mr-2 shrink-0" />
+                      <span className="hidden sm:inline">Columnas</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>Columnas visibles</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {columnasDisponibles.map((col) => {
@@ -440,7 +532,7 @@ export default function ProductosPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Exportar */}
+                {/* EXPORTACIÓN */}
                 <ExportButton
                   data={productos}
                   columns={(columnas || []).filter(c => c.visible).map(c => ({
@@ -450,17 +542,25 @@ export default function ProductosPage() {
                   filename="productos"
                 />
 
-                {/* Imprimir */}
-                <PrintButton />
+                {/* IMPRIMIR */}
+                <PrintButton
+                  data={productos}
+                  columns={(columnas || []).filter(c => c.visible).map(c => ({
+                    key: c.key,
+                    label: columnasDisponibles.find(cd => cd.key === c.key)?.label || c.key,
+                  }))}
+                  title="Listado de Productos"
+                />
 
-                {/* Refrescar */}
+                {/* ACTUALIZAR */}
                 <Button
                   variant="outline"
-                  size="icon"
+                  size="sm"
                   onClick={() => fetchProductos()}
                   disabled={isLoading}
                 >
-                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 sm:mr-2 shrink-0 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Actualizar</span>
                 </Button>
               </div>
             </div>
@@ -551,6 +651,30 @@ export default function ProductosPage() {
                     .sort((a, b) => a.orden - b.orden)
                     .map((columna) => (
                       <th key={`filter-${columna.key}`} className={`${densityClasses.header}`}>
+                        {columna.key === 'sku' && (
+                          <Input
+                            placeholder="Filtrar SKU..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
+                        {columna.key === 'nombre' && (
+                          <Input
+                            placeholder="Filtrar nombre..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
+                        {columna.key === 'descripcion' && (
+                          <Input
+                            placeholder="Filtrar descripción..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
                         {columna.key === 'familia' && (
                           <TableSelect
                             value={String(columnFilters['familiaId'] || '')}
@@ -564,6 +688,46 @@ export default function ProductosPage() {
                             }))}
                           />
                         )}
+                        {columna.key === 'codigoBarras' && (
+                          <Input
+                            placeholder="Filtrar código..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
+                        {columna.key === 'precioBase' && (
+                          <Input
+                            placeholder="Filtrar precio..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
+                        {columna.key === 'precioVenta' && (
+                          <Input
+                            placeholder="Filtrar precio..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
+                        {columna.key === 'stockCantidad' && (
+                          <Input
+                            placeholder="Filtrar stock..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
+                        {columna.key === 'stockMinimo' && (
+                          <Input
+                            placeholder="Filtrar mínimo..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
                         {columna.key === 'activo' && (
                           <TableSelect
                             value={String(columnFilters[columna.key] || '')}
@@ -574,6 +738,19 @@ export default function ProductosPage() {
                             options={[
                               { value: 'true', label: 'Activos' },
                               { value: 'false', label: 'Inactivos' },
+                            ]}
+                          />
+                        )}
+                        {columna.key === 'visible' && (
+                          <TableSelect
+                            value={String(columnFilters[columna.key] || '')}
+                            onValueChange={(value) =>
+                              handleColumnFilterChange(columna.key, value)
+                            }
+                            placeholder="Todos"
+                            options={[
+                              { value: 'true', label: 'Visibles' },
+                              { value: 'false', label: 'Ocultos' },
                             ]}
                           />
                         )}
@@ -613,24 +790,24 @@ export default function ProductosPage() {
                         .filter(c => c.visible)
                         .sort((a, b) => a.orden - b.orden)
                         .map((columna) => (
-                          <td key={`${producto._id}-${columna.key}`} className={densityClasses.cell}>
+                          <td key={`${producto._id}-${columna.key}`} className={`${densityClasses.cell} ${densityClasses.text}`}>
                             {columna.key === 'sku' && producto.sku}
                             {columna.key === 'nombre' && (
                               <div className="font-medium">{producto.nombre}</div>
                             )}
                             {columna.key === 'descripcion' && (
-                              <div className="text-sm text-muted-foreground truncate max-w-xs">
+                              <div className="text-muted-foreground truncate max-w-xs">
                                 {producto.descripcion || '-'}
                               </div>
                             )}
                             {columna.key === 'familia' && (
-                              <span className="text-sm">{producto.familia?.nombre || '-'}</span>
+                              <span>{producto.familia?.nombre || '-'}</span>
                             )}
                             {columna.key === 'codigoBarras' && (
-                              <span className="text-sm font-mono">{producto.codigoBarras || '-'}</span>
+                              <span className="font-mono">{producto.codigoBarras || '-'}</span>
                             )}
                             {columna.key === 'precioBase' && (
-                              <span className="text-sm">{producto.precio.base.toFixed(2)} €</span>
+                              <span>{producto.precio.base.toFixed(2)} €</span>
                             )}
                             {columna.key === 'precioVenta' && (
                               <span className="font-medium">{producto.precio.venta.toFixed(2)} €</span>
@@ -644,7 +821,7 @@ export default function ProductosPage() {
                               </div>
                             )}
                             {columna.key === 'stockMinimo' && (
-                              <span className="text-sm">{producto.stock.minimo}</span>
+                              <span>{producto.stock.minimo}</span>
                             )}
                             {columna.key === 'activo' && (
                               <Badge variant={producto.activo ? 'default' : 'secondary'}>
@@ -658,10 +835,10 @@ export default function ProductosPage() {
                             )}
                           </td>
                         ))}
-                      <td className={`text-right ${densityClasses.cell}`}>
+                      <td className={`${densityClasses.cell} text-right`}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>

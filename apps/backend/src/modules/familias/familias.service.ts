@@ -1,10 +1,31 @@
-import mongoose from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import { Familia, IFamilia } from './Familia';
-import { Producto } from '../../models/Producto';
+import { Producto, IProducto } from '../../models/Producto';
 import { CreateFamiliaDTO, UpdateFamiliaDTO, SearchFamiliasDTO } from './familias.dto';
 import { IDatabaseConfig } from '../../types/express';
+import { getFamiliaModel, getProductoModel } from '../../utils/dynamic-models.helper';
 
 export class FamiliasService {
+  /**
+   * Obtener modelo de Familia para una empresa específica
+   */
+  private async getModeloFamilia(
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<Model<IFamilia>> {
+    return await getFamiliaModel(empresaId, dbConfig);
+  }
+
+  /**
+   * Obtener modelo de Producto para una empresa específica
+   */
+  private async getModeloProducto(
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<Model<IProducto>> {
+    return await getProductoModel(empresaId, dbConfig);
+  }
+
   // Crear familia
   async crear(
     data: CreateFamiliaDTO,
@@ -12,9 +33,10 @@ export class FamiliasService {
     usuarioId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
     // Verificar que el código no exista
-    const existeCodigo = await Familia.findOne({
-      empresaId,
+    const existeCodigo = await FamiliaModel.findOne({
       codigo: data.codigo,
     });
 
@@ -24,9 +46,8 @@ export class FamiliasService {
 
     // Si tiene padre, verificar que exista
     if (data.familiaPadreId) {
-      const padre = await Familia.findOne({
+      const padre = await FamiliaModel.findOne({
         _id: data.familiaPadreId,
-        empresaId,
       });
 
       if (!padre) {
@@ -34,7 +55,7 @@ export class FamiliasService {
       }
     }
 
-    const familia = new Familia({
+    const familia = new FamiliaModel({
       ...data,
       empresaId,
     });
@@ -49,6 +70,8 @@ export class FamiliasService {
     filtros: SearchFamiliasDTO,
     dbConfig: IDatabaseConfig
   ) {
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
     const {
       q,
       familiaPadreId,
@@ -61,7 +84,7 @@ export class FamiliasService {
     } = filtros;
 
     // Construir query
-    const query: any = { empresaId };
+    const query: any = {};
 
     // Búsqueda de texto
     if (q) {
@@ -96,13 +119,13 @@ export class FamiliasService {
 
     // Ejecutar query
     const [familias, total] = await Promise.all([
-      Familia.find(query)
+      FamiliaModel.find(query)
         .sort(sort)
         .skip(skip)
         .limit(limit)
         .populate('familiaPadreId', 'nombre codigo')
         .lean(),
-      Familia.countDocuments(query),
+      FamiliaModel.countDocuments(query),
     ]);
 
     return {
@@ -119,7 +142,9 @@ export class FamiliasService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const familias = await Familia.find({ empresaId, activo: true })
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
+    const familias = await FamiliaModel.find({ activo: true })
       .sort({ orden: 1, nombre: 1 })
       .lean();
 
@@ -149,9 +174,11 @@ export class FamiliasService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const familia = await Familia.findOne({
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
+    const familia = await FamiliaModel.findOne({
       _id: id,
-      empresaId,
     })
       .populate('familiaPadreId', 'nombre codigo')
       .lean();
@@ -161,8 +188,7 @@ export class FamiliasService {
     }
 
     // Obtener subfamilias
-    const subfamilias = await Familia.find({
-      empresaId,
+    const subfamilias = await FamiliaModel.find({
       familiaPadreId: id,
       activo: true,
     })
@@ -170,8 +196,7 @@ export class FamiliasService {
       .lean();
 
     // Obtener productos de esta familia
-    const totalProductos = await Producto.countDocuments({
-      empresaId,
+    const totalProductos = await ProductoModel.countDocuments({
       familiaId: id,
       activo: true,
     });
@@ -190,7 +215,9 @@ export class FamiliasService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const familia = await Familia.findOne({ _id: id, empresaId });
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
+    const familia = await FamiliaModel.findOne({ _id: id });
 
     if (!familia) {
       throw new Error('Familia no encontrada');
@@ -198,8 +225,7 @@ export class FamiliasService {
 
     // Verificar código único si se está cambiando
     if (data.codigo && data.codigo !== familia.codigo) {
-      const existeCodigo = await Familia.findOne({
-        empresaId,
+      const existeCodigo = await FamiliaModel.findOne({
         codigo: data.codigo,
         _id: { $ne: id },
       });
@@ -216,9 +242,8 @@ export class FamiliasService {
 
     // Verificar que el nuevo padre no sea una subfamilia de esta familia
     if (data.familiaPadreId) {
-      const nuevoPadre = await Familia.findOne({
+      const nuevoPadre = await FamiliaModel.findOne({
         _id: data.familiaPadreId,
-        empresaId,
       });
 
       if (nuevoPadre) {
@@ -241,15 +266,17 @@ export class FamiliasService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const familia = await Familia.findOne({ _id: id, empresaId });
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
+    const familia = await FamiliaModel.findOne({ _id: id });
 
     if (!familia) {
       throw new Error('Familia no encontrada');
     }
 
     // Verificar que no tenga subfamilias activas
-    const subfamiliasActivas = await Familia.countDocuments({
-      empresaId,
+    const subfamiliasActivas = await FamiliaModel.countDocuments({
       familiaPadreId: id,
       activo: true,
     });
@@ -259,8 +286,7 @@ export class FamiliasService {
     }
 
     // Verificar que no tenga productos activos
-    const productosActivos = await Producto.countDocuments({
-      empresaId,
+    const productosActivos = await ProductoModel.countDocuments({
       familiaId: id,
       activo: true,
     });
@@ -282,14 +308,16 @@ export class FamiliasService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
     const bulkOps = items.map((item) => ({
       updateOne: {
-        filter: { _id: item.id, empresaId },
+        filter: { _id: item.id },
         update: { $set: { orden: item.orden } },
       },
     }));
 
-    await Familia.bulkWrite(bulkOps);
+    await FamiliaModel.bulkWrite(bulkOps);
 
     return { message: 'Orden actualizado correctamente' };
   }
@@ -300,14 +328,17 @@ export class FamiliasService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const familia = await Familia.findOne({ _id: id, empresaId });
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
+    const familia = await FamiliaModel.findOne({ _id: id });
 
     if (!familia) {
       throw new Error('Familia no encontrada');
     }
 
     // Obtener IDs de todas las subfamilias (recursivamente)
-    const subfamiliasIds = await this.obtenerSubfamiliasRecursivo(id, empresaId);
+    const subfamiliasIds = await this.obtenerSubfamiliasRecursivo(id, empresaId, dbConfig);
     const todasLasFamiliasIds = [id, ...subfamiliasIds];
 
     // Estadísticas de productos
@@ -317,24 +348,20 @@ export class FamiliasService {
       productosInactivos,
       valorInventario,
     ] = await Promise.all([
-      Producto.countDocuments({
-        empresaId,
+      ProductoModel.countDocuments({
         familiaId: { $in: todasLasFamiliasIds },
       }),
-      Producto.countDocuments({
-        empresaId,
+      ProductoModel.countDocuments({
         familiaId: { $in: todasLasFamiliasIds },
         activo: true,
       }),
-      Producto.countDocuments({
-        empresaId,
+      ProductoModel.countDocuments({
         familiaId: { $in: todasLasFamiliasIds },
         activo: false,
       }),
-      Producto.aggregate([
+      ProductoModel.aggregate([
         {
           $match: {
-            empresaId: empresaId,
             familiaId: { $in: todasLasFamiliasIds.map(id => new mongoose.Types.ObjectId(id as string)) },
             activo: true,
           },
@@ -364,10 +391,12 @@ export class FamiliasService {
   // Obtener todas las subfamilias recursivamente
   private async obtenerSubfamiliasRecursivo(
     familiaId: string,
-    empresaId: mongoose.Types.ObjectId
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
   ): Promise<string[]> {
-    const subfamilias = await Familia.find({
-      empresaId,
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
+    const subfamilias = await FamiliaModel.find({
       familiaPadreId: familiaId,
     }).select('_id');
 
@@ -376,7 +405,8 @@ export class FamiliasService {
     for (const subfamilia of subfamilias) {
       const subIds = await this.obtenerSubfamiliasRecursivo(
         subfamilia._id.toString(),
-        empresaId
+        empresaId,
+        dbConfig
       );
       ids = [...ids, ...subIds];
     }
@@ -393,10 +423,12 @@ export class FamiliasService {
     dbConfig: IDatabaseConfig,
     prefijo?: string
   ): Promise<string> {
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
     // Si no se proporciona prefijo, buscar el patrón más común
     if (!prefijo || prefijo.trim() === '') {
       // Buscar todos los códigos y extraer el prefijo más común
-      const familias = await Familia.find({ empresaId })
+      const familias = await FamiliaModel.find({})
         .select('codigo')
         .sort({ codigo: -1 })
         .limit(10)
@@ -429,8 +461,7 @@ export class FamiliasService {
 
     // Buscar el último código con ese prefijo
     const regex = new RegExp(`^${prefijo}(\\d+)$`, 'i');
-    const familias = await Familia.find({
-      empresaId,
+    const familias = await FamiliaModel.find({
       codigo: regex,
     })
       .select('codigo')

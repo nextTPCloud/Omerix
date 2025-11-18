@@ -99,7 +99,10 @@ export interface ICliente extends Document {
   // Estado
   activo: boolean;
   observaciones?: string;
-  
+
+  // TPV
+  usarEnTPV: boolean; // Si el cliente aparece en el selector del TPV
+
   // Tags
   tags?: string[];
   
@@ -315,7 +318,13 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
   observaciones: {
     type: String,
   },
-  
+
+  // TPV
+  usarEnTPV: {
+    type: Boolean,
+    default: false, // Por defecto no aparece en TPV
+  },
+
   // Tags
   tags: [{
     type: String,
@@ -359,8 +368,7 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
 // ============================================
 
 // Únicos por base de datos (no por empresa, porque cada empresa tiene su propia BD)
-ClienteSchema.index({ codigo: 1 }, { unique: true });
-ClienteSchema.index({ nif: 1 }, { unique: true });
+// Los índices únicos de 'codigo' y 'nif' ya se declaran con unique: true en la definición del campo
 
 // Búsquedas y filtros
 ClienteSchema.index({ activo: 1 });

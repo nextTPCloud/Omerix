@@ -1,3 +1,16 @@
+export interface ComponenteKit {
+  _id?: string;
+  productoId: string;
+  producto?: {
+    _id: string;
+    nombre: string;
+    sku: string;
+  };
+  cantidad: number;
+  opcional: boolean;
+  orden: number;
+}
+
 export interface Producto {
   _id: string;
   nombre: string;
@@ -9,6 +22,13 @@ export interface Producto {
     nombre: string;
   };
   codigoBarras?: string;
+  codigosAlternativos?: string[];
+
+  // Tipo
+  tipo?: 'simple' | 'variantes' | 'compuesto' | 'servicio' | 'materia_prima';
+
+  // Kit/Partidas
+  componentesKit?: ComponenteKit[];
 
   // Precio
   precio: {
@@ -48,6 +68,9 @@ export interface CreateProductoDTO {
   descripcion?: string;
   familiaId?: string;
   codigoBarras?: string;
+  codigosAlternativos?: string[];
+  tipo?: 'simple' | 'variantes' | 'compuesto' | 'servicio' | 'materia_prima';
+  componentesKit?: ComponenteKit[];
   precio: {
     base: number;
     venta: number;
@@ -67,6 +90,9 @@ export interface UpdateProductoDTO {
   descripcion?: string;
   familiaId?: string;
   codigoBarras?: string;
+  codigosAlternativos?: string[];
+  tipo?: 'simple' | 'variantes' | 'compuesto' | 'servicio' | 'materia_prima';
+  componentesKit?: ComponenteKit[];
   precio?: {
     base?: number;
     venta?: number;

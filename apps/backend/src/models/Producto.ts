@@ -12,6 +12,7 @@ export interface IStock {
   minimo: number; // Stock mínimo para alerta
   maximo: number; // Stock máximo
   ubicacion?: string; // Ubicación en almacén
+  almacenId?: Types.ObjectId; // Referencia al almacén
 }
 
 // Valor de un atributo
@@ -42,6 +43,47 @@ export interface IVariante {
   peso?: number; // Peso específico si difiere
 }
 
+// Trazabilidad para números de serie
+export interface INumeroSerie {
+  numero: string;
+  estado: 'disponible' | 'vendido' | 'defectuoso' | 'reservado';
+  almacenId?: Types.ObjectId;
+  fechaEntrada: Date;
+  fechaSalida?: Date;
+  clienteId?: Types.ObjectId; // Si está vendido
+  notas?: string;
+}
+
+// Trazabilidad para lotes
+export interface ILote {
+  numero: string;
+  cantidad: number;
+  fechaFabricacion?: Date;
+  fechaCaducidad?: Date;
+  almacenId?: Types.ObjectId;
+  proveedorId?: Types.ObjectId;
+  estado: 'activo' | 'caducado' | 'retirado';
+  notas?: string;
+}
+
+// Stock por almacén (multi-almacén)
+export interface IStockAlmacen {
+  almacenId: Types.ObjectId;
+  cantidad: number;
+  minimo: number;
+  maximo: number;
+  ubicacion?: string; // Pasillo, estantería, etc.
+  ultimaActualizacion: Date;
+}
+
+// Componente de producto compuesto (kit/partidas)
+export interface IComponenteKit {
+  productoId: Types.ObjectId; // Producto que forma parte del kit
+  cantidad: number; // Cantidad necesaria
+  opcional: boolean; // Si el componente es opcional
+  orden: number; // Orden de visualización
+}
+
 export interface IProducto extends Document {
   _id: Types.ObjectId;
   empresaId: Types.ObjectId;
@@ -51,6 +93,7 @@ export interface IProducto extends Document {
   descripcion?: string;
   sku: string; // Stock Keeping Unit
   codigoBarras?: string;
+  codigosAlternativos: string[]; // Códigos alternativos (proveedores, antiguos, etc.)
   referencia?: string; // Referencia del proveedor
 
   // Categorización
@@ -61,12 +104,25 @@ export interface IProducto extends Document {
   // Tipo de producto
   tipo: 'simple' | 'variantes' | 'compuesto' | 'servicio' | 'materia_prima';
 
+  // Kit/Partidas (para productos compuestos)
+  componentesKit: IComponenteKit[]; // Componentes si es un producto tipo 'compuesto'
+
   // Precios
   precios: IPrecio;
 
   // Stock (si no tiene variantes)
   stock: IStock;
   gestionaStock: boolean; // Si controla o no el inventario
+
+  // Multi-almacén
+  stockPorAlmacen: IStockAlmacen[]; // Stock distribuido por almacenes
+
+  // Trazabilidad
+  trazabilidad: {
+    tipo: 'ninguna' | 'lote' | 'numero_serie'; // Tipo de trazabilidad
+    lotes: ILote[]; // Si usa trazabilidad por lote
+    numerosSerie: INumeroSerie[]; // Si usa números de serie
+  };
 
   // Sistema de variantes (tallas, colores, etc.)
   tieneVariantes: boolean;
@@ -97,6 +153,11 @@ export interface IProducto extends Document {
   disponible: boolean; // Si está disponible para venta
   destacado: boolean;
 
+  // TPV
+  usarEnTPV: boolean; // Si el producto está disponible en el TPV
+  permiteDescuento: boolean; // Si permite aplicar descuentos en TPV
+  precioModificable: boolean; // Si el precio se puede modificar en TPV
+
   // Notas
   notas?: string;
 
@@ -123,7 +184,53 @@ const StockSchema = new Schema({
   minimo: { type: Number, default: 0 },
   maximo: { type: Number, default: 0 },
   ubicacion: String,
+  almacenId: { type: Schema.Types.ObjectId, ref: 'Almacen' },
 }, { _id: false });
+
+const NumeroSerieSchema = new Schema({
+  numero: { type: String, required: true, unique: true },
+  estado: {
+    type: String,
+    enum: ['disponible', 'vendido', 'defectuoso', 'reservado'],
+    default: 'disponible',
+  },
+  almacenId: { type: Schema.Types.ObjectId, ref: 'Almacen' },
+  fechaEntrada: { type: Date, default: Date.now },
+  fechaSalida: Date,
+  clienteId: { type: Schema.Types.ObjectId, ref: 'Cliente' },
+  notas: String,
+}, { _id: true, timestamps: true });
+
+const LoteSchema = new Schema({
+  numero: { type: String, required: true },
+  cantidad: { type: Number, required: true, min: 0 },
+  fechaFabricacion: Date,
+  fechaCaducidad: Date,
+  almacenId: { type: Schema.Types.ObjectId, ref: 'Almacen' },
+  proveedorId: { type: Schema.Types.ObjectId, ref: 'Proveedor' },
+  estado: {
+    type: String,
+    enum: ['activo', 'caducado', 'retirado'],
+    default: 'activo',
+  },
+  notas: String,
+}, { _id: true, timestamps: true });
+
+const StockAlmacenSchema = new Schema({
+  almacenId: { type: Schema.Types.ObjectId, ref: 'Almacen', required: true },
+  cantidad: { type: Number, default: 0, min: 0 },
+  minimo: { type: Number, default: 0, min: 0 },
+  maximo: { type: Number, default: 0, min: 0 },
+  ubicacion: String,
+  ultimaActualizacion: { type: Date, default: Date.now },
+}, { _id: false });
+
+const ComponenteKitSchema = new Schema({
+  productoId: { type: Schema.Types.ObjectId, ref: 'Producto', required: true },
+  cantidad: { type: Number, required: true, min: 1, default: 1 },
+  opcional: { type: Boolean, default: false },
+  orden: { type: Number, default: 0 },
+}, { _id: true });
 
 const ValorAtributoSchema = new Schema({
   valor: { type: String, required: true },
@@ -192,6 +299,10 @@ const ProductoSchema = new Schema<IProducto>(
       type: String,
       trim: true,
     },
+    codigosAlternativos: {
+      type: [String],
+      default: [],
+    },
     referencia: {
       type: String,
       trim: true,
@@ -212,6 +323,12 @@ const ProductoSchema = new Schema<IProducto>(
       default: 'simple',
     },
 
+    // Kit/Partidas (para productos compuestos)
+    componentesKit: {
+      type: [ComponenteKitSchema],
+      default: [],
+    },
+
     // Precios
     precios: {
       type: PrecioSchema,
@@ -230,6 +347,20 @@ const ProductoSchema = new Schema<IProducto>(
     gestionaStock: {
       type: Boolean,
       default: true,
+    },
+
+    // Multi-almacén
+    stockPorAlmacen: [StockAlmacenSchema],
+
+    // Trazabilidad
+    trazabilidad: {
+      tipo: {
+        type: String,
+        enum: ['ninguna', 'lote', 'numero_serie'],
+        default: 'ninguna',
+      },
+      lotes: [LoteSchema],
+      numerosSerie: [NumeroSerieSchema],
     },
 
     // Variantes
@@ -285,6 +416,20 @@ const ProductoSchema = new Schema<IProducto>(
       default: false,
     },
 
+    // TPV
+    usarEnTPV: {
+      type: Boolean,
+      default: true,
+    },
+    permiteDescuento: {
+      type: Boolean,
+      default: true,
+    },
+    precioModificable: {
+      type: Boolean,
+      default: false,
+    },
+
     // Notas
     notas: String,
 
@@ -316,6 +461,7 @@ ProductoSchema.index({
   descripcion: 'text',
   sku: 'text',
   codigoBarras: 'text',
+  codigosAlternativos: 'text',
   marca: 'text',
 });
 

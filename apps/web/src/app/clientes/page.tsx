@@ -76,8 +76,8 @@ import { useModuleConfig } from '@/hooks/useModuleConfig'
 import { ColumnaConfig } from '@/services/configuracion.service'
 
 // 🆕 NUEVOS IMPORTS
-import { DensitySelector, useDensityClasses } from '@/components/ui/DensitySelector'
-import { VistasGuardadasManager } from '@/components/ui/VistasGuardadasManager'
+import { useDensityClasses } from '@/components/ui/DensitySelector'
+import { SettingsMenu } from '@/components/ui/SettingsMenu'
 import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
 import { PrintButton } from '@/components/ui/PrintButton'
@@ -794,7 +794,10 @@ const {
         {/* HEADER */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <Users className="h-7 w-7 text-primary" />
+              Clientes
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Gestiona tu cartera de clientes
             </p>
@@ -910,12 +913,20 @@ const {
           </div>
 
           <div className="flex gap-2 flex-wrap w-full sm:w-auto">
-            {/* 🆕 SELECTOR DE DENSIDAD */}
-            <DensitySelector
-              value={densidad}
-              onChange={(newDensity) => {
+            {/* MENÚ DE CONFIGURACIÓN (Densidad + Vistas + Restablecer) */}
+            <SettingsMenu
+              densidad={densidad}
+              onDensidadChange={(newDensity) => {
                 updateDensidad(newDensity)
                 toast.success(`Densidad cambiada a ${newDensity}`)
+              }}
+              modulo="clientes"
+              configuracionActual={moduleConfig}
+              onAplicarVista={handleAplicarVista}
+              onGuardarVista={handleGuardarVista}
+              onRestablecer={async () => {
+                await resetConfig()
+                toast.success('Configuración restablecida')
               }}
             />
 
@@ -923,11 +934,11 @@ const {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
-                  <Columns className="mr-2 h-4 w-4 shrink-0" />
+                  <Columns className="h-4 w-4 sm:mr-2 shrink-0" />
                   <span className="hidden sm:inline">Columnas</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>Columnas visibles</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {columnasDisponibles.map((columna) => (
@@ -942,32 +953,25 @@ const {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* GESTOR DE VISTAS GUARDADAS */}
-            <VistasGuardadasManager
-              modulo="clientes"
-              configuracionActual={moduleConfig}
-              onAplicarVista={handleAplicarVista}
-              onGuardarVista={handleGuardarVista}
+            {/* EXPORTACIÓN */}
+            <ExportButton
+              data={clientes}
+              columns={columnasDisponibles
+                .filter((col) => columnasVisibles.includes(col.key))
+                .map((col) => ({
+                  key: col.key,
+                  label: col.label,
+                }))}
+              filename="clientes"
+              stats={[
+                { label: 'Total', value: stats.total },
+                { label: 'Activos', value: stats.activos },
+                { label: 'Inactivos', value: stats.inactivos },
+                { label: 'Empresas', value: stats.empresas },
+                { label: 'Particulares', value: stats.particulares },
+                { label: 'Con Riesgo', value: stats.conRiesgo },
+              ]}
             />
-
-            {/* RESTABLECER */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                await resetConfig()
-                toast.success('Configuración restablecida')
-              }}
-            >
-              <RefreshCw className="mr-2 h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">Restablecer</span>
-            </Button>
-
-            {/* IMPORTAR */}
-            <Button variant="outline" size="sm" onClick={handleImport}>
-              <Upload className="mr-2 h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">Importar</span>
-            </Button>
 
             {/* IMPRIMIR */}
             <PrintButton
@@ -990,25 +994,11 @@ const {
               filters={columnFiltersInput}
             />
 
-            {/* EXPORTACIÓN */}
-            <ExportButton
-              data={clientes}
-              columns={columnasDisponibles
-                .filter((col) => columnasVisibles.includes(col.key))
-                .map((col) => ({
-                  key: col.key,
-                  label: col.label,
-                }))}
-              filename="clientes"
-              stats={[
-                { label: 'Total', value: stats.total },
-                { label: 'Activos', value: stats.activos },
-                { label: 'Inactivos', value: stats.inactivos },
-                { label: 'Empresas', value: stats.empresas },
-                { label: 'Particulares', value: stats.particulares },
-                { label: 'Con Riesgo', value: stats.conRiesgo },
-              ]}
-            />
+            {/* IMPORTAR */}
+            <Button variant="outline" size="sm" onClick={handleImport}>
+              <Upload className="h-4 w-4 sm:mr-2 shrink-0" />
+              <span className="hidden sm:inline">Importar</span>
+            </Button>
           </div>
         </div>
 
@@ -1205,7 +1195,7 @@ const {
                     <th className="px-3 py-1.5">
                       <Input
                         placeholder="Filtrar..."
-                        className="h-7 text-xs"
+                        className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.codigo || ''}
                         onChange={(e) => handleColumnFilterInput('codigo', e.target.value)}
                       />
@@ -1216,7 +1206,7 @@ const {
                     <th className="px-3 py-1.5">
                       <Input
                         placeholder="Filtrar..."
-                        className="h-7 text-xs"
+                        className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.nombre || ''}
                         onChange={(e) => handleColumnFilterInput('nombre', e.target.value)}
                       />
@@ -1227,7 +1217,7 @@ const {
                     <th className="px-3 py-1.5">
                       <Input
                         placeholder="Filtrar..."
-                        className="h-7 text-xs"
+                        className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.nombreComercial || ''}
                         onChange={(e) => handleColumnFilterInput('nombreComercial', e.target.value)}
                       />
@@ -1238,7 +1228,7 @@ const {
                     <th className="px-3 py-1.5">
                       <Input
                         placeholder="Filtrar..."
-                        className="h-7 text-xs"
+                        className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.nif || ''}
                         onChange={(e) => handleColumnFilterInput('nif', e.target.value)}
                       />
@@ -1249,7 +1239,7 @@ const {
                     <th className="px-3 py-1.5">
                       <Input
                         placeholder="Filtrar..."
-                        className="h-7 text-xs"
+                        className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.email || ''}
                         onChange={(e) => handleColumnFilterInput('email', e.target.value)}
                       />
@@ -1260,7 +1250,7 @@ const {
                     <th className="px-3 py-1.5">
                       <Input
                         placeholder="Filtrar..."
-                        className="h-7 text-xs"
+                        className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.telefono || ''}
                         onChange={(e) => handleColumnFilterInput('telefono', e.target.value)}
                       />
@@ -1286,7 +1276,7 @@ const {
                     <th className="px-3 py-1.5">
                       <Input
                         placeholder="Filtrar..."
-                        className="h-7 text-xs"
+                        className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.direccion || ''}
                         onChange={(e) => handleColumnFilterInput('direccion', e.target.value)}
                       />
@@ -1315,7 +1305,7 @@ const {
                     <th className="px-3 py-1.5">
                       <Input
                         placeholder="Filtrar..."
-                        className="h-7 text-xs"
+                        className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.riesgoActual || ''}
                         onChange={(e) => handleColumnFilterInput('riesgoActual', e.target.value)}
                       />
@@ -1326,7 +1316,7 @@ const {
                     <th className="px-3 py-1.5">
                       <Input
                         placeholder="Filtrar..."
-                        className="h-7 text-xs"
+                        className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.limiteCredito || ''}
                         onChange={(e) => handleColumnFilterInput('limiteCredito', e.target.value)}
                       />

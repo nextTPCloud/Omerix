@@ -21,6 +21,15 @@ const FamiliaBaseSchema = z.object({
   // Orden
   orden: z.number().default(0),
 
+  // TPV
+  usarEnTPV: z.boolean().default(false),
+  posicionTPV: z.number().min(0).optional(),
+  descripcionAbreviada: z.string().optional(),
+
+  // Módulos específicos
+  obligatorio: z.boolean().default(false),
+  renting: z.boolean().default(false),
+
   // Estado
   activo: z.boolean().default(true),
 

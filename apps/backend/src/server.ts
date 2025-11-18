@@ -19,6 +19,8 @@ import adminRoutes from './modules/admin/admin.routes'; // 🆕 Panel de adminis
 import clientesRoutes from './modules/clientes/clientes.routes';
 import productosRoutes from './modules/productos/productos.routes';
 import familiasRoutes from './modules/familias/familias.routes';
+import tiposImpuestoRoutes from './modules/tipos-impuesto/tipos-impuesto.routes';
+import almacenesRoutes from './modules/almacenes/almacenes.routes';
 import configuracionUsuarioRoutes from './modules/configuracion-usuario/configuracion-usuario.routes';
 import vistas from './modules/vistasGuardadas/vistas-guardadas.routes';
 import exportRoutes from './modules/export/export.routes';
@@ -195,6 +197,8 @@ app.use('/api/logs', logsRoutes); // 🆕 NUEVO: Rutas de logs
 app.use('/api/clientes', clientesRoutes); // ← AÑADIR
 app.use('/api/productos', productosRoutes);
 app.use('/api/familias', familiasRoutes);
+app.use('/api/tipos-impuesto', tiposImpuestoRoutes);
+app.use('/api/almacenes', almacenesRoutes);
 app.use('/api/pagos', pagosRoutes); // ← AÑADIR
 app.use('/api/configuraciones', configuracionUsuarioRoutes);
 app.use('/api/vistas-guardadas',vistas)
