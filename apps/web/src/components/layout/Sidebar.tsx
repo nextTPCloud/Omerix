@@ -28,6 +28,18 @@ import {
   FolderTree,
   Warehouse,
   Percent,
+  Tag,
+  ListChecks,
+  Layers,
+  UtensilsCrossed,
+  Printer,
+  ChefHat,
+  AlertTriangle,
+  SlidersHorizontal,
+  Grid3X3,
+  Palette,
+  Database,
+  FileStack,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -192,9 +204,54 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
         icon: Warehouse,
       },
       {
-        title: 'Tipos de Impuesto',
-        href: '/tipos-impuesto',
-        icon: Percent,
+        title: 'Variantes',
+        href: '/variantes',
+        icon: Palette,
+      },
+    ],
+  },
+  {
+    group: 'Restauración',
+    icon: UtensilsCrossed,
+    items: [
+      {
+        title: 'Zonas Preparación',
+        href: '/zonas-preparacion',
+        icon: ChefHat,
+      },
+      {
+        title: 'Impresoras',
+        href: '/impresoras',
+        icon: Printer,
+      },
+      {
+        title: 'Alérgenos',
+        href: '/alergenos',
+        icon: AlertTriangle,
+      },
+      {
+        title: 'Modificadores',
+        icon: SlidersHorizontal,
+        children: [
+          { title: 'Modificadores', href: '/modificadores' },
+          { title: 'Grupos', href: '/grupos-modificadores' },
+        ],
+      },
+    ],
+  },
+  {
+    group: 'Administración',
+    icon: Database,
+    items: [
+      {
+        title: 'Ficheros',
+        icon: FileStack,
+        children: [
+          { title: 'Tipos de Impuesto', href: '/tipos-impuesto' },
+          { title: 'Estados', href: '/estados' },
+          { title: 'Situaciones', href: '/situaciones' },
+          { title: 'Clasificaciones', href: '/clasificaciones' },
+        ],
       },
     ],
   },

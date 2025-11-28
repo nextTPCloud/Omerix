@@ -18,6 +18,7 @@ import { Menu, X } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
 import { LogoLink } from './LogoLink'
+import { SkinSelector } from '@/components/SkinSelector'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -64,6 +65,9 @@ export function Header({ onMenuClick, isMobileMenuOpen }: HeaderProps) {
 
         {/* Avatar y menú usuario */}
         <nav className="flex items-center space-x-2">
+          {/* Selector de tema */}
+          <SkinSelector />
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">

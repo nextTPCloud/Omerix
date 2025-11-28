@@ -115,7 +115,9 @@ export class ProductosService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const producto = await Producto.findOne({
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
+    const producto = await ProductoModel.findOne({
       _id: productoId,
       empresaId,
     });
@@ -195,7 +197,9 @@ export class ProductosService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const producto = await Producto.findOne({
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
+    const producto = await ProductoModel.findOne({
       _id: productoId,
       empresaId,
     })
@@ -218,7 +222,9 @@ export class ProductosService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const producto = await Producto.findOne({
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
+    const producto = await ProductoModel.findOne({
       empresaId,
       sku: sku.toUpperCase(),
     });
@@ -239,15 +245,17 @@ export class ProductosService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
     // Buscar en productos principales
-    let producto = await Producto.findOne({
+    let producto = await ProductoModel.findOne({
       empresaId,
       codigoBarras,
     });
 
     // Si no se encuentra, buscar en variantes
     if (!producto) {
-      producto = await Producto.findOne({
+      producto = await ProductoModel.findOne({
         empresaId,
         'variantes.codigoBarras': codigoBarras,
       });
@@ -269,6 +277,8 @@ export class ProductosService {
     filters: SearchProductosDTO,
     dbConfig: IDatabaseConfig
   ) {
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
     const {
       q,
       familiaId,
@@ -340,14 +350,14 @@ export class ProductosService {
 
     // Ejecutar query
     const [productos, total] = await Promise.all([
-      Producto.find(query)
+      ProductoModel.find(query)
         .populate('familiaId', 'nombre codigo')
         .populate('proveedorId', 'nombre')
         .sort(sort)
         .skip(skip)
         .limit(limit)
         .lean(),
-      Producto.countDocuments(query),
+      ProductoModel.countDocuments(query),
     ]);
 
     return {
@@ -371,7 +381,10 @@ export class ProductosService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const producto = await Producto.findOne({
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
+    const producto = await ProductoModel.findOne({
       _id: productoId,
       empresaId,
     });
@@ -382,7 +395,7 @@ export class ProductosService {
 
     // Verificar SKU único si se está cambiando
     if (data.sku && data.sku !== producto.sku) {
-      const existente = await Producto.findOne({
+      const existente = await ProductoModel.findOne({
         empresaId,
         sku: data.sku.toUpperCase(),
         _id: { $ne: productoId },
@@ -395,7 +408,7 @@ export class ProductosService {
 
     // Verificar código de barras único si se está cambiando
     if (data.codigoBarras && data.codigoBarras !== producto.codigoBarras) {
-      const existenteBarras = await Producto.findOne({
+      const existenteBarras = await ProductoModel.findOne({
         empresaId,
         codigoBarras: data.codigoBarras,
         _id: { $ne: productoId },
@@ -410,13 +423,13 @@ export class ProductosService {
     if (data.familiaId && data.familiaId !== producto.familiaId?.toString()) {
       // Decrementar contador de familia anterior
       if (producto.familiaId) {
-        await Familia.findByIdAndUpdate(producto.familiaId, {
+        await FamiliaModel.findByIdAndUpdate(producto.familiaId, {
           $inc: { 'estadisticas.totalProductos': -1 },
         });
       }
 
       // Incrementar contador de nueva familia
-      await Familia.findByIdAndUpdate(data.familiaId, {
+      await FamiliaModel.findByIdAndUpdate(data.familiaId, {
         $inc: { 'estadisticas.totalProductos': 1 },
       });
     }
@@ -439,7 +452,10 @@ export class ProductosService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const producto = await Producto.findOne({
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
+    const producto = await ProductoModel.findOne({
       _id: productoId,
       empresaId,
     });
@@ -454,7 +470,7 @@ export class ProductosService {
 
     // Decrementar contador en familia
     if (producto.familiaId) {
-      await Familia.findByIdAndUpdate(producto.familiaId, {
+      await FamiliaModel.findByIdAndUpdate(producto.familiaId, {
         $inc: { 'estadisticas.totalProductos': -1 },
       });
     }
@@ -474,7 +490,9 @@ export class ProductosService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const producto = await Producto.findOne({
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
+    const producto = await ProductoModel.findOne({
       _id: productoId,
       empresaId,
     });
@@ -533,7 +551,9 @@ export class ProductosService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ) {
-    const productos = await Producto.find({
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
+    const productos = await ProductoModel.find({
       empresaId,
       activo: true,
       gestionaStock: true,
@@ -586,6 +606,28 @@ export class ProductosService {
       { empresaId },
       { $inc: { 'usoActual.productosActuales': 1 } }
     );
+  }
+
+  // ============================================
+  // BUSCAR SKUs EXISTENTES (PARA AUTO-SUGERENCIA)
+  // ============================================
+
+  async searchSkus(
+    empresaId: mongoose.Types.ObjectId,
+    prefix: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<string[]> {
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+
+    const productos = await ProductoModel.find(
+      {
+        empresaId,
+        sku: { $regex: `^${prefix}`, $options: 'i' }
+      },
+      { sku: 1 }
+    ).lean();
+
+    return productos.map(p => p.sku);
   }
 }
 

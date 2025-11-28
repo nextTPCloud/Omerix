@@ -45,16 +45,18 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Si no es 401 o ya se reintentó, rechazar
     if (error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
 
+    // Si ya hay un refresh en progreso, encolar
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
       })
         .then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
+          originalRequest.headers['Authorization'] = `Bearer ${token}`;
           return api(originalRequest);
         })
         .catch((err) => {
@@ -62,6 +64,7 @@ api.interceptors.response.use(
         });
     }
 
+    // Marcar que se está reintentando
     originalRequest._retry = true;
     isRefreshing = true;
 
@@ -77,27 +80,35 @@ api.interceptors.response.use(
 
     try {
       // Intentar refrescar el token
-      const response = await axios.post(`${API_URL}/auth/refresh-token`, {
+      const response = await axios.post(`${API_URL}/auth/refresh`, {
         refreshToken,
       });
 
-      const { accessToken } = response.data;
+      const { accessToken, refreshToken: newRefreshToken } = response.data;
 
+      // Guardar ambos tokens
       localStorage.setItem('accessToken', accessToken);
-      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+      if (newRefreshToken) {
+        localStorage.setItem('refreshToken', newRefreshToken);
+      }
 
+      // Actualizar el header del request original
+      originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
+
+      // Procesar todas las peticiones encoladas
       processQueue(null, accessToken);
       isRefreshing = false;
 
+      // Reintentar el request original con el nuevo token
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);
       isRefreshing = false;
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      
+
       window.location.href = '/login';
-      
+
       return Promise.reject(refreshError);
     }
   }

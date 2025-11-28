@@ -91,6 +91,7 @@ export interface IProducto extends Document {
   // Identificación
   nombre: string;
   descripcion?: string;
+  descripcionCorta?: string; // Descripción breve para listados
   sku: string; // Stock Keeping Unit
   codigoBarras?: string;
   codigosAlternativos: string[]; // Códigos alternativos (proveedores, antiguos, etc.)
@@ -101,6 +102,11 @@ export interface IProducto extends Document {
   marca?: string;
   tags: string[];
 
+  // Estados y situaciones
+  estadoId?: Types.ObjectId; // Referencia a Estado
+  situacionId?: Types.ObjectId; // Referencia a Situación
+  clasificacionId?: Types.ObjectId; // Referencia a Clasificación
+
   // Tipo de producto
   tipo: 'simple' | 'variantes' | 'compuesto' | 'servicio' | 'materia_prima';
 
@@ -110,9 +116,17 @@ export interface IProducto extends Document {
   // Precios
   precios: IPrecio;
 
+  // Precios por cantidad (descuentos por volumen)
+  preciosPorCantidad: Array<{
+    cantidadMinima: number;
+    precio: number;
+    descuentoPorcentaje?: number;
+  }>;
+
   // Stock (si no tiene variantes)
   stock: IStock;
   gestionaStock: boolean; // Si controla o no el inventario
+  permitirStockNegativo: boolean; // Permitir ventas con stock negativo
 
   // Multi-almacén
   stockPorAlmacen: IStockAlmacen[]; // Stock distribuido por almacenes
@@ -132,17 +146,30 @@ export interface IProducto extends Document {
   // Impuestos
   iva: number; // Porcentaje de IVA
   tipoImpuesto: 'iva' | 'igic' | 'exento';
+  tipoImpuestoId?: Types.ObjectId; // Referencia a TipoImpuesto
 
   // Proveedor
   proveedorId?: Types.ObjectId;
+  proveedorPrincipal?: {
+    proveedorId: Types.ObjectId;
+    referencia?: string;
+    precioCompra?: number;
+    plazoEntrega?: number; // días
+  };
 
   // Características físicas
   peso?: number; // kg
+  volumen?: number; // m³
   dimensiones?: {
     largo: number; // cm
     ancho: number;
     alto: number;
   };
+
+  // Unidades
+  unidadMedida?: string; // ej: 'unidades', 'kg', 'metros', 'litros'
+  unidadesEmbalaje?: number; // Unidades por caja/embalaje
+  pesoEmbalaje?: number; // Peso del embalaje completo
 
   // Imágenes
   imagenes: string[]; // URLs de imágenes
@@ -152,21 +179,44 @@ export interface IProducto extends Document {
   activo: boolean;
   disponible: boolean; // Si está disponible para venta
   destacado: boolean;
+  nuevo: boolean; // Producto nuevo
+  oferta: boolean; // En oferta
 
   // TPV
   usarEnTPV: boolean; // Si el producto está disponible en el TPV
   permiteDescuento: boolean; // Si permite aplicar descuentos en TPV
   precioModificable: boolean; // Si el precio se puede modificar en TPV
+  imprimirEnTicket: boolean; // Si aparece en el ticket
 
-  // Notas
+  // E-commerce
+  publicarWeb: boolean; // Publicar en tienda online
+  metaTitle?: string; // SEO
+  metaDescription?: string; // SEO
+  metaKeywords?: string[]; // SEO
+
+  // Notas y observaciones
   notas?: string;
+  notasInternas?: string; // Notas privadas, no visibles para clientes
+  instruccionesUso?: string; // Instrucciones de uso del producto
+
+  // Garantía y soporte
+  garantiaMeses?: number; // Meses de garantía
+  requiereInstalacion: boolean; // Si necesita instalación
+  requiereMantenimiento: boolean; // Si necesita mantenimiento periódico
 
   // Estadísticas
   estadisticas: {
     vecesVendido: number;
+    vecesComprado: number;
     ingresoTotal: number;
+    costoTotal: number;
     ultimaVenta?: Date;
+    ultimaCompra?: Date;
   };
+
+  // Auditoría
+  creadoPor?: Types.ObjectId; // Usuario que creó
+  modificadoPor?: Types.ObjectId; // Último usuario que modificó
 
   createdAt: Date;
   updatedAt: Date;
@@ -289,6 +339,11 @@ const ProductoSchema = new Schema<IProducto>(
       type: String,
       trim: true,
     },
+    descripcionCorta: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
     sku: {
       type: String,
       required: [true, 'El SKU es obligatorio'],
@@ -316,6 +371,20 @@ const ProductoSchema = new Schema<IProducto>(
     marca: String,
     tags: [String],
 
+    // Estados y situaciones
+    estadoId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Estado',
+    },
+    situacionId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Situacion',
+    },
+    clasificacionId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Clasificacion',
+    },
+
     // Tipo de producto
     tipo: {
       type: String,
@@ -335,6 +404,13 @@ const ProductoSchema = new Schema<IProducto>(
       required: true,
     },
 
+    // Precios por cantidad
+    preciosPorCantidad: [{
+      cantidadMinima: { type: Number, required: true, min: 1 },
+      precio: { type: Number, required: true, min: 0 },
+      descuentoPorcentaje: Number,
+    }],
+
     // Stock
     stock: {
       type: StockSchema,
@@ -347,6 +423,10 @@ const ProductoSchema = new Schema<IProducto>(
     gestionaStock: {
       type: Boolean,
       default: true,
+    },
+    permitirStockNegativo: {
+      type: Boolean,
+      default: false,
     },
 
     // Multi-almacén
@@ -383,20 +463,39 @@ const ProductoSchema = new Schema<IProducto>(
       enum: ['iva', 'igic', 'exento'],
       default: 'iva',
     },
+    tipoImpuestoId: {
+      type: Schema.Types.ObjectId,
+      ref: 'TipoImpuesto',
+    },
 
     // Proveedor
     proveedorId: {
       type: Schema.Types.ObjectId,
       ref: 'Proveedor',
     },
+    proveedorPrincipal: {
+      proveedorId: { type: Schema.Types.ObjectId, ref: 'Proveedor' },
+      referencia: String,
+      precioCompra: Number,
+      plazoEntrega: Number,
+    },
 
     // Características físicas
     peso: Number,
+    volumen: Number,
     dimensiones: {
       largo: Number,
       ancho: Number,
       alto: Number,
     },
+
+    // Unidades
+    unidadMedida: {
+      type: String,
+      default: 'unidades',
+    },
+    unidadesEmbalaje: Number,
+    pesoEmbalaje: Number,
 
     // Imágenes
     imagenes: [String],
@@ -415,6 +514,14 @@ const ProductoSchema = new Schema<IProducto>(
       type: Boolean,
       default: false,
     },
+    nuevo: {
+      type: Boolean,
+      default: false,
+    },
+    oferta: {
+      type: Boolean,
+      default: false,
+    },
 
     // TPV
     usarEnTPV: {
@@ -429,15 +536,54 @@ const ProductoSchema = new Schema<IProducto>(
       type: Boolean,
       default: false,
     },
+    imprimirEnTicket: {
+      type: Boolean,
+      default: true,
+    },
+
+    // E-commerce
+    publicarWeb: {
+      type: Boolean,
+      default: false,
+    },
+    metaTitle: String,
+    metaDescription: String,
+    metaKeywords: [String],
 
     // Notas
     notas: String,
+    notasInternas: String,
+    instruccionesUso: String,
+
+    // Garantía
+    garantiaMeses: Number,
+    requiereInstalacion: {
+      type: Boolean,
+      default: false,
+    },
+    requiereMantenimiento: {
+      type: Boolean,
+      default: false,
+    },
 
     // Estadísticas
     estadisticas: {
       vecesVendido: { type: Number, default: 0 },
+      vecesComprado: { type: Number, default: 0 },
       ingresoTotal: { type: Number, default: 0 },
+      costoTotal: { type: Number, default: 0 },
       ultimaVenta: Date,
+      ultimaCompra: Date,
+    },
+
+    // Auditoría
+    creadoPor: {
+      type: Schema.Types.ObjectId,
+      ref: 'Usuario',
+    },
+    modificadoPor: {
+      type: Schema.Types.ObjectId,
+      ref: 'Usuario',
     },
   },
   {

@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { api } from './api';
 import {
   LoginResponse,
@@ -6,6 +7,8 @@ import {
   Verify2FAData,
   Usuario,
 } from '../types/auth.types';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export const authService = {
   // Registro
@@ -38,9 +41,9 @@ export const authService = {
     return response.data.data.usuario;
   },
 
-  // Refresh token
-  refreshToken: async (refreshToken: string): Promise<{ accessToken: string }> => {
-    const response = await api.post('/auth/refresh-token', { refreshToken });
+  // Refresh token (usa axios directo para evitar interceptores circulares)
+  refreshToken: async (refreshToken: string): Promise<{ accessToken: string; refreshToken?: string }> => {
+    const response = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
     return response.data;
   },
 

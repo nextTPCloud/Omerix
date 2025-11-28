@@ -46,8 +46,12 @@ export const UpdateFamiliaSchema = FamiliaBaseSchema.partial();
 
 // Búsqueda y filtros
 export const SearchFamiliasSchema = z.object({
-  q: z.string().optional(), // Búsqueda de texto
-  familiaPadreId: z.string().optional(),
+  q: z.string().optional(), // Búsqueda de texto general
+  codigo: z.string().optional(), // Filtro por código
+  nombre: z.string().optional(), // Filtro por nombre
+  descripcion: z.string().optional(), // Filtro por descripción
+  familiaPadre: z.string().optional(), // Filtro por nombre de familia padre
+  familiaPadreId: z.string().optional(), // Filtro por ID de familia padre
   nivel: z.string().transform(val => parseInt(val) || undefined).optional(),
   activo: z.string().transform(val => val === 'true').optional(),
   page: z.string().transform(val => parseInt(val) || 1).default('1'),

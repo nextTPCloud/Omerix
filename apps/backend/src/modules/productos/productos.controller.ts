@@ -389,6 +389,38 @@ export class ProductosController {
       });
     }
   }
+
+  // Buscar SKUs existentes (para auto-sugerencia)
+  async searchSkus(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const prefix = (req.query.prefix as string) || '';
+
+      const skus = await productosService.searchSkus(
+        empresaId,
+        prefix,
+        req.empresaDbConfig
+      );
+
+      res.json({
+        success: true,
+        data: skus,
+      });
+    } catch (error: any) {
+      console.error('Error al buscar SKUs:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al buscar SKUs',
+      });
+    }
+  }
 }
 
 export const productosController = new ProductosController();

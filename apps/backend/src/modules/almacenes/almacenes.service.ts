@@ -1,17 +1,30 @@
-import { Types } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Almacen, IAlmacen } from '../../models/Almacen';
 import {
   CreateAlmacenDTO,
   UpdateAlmacenDTO,
   SearchAlmacenesDTO,
 } from './almacenes.dto';
-import { AppError } from '../../middleware/error.middleware';
+import { AppError } from '../../middleware/errorHandler.middleware';
+import { IDatabaseConfig } from '../../types/express';
+import { getAlmacenModel } from '../../utils/dynamic-models.helper';
 
 export class AlmacenesService {
   /**
+   * Obtener modelo de Almacen para una empresa específica
+   */
+  private async getModelo(
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<Model<IAlmacen>> {
+    return await getAlmacenModel(empresaId, dbConfig);
+  }
+
+  /**
    * Obtener todos los almacenes con filtros y paginación
    */
-  async findAll(empresaId: Types.ObjectId, filters: SearchAlmacenesDTO) {
+  async findAll(empresaId: string, filters: SearchAlmacenesDTO, dbConfig: IDatabaseConfig) {
+    const AlmacenModel = await this.getModelo(empresaId, dbConfig);
     const {
       q,
       activo,
@@ -24,11 +37,14 @@ export class AlmacenesService {
     } = filters;
 
     // Construir query
-    const query: any = { empresaId };
+    const query: any = {};
 
     // Filtro de búsqueda de texto
     if (q) {
-      query.$text = { $search: q };
+      query.$or = [
+        { nombre: { $regex: q, $options: 'i' } },
+        { codigo: { $regex: q, $options: 'i' } },
+      ];
     }
 
     // Filtros booleanos
@@ -46,9 +62,6 @@ export class AlmacenesService {
 
     // Ordenamiento
     const sort: any = {};
-    if (q) {
-      sort.score = { $meta: 'textScore' };
-    }
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
     // Paginación
@@ -56,8 +69,8 @@ export class AlmacenesService {
 
     // Ejecutar query
     const [data, total] = await Promise.all([
-      Almacen.find(query).sort(sort).skip(skip).limit(limit).lean(),
-      Almacen.countDocuments(query),
+      AlmacenModel.find(query).sort(sort).skip(skip).limit(limit).lean(),
+      AlmacenModel.countDocuments(query),
     ]);
 
     return {
@@ -74,11 +87,9 @@ export class AlmacenesService {
   /**
    * Obtener un almacén por ID
    */
-  async findOne(id: string, empresaId: Types.ObjectId) {
-    const almacen = await Almacen.findOne({
-      _id: id,
-      empresaId,
-    }).lean();
+  async findOne(id: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const AlmacenModel = await this.getModelo(empresaId, dbConfig);
+    const almacen = await AlmacenModel.findById(id).lean();
 
     if (!almacen) {
       throw new AppError('Almacén no encontrado', 404);
@@ -90,28 +101,23 @@ export class AlmacenesService {
   /**
    * Crear un nuevo almacén
    */
-  async create(empresaId: Types.ObjectId, data: CreateAlmacenDTO) {
+  async create(empresaId: string, data: CreateAlmacenDTO, dbConfig: IDatabaseConfig) {
+    const AlmacenModel = await this.getModelo(empresaId, dbConfig);
+
     // Verificar si ya existe un almacén con el mismo código
-    const existente = await Almacen.findOne({
-      empresaId,
-      codigo: data.codigo,
-    });
+    const existente = await AlmacenModel.findOne({ codigo: data.codigo });
 
     if (existente) {
       throw new AppError('Ya existe un almacén con ese código', 400);
     }
 
     // Si es el primer almacén, marcarlo como principal
-    const count = await Almacen.countDocuments({ empresaId });
+    const count = await AlmacenModel.countDocuments();
     if (count === 0) {
       data.esPrincipal = true;
     }
 
-    const almacen = new Almacen({
-      ...data,
-      empresaId,
-    });
-
+    const almacen = new AlmacenModel(data);
     await almacen.save();
 
     return almacen.toObject();
@@ -120,12 +126,9 @@ export class AlmacenesService {
   /**
    * Actualizar un almacén
    */
-  async update(
-    id: string,
-    empresaId: Types.ObjectId,
-    data: UpdateAlmacenDTO
-  ) {
-    const almacen = await Almacen.findOne({ _id: id, empresaId });
+  async update(id: string, empresaId: string, data: UpdateAlmacenDTO, dbConfig: IDatabaseConfig) {
+    const AlmacenModel = await this.getModelo(empresaId, dbConfig);
+    const almacen = await AlmacenModel.findById(id);
 
     if (!almacen) {
       throw new AppError('Almacén no encontrado', 404);
@@ -133,8 +136,7 @@ export class AlmacenesService {
 
     // Si se está cambiando el código, verificar que no exista
     if (data.codigo && data.codigo !== almacen.codigo) {
-      const existente = await Almacen.findOne({
-        empresaId,
+      const existente = await AlmacenModel.findOne({
         codigo: data.codigo,
         _id: { $ne: id },
       });
@@ -146,7 +148,6 @@ export class AlmacenesService {
 
     // Actualizar campos
     Object.assign(almacen, data);
-
     await almacen.save();
 
     return almacen.toObject();
@@ -155,8 +156,9 @@ export class AlmacenesService {
   /**
    * Eliminar un almacén
    */
-  async delete(id: string, empresaId: Types.ObjectId) {
-    const almacen = await Almacen.findOne({ _id: id, empresaId });
+  async delete(id: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const AlmacenModel = await this.getModelo(empresaId, dbConfig);
+    const almacen = await AlmacenModel.findById(id);
 
     if (!almacen) {
       throw new AppError('Almacén no encontrado', 404);
@@ -167,8 +169,6 @@ export class AlmacenesService {
       throw new AppError('No se puede eliminar el almacén principal', 400);
     }
 
-    // TODO: Verificar que no tenga stock asignado
-
     await almacen.deleteOne();
 
     return { message: 'Almacén eliminado correctamente' };
@@ -177,12 +177,16 @@ export class AlmacenesService {
   /**
    * Establecer un almacén como principal
    */
-  async setPrincipal(id: string, empresaId: Types.ObjectId) {
-    const almacen = await Almacen.findOne({ _id: id, empresaId });
+  async setPrincipal(id: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const AlmacenModel = await this.getModelo(empresaId, dbConfig);
+    const almacen = await AlmacenModel.findById(id);
 
     if (!almacen) {
       throw new AppError('Almacén no encontrado', 404);
     }
+
+    // Quitar principal a los demás
+    await AlmacenModel.updateMany({}, { $set: { esPrincipal: false } });
 
     almacen.esPrincipal = true;
     await almacen.save();
@@ -193,9 +197,9 @@ export class AlmacenesService {
   /**
    * Obtener almacén principal
    */
-  async getPrincipal(empresaId: Types.ObjectId) {
-    const almacen = await Almacen.findOne({
-      empresaId,
+  async getPrincipal(empresaId: string, dbConfig: IDatabaseConfig) {
+    const AlmacenModel = await this.getModelo(empresaId, dbConfig);
+    const almacen = await AlmacenModel.findOne({
       esPrincipal: true,
       activo: true,
     }).lean();
@@ -210,15 +214,26 @@ export class AlmacenesService {
   /**
    * Obtener almacenes activos
    */
-  async getActivos(empresaId: Types.ObjectId) {
-    const almacenes = await Almacen.find({
-      empresaId,
-      activo: true,
-    })
+  async getActivos(empresaId: string, dbConfig: IDatabaseConfig) {
+    const AlmacenModel = await this.getModelo(empresaId, dbConfig);
+    const almacenes = await AlmacenModel.find({ activo: true })
       .sort({ nombre: 1 })
       .lean();
 
     return almacenes;
+  }
+
+  /**
+   * Buscar códigos que empiecen con un prefijo (para auto-sugerencia)
+   */
+  async searchCodigos(empresaId: string, prefix: string, dbConfig: IDatabaseConfig): Promise<string[]> {
+    const AlmacenModel = await this.getModelo(empresaId, dbConfig);
+    const almacenes = await AlmacenModel.find(
+      { codigo: { $regex: `^${prefix}`, $options: 'i' } },
+      { codigo: 1 }
+    ).lean();
+
+    return almacenes.map(a => a.codigo);
   }
 }
 

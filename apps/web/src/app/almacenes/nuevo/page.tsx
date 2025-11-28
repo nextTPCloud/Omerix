@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { CodeInput } from '@/components/ui/code-input';
 import {
   Select,
   SelectContent,
@@ -20,10 +21,24 @@ import {
 } from '@/components/ui/select';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { useFormValidation, ValidationRule } from '@/hooks/useFormValidation';
+
+// Reglas de validación para el formulario
+const validationRules: ValidationRule[] = [
+  { field: 'codigo', label: 'Código', required: true, minLength: 2, maxLength: 20 },
+  { field: 'nombre', label: 'Nombre', required: true, minLength: 2, maxLength: 100 },
+  {
+    field: 'email',
+    label: 'Email',
+    pattern: /^$|^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    patternMessage: 'El email no tiene un formato válido',
+  },
+];
 
 export default function NuevoAlmacenPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const { validate, getFieldError, clearFieldError } = useFormValidation<CreateAlmacenDTO>(validationRules);
 
   const [formData, setFormData] = useState<CreateAlmacenDTO>({
     codigo: '',
@@ -50,6 +65,7 @@ export default function NuevoAlmacenPage() {
 
   const handleChange = (field: keyof CreateAlmacenDTO, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    clearFieldError(field);
   };
 
   const handleDireccionChange = (field: string, value: string) => {
@@ -65,8 +81,8 @@ export default function NuevoAlmacenPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.codigo || !formData.nombre) {
-      toast.error('Por favor completa los campos obligatorios');
+    // Validar formulario con mensajes bonitos
+    if (!validate(formData)) {
       return;
     }
 
@@ -80,6 +96,15 @@ export default function NuevoAlmacenPage() {
       toast.error(error.response?.data?.message || 'Error al crear el almacén');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Función para buscar códigos existentes
+  const handleSearchCodigos = async (prefix: string): Promise<string[]> => {
+    try {
+      return await almacenesService.searchCodigos(prefix);
+    } catch {
+      return [];
     }
   };
 
@@ -109,12 +134,14 @@ export default function NuevoAlmacenPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="codigo">Código *</Label>
-                    <Input
+                    <CodeInput
                       id="codigo"
                       value={formData.codigo}
-                      onChange={(e) => handleChange('codigo', e.target.value.toUpperCase())}
+                      onChange={(value) => handleChange('codigo', value)}
+                      onSearchCodes={handleSearchCodigos}
                       placeholder="Ej: ALM001"
-                      required
+                      error={getFieldError('codigo')}
+                      helperText="Pulsa ↓ para sugerir siguiente código"
                     />
                   </div>
 
@@ -125,8 +152,11 @@ export default function NuevoAlmacenPage() {
                       value={formData.nombre}
                       onChange={(e) => handleChange('nombre', e.target.value)}
                       placeholder="Ej: Almacén Central"
-                      required
+                      aria-invalid={!!getFieldError('nombre')}
                     />
+                    {getFieldError('nombre') && (
+                      <p className="text-sm text-destructive mt-1">{getFieldError('nombre')}</p>
+                    )}
                   </div>
 
                   <div className="md:col-span-2">
@@ -266,7 +296,11 @@ export default function NuevoAlmacenPage() {
                       value={formData.email}
                       onChange={(e) => handleChange('email', e.target.value)}
                       placeholder="almacen@empresa.com"
+                      aria-invalid={!!getFieldError('email')}
                     />
+                    {getFieldError('email') && (
+                      <p className="text-sm text-destructive mt-1">{getFieldError('email')}</p>
+                    )}
                   </div>
                 </div>
               </div>

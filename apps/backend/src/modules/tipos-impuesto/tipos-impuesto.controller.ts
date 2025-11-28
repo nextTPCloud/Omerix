@@ -5,12 +5,13 @@ import {
   UpdateTipoImpuestoSchema,
   SearchTiposImpuestoSchema,
 } from './tipos-impuesto.dto';
+import { AuthorizationHelper } from '../../utils/authorization.helper';
 
 export class TiposImpuestoController {
   async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
@@ -18,11 +19,27 @@ export class TiposImpuestoController {
       }
 
       const filters = SearchTiposImpuestoSchema.parse(req.query);
-      const result = await tiposImpuestoService.findAll(empresaId, filters);
+
+      // Validación adicional contra inyección
+      const validation = AuthorizationHelper.validateInput(filters);
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.error,
+        });
+      }
+
+      const { data, total, page, limit, totalPages } = await tiposImpuestoService.findAll(empresaId, filters, req.empresaDbConfig);
 
       res.json({
         success: true,
-        ...result,
+        data,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: totalPages,
+        },
       });
     } catch (error: any) {
       next(error);
@@ -31,15 +48,16 @@ export class TiposImpuestoController {
 
   async getOne(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
         });
       }
 
-      const data = await tiposImpuestoService.findOne(req.params.id, empresaId);
+      // Si requireOwnership está activo, req.resource ya contiene el recurso
+      const data = req.resource || (await tiposImpuestoService.findOne(req.params.id, empresaId, req.empresaDbConfig));
 
       res.json({
         success: true,
@@ -52,16 +70,33 @@ export class TiposImpuestoController {
 
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
         });
       }
+      const userId = req.userId!;
 
       const data = CreateTipoImpuestoSchema.parse(req.body);
-      const result = await tiposImpuestoService.create(empresaId, data);
+
+      // Validación adicional contra inyección
+      const validation = AuthorizationHelper.validateInput(data);
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.error,
+        });
+      }
+
+      const result = await tiposImpuestoService.create(empresaId, data, req.empresaDbConfig);
+
+      // Log de auditoría
+      AuthorizationHelper.logSecurityEvent(userId, 'CREATE', 'tipos-impuesto', {
+        id: result._id,
+        codigo: result.codigo,
+      });
 
       res.status(201).json({
         success: true,
@@ -75,16 +110,34 @@ export class TiposImpuestoController {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
         });
       }
+      const userId = req.userId!;
+      const tipoImpuestoId = req.params.id;
 
       const data = UpdateTipoImpuestoSchema.parse(req.body);
-      const result = await tiposImpuestoService.update(req.params.id, empresaId, data);
+
+      // Validación adicional
+      const validation = AuthorizationHelper.validateInput(data);
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.error,
+        });
+      }
+
+      const result = await tiposImpuestoService.update(tipoImpuestoId, empresaId, data, req.empresaDbConfig);
+
+      // Log de auditoría
+      AuthorizationHelper.logSecurityEvent(userId, 'UPDATE', 'tipos-impuesto', {
+        id: tipoImpuestoId,
+        changes: Object.keys(data),
+      });
 
       res.json({
         success: true,
@@ -98,15 +151,22 @@ export class TiposImpuestoController {
 
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
         });
       }
+      const userId = req.userId!;
+      const tipoImpuestoId = req.params.id;
 
-      const result = await tiposImpuestoService.delete(req.params.id, empresaId);
+      const result = await tiposImpuestoService.delete(tipoImpuestoId, empresaId, req.empresaDbConfig);
+
+      // Log de auditoría (operación crítica)
+      AuthorizationHelper.logSecurityEvent(userId, 'DELETE', 'tipos-impuesto', {
+        id: tipoImpuestoId,
+      });
 
       res.json({
         success: true,
@@ -119,20 +179,50 @@ export class TiposImpuestoController {
 
   async setPredeterminado(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autorizado',
+        });
+      }
+      const userId = req.userId!;
+      const tipoImpuestoId = req.params.id;
+
+      const result = await tiposImpuestoService.setPredeterminado(tipoImpuestoId, empresaId, req.empresaDbConfig);
+
+      // Log de auditoría
+      AuthorizationHelper.logSecurityEvent(userId, 'UPDATE', 'tipos-impuesto', {
+        id: tipoImpuestoId,
+        action: 'setPredeterminado',
+      });
+
+      res.json({
+        success: true,
+        data: result,
+        message: 'Tipo de impuesto establecido como predeterminado',
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  async searchCodigos(req: Request, res: Response, next: NextFunction) {
+    try {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
         });
       }
 
-      const result = await tiposImpuestoService.setPredeterminado(req.params.id, empresaId);
+      const prefix = (req.query.prefix as string) || '';
+      const codigos = await tiposImpuestoService.searchCodigos(empresaId, prefix, req.empresaDbConfig);
 
       res.json({
         success: true,
-        data: result,
-        message: 'Tipo de impuesto establecido como predeterminado',
+        data: codigos,
       });
     } catch (error: any) {
       next(error);

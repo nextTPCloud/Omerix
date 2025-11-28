@@ -46,6 +46,40 @@ router.get('/stock-bajo', productosController.obtenerStockBajo.bind(productosCon
 
 /**
  * @swagger
+ * /api/productos/skus:
+ *   get:
+ *     summary: Buscar SKUs existentes por prefijo (para auto-sugerencia)
+ *     tags: [Productos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefix
+ *         schema:
+ *           type: string
+ *         description: Prefijo del SKU a buscar
+ *     responses:
+ *       200:
+ *         description: Lista de SKUs que coinciden con el prefijo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/skus', productosController.searchSkus.bind(productosController));
+
+/**
+ * @swagger
  * /api/productos/sku/{sku}:
  *   get:
  *     summary: Obtener producto por SKU

@@ -24,6 +24,20 @@ import almacenesRoutes from './modules/almacenes/almacenes.routes';
 import configuracionUsuarioRoutes from './modules/configuracion-usuario/configuracion-usuario.routes';
 import vistas from './modules/vistasGuardadas/vistas-guardadas.routes';
 import exportRoutes from './modules/export/export.routes';
+import estadosRoutes from './modules/estados/estados.routes';
+import situacionesRoutes from './modules/situaciones/situaciones.routes';
+import clasificacionesRoutes from './modules/clasificaciones/clasificaciones.routes';
+
+// Importar rutas de restauración/TPV
+import variantesRoutes from './modules/variantes/variantes.routes';
+import impresorasRoutes from './modules/impresoras/impresoras.routes';
+import zonasPreparacionRoutes from './modules/zonas-preparacion/zonas-preparacion.routes';
+import modificadoresRoutes from './modules/modificadores/modificadores.routes';
+import gruposModificadoresRoutes from './modules/grupos-modificadores/grupos-modificadores.routes';
+import alergenosRoutes from './modules/alergenos/alergenos.routes';
+
+// Importar rutas de IA
+import aiRoutes from './modules/ai/ai.routes';
 
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
@@ -203,6 +217,20 @@ app.use('/api/pagos', pagosRoutes); // ← AÑADIR
 app.use('/api/configuraciones', configuracionUsuarioRoutes);
 app.use('/api/vistas-guardadas',vistas)
 app.use('/api/export', exportRoutes)
+app.use('/api/estados', estadosRoutes);
+app.use('/api/situaciones', situacionesRoutes);
+app.use('/api/clasificaciones', clasificacionesRoutes);
+
+// Rutas de restauración/TPV
+app.use('/api/variantes', variantesRoutes);
+app.use('/api/impresoras', impresorasRoutes);
+app.use('/api/zonas-preparacion', zonasPreparacionRoutes);
+app.use('/api/modificadores', modificadoresRoutes);
+app.use('/api/grupos-modificadores', gruposModificadoresRoutes);
+app.use('/api/alergenos', alergenosRoutes);
+
+// Rutas de IA
+app.use('/api/ai', aiRoutes);
 
 // ============================================
 // MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS

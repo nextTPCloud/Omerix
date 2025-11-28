@@ -2,7 +2,6 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface ITipoImpuesto extends Document {
   _id: Types.ObjectId;
-  empresaId: Types.ObjectId;
 
   // Identificación
   codigo: string; // Código único del impuesto (ej: IVA21, IVA10)
@@ -31,13 +30,6 @@ const TipoImpuestoSchema = new Schema<ITipoImpuesto>(
       type: Schema.Types.ObjectId,
       required: true,
       auto: true,
-    },
-
-    empresaId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Empresa',
-      required: true,
-      index: true,
     },
 
     codigo: {
@@ -97,17 +89,16 @@ const TipoImpuestoSchema = new Schema<ITipoImpuesto>(
   }
 );
 
-// Índices
-TipoImpuestoSchema.index({ empresaId: 1, codigo: 1 }, { unique: true });
-TipoImpuestoSchema.index({ empresaId: 1, activo: 1 });
-TipoImpuestoSchema.index({ empresaId: 1, predeterminado: 1 });
+// Índices (sin empresaId porque cada empresa tiene su propia BD)
+TipoImpuestoSchema.index({ codigo: 1 }, { unique: true });
+TipoImpuestoSchema.index({ activo: 1 });
+TipoImpuestoSchema.index({ predeterminado: 1 });
 
 // Middleware: Solo un impuesto puede ser predeterminado
 TipoImpuestoSchema.pre('save', async function (next) {
   if (this.predeterminado && this.isModified('predeterminado')) {
     await mongoose.model('TipoImpuesto').updateMany(
       {
-        empresaId: this.empresaId,
         _id: { $ne: this._id },
         predeterminado: true,
       },

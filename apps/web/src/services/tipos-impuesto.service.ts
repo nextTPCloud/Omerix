@@ -1,4 +1,4 @@
-import api from './api';
+import { api } from './api';
 import {
   TipoImpuesto,
   CreateTipoImpuestoDTO,
@@ -11,6 +11,8 @@ export interface SearchTiposImpuestoParams {
   q?: string;
   tipo?: 'IVA' | 'IGIC' | 'IPSI' | 'OTRO';
   activo?: boolean;
+  predeterminado?: boolean;
+  recargoEquivalencia?: boolean;
   page?: number;
   limit?: number;
   sortBy?: string;
@@ -48,6 +50,14 @@ class TiposImpuestoService {
   async setPredeterminado(id: string): Promise<TipoImpuestoResponse> {
     const response = await api.post<TipoImpuestoResponse>(`${this.baseUrl}/${id}/predeterminado`);
     return response.data;
+  }
+
+  async searchCodigos(prefix: string): Promise<string[]> {
+    const response = await api.get<{ success: boolean; data: string[] }>(
+      `${this.baseUrl}/codigos`,
+      { params: { prefix } }
+    );
+    return response.data.data;
   }
 }
 

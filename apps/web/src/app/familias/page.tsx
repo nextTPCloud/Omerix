@@ -44,6 +44,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  CheckCircle,
+  XCircle,
+  Layers,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -92,6 +95,7 @@ export default function FamiliasPage() {
   const [selectedFamilias, setSelectedFamilias] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, pages: 0 })
+  const [showStats, setShowStats] = useState(false)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     familiaIds: string[]
@@ -127,6 +131,18 @@ export default function FamiliasPage() {
 
   const densityClasses = useDensityClasses(densidad)
 
+  // Estadísticas calculadas
+  const stats = useMemo(() => {
+    if (!familias || !Array.isArray(familias)) {
+      return { total: 0, activas: 0, inactivas: 0, conPadre: 0 }
+    }
+    const total = pagination?.total || 0
+    const activas = familias.filter((f) => f?.activo).length
+    const inactivas = familias.filter((f) => !f?.activo).length
+    const conPadre = familias.filter((f) => f?.familiaPadre).length
+    return { total, activas, inactivas, conPadre }
+  }, [familias, pagination?.total])
+
   const fetchFamilias = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -137,20 +153,23 @@ export default function FamiliasPage() {
         sortOrder: sortConfig.direction,
       }
 
-      // Combinar búsqueda general con filtros de columnas de texto
-      const searchTerms: string[] = []
-      if (searchTerm.trim()) searchTerms.push(searchTerm.trim())
+      // Búsqueda general
+      if (searchTerm.trim()) {
+        params.q = searchTerm.trim()
+      }
 
-      // Añadir filtros de texto de columnas
-      const textFilterFields = ['codigo', 'nombre', 'descripcion', 'familiaPadre', 'orden']
-      textFilterFields.forEach(field => {
-        if (columnFilters[field] && String(columnFilters[field]).trim()) {
-          searchTerms.push(String(columnFilters[field]).trim())
-        }
-      })
-
-      if (searchTerms.length > 0) {
-        params.q = searchTerms.join(' ')
+      // Filtros específicos por columna
+      if (columnFilters.codigo && String(columnFilters.codigo).trim()) {
+        params.codigo = String(columnFilters.codigo).trim()
+      }
+      if (columnFilters.nombre && String(columnFilters.nombre).trim()) {
+        params.nombre = String(columnFilters.nombre).trim()
+      }
+      if (columnFilters.descripcion && String(columnFilters.descripcion).trim()) {
+        params.descripcion = String(columnFilters.descripcion).trim()
+      }
+      if (columnFilters.familiaPadre && String(columnFilters.familiaPadre).trim()) {
+        params.familiaPadre = String(columnFilters.familiaPadre).trim()
       }
 
       // Filtro de activo
@@ -261,11 +280,79 @@ export default function FamiliasPage() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Organiza tus productos en categorías</p>
           </div>
-          <Button onClick={() => router.push('/familias/nuevo')}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Familia
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowStats(!showStats)}
+            >
+              {showStats ? <Eye className="h-4 w-4" /> : <FolderTree className="h-4 w-4" />}
+              <span className="ml-2 hidden sm:inline">Estadísticas</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchFamilias}
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="ml-2 hidden sm:inline">Actualizar</span>
+            </Button>
+            <Button size="sm" onClick={() => router.push('/familias/nuevo')}>
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Nueva Familia</span>
+            </Button>
+          </div>
         </div>
+
+        {/* ESTADÍSTICAS */}
+        {showStats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card className="p-3 border-l-4 border-l-blue-500">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <FolderTree className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Total</p>
+                  <p className="text-xl font-bold">{stats.total}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 border-l-4 border-l-green-500">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Activas</p>
+                  <p className="text-xl font-bold">{stats.activas}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 border-l-4 border-l-red-500">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                  <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Inactivas</p>
+                  <p className="text-xl font-bold">{stats.inactivas}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 border-l-4 border-l-purple-500">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                  <Layers className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Subfamilias</p>
+                  <p className="text-xl font-bold">{stats.conPadre}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
 
         <Card className="p-4">
           <div className="flex flex-col gap-4">

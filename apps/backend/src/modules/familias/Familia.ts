@@ -168,40 +168,14 @@ FamiliaSchema.index({ empresaId: 1, activo: 1 });
 FamiliaSchema.index({ empresaId: 1, nivel: 1 });
 FamiliaSchema.index({ nombre: 'text', descripcion: 'text', codigo: 'text' });
 
-// Middleware: Actualizar ruta y nivel antes de guardar
-FamiliaSchema.pre('save', async function (next) {
-  if (this.isModified('familiaPadreId') || this.isNew) {
-    if (this.familiaPadreId) {
-      const padre = await mongoose.model('Familia').findById(this.familiaPadreId);
-      if (padre) {
-        this.nivel = padre.nivel + 1;
-        this.ruta = [...padre.ruta, padre._id];
-      } else {
-        this.nivel = 0;
-        this.ruta = [];
-      }
-    } else {
-      this.nivel = 0;
-      this.ruta = [];
-    }
-  }
-  next();
-});
+// NOTA: El middleware pre('save') para calcular nivel y ruta ha sido desactivado
+// porque no funciona correctamente con la arquitectura multi-tenant (modelos dinámicos).
+// El cálculo de nivel y ruta se hace ahora en el servicio (familias.service.ts)
+// antes de crear/actualizar la familia.
 
-// Middleware: Actualizar contador de subfamilias del padre
-FamiliaSchema.post('save', async function (doc) {
-  if (doc.familiaPadreId) {
-    const totalSubfamilias = await mongoose.model('Familia').countDocuments({
-      empresaId: doc.empresaId,
-      familiaPadreId: doc.familiaPadreId,
-      activo: true,
-    });
-
-    await mongoose.model('Familia').findByIdAndUpdate(doc.familiaPadreId, {
-      'estadisticas.totalSubfamilias': totalSubfamilias,
-    });
-  }
-});
+// NOTA: El middleware post('save') para actualizar estadísticas del padre también
+// ha sido desactivado por el mismo motivo (multi-tenant).
+// Las estadísticas se calculan bajo demanda en el servicio.
 
 // Virtual para obtener subfamilias
 FamiliaSchema.virtual('subfamilias', {

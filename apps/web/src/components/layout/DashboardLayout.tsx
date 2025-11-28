@@ -1,11 +1,15 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/authStore'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { cn } from '@/lib/utils'
+import { isTokenExpired, getTokenTimeRemaining } from '@/utils/jwt.utils'
+
+// Intervalo de verificación del token (cada 60 segundos)
+const TOKEN_CHECK_INTERVAL = 60 * 1000
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -13,12 +17,66 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter()
-  const { isAuthenticated, isHydrated } = useAuthStore()
+  const { isAuthenticated, isHydrated, accessToken, checkAndRefreshToken, clearAuth } = useAuthStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Función para verificar y refrescar el token
+  const verifyToken = useCallback(async () => {
+    if (!isAuthenticated || !accessToken) {
+      return
+    }
+
+    // Si el token está próximo a expirar (menos de 2 minutos), intentar refrescar
+    if (isTokenExpired(accessToken, 120)) {
+      const isValid = await checkAndRefreshToken()
+      if (!isValid) {
+        router.push('/login')
+      }
+    }
+  }, [isAuthenticated, accessToken, checkAndRefreshToken, router])
+
+  // Marcar componente como montado
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  // Verificar token al montar y configurar verificación periódica
+  useEffect(() => {
+    if (!isHydrated || !isAuthenticated) {
+      return
+    }
+
+    // Verificar inmediatamente al montar
+    verifyToken()
+
+    // Configurar verificación periódica
+    const intervalId = setInterval(verifyToken, TOKEN_CHECK_INTERVAL)
+
+    // Verificar cuando la ventana vuelve a tener foco (usuario vuelve a la pestaña)
+    const handleFocus = () => {
+      verifyToken()
+    }
+    window.addEventListener('focus', handleFocus)
+
+    // Verificar cuando el usuario vuelve a estar activo (visibilitychange)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        verifyToken()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      clearInterval(intervalId)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [isHydrated, isAuthenticated, verifyToken])
 
   useEffect(() => {
-    // ✅ SOLO redirigir cuando ya se haya cargado del localStorage
+    // Redirigir cuando ya se haya cargado del localStorage y no esté autenticado
     if (isHydrated && !isAuthenticated) {
       router.push('/login')
     }
@@ -36,13 +94,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Cargar estado del sidebar desde localStorage
+  // Cargar estado del sidebar desde localStorage solo después de montar
   useEffect(() => {
-    const saved = localStorage.getItem('sidebar-collapsed')
-    if (saved !== null) {
-      setIsSidebarCollapsed(saved === 'true')
+    if (isMounted) {
+      const saved = localStorage.getItem('sidebar-collapsed')
+      if (saved !== null) {
+        setIsSidebarCollapsed(saved === 'true')
+      }
     }
-  }, [])
+  }, [isMounted])
 
   // Guardar estado del sidebar en localStorage
   const handleToggleCollapse = () => {

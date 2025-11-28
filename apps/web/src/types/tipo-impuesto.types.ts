@@ -11,7 +11,6 @@ export interface TipoImpuesto {
   porcentajeRecargo?: number;
   activo: boolean;
   predeterminado: boolean;
-  empresaId: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,7 +46,7 @@ export interface TiposImpuestoResponse {
     total: number;
     page: number;
     limit: number;
-    totalPages: number;
+    pages: number;
   };
 }
 

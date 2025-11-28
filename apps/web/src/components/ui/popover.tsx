@@ -37,11 +37,26 @@ const usePopover = () => {
 
 interface PopoverProps {
   children: React.ReactNode
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-const Popover = ({ children }: PopoverProps) => {
-  const [open, setOpen] = React.useState(false)
+const Popover = ({ children, open: controlledOpen, onOpenChange }: PopoverProps) => {
+  const [internalOpen, setInternalOpen] = React.useState(false)
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
+
+  // Si es controlado, usar props externos; si no, usar estado interno
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+
+  const setOpen: React.Dispatch<React.SetStateAction<boolean>> = React.useCallback((value) => {
+    const newValue = typeof value === 'function' ? value(open) : value
+    if (isControlled) {
+      onOpenChange?.(newValue)
+    } else {
+      setInternalOpen(newValue)
+    }
+  }, [isControlled, onOpenChange, open])
 
   return (
     <PopoverContext.Provider value={{ open, setOpen, triggerRef }}>

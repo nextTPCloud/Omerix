@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { SkinProvider } from "@/contexts/SkinContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,10 +20,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
-      <body className={inter.className}>
-        {children}
-        <Toaster position="top-right" richColors />
+    <html lang="es" suppressHydrationWarning className="skin-default">
+      <body className={inter.className} suppressHydrationWarning>
+        <SkinProvider>
+          {children}
+          <Toaster position="top-right" richColors />
+        </SkinProvider>
       </body>
     </html>
   );

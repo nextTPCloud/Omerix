@@ -44,7 +44,11 @@ export class FamiliasService {
       throw new Error('Ya existe una familia con ese código');
     }
 
-    // Si tiene padre, verificar que exista
+    // Calcular nivel y ruta antes de guardar (para evitar problemas con middleware en multi-tenant)
+    let nivel = 0;
+    let ruta: mongoose.Types.ObjectId[] = [];
+
+    // Si tiene padre, verificar que exista y calcular nivel/ruta
     if (data.familiaPadreId) {
       const padre = await FamiliaModel.findOne({
         _id: data.familiaPadreId,
@@ -53,11 +57,17 @@ export class FamiliasService {
       if (!padre) {
         throw new Error('La familia padre no existe');
       }
+
+      // Calcular nivel y ruta basándose en el padre
+      nivel = (padre.nivel || 0) + 1;
+      ruta = [...(padre.ruta || []), padre._id];
     }
 
     const familia = new FamiliaModel({
       ...data,
       empresaId,
+      nivel,
+      ruta,
     });
 
     await familia.save();
@@ -74,6 +84,10 @@ export class FamiliasService {
 
     const {
       q,
+      codigo,
+      nombre,
+      descripcion,
+      familiaPadre,
       familiaPadreId,
       nivel,
       activo,
@@ -86,7 +100,7 @@ export class FamiliasService {
     // Construir query
     const query: any = {};
 
-    // Búsqueda de texto
+    // Búsqueda de texto general
     if (q) {
       query.$or = [
         { nombre: { $regex: q, $options: 'i' } },
@@ -95,7 +109,18 @@ export class FamiliasService {
       ];
     }
 
-    // Filtro por familia padre
+    // Filtros específicos por columna
+    if (codigo) {
+      query.codigo = { $regex: codigo, $options: 'i' };
+    }
+    if (nombre) {
+      query.nombre = { $regex: nombre, $options: 'i' };
+    }
+    if (descripcion) {
+      query.descripcion = { $regex: descripcion, $options: 'i' };
+    }
+
+    // Filtro por familia padre por ID
     if (familiaPadreId) {
       query.familiaPadreId = familiaPadreId;
     }
@@ -117,16 +142,40 @@ export class FamiliasService {
     const sort: any = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
-    // Ejecutar query
-    const [familias, total] = await Promise.all([
-      FamiliaModel.find(query)
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .populate('familiaPadreId', 'nombre codigo')
-        .lean(),
-      FamiliaModel.countDocuments(query),
-    ]);
+    // Ejecutar query base
+    let familiasRaw = await FamiliaModel.find(query)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .populate('familiaPadreId', 'nombre codigo')
+      .lean();
+
+    // Si hay filtro por nombre de familia padre, filtrar en memoria
+    // (ya que es un campo populado)
+    if (familiaPadre) {
+      const familiaPadreRegex = new RegExp(familiaPadre, 'i');
+      familiasRaw = familiasRaw.filter(f => {
+        const padre = f.familiaPadreId as any;
+        return padre && (
+          familiaPadreRegex.test(padre.nombre) ||
+          familiaPadreRegex.test(padre.codigo)
+        );
+      });
+    }
+
+    // Contar total (sin filtro de familiaPadre en memoria)
+    let total = await FamiliaModel.countDocuments(query);
+
+    // Si filtramos por familiaPadre, el total es el tamaño filtrado
+    if (familiaPadre) {
+      total = familiasRaw.length;
+    }
+
+    // Transformar familiaPadreId a familiaPadre para el frontend
+    const familias = familiasRaw.map(f => ({
+      ...f,
+      familiaPadre: f.familiaPadreId || null,
+    }));
 
     return {
       familias,

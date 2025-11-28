@@ -9,8 +9,8 @@ import {
 export class AlmacenesController {
   async getAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
@@ -18,7 +18,7 @@ export class AlmacenesController {
       }
 
       const filters = SearchAlmacenesSchema.parse(req.query);
-      const result = await almacenesService.findAll(empresaId, filters);
+      const result = await almacenesService.findAll(empresaId, filters, req.empresaDbConfig);
 
       res.json({
         success: true,
@@ -31,15 +31,15 @@ export class AlmacenesController {
 
   async getOne(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
         });
       }
 
-      const data = await almacenesService.findOne(req.params.id, empresaId);
+      const data = await almacenesService.findOne(req.params.id, empresaId, req.empresaDbConfig);
 
       res.json({
         success: true,
@@ -52,8 +52,8 @@ export class AlmacenesController {
 
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
@@ -61,7 +61,7 @@ export class AlmacenesController {
       }
 
       const data = CreateAlmacenSchema.parse(req.body);
-      const result = await almacenesService.create(empresaId, data);
+      const result = await almacenesService.create(empresaId, data, req.empresaDbConfig);
 
       res.status(201).json({
         success: true,
@@ -75,8 +75,8 @@ export class AlmacenesController {
 
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
@@ -84,7 +84,7 @@ export class AlmacenesController {
       }
 
       const data = UpdateAlmacenSchema.parse(req.body);
-      const result = await almacenesService.update(req.params.id, empresaId, data);
+      const result = await almacenesService.update(req.params.id, empresaId, data, req.empresaDbConfig);
 
       res.json({
         success: true,
@@ -98,15 +98,15 @@ export class AlmacenesController {
 
   async delete(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
         });
       }
 
-      const result = await almacenesService.delete(req.params.id, empresaId);
+      const result = await almacenesService.delete(req.params.id, empresaId, req.empresaDbConfig);
 
       res.json({
         success: true,
@@ -119,15 +119,15 @@ export class AlmacenesController {
 
   async setPrincipal(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
         });
       }
 
-      const result = await almacenesService.setPrincipal(req.params.id, empresaId);
+      const result = await almacenesService.setPrincipal(req.params.id, empresaId, req.empresaDbConfig);
 
       res.json({
         success: true,
@@ -141,15 +141,15 @@ export class AlmacenesController {
 
   async getPrincipal(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
         });
       }
 
-      const result = await almacenesService.getPrincipal(empresaId);
+      const result = await almacenesService.getPrincipal(empresaId, req.empresaDbConfig);
 
       res.json({
         success: true,
@@ -162,19 +162,41 @@ export class AlmacenesController {
 
   async getActivos(req: Request, res: Response, next: NextFunction) {
     try {
-      const empresaId = req.user?.empresaId;
-      if (!empresaId) {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
         return res.status(401).json({
           success: false,
           message: 'No autorizado',
         });
       }
 
-      const data = await almacenesService.getActivos(empresaId);
+      const data = await almacenesService.getActivos(empresaId, req.empresaDbConfig);
 
       res.json({
         success: true,
         data,
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  async searchCodigos(req: Request, res: Response, next: NextFunction) {
+    try {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autorizado',
+        });
+      }
+
+      const prefix = (req.query.prefix as string) || '';
+      const codigos = await almacenesService.searchCodigos(empresaId, prefix, req.empresaDbConfig);
+
+      res.json({
+        success: true,
+        data: codigos,
       });
     } catch (error: any) {
       next(error);

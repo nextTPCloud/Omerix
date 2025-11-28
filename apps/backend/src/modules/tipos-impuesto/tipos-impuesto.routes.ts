@@ -2,6 +2,12 @@ import { Router } from 'express';
 import { tiposImpuestoController } from './tipos-impuesto.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
+import {
+  requirePermission,
+  requireOwnership,
+  requireAuth,
+} from '../../middleware/authorization.middleware';
+import { TipoImpuesto } from '../../models/TipoImpuesto';
 
 const router = Router();
 
@@ -66,6 +72,7 @@ const router = Router();
 // Aplicar middleware de autenticación y tenant a todas las rutas
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+router.use(requireAuth);
 
 /**
  * @swagger
@@ -150,7 +157,49 @@ router.use(tenantMiddleware);
  *       500:
  *         description: Error del servidor
  */
-router.get('/', tiposImpuestoController.getAll.bind(tiposImpuestoController));
+router.get(
+  '/',
+  requirePermission('tipos-impuesto', 'read'),
+  tiposImpuestoController.getAll.bind(tiposImpuestoController)
+);
+
+/**
+ * @swagger
+ * /api/tipos-impuesto/codigos:
+ *   get:
+ *     summary: Buscar códigos existentes por prefijo (para auto-sugerencia)
+ *     tags: [Tipos de Impuesto]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefix
+ *         schema:
+ *           type: string
+ *         description: Prefijo del código a buscar
+ *     responses:
+ *       200:
+ *         description: Lista de códigos que coinciden con el prefijo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       401:
+ *         description: No autorizado
+ */
+router.get(
+  '/codigos',
+  requirePermission('tipos-impuesto', 'read'),
+  tiposImpuestoController.searchCodigos.bind(tiposImpuestoController)
+);
 
 /**
  * @swagger
@@ -187,7 +236,12 @@ router.get('/', tiposImpuestoController.getAll.bind(tiposImpuestoController));
  *       500:
  *         description: Error del servidor
  */
-router.get('/:id', tiposImpuestoController.getOne.bind(tiposImpuestoController));
+router.get(
+  '/:id',
+  requirePermission('tipos-impuesto', 'read'),
+  requireOwnership(TipoImpuesto, 'id'),
+  tiposImpuestoController.getOne.bind(tiposImpuestoController)
+);
 
 /**
  * @swagger
@@ -266,7 +320,11 @@ router.get('/:id', tiposImpuestoController.getOne.bind(tiposImpuestoController))
  *       500:
  *         description: Error del servidor
  */
-router.post('/', tiposImpuestoController.create.bind(tiposImpuestoController));
+router.post(
+  '/',
+  requirePermission('tipos-impuesto', 'create'),
+  tiposImpuestoController.create.bind(tiposImpuestoController)
+);
 
 /**
  * @swagger
@@ -336,7 +394,12 @@ router.post('/', tiposImpuestoController.create.bind(tiposImpuestoController));
  *       500:
  *         description: Error del servidor
  */
-router.put('/:id', tiposImpuestoController.update.bind(tiposImpuestoController));
+router.put(
+  '/:id',
+  requirePermission('tipos-impuesto', 'update'),
+  requireOwnership(TipoImpuesto, 'id'),
+  tiposImpuestoController.update.bind(tiposImpuestoController)
+);
 
 /**
  * @swagger
@@ -374,7 +437,12 @@ router.put('/:id', tiposImpuestoController.update.bind(tiposImpuestoController))
  *       500:
  *         description: Error del servidor
  */
-router.delete('/:id', tiposImpuestoController.delete.bind(tiposImpuestoController));
+router.delete(
+  '/:id',
+  requirePermission('tipos-impuesto', 'delete'),
+  requireOwnership(TipoImpuesto, 'id'),
+  tiposImpuestoController.delete.bind(tiposImpuestoController)
+);
 
 /**
  * @swagger
@@ -414,6 +482,11 @@ router.delete('/:id', tiposImpuestoController.delete.bind(tiposImpuestoControlle
  *       500:
  *         description: Error del servidor
  */
-router.post('/:id/predeterminado', tiposImpuestoController.setPredeterminado.bind(tiposImpuestoController));
+router.post(
+  '/:id/predeterminado',
+  requirePermission('tipos-impuesto', 'update'),
+  requireOwnership(TipoImpuesto, 'id'),
+  tiposImpuestoController.setPredeterminado.bind(tiposImpuestoController)
+);
 
 export default router;

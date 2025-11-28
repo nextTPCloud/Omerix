@@ -56,6 +56,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  CheckCircle,
+  XCircle,
+  TrendingDown,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -118,9 +121,7 @@ const DEFAULT_PRODUCTOS_CONFIG = {
     key: 'createdAt',
     direction: 'desc' as const,
   },
-  columnFilters: {
-    activo: 'true',
-  },
+  columnFilters: {},
   paginacion: {
     limit: 25 as const,
   },
@@ -160,6 +161,7 @@ export default function ProductosPage() {
   })
 
   // UI States
+  const [showStats, setShowStats] = useState(false)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     productoIds: string[]
@@ -207,6 +209,37 @@ export default function ProductosPage() {
   const densityClasses = useDensityClasses(densidad)
 
   // ============================================
+  // ESTADÍSTICAS CALCULADAS
+  // ============================================
+
+  const stats = useMemo(() => {
+    if (!productos || !Array.isArray(productos)) {
+      return {
+        total: 0,
+        activos: 0,
+        inactivos: 0,
+        stockBajo: 0,
+      }
+    }
+
+    const total = pagination?.total || 0
+    const activos = productos.filter((p) => p?.activo).length
+    const inactivos = productos.filter((p) => !p?.activo).length
+    const stockBajo = productos.filter((p) =>
+      p?.stock?.cantidad !== undefined &&
+      p?.stock?.minimo !== undefined &&
+      p.stock.cantidad <= p.stock.minimo
+    ).length
+
+    return {
+      total,
+      activos,
+      inactivos,
+      stockBajo,
+    }
+  }, [productos, pagination?.total])
+
+  // ============================================
   // CARGAR DATOS
   // ============================================
 
@@ -240,15 +273,15 @@ export default function ProductosPage() {
       }
 
       // Filtros de select
-      if (columnFilters.familiaId) {
+      if (columnFilters.familiaId && columnFilters.familiaId !== '') {
         params.familiaId = columnFilters.familiaId
       }
 
-      if (columnFilters.activo && columnFilters.activo !== 'all') {
+      if (columnFilters.activo && columnFilters.activo !== 'all' && columnFilters.activo !== '') {
         params.activo = columnFilters.activo === 'true'
       }
 
-      if (columnFilters.visible && columnFilters.visible !== 'all') {
+      if (columnFilters.visible && columnFilters.visible !== 'all' && columnFilters.visible !== '') {
         params.visible = columnFilters.visible === 'true'
       }
 
@@ -404,13 +437,79 @@ export default function ProductosPage() {
               Gestiona tu catálogo de productos
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => router.push('/productos/nuevo')}>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowStats(!showStats)}
+            >
+              {showStats ? <Eye className="h-4 w-4" /> : <Package className="h-4 w-4" />}
+              <span className="ml-2 hidden sm:inline">Estadísticas</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchProductos}
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="ml-2 hidden sm:inline">Actualizar</span>
+            </Button>
+            <Button size="sm" onClick={() => router.push('/productos/nuevo')}>
               <Plus className="h-4 w-4 mr-2" />
-              Nuevo Producto
+              <span className="hidden sm:inline">Nuevo Producto</span>
             </Button>
           </div>
         </div>
+
+        {/* ESTADÍSTICAS */}
+        {showStats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card className="p-3 border-l-4 border-l-blue-500">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Total</p>
+                  <p className="text-xl font-bold">{stats.total}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 border-l-4 border-l-green-500">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Activos</p>
+                  <p className="text-xl font-bold">{stats.activos}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 border-l-4 border-l-red-500">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                  <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Inactivos</p>
+                  <p className="text-xl font-bold">{stats.inactivos}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-3 border-l-4 border-l-orange-500">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                  <TrendingDown className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Stock Bajo</p>
+                  <p className="text-xl font-bold">{stats.stockBajo}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Barra de herramientas */}
         <Card className="p-4">
@@ -682,10 +781,13 @@ export default function ProductosPage() {
                               handleColumnFilterChange('familiaId', value)
                             }
                             placeholder="Todas"
-                            options={familias.map(f => ({
-                              value: f._id,
-                              label: f.nombre,
-                            }))}
+                            options={[
+                              { value: '', label: 'Todas' },
+                              ...familias.map(f => ({
+                                value: f._id,
+                                label: f.nombre,
+                              }))
+                            ]}
                           />
                         )}
                         {columna.key === 'codigoBarras' && (
@@ -736,6 +838,7 @@ export default function ProductosPage() {
                             }
                             placeholder="Todos"
                             options={[
+                              { value: '', label: 'Todos' },
                               { value: 'true', label: 'Activos' },
                               { value: 'false', label: 'Inactivos' },
                             ]}
@@ -749,6 +852,7 @@ export default function ProductosPage() {
                             }
                             placeholder="Todos"
                             options={[
+                              { value: '', label: 'Todos' },
                               { value: 'true', label: 'Visibles' },
                               { value: 'false', label: 'Ocultos' },
                             ]}
@@ -807,10 +911,10 @@ export default function ProductosPage() {
                               <span className="font-mono">{producto.codigoBarras || '-'}</span>
                             )}
                             {columna.key === 'precioBase' && (
-                              <span>{producto.precio.base.toFixed(2)} €</span>
+                              <span>{producto.precios.compra.toFixed(2)} €</span>
                             )}
                             {columna.key === 'precioVenta' && (
-                              <span className="font-medium">{producto.precio.venta.toFixed(2)} €</span>
+                              <span className="font-medium">{producto.precios.venta.toFixed(2)} €</span>
                             )}
                             {columna.key === 'stockCantidad' && (
                               <div className="flex items-center gap-2">
@@ -829,8 +933,8 @@ export default function ProductosPage() {
                               </Badge>
                             )}
                             {columna.key === 'visible' && (
-                              <Badge variant={producto.visible ? 'default' : 'outline'}>
-                                {producto.visible ? 'Visible' : 'Oculto'}
+                              <Badge variant={producto.disponible ? 'default' : 'outline'}>
+                                {producto.disponible ? 'Disponible' : 'No disponible'}
                               </Badge>
                             )}
                           </td>
@@ -845,11 +949,7 @@ export default function ProductosPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => router.push(`/productos/${producto._id}`)}>
                               <Eye className="h-4 w-4 mr-2" />
-                              Ver
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push(`/productos/${producto._id}/editar`)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Editar
+                              Ver / Editar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

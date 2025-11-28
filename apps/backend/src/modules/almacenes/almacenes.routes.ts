@@ -259,6 +259,40 @@ router.get('/activos', almacenesController.getActivos.bind(almacenesController))
 
 /**
  * @swagger
+ * /api/almacenes/codigos:
+ *   get:
+ *     summary: Buscar códigos existentes por prefijo (para auto-sugerencia)
+ *     tags: [Almacenes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefix
+ *         schema:
+ *           type: string
+ *         description: Prefijo del código a buscar
+ *     responses:
+ *       200:
+ *         description: Lista de códigos que coinciden con el prefijo
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/codigos', almacenesController.searchCodigos.bind(almacenesController));
+
+/**
+ * @swagger
  * /api/almacenes/{id}:
  *   get:
  *     summary: Obtener un almacén por ID

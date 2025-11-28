@@ -6,7 +6,6 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface IAlmacen extends Document {
   _id: Types.ObjectId;
-  empresaId: Types.ObjectId;
 
   // Identificación
   codigo: string; // Código único del almacén
@@ -65,13 +64,6 @@ const AlmacenSchema = new Schema<IAlmacen>(
       type: Schema.Types.ObjectId,
       required: true,
       auto: true,
-    },
-
-    empresaId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Empresa',
-      required: true,
-      index: true,
     },
 
     // Identificación
@@ -139,16 +131,16 @@ const AlmacenSchema = new Schema<IAlmacen>(
 );
 
 // ============================================
-// ÍNDICES
+// ÍNDICES (sin empresaId porque cada empresa tiene su propia BD)
 // ============================================
 
-// Código único por empresa
-AlmacenSchema.index({ empresaId: 1, codigo: 1 }, { unique: true });
+// Código único
+AlmacenSchema.index({ codigo: 1 }, { unique: true });
 
 // Búsquedas comunes
-AlmacenSchema.index({ empresaId: 1, activo: 1 });
-AlmacenSchema.index({ empresaId: 1, esPrincipal: 1 });
-AlmacenSchema.index({ empresaId: 1, usarEnTPV: 1 });
+AlmacenSchema.index({ activo: 1 });
+AlmacenSchema.index({ esPrincipal: 1 });
+AlmacenSchema.index({ usarEnTPV: 1 });
 
 // Índice de texto para búsqueda
 AlmacenSchema.index({
@@ -161,13 +153,12 @@ AlmacenSchema.index({
 // MIDDLEWARE
 // ============================================
 
-// Solo puede haber un almacén principal por empresa
+// Solo puede haber un almacén principal
 AlmacenSchema.pre('save', async function (next) {
   if (this.esPrincipal && this.isModified('esPrincipal')) {
-    // Desmarcar otros almacenes principales de la misma empresa
+    // Desmarcar otros almacenes principales
     await mongoose.model('Almacen').updateMany(
       {
-        empresaId: this.empresaId,
         _id: { $ne: this._id },
         esPrincipal: true,
       },
@@ -181,12 +172,12 @@ AlmacenSchema.pre('save', async function (next) {
 // MÉTODOS ESTÁTICOS
 // ============================================
 
-AlmacenSchema.statics.obtenerPrincipal = async function (empresaId: Types.ObjectId) {
-  return this.findOne({ empresaId, esPrincipal: true, activo: true });
+AlmacenSchema.statics.obtenerPrincipal = async function () {
+  return this.findOne({ esPrincipal: true, activo: true });
 };
 
-AlmacenSchema.statics.obtenerActivos = async function (empresaId: Types.ObjectId) {
-  return this.find({ empresaId, activo: true }).sort({ nombre: 1 });
+AlmacenSchema.statics.obtenerActivos = async function () {
+  return this.find({ activo: true }).sort({ nombre: 1 });
 };
 
 // ============================================

@@ -33,9 +33,11 @@ export const UpdateTipoImpuestoSchema = TipoImpuestoBaseSchema.partial();
 export const SearchTiposImpuestoSchema = z.object({
   q: z.string().optional(), // Búsqueda de texto
   tipo: z.enum(['IVA', 'IGIC', 'IPSI', 'OTRO']).optional(),
-  activo: z.string().transform(val => val === 'true').optional(),
-  page: z.string().transform(val => parseInt(val) || 1).default('1'),
-  limit: z.string().transform(val => parseInt(val) || 50).default('50'),
+  activo: z.union([z.boolean(), z.string().transform(val => val === 'true')]).optional(),
+  predeterminado: z.union([z.boolean(), z.string().transform(val => val === 'true')]).optional(),
+  recargoEquivalencia: z.union([z.boolean(), z.string().transform(val => val === 'true')]).optional(),
+  page: z.union([z.number(), z.string().transform(val => parseInt(val) || 1)]).default(1),
+  limit: z.union([z.number(), z.string().transform(val => parseInt(val) || 50)]).default(50),
   sortBy: z.string().default('codigo'),
   sortOrder: z.enum(['asc', 'desc']).default('asc'),
 });
