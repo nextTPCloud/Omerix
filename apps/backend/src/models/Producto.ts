@@ -82,6 +82,11 @@ export interface IComponenteKit {
   cantidad: number; // Cantidad necesaria
   opcional: boolean; // Si el componente es opcional
   orden: number; // Orden de visualización
+  // Precios del componente en el kit
+  precioUnitarioOriginal?: number; // Precio original del producto
+  precioUnitario?: number; // Precio modificado para el kit (si se quiere dar descuento)
+  descuentoPorcentaje?: number; // Descuento aplicado (%)
+  precioExtra?: number; // Suplemento adicional (para menus)
 }
 
 export interface IProducto extends Document {
@@ -224,7 +229,7 @@ export interface IProducto extends Document {
 
 const PrecioSchema = new Schema({
   compra: { type: Number, default: 0, min: 0 },
-  venta: { type: Number, required: true, min: 0 },
+  venta: { type: Number, required: true, min: 0, default: 0 }, // Permitir precio 0
   pvp: { type: Number, default: 0, min: 0 },
   margen: { type: Number, default: 0 },
 }, { _id: false });
@@ -238,7 +243,7 @@ const StockSchema = new Schema({
 }, { _id: false });
 
 const NumeroSerieSchema = new Schema({
-  numero: { type: String, required: true, unique: true },
+  numero: { type: String, required: true }, // No usar unique aqui, se valida a nivel de aplicacion
   estado: {
     type: String,
     enum: ['disponible', 'vendido', 'defectuoso', 'reservado'],
@@ -280,6 +285,11 @@ const ComponenteKitSchema = new Schema({
   cantidad: { type: Number, required: true, min: 1, default: 1 },
   opcional: { type: Boolean, default: false },
   orden: { type: Number, default: 0 },
+  // Precios del componente
+  precioUnitarioOriginal: { type: Number, min: 0 }, // Precio original del producto
+  precioUnitario: { type: Number, min: 0 }, // Precio modificado para el kit
+  descuentoPorcentaje: { type: Number, min: 0, max: 100, default: 0 }, // Descuento %
+  precioExtra: { type: Number, min: 0, default: 0 }, // Suplemento
 }, { _id: true });
 
 const ValorAtributoSchema = new Schema({

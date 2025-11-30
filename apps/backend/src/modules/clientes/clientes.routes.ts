@@ -599,4 +599,32 @@ router.delete(
   clientesController.eliminarArchivo.bind(clientesController)
 );
 
+/**
+ * @swagger
+ * /clientes/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar un cliente existente
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del cliente a duplicar
+ *     responses:
+ *       201:
+ *         description: Cliente duplicado exitosamente
+ *       404:
+ *         description: Cliente no encontrado
+ *       401:
+ *         description: No autenticado
+ */
+router.post(
+  '/:id/duplicar',
+  clientesController.duplicar.bind(clientesController)
+);
+
 export default router;

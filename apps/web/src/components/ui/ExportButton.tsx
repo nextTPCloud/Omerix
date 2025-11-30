@@ -14,9 +14,9 @@ import { toast } from 'sonner'
 import { api } from '@/services/api'
 
 interface ExportButtonProps {
-  data: any[]
-  columns: { key: string; label: string }[]
-  filename: string
+  data?: any[]
+  columns?: { key: string; label: string }[]
+  filename?: string
   stats?: { label: string; value: string | number }[]
   onExportCSV?: () => void
   onExportExcel?: () => void
@@ -219,11 +219,15 @@ export function ExportButton({
           </div>
         </DropdownMenuItem>
         
-        <DropdownMenuSeparator />
-        
-        <div className="px-2 py-1.5 text-xs text-muted-foreground">
-          {data.length} registros • Columnas visibles: {columns.length}
-        </div>
+        {data && columns && (
+          <>
+            <DropdownMenuSeparator />
+
+            <div className="px-2 py-1.5 text-xs text-muted-foreground">
+              {data.length} registros • Columnas visibles: {columns.length}
+            </div>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

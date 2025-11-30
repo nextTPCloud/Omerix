@@ -9,7 +9,8 @@ export enum TipoCliente {
   PARTICULAR = 'particular',
 }
 
-export enum FormaPago {
+// Enum legacy - Mantener para compatibilidad, usar formaPagoId para nuevos datos
+export enum FormaPagoEnum {
   CONTADO = 'contado',
   TRANSFERENCIA = 'transferencia',
   DOMICILIACION = 'domiciliacion',
@@ -17,10 +18,28 @@ export enum FormaPago {
   PAGARE = 'pagare',
 }
 
+// Tipos de dirección disponibles
+export enum TipoDireccion {
+  FISCAL = 'fiscal',
+  ENVIO = 'envio',
+  ALMACEN = 'almacen',
+  OBRA = 'obra',
+  OTRO = 'otro',
+}
+
+// Tipos de mandato SEPA
+export enum TipoMandatoSEPA {
+  RECURRENTE = 'recurrente',    // RCUR - Adeudos recurrentes
+  UNICO = 'unico',              // OOFF - Adeudo único
+  PRIMERA_VEZ = 'primera_vez',  // FRST - Primera vez de una serie recurrente
+  FINAL = 'final',              // FNAL - Último de una serie recurrente
+}
+
 // ============================================
 // INTERFACES
 // ============================================
 
+// Dirección base (para compatibilidad)
 export interface IDireccion {
   calle: string;
   numero?: string;
@@ -31,6 +50,53 @@ export interface IDireccion {
   pais: string;
   latitud?: number;
   longitud?: number;
+}
+
+// Dirección extendida con tipo
+export interface IDireccionExtendida extends IDireccion {
+  _id?: mongoose.Types.ObjectId;
+  tipo: TipoDireccion;
+  nombre?: string;           // Nombre descriptivo (ej: "Oficina Central", "Almacén Norte")
+  personaContacto?: string;  // Persona de contacto en esta dirección
+  telefonoContacto?: string; // Teléfono de contacto en esta dirección
+  horario?: string;          // Horario de atención/recogida
+  notas?: string;            // Notas adicionales
+  predeterminada: boolean;   // Si es la dirección por defecto de su tipo
+  activa: boolean;           // Si está activa
+}
+
+// Mandato SEPA
+export interface IMandatoSEPA {
+  referencia: string;         // Referencia única del mandato (ej: MAND-2024-00001)
+  fechaFirma: Date;           // Fecha de firma del mandato
+  tipoMandato: TipoMandatoSEPA;
+  firmado: boolean;           // Si el mandato está firmado
+  fechaRevocacion?: Date;     // Fecha si el mandato fue revocado
+  acreedor?: {                // Datos del acreedor (empresa)
+    identificador?: string;   // Identificador del acreedor SEPA
+    nombre?: string;
+  };
+}
+
+// Cuenta bancaria con datos SEPA
+export interface ICuentaBancaria {
+  _id?: mongoose.Types.ObjectId;
+  alias?: string;             // Nombre descriptivo (ej: "Cuenta Principal", "Pagos proveedores")
+  titular: string;            // Nombre del titular de la cuenta
+  iban: string;               // IBAN completo
+  swift?: string;             // Código SWIFT/BIC
+  banco?: string;             // Nombre del banco
+  sucursal?: string;          // Sucursal
+  // SEPA
+  mandatoSEPA?: IMandatoSEPA;
+  // Control
+  predeterminada: boolean;    // Si es la cuenta por defecto
+  usarParaCobros: boolean;    // Usar para cobros (domiciliaciones)
+  usarParaPagos: boolean;     // Usar para pagos (transferencias al cliente)
+  activa: boolean;
+  // Auditoría
+  fechaCreacion?: Date;
+  notas?: string;
 }
 
 export interface IPersonaContacto {
@@ -55,7 +121,7 @@ export interface ICliente extends Document {
 
   // Tipo
   tipoCliente: TipoCliente;
-  
+
   // Datos básicos
   codigo: string;
   nombre: string;
@@ -63,39 +129,69 @@ export interface ICliente extends Document {
 
   // Fiscal
   nif: string;
-  
+
   // Contacto
   email?: string;
   telefono?: string;
   movil?: string;
   web?: string;
-  
-  // Direcciones
-  direccion: IDireccion;
+
+  // ============================================
+  // DIRECCIONES MÚLTIPLES (NUEVO)
+  // ============================================
+  direcciones: IDireccionExtendida[];
+
+  // Direcciones legacy (para compatibilidad) - DEPRECATED
+  /** @deprecated Usar direcciones[] con tipo 'fiscal' */
+  direccion?: IDireccion;
+  /** @deprecated Usar direcciones[] con tipo 'envio' */
   direccionEnvio?: IDireccion;
-  
-  // Comercial
-  formaPago: FormaPago;
-  diasPago: number;
+
+  // ============================================
+  // CONDICIONES COMERCIALES (MEJORADO)
+  // ============================================
+  // Referencias a los nuevos módulos
+  formaPagoId?: mongoose.Types.ObjectId;    // Ref a FormaPago
+  terminoPagoId?: mongoose.Types.ObjectId;  // Ref a TerminoPago
+
+  // Legacy - mantener para compatibilidad
+  /** @deprecated Usar formaPagoId */
+  formaPago?: FormaPagoEnum;
+  /** @deprecated Usar terminoPagoId */
+  diasPago?: number;
+
   descuentoGeneral?: number;
   tarifaId?: mongoose.Types.ObjectId;
-  
-  // Bancarios
+
+  // ============================================
+  // CUENTAS BANCARIAS MÚLTIPLES (NUEVO)
+  // ============================================
+  cuentasBancarias: ICuentaBancaria[];
+
+  // Campos legacy (para compatibilidad) - DEPRECATED
+  /** @deprecated Usar cuentasBancarias[] */
   iban?: string;
+  /** @deprecated Usar cuentasBancarias[] */
   swift?: string;
-  
-  // Contacto
+
+  // ============================================
+  // CONTACTO
+  // ============================================
   personaContacto?: IPersonaContacto;
-  
+  personasContacto?: IPersonaContacto[]; // Múltiples contactos
+
   // Clasificación
   categoriaId?: mongoose.Types.ObjectId;
   zona?: string;
   vendedorId?: mongoose.Types.ObjectId;
-  
+
+  // Agentes comerciales asignados (puede tener varios)
+  agentesComerciales?: mongoose.Types.ObjectId[];
+
   // Límites
   limiteCredito?: number;
   riesgoActual: number;
-  
+
   // Estado
   activo: boolean;
   observaciones?: string;
@@ -105,13 +201,13 @@ export interface ICliente extends Document {
 
   // Tags
   tags?: string[];
-  
+
   // Archivos
   archivos?: IArchivo[];
-  
+
   // Campos personalizados
   camposPersonalizados?: Map<string, any>;
-  
+
   // Auditoría
   creadoPor: mongoose.Types.ObjectId;
   modificadoPor?: mongoose.Types.ObjectId;
@@ -135,6 +231,7 @@ export interface IClienteModel extends Model<ICliente> {
 // SCHEMAS
 // ============================================
 
+// Schema de dirección base (para compatibilidad legacy)
 const DireccionSchema = new Schema<IDireccion>({
   calle: { type: String, required: true },
   numero: { type: String },
@@ -146,6 +243,67 @@ const DireccionSchema = new Schema<IDireccion>({
   latitud: { type: Number },
   longitud: { type: Number },
 }, { _id: false });
+
+// Schema de dirección extendida con tipo
+const DireccionExtendidaSchema = new Schema<IDireccionExtendida>({
+  tipo: {
+    type: String,
+    enum: Object.values(TipoDireccion),
+    required: true,
+    default: TipoDireccion.FISCAL,
+  },
+  nombre: { type: String, trim: true },
+  calle: { type: String, required: true, trim: true },
+  numero: { type: String, trim: true },
+  piso: { type: String, trim: true },
+  codigoPostal: { type: String, required: true, trim: true },
+  ciudad: { type: String, required: true, trim: true },
+  provincia: { type: String, required: true, trim: true },
+  pais: { type: String, required: true, default: 'España', trim: true },
+  latitud: { type: Number },
+  longitud: { type: Number },
+  personaContacto: { type: String, trim: true },
+  telefonoContacto: { type: String, trim: true },
+  horario: { type: String, trim: true },
+  notas: { type: String },
+  predeterminada: { type: Boolean, default: false },
+  activa: { type: Boolean, default: true },
+}, { _id: true });
+
+// Schema de mandato SEPA
+const MandatoSEPASchema = new Schema<IMandatoSEPA>({
+  referencia: { type: String, required: true, uppercase: true, trim: true },
+  fechaFirma: { type: Date, required: true },
+  tipoMandato: {
+    type: String,
+    enum: Object.values(TipoMandatoSEPA),
+    required: true,
+    default: TipoMandatoSEPA.RECURRENTE,
+  },
+  firmado: { type: Boolean, default: false },
+  fechaRevocacion: { type: Date },
+  acreedor: {
+    identificador: { type: String, trim: true },
+    nombre: { type: String, trim: true },
+  },
+}, { _id: false });
+
+// Schema de cuenta bancaria
+const CuentaBancariaSchema = new Schema<ICuentaBancaria>({
+  alias: { type: String, trim: true },
+  titular: { type: String, required: true, trim: true },
+  iban: { type: String, required: true, uppercase: true, trim: true },
+  swift: { type: String, uppercase: true, trim: true },
+  banco: { type: String, trim: true },
+  sucursal: { type: String, trim: true },
+  mandatoSEPA: { type: MandatoSEPASchema },
+  predeterminada: { type: Boolean, default: false },
+  usarParaCobros: { type: Boolean, default: true },
+  usarParaPagos: { type: Boolean, default: false },
+  activa: { type: Boolean, default: true },
+  fechaCreacion: { type: Date, default: Date.now },
+  notas: { type: String },
+}, { _id: true });
 
 const PersonaContactoSchema = new Schema<IPersonaContacto>({
   nombre: { type: String, required: true },
@@ -233,25 +391,44 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
     trim: true,
   },
   
-  // Direcciones
+  // ============================================
+  // DIRECCIONES MÚLTIPLES (NUEVO)
+  // ============================================
+  direcciones: {
+    type: [DireccionExtendidaSchema],
+    default: [],
+  },
+
+  // Direcciones legacy (para compatibilidad) - DEPRECATED
   direccion: {
     type: DireccionSchema,
-    required: true,
+    required: false, // Ya no es requerido, usar direcciones[]
   },
   direccionEnvio: {
     type: DireccionSchema,
   },
-  
-  // Comercial
+
+  // ============================================
+  // CONDICIONES COMERCIALES (MEJORADO)
+  // ============================================
+  // Referencias a los nuevos módulos de FormasPago y TerminosPago
+  formaPagoId: {
+    type: Schema.Types.ObjectId,
+    ref: 'FormaPago',
+  },
+  terminoPagoId: {
+    type: Schema.Types.ObjectId,
+    ref: 'TerminoPago',
+  },
+
+  // Legacy - mantener para compatibilidad
   formaPago: {
     type: String,
-    enum: Object.values(FormaPago),
-    required: true,
-    default: FormaPago.CONTADO,
+    enum: Object.values(FormaPagoEnum),
+    required: false, // Ya no es requerido
   },
   diasPago: {
     type: Number,
-    required: true,
     default: 0,
     min: 0,
   },
@@ -264,8 +441,16 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
     type: Schema.Types.ObjectId,
     ref: 'Tarifa',
   },
-  
-  // Bancarios
+
+  // ============================================
+  // CUENTAS BANCARIAS MÚLTIPLES (NUEVO)
+  // ============================================
+  cuentasBancarias: {
+    type: [CuentaBancariaSchema],
+    default: [],
+  },
+
+  // Campos legacy (para compatibilidad) - DEPRECATED
   iban: {
     type: String,
     uppercase: true,
@@ -276,10 +461,16 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
     uppercase: true,
     trim: true,
   },
-  
-  // Contacto
+
+  // ============================================
+  // CONTACTOS
+  // ============================================
   personaContacto: {
     type: PersonaContactoSchema,
+  },
+  personasContacto: {
+    type: [PersonaContactoSchema],
+    default: [],
   },
   
   // Clasificación
@@ -295,7 +486,13 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
     type: Schema.Types.ObjectId,
     ref: 'Usuario',
   },
-  
+
+  // Agentes comerciales asignados (puede tener varios)
+  agentesComerciales: [{
+    type: Schema.Types.ObjectId,
+    ref: 'AgenteComercial',
+  }],
+
   // Límites
   limiteCredito: {
     type: Number,
@@ -376,6 +573,16 @@ ClienteSchema.index({ nombre: 1 });
 ClienteSchema.index({ tags: 1 });
 ClienteSchema.index({ vendedorId: 1 });
 
+// Índices para nuevas referencias
+ClienteSchema.index({ formaPagoId: 1 });
+ClienteSchema.index({ terminoPagoId: 1 });
+ClienteSchema.index({ agentesComerciales: 1 });
+
+// Índices para direcciones y cuentas bancarias (búsqueda por ciudad/provincia)
+ClienteSchema.index({ 'direcciones.ciudad': 1 });
+ClienteSchema.index({ 'direcciones.provincia': 1 });
+ClienteSchema.index({ 'direcciones.tipo': 1 });
+
 // ============================================
 // VIRTUALS
 // ============================================
@@ -391,6 +598,76 @@ ClienteSchema.virtual('excedeCredito').get(function() {
 ClienteSchema.virtual('creditoDisponible').get(function() {
   if (!this.limiteCredito) return null;
   return Math.max(0, this.limiteCredito - this.riesgoActual);
+});
+
+// Virtual para obtener la dirección fiscal (predeterminada de tipo fiscal)
+ClienteSchema.virtual('direccionFiscal').get(function() {
+  if (this.direcciones && this.direcciones.length > 0) {
+    // Buscar dirección fiscal predeterminada y activa
+    const fiscal = this.direcciones.find(
+      (d: IDireccionExtendida) => d.tipo === TipoDireccion.FISCAL && d.predeterminada && d.activa
+    );
+    if (fiscal) return fiscal;
+    // Si no hay predeterminada, buscar cualquier fiscal activa
+    const anyFiscal = this.direcciones.find(
+      (d: IDireccionExtendida) => d.tipo === TipoDireccion.FISCAL && d.activa
+    );
+    if (anyFiscal) return anyFiscal;
+  }
+  // Fallback a dirección legacy
+  return this.direccion || null;
+});
+
+// Virtual para obtener la dirección de envío predeterminada
+ClienteSchema.virtual('direccionEnvioPredeterminada').get(function() {
+  if (this.direcciones && this.direcciones.length > 0) {
+    const envio = this.direcciones.find(
+      (d: IDireccionExtendida) => d.tipo === TipoDireccion.ENVIO && d.predeterminada && d.activa
+    );
+    if (envio) return envio;
+    const anyEnvio = this.direcciones.find(
+      (d: IDireccionExtendida) => d.tipo === TipoDireccion.ENVIO && d.activa
+    );
+    if (anyEnvio) return anyEnvio;
+  }
+  // Fallback a dirección de envío legacy
+  return this.direccionEnvio || this.direccion || null;
+});
+
+// Virtual para obtener la cuenta bancaria predeterminada
+ClienteSchema.virtual('cuentaBancariaPredeterminada').get(function() {
+  if (this.cuentasBancarias && this.cuentasBancarias.length > 0) {
+    const predeterminada = this.cuentasBancarias.find(
+      (c: ICuentaBancaria) => c.predeterminada && c.activa
+    );
+    if (predeterminada) return predeterminada;
+    const anyActiva = this.cuentasBancarias.find(
+      (c: ICuentaBancaria) => c.activa
+    );
+    if (anyActiva) return anyActiva;
+  }
+  // Fallback: crear objeto con IBAN legacy si existe
+  if (this.iban) {
+    return { iban: this.iban, swift: this.swift, titular: this.nombre };
+  }
+  return null;
+});
+
+// Virtual para contar direcciones activas
+ClienteSchema.virtual('numDireccionesActivas').get(function() {
+  return this.direcciones?.filter((d: IDireccionExtendida) => d.activa).length || 0;
+});
+
+// Virtual para contar cuentas bancarias activas
+ClienteSchema.virtual('numCuentasActivas').get(function() {
+  return this.cuentasBancarias?.filter((c: ICuentaBancaria) => c.activa).length || 0;
+});
+
+// Virtual para verificar si tiene mandato SEPA válido
+ClienteSchema.virtual('tieneMandatoSEPA').get(function() {
+  return this.cuentasBancarias?.some(
+    (c: ICuentaBancaria) => c.activa && c.mandatoSEPA?.firmado && !c.mandatoSEPA?.fechaRevocacion
+  ) || false;
 });
 
 // ============================================

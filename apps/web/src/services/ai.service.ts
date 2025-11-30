@@ -39,6 +39,20 @@ export interface CategorySuggestion {
   reasoning: string;
 }
 
+export interface BarcodeProductInfo {
+  found: boolean;
+  barcode: string;
+  name?: string;
+  shortDescription?: string;
+  fullDescription?: string;
+  brand?: string;
+  category?: string;
+  suggestedPrice?: number;
+  imageUrl?: string;
+  confidence: 'alta' | 'media' | 'baja';
+  source?: string;
+}
+
 export interface AIStatus {
   available: boolean;
   provider: string | null;
@@ -124,5 +138,16 @@ export const aiService = {
       throw new Error(response.data.error || 'Error en el chat');
     }
     return response.data.data.response;
+  },
+
+  /**
+   * Buscar información de producto por código de barras
+   */
+  async lookupBarcode(barcode: string): Promise<BarcodeProductInfo> {
+    const response = await api.post('/ai/lookup-barcode', { barcode });
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Error al buscar producto');
+    }
+    return response.data.data;
   },
 };

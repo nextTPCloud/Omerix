@@ -69,6 +69,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportClientesToCSV, processImportFile } from '@/utils/excel.utils'
@@ -629,13 +630,27 @@ const {
   // ACCIONES POR CLIENTE
   // ============================================
 
-  const handleClientAction = (clienteId: string, action: string) => {
+  const handleClientAction = async (clienteId: string, action: string) => {
     switch (action) {
       case 'view':
         router.push(`/clientes/${clienteId}`)
         break
       case 'edit':
         router.push(`/clientes/${clienteId}/editar`)
+        break
+      case 'duplicate':
+        try {
+          toast.loading('Duplicando cliente...')
+          const response = await clientesService.duplicar(clienteId)
+          toast.dismiss()
+          if (response.success) {
+            toast.success('Cliente duplicado correctamente')
+            router.push(`/clientes/${response.data._id}/editar`)
+          }
+        } catch (error: any) {
+          toast.dismiss()
+          toast.error(error.response?.data?.message || 'Error al duplicar el cliente')
+        }
         break
       case 'delete':
         const cliente = clientes.find(c => c._id === clienteId)
@@ -1512,7 +1527,11 @@ const {
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
                             </DropdownMenuItem>
-                            
+                            <DropdownMenuItem onClick={() => handleClientAction(cliente._id, 'duplicate')}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicar
+                            </DropdownMenuItem>
+
                             <DropdownMenuSeparator />
                             <DropdownMenuLabel>Crear Documento</DropdownMenuLabel>
                             

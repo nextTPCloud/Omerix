@@ -261,8 +261,10 @@ export default function GruposModificadoresPage() {
   const handleAction = async (id: string, action: string) => {
     switch (action) {
       case 'view':
-      case 'edit':
         router.push(`/grupos-modificadores/${id}`)
+        break
+      case 'edit':
+        router.push(`/grupos-modificadores/${id}/editar`)
         break
       case 'delete':
         const item = grupos.find(g => g._id === id)
@@ -608,6 +610,7 @@ export default function GruposModificadoresPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleAction(grupo._id, 'view')}><Eye className="mr-2 h-4 w-4" />Ver</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleAction(grupo._id, 'edit')}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => handleAction(grupo._id, 'delete')}><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>

@@ -59,8 +59,8 @@ export default function ProductoDetallePage() {
   const fetchProducto = async () => {
     try {
       setLoading(true)
-      const producto = await productosService.getById(productoId)
-      setFormData(producto)
+      const response = await productosService.getById(productoId)
+      setFormData(response.data)
     } catch (error: any) {
       console.error('Error al cargar producto:', error)
       toast.error(error.response?.data?.message || 'Error al cargar el producto')
@@ -77,7 +77,21 @@ export default function ProductoDetallePage() {
     setSaving(true)
 
     try {
-      await productosService.update(productoId, formData)
+      // Limpiar campos ObjectId vacíos (convertir '' a undefined)
+      const cleanedData = { ...formData }
+      const objectIdFields = ['familiaId', 'estadoId', 'situacionId', 'clasificacionId', 'tipoImpuestoId']
+      objectIdFields.forEach(field => {
+        if ((cleanedData as any)[field] === '') {
+          delete (cleanedData as any)[field]
+        }
+      })
+      // Limpiar campos de restauración
+      if (cleanedData.restauracion) {
+        if (cleanedData.restauracion.zonaPreparacionId === '') delete (cleanedData.restauracion as any).zonaPreparacionId
+        if (cleanedData.restauracion.impresoraId === '') delete (cleanedData.restauracion as any).impresoraId
+      }
+
+      await productosService.update(productoId, cleanedData)
       toast.success('Producto actualizado correctamente')
       setIsEditing(false)
       fetchProducto()
@@ -191,7 +205,7 @@ export default function ProductoDetallePage() {
               </TabsTrigger>
               <TabsTrigger value="imagenes" className="text-xs">
                 <ImageIcon className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">Im�genes</span>
+                <span className="hidden sm:inline">Imagenes</span>
               </TabsTrigger>
               <TabsTrigger value="medidas" className="text-xs">
                 <Ruler className="h-3 w-3 sm:mr-1" />

@@ -8,6 +8,9 @@ import {
   UpdateSortConfigBodySchema,
   UpdateColumnFiltersBodySchema,
   UpdatePaginationLimitBodySchema,
+  AddFavoritoBodySchema,
+  RemoveFavoritoBodySchema,
+  ReorderFavoritosBodySchema,
 } from './configuracion-usuario.dto';
 import { z } from 'zod';
 
@@ -362,6 +365,176 @@ class ConfiguracionUsuarioController {
       res.status(500).json({
         success: false,
         message: 'Error al actualizar el límite de paginación',
+        errors: [{ field: 'general', message: error.message }],
+      });
+    }
+  }
+
+  /**
+   * ============================================
+   * FAVORITOS
+   * ============================================
+   */
+
+  /**
+   * @route   GET /api/configuraciones/favoritos
+   * @desc    Obtener favoritos del usuario
+   * @access  Private
+   */
+  async getFavoritos(req: Request, res: Response): Promise<void> {
+    try {
+      const usuarioId = (req as any).userId;
+      const empresaId = (req as any).empresaId;
+
+      const favoritos = await ConfiguracionUsuarioService.getFavoritos(
+        usuarioId,
+        empresaId
+      );
+
+      res.status(200).json({
+        success: true,
+        data: favoritos,
+      });
+    } catch (error: any) {
+      console.error('Error al obtener favoritos:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al obtener los favoritos',
+        errors: [{ field: 'general', message: error.message }],
+      });
+    }
+  }
+
+  /**
+   * @route   POST /api/configuraciones/favoritos
+   * @desc    Agregar un favorito
+   * @access  Private
+   */
+  async addFavorito(req: Request, res: Response): Promise<void> {
+    try {
+      const validation = AddFavoritoBodySchema.safeParse(req.body);
+
+      if (!validation.success) {
+        res.status(400).json({
+          success: false,
+          message: 'Datos de entrada inválidos',
+          errors: validation.error.errors.map((err) => ({
+            field: err.path.join('.'),
+            message: err.message,
+          })),
+        });
+        return;
+      }
+
+      const usuarioId = (req as any).userId;
+      const empresaId = (req as any).empresaId;
+
+      const configuracion = await ConfiguracionUsuarioService.addFavorito(
+        usuarioId,
+        empresaId,
+        validation.data
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Favorito agregado correctamente',
+        data: configuracion.favoritos,
+      });
+    } catch (error: any) {
+      console.error('Error al agregar favorito:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al agregar el favorito',
+        errors: [{ field: 'general', message: error.message }],
+      });
+    }
+  }
+
+  /**
+   * @route   DELETE /api/configuraciones/favoritos
+   * @desc    Eliminar un favorito
+   * @access  Private
+   */
+  async removeFavorito(req: Request, res: Response): Promise<void> {
+    try {
+      const validation = RemoveFavoritoBodySchema.safeParse(req.body);
+
+      if (!validation.success) {
+        res.status(400).json({
+          success: false,
+          message: 'Datos de entrada inválidos',
+          errors: validation.error.errors.map((err) => ({
+            field: err.path.join('.'),
+            message: err.message,
+          })),
+        });
+        return;
+      }
+
+      const usuarioId = (req as any).userId;
+      const empresaId = (req as any).empresaId;
+
+      const configuracion = await ConfiguracionUsuarioService.removeFavorito(
+        usuarioId,
+        empresaId,
+        validation.data
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Favorito eliminado correctamente',
+        data: configuracion.favoritos,
+      });
+    } catch (error: any) {
+      console.error('Error al eliminar favorito:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al eliminar el favorito',
+        errors: [{ field: 'general', message: error.message }],
+      });
+    }
+  }
+
+  /**
+   * @route   PUT /api/configuraciones/favoritos/reorder
+   * @desc    Reordenar favoritos
+   * @access  Private
+   */
+  async reorderFavoritos(req: Request, res: Response): Promise<void> {
+    try {
+      const validation = ReorderFavoritosBodySchema.safeParse(req.body);
+
+      if (!validation.success) {
+        res.status(400).json({
+          success: false,
+          message: 'Datos de entrada inválidos',
+          errors: validation.error.errors.map((err) => ({
+            field: err.path.join('.'),
+            message: err.message,
+          })),
+        });
+        return;
+      }
+
+      const usuarioId = (req as any).userId;
+      const empresaId = (req as any).empresaId;
+
+      const configuracion = await ConfiguracionUsuarioService.reorderFavoritos(
+        usuarioId,
+        empresaId,
+        validation.data
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Favoritos reordenados correctamente',
+        data: configuracion.favoritos,
+      });
+    } catch (error: any) {
+      console.error('Error al reordenar favoritos:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al reordenar los favoritos',
         errors: [{ field: 'general', message: error.message }],
       });
     }

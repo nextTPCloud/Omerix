@@ -152,6 +152,37 @@ class AIController {
   };
 
   /**
+   * POST /ai/lookup-barcode
+   * Buscar información de producto por código de barras
+   */
+  lookupBarcode = async (req: Request, res: Response) => {
+    try {
+      const { barcode } = req.body;
+
+      if (!barcode) {
+        return res.status(400).json({
+          success: false,
+          error: 'El código de barras es obligatorio',
+        });
+      }
+
+      const service = this.getService();
+      const productInfo = await service.lookupBarcode(barcode);
+
+      res.json({
+        success: true,
+        data: productInfo,
+      });
+    } catch (error: any) {
+      console.error('Error en lookup-barcode:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Error al buscar información del producto',
+      });
+    }
+  };
+
+  /**
    * POST /ai/chat
    * Chat con el asistente de IA
    */

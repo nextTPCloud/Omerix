@@ -7,6 +7,7 @@ import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { cn } from '@/lib/utils'
 import { isTokenExpired, getTokenTimeRemaining } from '@/utils/jwt.utils'
+import { FavoritosProvider } from '@/contexts/FavoritosContext'
 
 // Intervalo de verificación del token (cada 60 segundos)
 const TOKEN_CHECK_INTERVAL = 60 * 1000
@@ -126,27 +127,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header
-        onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        isMobileMenuOpen={isMobileMenuOpen}
-      />
-      <div className="flex">
-        <Sidebar
-          isOpen={isMobileMenuOpen}
-          onClose={() => setIsMobileMenuOpen(false)}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={handleToggleCollapse}
+    <FavoritosProvider>
+      <div className="min-h-screen bg-background">
+        <Header
+          onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          isMobileMenuOpen={isMobileMenuOpen}
         />
-        <main className={cn(
-          "flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 transition-all duration-300",
-          isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
-        )}>
-          <div className="w-full max-w-full">
-            {children}
-          </div>
-        </main>
+        <div className="flex">
+          <Sidebar
+            isOpen={isMobileMenuOpen}
+            onClose={() => setIsMobileMenuOpen(false)}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={handleToggleCollapse}
+          />
+          <main className={cn(
+            "flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 transition-all duration-300",
+            isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
+          )}>
+            <div className="w-full max-w-full">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </FavoritosProvider>
   )
 }

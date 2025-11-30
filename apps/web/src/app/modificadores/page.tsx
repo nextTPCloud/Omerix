@@ -258,8 +258,10 @@ export default function ModificadoresPage() {
   const handleAction = async (id: string, action: string) => {
     switch (action) {
       case 'view':
-      case 'edit':
         router.push(`/modificadores/${id}`)
+        break
+      case 'edit':
+        router.push(`/modificadores/${id}/editar`)
         break
       case 'delete':
         const item = modificadores.find(m => m._id === id)
@@ -584,6 +586,7 @@ export default function ModificadoresPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleAction(mod._id, 'view')}><Eye className="mr-2 h-4 w-4" />Ver</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleAction(mod._id, 'edit')}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => handleAction(mod._id, 'delete')}><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>

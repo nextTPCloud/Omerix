@@ -108,7 +108,21 @@ export default function EditarProductoPage({ params }: EditarProductoPageProps) 
         throw new Error('Los precios no pueden ser negativos');
       }
 
-      await productosService.update(id, formData);
+      // Limpiar campos ObjectId vacíos (convertir '' a undefined)
+      const cleanedData = { ...formData };
+      const objectIdFields = ['familiaId', 'estadoId', 'situacionId', 'clasificacionId', 'tipoImpuestoId'];
+      objectIdFields.forEach(field => {
+        if ((cleanedData as any)[field] === '') {
+          delete (cleanedData as any)[field];
+        }
+      });
+      // Limpiar campos de restauración
+      if (cleanedData.restauracion) {
+        if ((cleanedData.restauracion as any).zonaPreparacionId === '') delete (cleanedData.restauracion as any).zonaPreparacionId;
+        if ((cleanedData.restauracion as any).impresoraId === '') delete (cleanedData.restauracion as any).impresoraId;
+      }
+
+      await productosService.update(id, cleanedData);
       toast.success('Producto actualizado correctamente');
       router.push(`/productos/${id}`);
     } catch (err: any) {

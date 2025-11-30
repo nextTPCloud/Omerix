@@ -35,8 +35,8 @@ const validationRules: ValidationRule[] = [
     label: 'Precio de venta',
     required: true,
     custom: (value) => {
-      if (value === undefined || value === null || value <= 0) {
-        return 'El precio de venta debe ser mayor a 0'
+      if (value === undefined || value === null || value < 0) {
+        return 'El precio de venta no puede ser negativo'
       }
       return null
     },
@@ -194,20 +194,33 @@ export default function NuevoProductoPage() {
     setLoading(true)
 
     try {
+      // Limpiar campos ObjectId vacíos (convertir '' a undefined)
+      const cleanedData = { ...formData }
+      const objectIdFields = ['familiaId', 'estadoId', 'situacionId', 'clasificacionId', 'tipoImpuestoId']
+      objectIdFields.forEach(field => {
+        if (cleanedData[field] === '') {
+          delete cleanedData[field]
+        }
+      })
+      // Limpiar campos de restauración
+      if (cleanedData.restauracion) {
+        if (cleanedData.restauracion.zonaPreparacionId === '') delete cleanedData.restauracion.zonaPreparacionId
+        if (cleanedData.restauracion.impresoraId === '') delete cleanedData.restauracion.impresoraId
+      }
 
       // Calcular margen automáticamente
-      if (formData.precios.compra > 0 && formData.precios.venta > 0) {
-        formData.precios.margen =
-          ((formData.precios.venta - formData.precios.compra) / formData.precios.compra) * 100
+      if (cleanedData.precios.compra > 0 && cleanedData.precios.venta > 0) {
+        cleanedData.precios.margen =
+          ((cleanedData.precios.venta - cleanedData.precios.compra) / cleanedData.precios.compra) * 100
       }
 
       // Si no tiene PVP, usar precio de venta
-      if (!formData.precios.pvp || formData.precios.pvp === 0) {
-        formData.precios.pvp = formData.precios.venta
+      if (!cleanedData.precios.pvp || cleanedData.precios.pvp === 0) {
+        cleanedData.precios.pvp = cleanedData.precios.venta
       }
 
       // Crear el producto
-      await productosService.create(formData)
+      await productosService.create(cleanedData)
       toast.success('Producto creado correctamente')
       router.push('/productos')
     } catch (error: any) {
@@ -272,7 +285,7 @@ export default function NuevoProductoPage() {
               </TabsTrigger>
               <TabsTrigger value="imagenes" className="text-xs">
                 <ImageIcon className="h-3 w-3 sm:mr-1" />
-                <span className="hidden sm:inline">Imágenes</span>
+                <span className="hidden sm:inline">Imagenes</span>
               </TabsTrigger>
               <TabsTrigger value="medidas" className="text-xs">
                 <Ruler className="h-3 w-3 sm:mr-1" />

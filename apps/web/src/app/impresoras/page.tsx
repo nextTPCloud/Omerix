@@ -265,8 +265,10 @@ export default function ImpresorasPage() {
   const handleAction = async (id: string, action: string) => {
     switch (action) {
       case 'view':
-      case 'edit':
         router.push(`/impresoras/${id}`)
+        break
+      case 'edit':
+        router.push(`/impresoras/${id}/editar`)
         break
       case 'test':
         try {
@@ -590,6 +592,7 @@ export default function ImpresorasPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56">
                               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={() => handleAction(impresora._id, 'view')}><Eye className="mr-2 h-4 w-4" />Ver</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleAction(impresora._id, 'edit')}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleAction(impresora._id, 'test')}><TestTube className="mr-2 h-4 w-4" />Probar impresión</DropdownMenuItem>
                               <DropdownMenuSeparator />

@@ -12,7 +12,7 @@ import { Plus, X, Sparkles, Loader2, Check, ChevronDown, ChevronUp } from 'lucid
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { familiasService } from '@/services/familias.service'
 import { productosService } from '@/services/productos.service'
-import { aiService, GeneratedDescription } from '@/services/ai.service'
+import { aiService, GeneratedDescription, BarcodeProductInfo } from '@/services/ai.service'
 import { Familia } from '@/types/familia.types'
 
 interface TabGeneralProps {
@@ -30,6 +30,12 @@ export function TabGeneral({ formData, setFormData, isEditing }: TabGeneralProps
   const [aiSuggestion, setAiSuggestion] = useState<GeneratedDescription | null>(null)
   const [showAiPanel, setShowAiPanel] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
+
+  // Estado para búsqueda por código de barras
+  const [loadingBarcode, setLoadingBarcode] = useState(false)
+  const [barcodeInfo, setBarcodeInfo] = useState<BarcodeProductInfo | null>(null)
+  const [showBarcodePanel, setShowBarcodePanel] = useState(false)
+  const [barcodeError, setBarcodeError] = useState<string | null>(null)
 
   // Estado para modal de creación rápida
   const [showCreateFamilia, setShowCreateFamilia] = useState(false)
@@ -142,6 +148,59 @@ export function TabGeneral({ formData, setFormData, isEditing }: TabGeneralProps
     }
   }
 
+  // Función para buscar producto por código de barras con IA
+  const handleLookupBarcode = async () => {
+    if (!formData.codigoBarras) {
+      setBarcodeError('Ingresa un código de barras primero')
+      return
+    }
+
+    setLoadingBarcode(true)
+    setBarcodeError(null)
+    setShowBarcodePanel(true)
+
+    try {
+      const info = await aiService.lookupBarcode(formData.codigoBarras)
+      setBarcodeInfo(info)
+    } catch (error: any) {
+      console.error('Error al buscar producto:', error)
+      setBarcodeError(error.message || 'Error al buscar información del producto')
+    } finally {
+      setLoadingBarcode(false)
+    }
+  }
+
+  // Aplicar información del código de barras
+  const applyBarcodeInfo = () => {
+    if (barcodeInfo && barcodeInfo.found) {
+      const updates: any = {}
+      if (barcodeInfo.name && !formData.nombre) updates.nombre = barcodeInfo.name
+      if (barcodeInfo.shortDescription) updates.descripcionCorta = barcodeInfo.shortDescription
+      if (barcodeInfo.fullDescription) updates.descripcion = barcodeInfo.fullDescription
+      if (barcodeInfo.brand && !formData.marca) updates.marca = barcodeInfo.brand
+
+      setFormData({ ...formData, ...updates })
+      setShowBarcodePanel(false)
+    }
+  }
+
+  // Aplicar campo individual del código de barras
+  const applyBarcodeField = (field: string) => {
+    if (!barcodeInfo) return
+
+    const fieldMap: Record<string, string> = {
+      name: 'nombre',
+      shortDescription: 'descripcionCorta',
+      fullDescription: 'descripcion',
+      brand: 'marca',
+    }
+
+    const formField = fieldMap[field]
+    if (formField && barcodeInfo[field as keyof BarcodeProductInfo]) {
+      setFormData({ ...formData, [formField]: barcodeInfo[field as keyof BarcodeProductInfo] })
+    }
+  }
+
   // Handler para cuando se crea una nueva familia
   const handleFamiliaCreated = (newFamilia: { _id: string; nombre: string; codigo?: string }) => {
     // Añadir la nueva familia a la lista
@@ -153,7 +212,174 @@ export function TabGeneral({ formData, setFormData, isEditing }: TabGeneralProps
   return (
     <div className="space-y-4">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Información Básica</h3>
+        <h3 className="text-lg font-semibold mb-4">Identificación del Producto</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Introduce primero el código de barras para autocompletar con IA
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label htmlFor="codigoBarras">Código de Barras</Label>
+              {isEditing && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleLookupBarcode}
+                  disabled={loadingBarcode || !formData.codigoBarras}
+                  className="h-7 text-xs gap-1"
+                >
+                  {loadingBarcode ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
+                  )}
+                  Buscar con IA
+                </Button>
+              )}
+            </div>
+            <Input
+              id="codigoBarras"
+              value={formData.codigoBarras || ''}
+              onChange={(e) => setFormData({ ...formData, codigoBarras: e.target.value })}
+              disabled={!isEditing}
+              placeholder="EAN-13, UPC-A, etc."
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="sku">SKU *</Label>
+            <CodeInput
+              id="sku"
+              value={formData.sku}
+              onChange={(value) => setFormData({ ...formData, sku: value })}
+              onSearchCodes={handleSearchSkus}
+              disabled={!isEditing}
+              placeholder="Ej: PROD001"
+              helperText={isEditing ? "Pulsa ↓ para sugerir siguiente SKU" : undefined}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="referencia">Referencia Proveedor</Label>
+            <Input
+              id="referencia"
+              value={formData.referencia || ''}
+              onChange={(e) => setFormData({ ...formData, referencia: e.target.value })}
+              disabled={!isEditing}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="marca">Marca</Label>
+            <Input
+              id="marca"
+              value={formData.marca || ''}
+              onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
+              disabled={!isEditing}
+            />
+          </div>
+
+          {/* Panel de información del código de barras */}
+          {showBarcodePanel && (
+            <div className="md:col-span-2 border rounded-lg p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-green-500" />
+                  <span className="font-medium text-sm">Información del Producto</span>
+                  {barcodeInfo && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      barcodeInfo.confidence === 'alta' ? 'bg-green-100 text-green-700' :
+                      barcodeInfo.confidence === 'media' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      Confianza {barcodeInfo.confidence}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowBarcodePanel(false)}
+                  className="h-6 w-6 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {loadingBarcode && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Buscando información del producto...
+                </div>
+              )}
+
+              {barcodeError && (
+                <div className="text-sm text-red-600 py-2">
+                  {barcodeError}
+                </div>
+              )}
+
+              {barcodeInfo && !loadingBarcode && (
+                <div className="space-y-3">
+                  {!barcodeInfo.found ? (
+                    <div className="text-sm text-muted-foreground py-2">
+                      No se encontró información para el código de barras {barcodeInfo.barcode}.
+                      {barcodeInfo.source && <span className="block text-xs mt-1">{barcodeInfo.source}</span>}
+                    </div>
+                  ) : (
+                    <>
+                      {barcodeInfo.name && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-muted-foreground">Nombre</span>
+                            <Button type="button" size="sm" variant="ghost" onClick={() => applyBarcodeField('name')} className="h-6 text-xs gap-1">
+                              <Check className="h-3 w-3" /> Aplicar
+                            </Button>
+                          </div>
+                          <div className="bg-white/50 dark:bg-black/20 p-2 rounded border text-sm">{barcodeInfo.name}</div>
+                        </div>
+                      )}
+                      {barcodeInfo.brand && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-muted-foreground">Marca</span>
+                            <Button type="button" size="sm" variant="ghost" onClick={() => applyBarcodeField('brand')} className="h-6 text-xs gap-1">
+                              <Check className="h-3 w-3" /> Aplicar
+                            </Button>
+                          </div>
+                          <div className="bg-white/50 dark:bg-black/20 p-2 rounded border text-sm">{barcodeInfo.brand}</div>
+                        </div>
+                      )}
+                      {barcodeInfo.shortDescription && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-muted-foreground">Descripción Corta</span>
+                            <Button type="button" size="sm" variant="ghost" onClick={() => applyBarcodeField('shortDescription')} className="h-6 text-xs gap-1">
+                              <Check className="h-3 w-3" /> Aplicar
+                            </Button>
+                          </div>
+                          <div className="bg-white/50 dark:bg-black/20 p-2 rounded border text-sm">{barcodeInfo.shortDescription}</div>
+                        </div>
+                      )}
+                      <div className="flex justify-end pt-2 border-t">
+                        <Button type="button" size="sm" onClick={applyBarcodeInfo} className="gap-1">
+                          <Check className="h-3 w-3" /> Aplicar toda la información
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Card de Información del Producto */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">Información del Producto</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <Label htmlFor="nombre">Nombre *</Label>
@@ -320,49 +546,6 @@ export function TabGeneral({ formData, setFormData, isEditing }: TabGeneralProps
               )}
             </div>
           )}
-
-          <div>
-            <Label htmlFor="sku">SKU *</Label>
-            <CodeInput
-              id="sku"
-              value={formData.sku}
-              onChange={(value) => setFormData({ ...formData, sku: value })}
-              onSearchCodes={handleSearchSkus}
-              disabled={!isEditing}
-              placeholder="Ej: PROD001"
-              helperText={isEditing ? "Pulsa ↓ para sugerir siguiente SKU" : undefined}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="codigoBarras">Código de Barras</Label>
-            <Input
-              id="codigoBarras"
-              value={formData.codigoBarras || ''}
-              onChange={(e) => setFormData({ ...formData, codigoBarras: e.target.value })}
-              disabled={!isEditing}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="referencia">Referencia Proveedor</Label>
-            <Input
-              id="referencia"
-              value={formData.referencia || ''}
-              onChange={(e) => setFormData({ ...formData, referencia: e.target.value })}
-              disabled={!isEditing}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="marca">Marca</Label>
-            <Input
-              id="marca"
-              value={formData.marca || ''}
-              onChange={(e) => setFormData({ ...formData, marca: e.target.value })}
-              disabled={!isEditing}
-            />
-          </div>
 
           <div>
             <Label htmlFor="familiaId">Familia</Label>

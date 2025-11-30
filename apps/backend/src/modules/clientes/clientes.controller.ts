@@ -719,6 +719,70 @@ export class ClientesController {
       });
     }
   }
+
+  // ============================================
+  // DUPLICAR CLIENTE
+  // ============================================
+
+  async duplicar(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId || !req.empresaDbConfig) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado o configuración no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+
+      const clienteOriginal = await clientesService.findById(
+        req.params.id,
+        empresaId,
+        req.empresaDbConfig
+      );
+
+      if (!clienteOriginal) {
+        return res.status(404).json({
+          success: false,
+          message: 'Cliente no encontrado',
+        });
+      }
+
+      // Crear copia del cliente sin _id y modificando algunos campos
+      const datosCliente: any = {
+        ...clienteOriginal.toObject(),
+        nombre: `${clienteOriginal.nombre} (Copia)`,
+        nif: `${clienteOriginal.nif || ''}-COPIA`,
+        codigo: undefined, // Se generará automáticamente
+        activo: true,
+      };
+
+      // Eliminar campos que no deben copiarse
+      delete datosCliente._id;
+      delete datosCliente.createdAt;
+      delete datosCliente.updatedAt;
+      delete datosCliente.__v;
+
+      const nuevoCliente = await clientesService.create(
+        datosCliente,
+        empresaId,
+        new mongoose.Types.ObjectId(req.userId),
+        req.empresaDbConfig
+      );
+
+      res.status(201).json({
+        success: true,
+        data: nuevoCliente,
+        message: 'Cliente duplicado correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al duplicar cliente:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al duplicar el cliente',
+      });
+    }
+  }
 }
 
 export const clientesController = new ClientesController();

@@ -15,8 +15,10 @@ import {
   PriceSuggestion,
   GeneratedDescription,
   CategorySuggestion,
+  BarcodeProductInfo,
 } from './ai.types';
 import { GeminiProvider } from './providers/gemini.provider';
+import { lookupBarcodeInApis } from './barcode-lookup.service';
 
 export class AIService {
   private provider: IAIProvider;
@@ -300,6 +302,155 @@ Responde SOLO con el JSON.`,
         alternatives: [],
         reasoning: 'No se pudo determinar la categoría',
       };
+    }
+  }
+
+  /**
+   * Buscar información de producto por código de barras
+   * Primero consulta APIs gratuitas, luego usa IA como fallback
+   */
+  async lookupBarcode(barcode: string): Promise<BarcodeProductInfo> {
+    // Validar formato de código de barras (EAN-13, EAN-8, UPC-A, etc.)
+    const cleanBarcode = barcode.trim().replace(/\D/g, '');
+    if (cleanBarcode.length < 8 || cleanBarcode.length > 14) {
+      return {
+        found: false,
+        barcode: cleanBarcode,
+        confidence: 'baja',
+        source: 'Código de barras inválido',
+      };
+    }
+
+    // PASO 1: Consultar APIs gratuitas de códigos de barras
+    console.log(`Buscando código de barras ${cleanBarcode} en APIs...`);
+    const apiResult = await lookupBarcodeInApis(cleanBarcode);
+
+    if (apiResult.found) {
+      // Producto encontrado en APIs - generar descripción con IA si falta
+      let shortDescription = apiResult.description?.slice(0, 150) || null;
+      let fullDescription = apiResult.description || null;
+
+      // Si tenemos nombre pero no descripción, usar IA para generarla
+      if (apiResult.name && !apiResult.description) {
+        try {
+          const aiDescription = await this.generateDescription(
+            apiResult.name,
+            apiResult.category,
+            apiResult.brand ? [apiResult.brand] : undefined
+          );
+          shortDescription = aiDescription.shortDescription;
+          fullDescription = aiDescription.fullDescription;
+        } catch (error) {
+          console.warn('No se pudo generar descripción con IA:', error);
+        }
+      }
+
+      return {
+        found: true,
+        barcode: cleanBarcode,
+        name: apiResult.name || null,
+        shortDescription,
+        fullDescription,
+        brand: apiResult.brand || null,
+        category: apiResult.category || null,
+        imageUrl: apiResult.imageUrl,
+        confidence: 'alta',
+        source: apiResult.source,
+      };
+    }
+
+    // PASO 2: Fallback - usar IA con búsqueda web
+    console.log(`No encontrado en APIs, usando IA para ${cleanBarcode}...`);
+    return this.lookupBarcodeWithAI(cleanBarcode);
+  }
+
+  /**
+   * Buscar producto por código de barras usando IA y búsqueda web
+   */
+  private async lookupBarcodeWithAI(cleanBarcode: string): Promise<BarcodeProductInfo> {
+    // Intentar búsqueda web si está disponible
+    let webSearchResult = '';
+    if (this.provider.searchWeb) {
+      try {
+        webSearchResult = await this.provider.searchWeb(
+          `"${cleanBarcode}" producto nombre marca EAN barcode`
+        );
+      } catch (error) {
+        console.warn('Búsqueda web no disponible:', error);
+      }
+    }
+
+    const messages: AIMessage[] = [
+      {
+        role: 'system',
+        content: `Eres un experto en identificación de productos a partir de códigos de barras EAN/UPC.
+
+Tu tarea es extraer información del producto basándote en los resultados de búsqueda.
+
+Responde SIEMPRE en JSON válido con esta estructura:
+{
+  "found": boolean,
+  "name": string | null (nombre comercial del producto),
+  "shortDescription": string | null (máximo 150 caracteres),
+  "fullDescription": string | null (descripción detallada, 2-3 frases),
+  "brand": string | null (marca/fabricante),
+  "category": string | null,
+  "suggestedPrice": number | null (precio en euros),
+  "confidence": "alta" | "media" | "baja",
+  "source": string
+}
+
+IMPORTANTE:
+- Si encuentras información clara: found: true, confidence: "alta"
+- Si la información es parcial: found: true, confidence: "media"
+- Si NO encuentras información: found: false con campos en null
+- NO inventes información si no la encuentras en la búsqueda`,
+      },
+      {
+        role: 'user',
+        content: `Identifica el producto con código de barras: ${cleanBarcode} (${this.getBarcodeType(cleanBarcode)})
+
+${webSearchResult ? `RESULTADOS DE BÚSQUEDA:\n${webSearchResult}` : 'No hay resultados de búsqueda disponibles.'}
+
+Responde SOLO con el JSON.`,
+      },
+    ];
+
+    const response = await this.provider.complete(messages, { temperature: 0.2 });
+
+    try {
+      let jsonStr = response.content.trim();
+      if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
+      if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
+      if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
+
+      const result = JSON.parse(jsonStr.trim());
+      return {
+        ...result,
+        barcode: cleanBarcode,
+        source: result.found ? `IA (${result.source || 'búsqueda web'})` : 'No encontrado en APIs ni búsqueda web',
+      } as BarcodeProductInfo;
+    } catch (error) {
+      console.error('Error parseando respuesta de barcode:', response.content);
+      return {
+        found: false,
+        barcode: cleanBarcode,
+        confidence: 'baja',
+        source: 'Error al procesar la respuesta',
+      };
+    }
+  }
+
+  /**
+   * Identificar el tipo de código de barras según su longitud
+   */
+  private getBarcodeType(barcode: string): string {
+    switch (barcode.length) {
+      case 8: return 'EAN-8';
+      case 12: return 'UPC-A';
+      case 13: return 'EAN-13';
+      case 14: return 'GTIN-14';
+      default: return 'Desconocido';
     }
   }
 

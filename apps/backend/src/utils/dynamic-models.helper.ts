@@ -16,6 +16,11 @@ import { ZonaPreparacion, IZonaPreparacion } from '../models/ZonaPreparacion';
 import { ModificadorProducto, IModificadorProducto } from '../models/ModificadorProducto';
 import { GrupoModificadores, IGrupoModificadores } from '../models/GrupoModificadores';
 import { Alergeno, IAlergeno } from '../models/Alergeno';
+import { TerminoPago, ITerminoPago } from '../models/TerminoPago';
+import { FormaPago, IFormaPago } from '../models/FormaPago';
+import { Vencimiento, IVencimiento } from '../models/Vencimiento';
+import { Personal, IPersonal } from '../modules/personal/Personal';
+import { AgenteComercial, IAgenteComercial } from '../modules/agentes-comerciales/AgenteComercial';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -263,6 +268,86 @@ export const getAlergenoModel = async (
 };
 
 /**
+ * Obtener modelo de TerminoPago para una empresa específica
+ */
+export const getTerminoPagoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ITerminoPago>> => {
+  const TerminoPagoSchema = TerminoPago.schema;
+  return databaseManager.getModel<ITerminoPago>(
+    empresaId,
+    dbConfig,
+    'TerminoPago',
+    TerminoPagoSchema
+  );
+};
+
+/**
+ * Obtener modelo de FormaPago para una empresa específica
+ */
+export const getFormaPagoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IFormaPago>> => {
+  const FormaPagoSchema = FormaPago.schema;
+  return databaseManager.getModel<IFormaPago>(
+    empresaId,
+    dbConfig,
+    'FormaPago',
+    FormaPagoSchema
+  );
+};
+
+/**
+ * Obtener modelo de Vencimiento para una empresa específica
+ */
+export const getVencimientoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IVencimiento>> => {
+  const VencimientoSchema = Vencimiento.schema;
+  return databaseManager.getModel<IVencimiento>(
+    empresaId,
+    dbConfig,
+    'Vencimiento',
+    VencimientoSchema
+  );
+};
+
+/**
+ * Obtener modelo de Personal para una empresa específica
+ */
+export const getPersonalModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IPersonal>> => {
+  const PersonalSchema = Personal.schema;
+  return databaseManager.getModel<IPersonal>(
+    empresaId,
+    dbConfig,
+    'Personal',
+    PersonalSchema
+  );
+};
+
+/**
+ * Obtener modelo de AgenteComercial para una empresa específica
+ */
+export const getAgenteComercialModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IAgenteComercial>> => {
+  const AgenteComercialSchema = AgenteComercial.schema;
+  return databaseManager.getModel<IAgenteComercial>(
+    empresaId,
+    dbConfig,
+    'AgenteComercial',
+    AgenteComercialSchema
+  );
+};
+
+/**
  * Objeto con todos los modelos por empresa
  * Se puede extender con más modelos según sea necesario
  */
@@ -282,6 +367,11 @@ export const EmpresaModels = {
   ModificadorProducto: getModificadorProductoModel,
   GrupoModificadores: getGrupoModificadoresModel,
   Alergeno: getAlergenoModel,
+  TerminoPago: getTerminoPagoModel,
+  FormaPago: getFormaPagoModel,
+  Vencimiento: getVencimientoModel,
+  Personal: getPersonalModel,
+  AgenteComercial: getAgenteComercialModel,
 };
 
 /**

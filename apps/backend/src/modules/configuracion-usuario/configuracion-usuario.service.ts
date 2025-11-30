@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import ConfiguracionUsuario, {
   IConfiguracionUsuario,
   IModuleConfig,
+  IFavorito,
 } from '@/modules/configuracion-usuario/ConfiguracionUsuario';
 import {
   UpdateModuleConfigBodyDto,
@@ -10,6 +11,9 @@ import {
   UpdateSortConfigBodyDto,
   UpdateColumnFiltersBodyDto,
   UpdatePaginationLimitBodyDto,
+  AddFavoritoBodyDto,
+  RemoveFavoritoBodyDto,
+  ReorderFavoritosBodyDto,
 } from './configuracion-usuario.dto';
 
 /**
@@ -268,6 +272,125 @@ class ConfiguracionUsuarioService {
 
     await configuracion.save();
     return configuracion;
+  }
+
+  /**
+   * ============================================
+   * FAVORITOS
+   * ============================================
+   */
+
+  /**
+   * Obtener favoritos de un usuario
+   */
+  async getFavoritos(
+    usuarioId: string,
+    empresaId: string
+  ): Promise<IFavorito[]> {
+    const configuracion = await this.findByUserId(usuarioId, empresaId);
+
+    if (!configuracion) {
+      return [];
+    }
+
+    return configuracion.favoritos || [];
+  }
+
+  /**
+   * Agregar un favorito
+   */
+  async addFavorito(
+    usuarioId: string,
+    empresaId: string,
+    data: AddFavoritoBodyDto
+  ): Promise<IConfiguracionUsuario> {
+    const configuracion = await this.findOrCreate(usuarioId, empresaId);
+
+    // Verificar si ya existe
+    const existente = configuracion.favoritos.find(f => f.href === data.href);
+    if (existente) {
+      return configuracion;
+    }
+
+    // Calcular el siguiente orden
+    const maxOrden = configuracion.favoritos.reduce(
+      (max, f) => Math.max(max, f.orden),
+      -1
+    );
+
+    // Agregar el nuevo favorito
+    configuracion.favoritos.push({
+      href: data.href,
+      title: data.title,
+      icon: data.icon,
+      orden: maxOrden + 1,
+      fechaAgregado: new Date(),
+    });
+
+    configuracion.markModified('favoritos');
+    await configuracion.save();
+
+    return configuracion;
+  }
+
+  /**
+   * Eliminar un favorito
+   */
+  async removeFavorito(
+    usuarioId: string,
+    empresaId: string,
+    data: RemoveFavoritoBodyDto
+  ): Promise<IConfiguracionUsuario> {
+    const configuracion = await this.findOrCreate(usuarioId, empresaId);
+
+    // Filtrar el favorito a eliminar
+    configuracion.favoritos = configuracion.favoritos.filter(
+      f => f.href !== data.href
+    );
+
+    configuracion.markModified('favoritos');
+    await configuracion.save();
+
+    return configuracion;
+  }
+
+  /**
+   * Reordenar favoritos
+   */
+  async reorderFavoritos(
+    usuarioId: string,
+    empresaId: string,
+    data: ReorderFavoritosBodyDto
+  ): Promise<IConfiguracionUsuario> {
+    const configuracion = await this.findOrCreate(usuarioId, empresaId);
+
+    // Actualizar el orden de cada favorito
+    for (const item of data.favoritos) {
+      const favorito = configuracion.favoritos.find(f => f.href === item.href);
+      if (favorito) {
+        favorito.orden = item.orden;
+      }
+    }
+
+    // Ordenar por orden
+    configuracion.favoritos.sort((a, b) => a.orden - b.orden);
+
+    configuracion.markModified('favoritos');
+    await configuracion.save();
+
+    return configuracion;
+  }
+
+  /**
+   * Verificar si una ruta es favorita
+   */
+  async isFavorito(
+    usuarioId: string,
+    empresaId: string,
+    href: string
+  ): Promise<boolean> {
+    const favoritos = await this.getFavoritos(usuarioId, empresaId);
+    return favoritos.some(f => f.href === href);
   }
 
 }

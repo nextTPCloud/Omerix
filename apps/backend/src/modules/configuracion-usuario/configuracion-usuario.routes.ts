@@ -391,4 +391,236 @@ router.put('/filters', authMiddleware, ConfiguracionUsuarioController.updateColu
  */
 router.put('/pagination', authMiddleware, ConfiguracionUsuarioController.updatePaginationLimit);
 
+/**
+ * ============================================
+ * FAVORITOS
+ * ============================================
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Favorito:
+ *       type: object
+ *       required:
+ *         - href
+ *         - title
+ *       properties:
+ *         href:
+ *           type: string
+ *           description: Ruta del elemento favorito
+ *           example: "/clientes"
+ *         title:
+ *           type: string
+ *           description: Título a mostrar
+ *           example: "Clientes"
+ *         icon:
+ *           type: string
+ *           description: Nombre del icono (opcional)
+ *           example: "Users"
+ *         orden:
+ *           type: number
+ *           description: Orden en la lista
+ *           example: 0
+ *         fechaAgregado:
+ *           type: string
+ *           format: date-time
+ *           description: Fecha en que se agregó
+ */
+
+/**
+ * @swagger
+ * /api/configuraciones/favoritos:
+ *   get:
+ *     summary: Obtener favoritos del usuario
+ *     tags: [Configuraciones]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Favoritos obtenidos correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Favorito'
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
+router.get('/favoritos', authMiddleware, ConfiguracionUsuarioController.getFavoritos);
+
+/**
+ * @swagger
+ * /api/configuraciones/favoritos:
+ *   post:
+ *     summary: Agregar un favorito
+ *     tags: [Configuraciones]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - href
+ *               - title
+ *             properties:
+ *               href:
+ *                 type: string
+ *                 description: Ruta del elemento
+ *                 example: "/clientes"
+ *               title:
+ *                 type: string
+ *                 description: Título a mostrar
+ *                 example: "Clientes"
+ *               icon:
+ *                 type: string
+ *                 description: Nombre del icono (opcional)
+ *                 example: "Users"
+ *     responses:
+ *       200:
+ *         description: Favorito agregado correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Favorito agregado correctamente"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Favorito'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
+router.post('/favoritos', authMiddleware, ConfiguracionUsuarioController.addFavorito);
+
+/**
+ * @swagger
+ * /api/configuraciones/favoritos:
+ *   delete:
+ *     summary: Eliminar un favorito
+ *     tags: [Configuraciones]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - href
+ *             properties:
+ *               href:
+ *                 type: string
+ *                 description: Ruta del elemento a eliminar
+ *                 example: "/clientes"
+ *     responses:
+ *       200:
+ *         description: Favorito eliminado correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Favorito eliminado correctamente"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Favorito'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
+router.delete('/favoritos', authMiddleware, ConfiguracionUsuarioController.removeFavorito);
+
+/**
+ * @swagger
+ * /api/configuraciones/favoritos/reorder:
+ *   put:
+ *     summary: Reordenar favoritos
+ *     tags: [Configuraciones]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - favoritos
+ *             properties:
+ *               favoritos:
+ *                 type: array
+ *                 description: Lista de favoritos con su nuevo orden
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - href
+ *                     - orden
+ *                   properties:
+ *                     href:
+ *                       type: string
+ *                       example: "/clientes"
+ *                     orden:
+ *                       type: number
+ *                       example: 0
+ *     responses:
+ *       200:
+ *         description: Favoritos reordenados correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Favoritos reordenados correctamente"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Favorito'
+ *       400:
+ *         description: Datos inválidos
+ *       401:
+ *         description: No autorizado
+ *       500:
+ *         description: Error del servidor
+ */
+router.put('/favoritos/reorder', authMiddleware, ConfiguracionUsuarioController.reorderFavoritos);
+
 export default router;

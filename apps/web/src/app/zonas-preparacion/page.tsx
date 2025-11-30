@@ -240,8 +240,10 @@ export default function ZonasPreparacionPage() {
   const handleAction = async (id: string, action: string) => {
     switch (action) {
       case 'view':
-      case 'edit':
         router.push(`/zonas-preparacion/${id}`)
+        break
+      case 'edit':
+        router.push(`/zonas-preparacion/${id}/editar`)
         break
       case 'delete':
         const item = zonas.find(e => e._id === id)
@@ -537,6 +539,7 @@ export default function ZonasPreparacionPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleAction(zona._id, 'view')}><Eye className="mr-2 h-4 w-4" />Ver</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleAction(zona._id, 'edit')}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => handleAction(zona._id, 'delete')}><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>

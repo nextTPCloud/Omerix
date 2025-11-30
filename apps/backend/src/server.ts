@@ -35,6 +35,13 @@ import zonasPreparacionRoutes from './modules/zonas-preparacion/zonas-preparacio
 import modificadoresRoutes from './modules/modificadores/modificadores.routes';
 import gruposModificadoresRoutes from './modules/grupos-modificadores/grupos-modificadores.routes';
 import alergenosRoutes from './modules/alergenos/alergenos.routes';
+import terminosPagoRoutes from './modules/terminos-pago/terminos-pago.routes';
+import formasPagoRoutes from './modules/formas-pago/formas-pago.routes';
+import vencimientosRoutes from './modules/tesoreria/vencimientos.routes';
+
+// Importar rutas de RRHH y comercial
+import agentesRoutes from './modules/agentes-comerciales/agentes-comerciales.routes';
+import personalRoutes from './modules/personal/personal.routes';
 
 // Importar rutas de IA
 import aiRoutes from './modules/ai/ai.routes';
@@ -228,6 +235,15 @@ app.use('/api/zonas-preparacion', zonasPreparacionRoutes);
 app.use('/api/modificadores', modificadoresRoutes);
 app.use('/api/grupos-modificadores', gruposModificadoresRoutes);
 app.use('/api/alergenos', alergenosRoutes);
+app.use('/api/terminos-pago', terminosPagoRoutes);
+app.use('/api/formas-pago', formasPagoRoutes);
+
+// Rutas de tesorería
+app.use('/api/vencimientos', vencimientosRoutes);
+
+// Rutas de RRHH y comercial
+app.use('/api/agentes-comerciales', agentesRoutes);
+app.use('/api/personal', personalRoutes);
 
 // Rutas de IA
 app.use('/api/ai', aiRoutes);

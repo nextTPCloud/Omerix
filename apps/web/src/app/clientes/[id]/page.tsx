@@ -46,7 +46,15 @@ import {
   Target,
   Plus,
   ChevronDown,
+  Landmark,
+  Home,
+  Factory,
+  HardHat,
+  ExternalLink,
+  Star,
+  Copy,
 } from 'lucide-react'
+import { TIPOS_DIRECCION, TIPOS_MANDATO_SEPA } from '@/types/cliente.types'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -531,112 +539,140 @@ export default function ClienteDetailPage() {
                 </CardContent>
               </Card>
 
-              {/* Dirección Principal */}
-              <Card>
+              {/* Direcciones */}
+              <Card className="md:col-span-2">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
-                      Dirección Principal
-                    </CardTitle>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const { direccion } = cliente
-                        // Si tiene latitud y longitud, usar coordenadas
-                        if (direccion.latitud && direccion.longitud) {
-                          window.open(
-                            `https://www.google.com/maps?q=${direccion.latitud},${direccion.longitud}`,
-                            '_blank'
-                          )
-                        } else {
-                          // Si no, usar dirección formateada
-                          const address = `${direccion.calle}${direccion.numero ? ' ' + direccion.numero : ''}, ${direccion.codigoPostal} ${direccion.ciudad}, ${direccion.provincia}, ${direccion.pais}`
-                          window.open(
-                            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-                            '_blank'
-                          )
-                        }
-                      }}
-                    >
-                      <MapPin className="mr-2 h-4 w-4" />
-                      <span className="hidden sm:inline">Ver en mapa</span>
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-1 text-sm">
-                    <p>
-                      {cliente.direccion.calle}
-                      {cliente.direccion.numero && `, ${cliente.direccion.numero}`}
-                      {cliente.direccion.piso && `, ${cliente.direccion.piso}`}
-                    </p>
-                    <p>
-                      {cliente.direccion.codigoPostal} {cliente.direccion.ciudad}
-                    </p>
-                    <p className="text-muted-foreground">
-                      {cliente.direccion.provincia}, {cliente.direccion.pais}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Dirección de Envío */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <Truck className="h-5 w-5" />
-                      Dirección de Envío
-                    </CardTitle>
-                    {cliente.direccionEnvio && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const { direccionEnvio } = cliente
-                          if (!direccionEnvio) return
-                          // Si tiene latitud y longitud, usar coordenadas
-                          if (direccionEnvio.latitud && direccionEnvio.longitud) {
-                            window.open(
-                              `https://www.google.com/maps?q=${direccionEnvio.latitud},${direccionEnvio.longitud}`,
-                              '_blank'
-                            )
-                          } else {
-                            // Si no, usar dirección formateada
-                            const address = `${direccionEnvio.calle}${direccionEnvio.numero ? ' ' + direccionEnvio.numero : ''}, ${direccionEnvio.codigoPostal} ${direccionEnvio.ciudad}, ${direccionEnvio.provincia}, ${direccionEnvio.pais}`
-                            window.open(
-                              `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-                              '_blank'
-                            )
-                          }
-                        }}
-                      >
-                        <MapPin className="mr-2 h-4 w-4" />
-                        <span className="hidden sm:inline">Ver en mapa</span>
-                      </Button>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Direcciones
+                    {cliente.direcciones && cliente.direcciones.length > 0 && (
+                      <Badge variant="secondary">{cliente.direcciones.length}</Badge>
                     )}
-                  </div>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {cliente.direccionEnvio ? (
-                    <div className="space-y-1 text-sm">
-                      <p>
-                        {cliente.direccionEnvio.calle}
-                        {cliente.direccionEnvio.numero && `, ${cliente.direccionEnvio.numero}`}
-                        {cliente.direccionEnvio.piso && `, ${cliente.direccionEnvio.piso}`}
-                      </p>
-                      <p>
-                        {cliente.direccionEnvio.codigoPostal} {cliente.direccionEnvio.ciudad}
-                      </p>
-                      <p className="text-muted-foreground">
-                        {cliente.direccionEnvio.provincia}, {cliente.direccionEnvio.pais}
-                      </p>
+                  {cliente.direcciones && cliente.direcciones.length > 0 ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {cliente.direcciones.map((dir, idx) => {
+                        const tipoInfo = TIPOS_DIRECCION.find(t => t.value === dir.tipo)
+                        const TipoIcon = dir.tipo === 'fiscal' ? Building2
+                          : dir.tipo === 'envio' ? Truck
+                          : dir.tipo === 'almacen' ? Factory
+                          : dir.tipo === 'obra' ? HardHat
+                          : Home
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-4 border rounded-lg ${dir.esPredeterminada ? 'border-primary bg-primary/5' : ''}`}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <TipoIcon className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{dir.nombre || tipoInfo?.label || 'Direccion'}</span>
+                                {dir.esPredeterminada && (
+                                  <Badge variant="default" className="text-xs">
+                                    <Star className="h-3 w-3 mr-1" />
+                                    Principal
+                                  </Badge>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                  if (dir.latitud && dir.longitud) {
+                                    window.open(
+                                      `https://www.google.com/maps?q=${dir.latitud},${dir.longitud}`,
+                                      '_blank'
+                                    )
+                                  } else {
+                                    const address = `${dir.calle}${dir.numero ? ' ' + dir.numero : ''}, ${dir.codigoPostal} ${dir.ciudad}, ${dir.provincia}, ${dir.pais}`
+                                    window.open(
+                                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+                                      '_blank'
+                                    )
+                                  }
+                                }}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="space-y-1 text-sm">
+                              <p>
+                                {dir.calle}
+                                {dir.numero && `, ${dir.numero}`}
+                                {dir.piso && `, ${dir.piso}`}
+                              </p>
+                              <p>
+                                {dir.codigoPostal} {dir.ciudad}
+                              </p>
+                              <p className="text-muted-foreground">
+                                {dir.provincia}, {dir.pais}
+                              </p>
+                              {dir.personaContacto && (
+                                <p className="text-muted-foreground pt-1">
+                                  Contacto: {dir.personaContacto}
+                                  {dir.telefonoContacto && ` - ${dir.telefonoContacto}`}
+                                </p>
+                              )}
+                            </div>
+                            <Badge variant="outline" className="mt-2 text-xs">
+                              {tipoInfo?.label || dir.tipo}
+                            </Badge>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : cliente.direccion ? (
+                    // Compatibilidad con direccion legacy
+                    <div className="p-4 border rounded-lg">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">Direccion Principal</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            const { direccion } = cliente
+                            if (direccion.latitud && direccion.longitud) {
+                              window.open(
+                                `https://www.google.com/maps?q=${direccion.latitud},${direccion.longitud}`,
+                                '_blank'
+                              )
+                            } else {
+                              const address = `${direccion.calle}${direccion.numero ? ' ' + direccion.numero : ''}, ${direccion.codigoPostal} ${direccion.ciudad}, ${direccion.provincia}, ${direccion.pais}`
+                              window.open(
+                                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+                                '_blank'
+                              )
+                            }
+                          }}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <p>
+                          {cliente.direccion.calle}
+                          {cliente.direccion.numero && `, ${cliente.direccion.numero}`}
+                          {cliente.direccion.piso && `, ${cliente.direccion.piso}`}
+                        </p>
+                        <p>
+                          {cliente.direccion.codigoPostal} {cliente.direccion.ciudad}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {cliente.direccion.provincia}, {cliente.direccion.pais}
+                        </p>
+                      </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Usa la dirección principal
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No hay direcciones registradas
                     </p>
                   )}
                 </CardContent>
@@ -709,29 +745,135 @@ export default function ClienteDetailPage() {
                 </CardContent>
               </Card>
 
-              {/* Datos Bancarios */}
-              <Card>
+              {/* Cuentas Bancarias */}
+              <Card className="md:col-span-2">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Datos Bancarios
+                    <Landmark className="h-5 w-5" />
+                    Cuentas Bancarias
+                    {cliente.cuentasBancarias && cliente.cuentasBancarias.length > 0 && (
+                      <Badge variant="secondary">{cliente.cuentasBancarias.length}</Badge>
+                    )}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {cliente.iban ? (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">IBAN</p>
-                      <p className="text-sm font-mono">{cliente.iban}</p>
+                <CardContent>
+                  {cliente.cuentasBancarias && cliente.cuentasBancarias.length > 0 ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {cliente.cuentasBancarias.map((cuenta, idx) => {
+                        const mandatoInfo = cuenta.mandatoSEPA?.tipo
+                          ? TIPOS_MANDATO_SEPA.find(t => t.value === cuenta.mandatoSEPA?.tipo)
+                          : null
+
+                        // Formatear IBAN para mostrar
+                        const ibanFormateado = cuenta.iban?.replace(/(.{4})/g, '$1 ').trim()
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-4 border rounded-lg ${cuenta.esPredeterminada ? 'border-primary bg-primary/5' : ''}`}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Landmark className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{cuenta.nombreBanco || 'Cuenta bancaria'}</span>
+                                {cuenta.esPredeterminada && (
+                                  <Badge variant="default" className="text-xs">
+                                    <Star className="h-3 w-3 mr-1" />
+                                    Principal
+                                  </Badge>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(cuenta.iban)
+                                  toast.success('IBAN copiado al portapapeles')
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div>
+                                <p className="text-xs text-muted-foreground">IBAN</p>
+                                <p className="font-mono">{ibanFormateado}</p>
+                              </div>
+                              {cuenta.swift && (
+                                <div>
+                                  <p className="text-xs text-muted-foreground">SWIFT/BIC</p>
+                                  <p className="font-mono">{cuenta.swift}</p>
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-xs text-muted-foreground">Titular</p>
+                                <p>{cuenta.titular}</p>
+                              </div>
+                              {cuenta.mandatoSEPA && cuenta.mandatoSEPA.referencia && (
+                                <div className="pt-2 border-t">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <CreditCard className="h-3 w-3" />
+                                    <span className="text-xs font-medium">Mandato SEPA</span>
+                                    {cuenta.mandatoSEPA.activo && (
+                                      <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                                        Activo
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    Ref: {cuenta.mandatoSEPA.referencia}
+                                    {mandatoInfo && ` - ${mandatoInfo.label}`}
+                                  </p>
+                                  {cuenta.mandatoSEPA.fechaFirma && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Firmado: {new Date(cuenta.mandatoSEPA.fechaFirma).toLocaleDateString('es-ES')}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : cliente.iban ? (
+                    // Compatibilidad con IBAN legacy
+                    <div className="p-4 border rounded-lg">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Landmark className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">Cuenta bancaria</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            navigator.clipboard.writeText(cliente.iban || '')
+                            toast.success('IBAN copiado al portapapeles')
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">IBAN</p>
+                          <p className="font-mono">{cliente.iban?.replace(/(.{4})/g, '$1 ').trim()}</p>
+                        </div>
+                        {cliente.swift && (
+                          <div>
+                            <p className="text-xs text-muted-foreground">SWIFT/BIC</p>
+                            <p className="font-mono">{cliente.swift}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Sin datos bancarios</p>
-                  )}
-
-                  {cliente.swift && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">SWIFT/BIC</p>
-                      <p className="text-sm font-mono">{cliente.swift}</p>
-                    </div>
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No hay cuentas bancarias registradas
+                    </p>
                   )}
                 </CardContent>
               </Card>

@@ -75,6 +75,21 @@ export interface CategorySuggestion {
   reasoning: string;
 }
 
+// Información de producto por código de barras
+export interface BarcodeProductInfo {
+  found: boolean;
+  barcode: string;
+  name?: string;
+  shortDescription?: string;
+  fullDescription?: string;
+  brand?: string;
+  category?: string;
+  suggestedPrice?: number;
+  imageUrl?: string;
+  confidence: 'alta' | 'media' | 'baja';
+  source?: string;
+}
+
 // Interfaz que deben implementar todos los proveedores
 export interface IAIProvider {
   name: AIProvider;

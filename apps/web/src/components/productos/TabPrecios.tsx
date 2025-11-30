@@ -211,60 +211,68 @@ export function TabPrecios({ formData, setFormData, isEditing }: TabPreciosProps
       {/* Impuestos - PRIMERO para poder calcular precios */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Impuestos</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="tipoImpuesto">Tipo de Impuesto</Label>
-            <Select
-              value={formData.tipoImpuesto}
-              onValueChange={(value: any) => setFormData({ ...formData, tipoImpuesto: value })}
-              disabled={!isEditing}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="iva">IVA</SelectItem>
-                <SelectItem value="igic">IGIC (Canarias)</SelectItem>
-                <SelectItem value="exento">Exento</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="tipoImpuestoId">Configuración de Impuesto</Label>
+            <Label htmlFor="tipoImpuestoId">Tipo de Impuesto</Label>
             <SearchableSelect
               options={tiposImpuestoOptions}
               value={formData.tipoImpuestoId || ''}
-              onValueChange={(value) => setFormData({ ...formData, tipoImpuestoId: value })}
-              placeholder="Seleccionar configuración"
+              onValueChange={(value) => {
+                // Actualizar tipoImpuestoId y también el campo iva para compatibilidad
+                const tipoSeleccionado = tiposImpuesto.find(t => t._id === value)
+                setFormData({
+                  ...formData,
+                  tipoImpuestoId: value,
+                  iva: tipoSeleccionado?.porcentaje || 21,
+                  tipoImpuesto: tipoSeleccionado?.tipo?.toLowerCase() || 'iva'
+                })
+              }}
+              placeholder="Seleccionar tipo de impuesto"
               searchPlaceholder="Buscar tipo de impuesto..."
               emptyMessage="No se encontraron tipos de impuesto"
               disabled={!isEditing}
               loading={loadingTiposImpuesto}
               allowClear
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              Impuesto aplicado: {getCurrentTaxRate()}%
+            </p>
           </div>
 
           <div>
-            <Label htmlFor="iva">% {formData.tipoImpuesto?.toUpperCase() || 'IVA'}</Label>
-            <Select
-              value={formData.iva?.toString()}
-              onValueChange={(value) => setFormData({ ...formData, iva: parseFloat(value) })}
-              disabled={!isEditing}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">0%</SelectItem>
-                <SelectItem value="4">4% (Superreducido)</SelectItem>
-                <SelectItem value="10">10% (Reducido)</SelectItem>
-                <SelectItem value="21">21% (General)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Impuesto actual: {getCurrentTaxRate()}%
-            </p>
+            <Label>Información del Impuesto</Label>
+            <div className="p-3 bg-muted/50 rounded-md border mt-1">
+              {formData.tipoImpuestoId ? (
+                (() => {
+                  const tipoSeleccionado = tiposImpuesto.find(t => t._id === formData.tipoImpuestoId)
+                  if (tipoSeleccionado) {
+                    return (
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Tipo:</span>
+                          <Badge variant="outline">{tipoSeleccionado.tipo}</Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Porcentaje:</span>
+                          <span className="font-semibold">{tipoSeleccionado.porcentaje}%</span>
+                        </div>
+                        {tipoSeleccionado.recargoEquivalencia && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Recargo equiv.:</span>
+                            <span className="font-semibold">{tipoSeleccionado.porcentajeRecargo}%</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                  return <span className="text-muted-foreground text-sm">Tipo no encontrado</span>
+                })()
+              ) : (
+                <span className="text-muted-foreground text-sm">
+                  Selecciona un tipo de impuesto para ver los detalles
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </Card>

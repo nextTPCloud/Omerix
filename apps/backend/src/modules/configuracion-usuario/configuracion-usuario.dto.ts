@@ -147,3 +147,45 @@ export const UpdateDensidadBodySchema = z.object({
 });
 
 export type UpdateDensidadBodyDto = z.infer<typeof UpdateDensidadBodySchema>;
+
+/**
+ * ============================================
+ * DTO: FAVORITOS
+ * ============================================
+ */
+
+// Schema para un favorito
+export const FavoritoSchema = z.object({
+  href: z.string().min(1, 'La ruta es obligatoria'),
+  title: z.string().min(1, 'El título es obligatorio'),
+  icon: z.string().optional(),
+  orden: z.number().default(0),
+});
+
+export type FavoritoDto = z.infer<typeof FavoritoSchema>;
+
+// DTO: Agregar favorito
+export const AddFavoritoBodySchema = z.object({
+  href: z.string().min(1, 'La ruta es obligatoria'),
+  title: z.string().min(1, 'El título es obligatorio'),
+  icon: z.string().optional(),
+});
+
+export type AddFavoritoBodyDto = z.infer<typeof AddFavoritoBodySchema>;
+
+// DTO: Eliminar favorito
+export const RemoveFavoritoBodySchema = z.object({
+  href: z.string().min(1, 'La ruta es obligatoria'),
+});
+
+export type RemoveFavoritoBodyDto = z.infer<typeof RemoveFavoritoBodySchema>;
+
+// DTO: Reordenar favoritos
+export const ReorderFavoritosBodySchema = z.object({
+  favoritos: z.array(z.object({
+    href: z.string().min(1),
+    orden: z.number(),
+  })).min(1, 'Debe haber al menos un favorito'),
+});
+
+export type ReorderFavoritosBodyDto = z.infer<typeof ReorderFavoritosBodySchema>;

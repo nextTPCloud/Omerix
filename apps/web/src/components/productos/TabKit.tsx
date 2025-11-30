@@ -6,10 +6,14 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SearchableSelect, MultiSearchableSelect } from '@/components/ui/searchable-select'
-import { Plus, Trash2, Package, Utensils, ChevronDown, ChevronUp, GripVertical, Lock, Unlock } from 'lucide-react'
-import { useState, useEffect, useMemo } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Plus, Trash2, Package, Utensils, ChevronDown, ChevronUp, GripVertical, Lock, Unlock, Calculator, Percent, Euro, Info } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { productosService } from '@/services/productos.service'
+import { tiposImpuestoService } from '@/services/tipos-impuesto.service'
 import { Producto } from '@/types/producto.types'
+import { TipoImpuesto } from '@/types/tipo-impuesto.types'
 
 interface TabKitProps {
   formData: any
@@ -28,30 +32,147 @@ interface ComponenteKit {
   tipoComponente: TipoComponente
   grupoSeleccion?: string // Para agrupar opciones seleccionables (ej: "primer plato", "segundo", "postre")
   productosAlternativos?: string[] // IDs de productos que pueden elegirse en lugar del principal
-  precioExtra?: number // Precio adicional si se elige esta opción
+  precioExtra?: number // Precio adicional si se elige esta opcion
+  // Precios del componente
+  precioUnitarioOriginal?: number // Precio original del producto
+  precioUnitario?: number // Precio modificado para el kit
+  descuentoPorcentaje?: number // Descuento aplicado (%)
 }
 
 export function TabKit({ formData, setFormData, isEditing }: TabKitProps) {
   const [productos, setProductos] = useState<Producto[]>([])
   const [loadingProductos, setLoadingProductos] = useState(true)
+  const [autoCalcularPrecio, setAutoCalcularPrecio] = useState(true)
+  const [tiposImpuesto, setTiposImpuesto] = useState<TipoImpuesto[]>([])
+  const [mostrarPVP, setMostrarPVP] = useState(true) // Mostrar columna PVP
 
   // Modo del kit: simple (como antes) o menú combinado (para restauración)
   const modoKit: ModoKit = formData.configuracionKit?.modo || 'kit_simple'
 
+  // Obtener porcentaje de impuesto actual del producto
+  const getCurrentTaxRate = useCallback((): number => {
+    if (formData.tipoImpuestoId) {
+      const tipoImpuesto = tiposImpuesto.find(t => t._id === formData.tipoImpuestoId)
+      if (tipoImpuesto) {
+        return tipoImpuesto.porcentaje
+      }
+    }
+    return formData.iva || 21
+  }, [formData.tipoImpuestoId, formData.iva, tiposImpuesto])
+
+  // Obtener precio de venta (sin impuestos) de un producto por ID
+  const getProductoPrecio = useCallback((productoId: string): number => {
+    const producto = productos.find(p => p._id === productoId)
+    return producto?.precios?.venta || 0
+  }, [productos])
+
+  // Obtener PVP (con impuestos) de un producto por ID
+  const getProductoPVP = useCallback((productoId: string): number => {
+    const producto = productos.find(p => p._id === productoId)
+    return producto?.precios?.pvp || producto?.precios?.venta || 0
+  }, [productos])
+
+  // Obtener nombre de un producto por ID
+  const getProductoNombre = useCallback((productoId: string): string => {
+    const producto = productos.find(p => p._id === productoId)
+    return producto?.nombre || ''
+  }, [productos])
+
+  // Calcular subtotal de un componente (precio venta sin impuestos)
+  const calcularSubtotalComponente = useCallback((componente: ComponenteKit): number => {
+    const precioBase = componente.precioUnitario ?? componente.precioUnitarioOriginal ?? 0
+    return precioBase * componente.cantidad
+  }, [])
+
+  // Calcular subtotal PVP de un componente (con impuestos del producto componente)
+  const calcularSubtotalPVP = useCallback((componente: ComponenteKit): number => {
+    if (!componente.productoId) return 0
+    const producto = productos.find(p => p._id === componente.productoId)
+    const pvpOriginal = producto?.precios?.pvp || producto?.precios?.venta || 0
+    const precioOriginal = producto?.precios?.venta || 0
+
+    // Calcular el ratio de descuento aplicado al componente
+    const descuentoRatio = precioOriginal > 0
+      ? (componente.precioUnitario ?? componente.precioUnitarioOriginal ?? precioOriginal) / precioOriginal
+      : 1
+
+    // Aplicar el mismo ratio al PVP
+    const pvpConDescuento = pvpOriginal * descuentoRatio
+    return pvpConDescuento * componente.cantidad
+  }, [productos])
+
+  // Calcular precio total del kit sin impuestos (solo componentes no opcionales)
+  const precioTotalKit = useMemo(() => {
+    const componentesKit = formData.componentesKit || []
+    return componentesKit
+      .filter((c: ComponenteKit) => !c.opcional)
+      .reduce((total: number, c: ComponenteKit) => {
+        return total + calcularSubtotalComponente(c)
+      }, 0)
+  }, [formData.componentesKit, calcularSubtotalComponente])
+
+  // Calcular PVP total del kit (con impuestos de cada componente)
+  const pvpTotalKit = useMemo(() => {
+    const componentesKit = formData.componentesKit || []
+    return componentesKit
+      .filter((c: ComponenteKit) => !c.opcional)
+      .reduce((total: number, c: ComponenteKit) => {
+        return total + calcularSubtotalPVP(c)
+      }, 0)
+  }, [formData.componentesKit, calcularSubtotalPVP])
+
+  // Calcular ahorro total vs comprar por separado (en PVP)
+  const ahorroTotal = useMemo(() => {
+    const componentesKit = formData.componentesKit || []
+    const pvpOriginal = componentesKit
+      .filter((c: ComponenteKit) => !c.opcional)
+      .reduce((total: number, c: ComponenteKit) => {
+        const producto = productos.find(p => p._id === c.productoId)
+        const pvp = producto?.precios?.pvp || producto?.precios?.venta || 0
+        return total + pvp * c.cantidad
+      }, 0)
+    return pvpOriginal - pvpTotalKit
+  }, [formData.componentesKit, pvpTotalKit, productos])
+
+  // Actualizar precios del producto principal cuando cambian los componentes
+  const actualizarPreciosProducto = useCallback((precioVenta: number, pvp: number) => {
+    if (autoCalcularPrecio && precioVenta >= 0) {
+      setFormData((prev: any) => ({
+        ...prev,
+        precios: {
+          ...prev.precios,
+          venta: parseFloat(precioVenta.toFixed(2)),
+          pvp: parseFloat(pvp.toFixed(2)),
+        }
+      }))
+    }
+  }, [autoCalcularPrecio, setFormData])
+
   useEffect(() => {
-    const fetchProductos = async () => {
+    const fetchData = async () => {
       try {
         setLoadingProductos(true)
-        const response = await productosService.getAll({ limit: 1000, activo: true })
-        setProductos(response.data || [])
+        const [productosRes, tiposRes] = await Promise.all([
+          productosService.getAll({ limit: 1000, activo: true }),
+          tiposImpuestoService.getAll({ limit: 1000, activo: true })
+        ])
+        setProductos(productosRes.data || [])
+        setTiposImpuesto(tiposRes.data || [])
       } catch (error) {
-        console.error('Error al cargar productos:', error)
+        console.error('Error al cargar datos:', error)
       } finally {
         setLoadingProductos(false)
       }
     }
-    fetchProductos()
+    fetchData()
   }, [])
+
+  // Actualizar precios del producto cuando cambia el precio total del kit
+  useEffect(() => {
+    if (autoCalcularPrecio && formData.tipo === 'compuesto' && (formData.componentesKit || []).length > 0) {
+      actualizarPreciosProducto(precioTotalKit, pvpTotalKit)
+    }
+  }, [precioTotalKit, pvpTotalKit, autoCalcularPrecio, formData.tipo])
 
   // Convertir productos a opciones para el SearchableSelect (excluyendo el producto actual)
   const productosOptions = useMemo(() => {
@@ -109,6 +230,9 @@ export function TabKit({ formData, setFormData, isEditing }: TabKitProps) {
           grupoSeleccion: tipoComponente === 'seleccionable' ? '' : undefined,
           productosAlternativos: tipoComponente === 'seleccionable' ? [] : undefined,
           precioExtra: 0,
+          precioUnitarioOriginal: 0,
+          precioUnitario: 0,
+          descuentoPorcentaje: 0,
         },
       ],
     })
@@ -125,6 +249,39 @@ export function TabKit({ formData, setFormData, isEditing }: TabKitProps) {
     const newComponentes = [...(formData.componentesKit || [])]
     newComponentes[index] = { ...newComponentes[index], ...updates }
     setFormData({ ...formData, componentesKit: newComponentes })
+  }
+
+  // Funcion especial para cuando se selecciona un producto - obtiene automaticamente el precio
+  const handleProductoChange = (index: number, productoId: string) => {
+    const precio = getProductoPrecio(productoId)
+    updateComponente(index, {
+      productoId,
+      precioUnitarioOriginal: precio,
+      precioUnitario: precio,
+      descuentoPorcentaje: 0,
+    })
+  }
+
+  // Funcion para aplicar descuento y recalcular precio
+  const handleDescuentoChange = (index: number, descuento: number) => {
+    const componente = formData.componentesKit[index]
+    const precioOriginal = componente.precioUnitarioOriginal || 0
+    const nuevoPrecio = precioOriginal * (1 - descuento / 100)
+    updateComponente(index, {
+      descuentoPorcentaje: descuento,
+      precioUnitario: Math.round(nuevoPrecio * 100) / 100, // Redondear a 2 decimales
+    })
+  }
+
+  // Funcion para modificar precio directamente y calcular descuento
+  const handlePrecioChange = (index: number, nuevoPrecio: number) => {
+    const componente = formData.componentesKit[index]
+    const precioOriginal = componente.precioUnitarioOriginal || 0
+    const descuento = precioOriginal > 0 ? ((precioOriginal - nuevoPrecio) / precioOriginal) * 100 : 0
+    updateComponente(index, {
+      precioUnitario: nuevoPrecio,
+      descuentoPorcentaje: Math.max(0, Math.round(descuento * 100) / 100),
+    })
   }
 
   // Obtener grupos de selección únicos
@@ -233,23 +390,91 @@ export function TabKit({ formData, setFormData, isEditing }: TabKitProps) {
         )}
       </Card>
 
-      {/* Resumen de componentes */}
+      {/* Resumen de componentes y precios */}
       {conteoComponentes.total > 0 && (
         <Card className="p-4 bg-muted/30">
-          <div className="flex items-center justify-between text-sm">
-            <span>
-              <strong>{conteoComponentes.total}</strong> componente{conteoComponentes.total !== 1 ? 's' : ''}
-            </span>
-            {modoKit === 'menu_combinado' && (
-              <div className="flex gap-4">
-                <span className="flex items-center gap-1">
-                  <Lock className="h-4 w-4 text-blue-500" />
-                  {conteoComponentes.fijos} fijo{conteoComponentes.fijos !== 1 ? 's' : ''}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Unlock className="h-4 w-4 text-green-500" />
-                  {conteoComponentes.seleccionables} seleccionable{conteoComponentes.seleccionables !== 1 ? 's' : ''}
-                </span>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span>
+                <strong>{conteoComponentes.total}</strong> componente{conteoComponentes.total !== 1 ? 's' : ''}
+              </span>
+              {modoKit === 'menu_combinado' && (
+                <div className="flex gap-4">
+                  <span className="flex items-center gap-1">
+                    <Lock className="h-4 w-4 text-blue-500" />
+                    {conteoComponentes.fijos} fijo{conteoComponentes.fijos !== 1 ? 's' : ''}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Unlock className="h-4 w-4 text-green-500" />
+                    {conteoComponentes.seleccionables} seleccionable{conteoComponentes.seleccionables !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Resumen de precios para kit simple */}
+            {modoKit === 'kit_simple' && (
+              <div className="pt-3 border-t">
+                <div className="flex flex-col gap-3">
+                  {/* Totales */}
+                  <div className="flex flex-wrap items-center gap-4">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2 cursor-help">
+                            <Calculator className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">Precio Venta:</span>
+                            <span className="text-lg font-bold">{precioTotalKit.toFixed(2)} €</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Precio sin impuestos (base imponible)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2 cursor-help">
+                            <Euro className="h-4 w-4 text-primary" />
+                            <span className="text-sm">PVP:</span>
+                            <span className="text-lg font-bold text-primary">{pvpTotalKit.toFixed(2)} €</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Precio con impuestos incluidos</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    {ahorroTotal > 0 && (
+                      <Badge variant="secondary" className="bg-green-100 text-green-700">
+                        Ahorro: {ahorroTotal.toFixed(2)} €
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Checkbox auto-calcular */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="autoCalcular"
+                        checked={autoCalcularPrecio}
+                        onCheckedChange={(checked) => setAutoCalcularPrecio(!!checked)}
+                        disabled={!isEditing}
+                      />
+                      <Label htmlFor="autoCalcular" className="text-xs cursor-pointer">
+                        Actualizar precios automaticamente
+                      </Label>
+                    </div>
+                    {autoCalcularPrecio && (
+                      <span className="text-xs text-muted-foreground">
+                        Venta: {precioTotalKit.toFixed(2)}€ | PVP: {pvpTotalKit.toFixed(2)}€
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -325,14 +550,14 @@ export function TabKit({ formData, setFormData, isEditing }: TabKitProps) {
                 {/* Contenido del componente */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                   {/* Producto principal */}
-                  <div className="md:col-span-4">
+                  <div className="md:col-span-3">
                     <Label className="text-xs">
-                      {componente.tipoComponente === 'seleccionable' ? 'Opción por defecto' : 'Producto'}
+                      {componente.tipoComponente === 'seleccionable' ? 'Opcion por defecto' : 'Producto'}
                     </Label>
                     <SearchableSelect
                       options={getAvailableProductos(index)}
                       value={componente.productoId || ''}
-                      onValueChange={(value) => updateComponente(index, { productoId: value })}
+                      onValueChange={(value) => handleProductoChange(index, value)}
                       placeholder="Seleccionar producto"
                       searchPlaceholder="Buscar producto..."
                       emptyMessage="No hay productos disponibles"
@@ -342,8 +567,8 @@ export function TabKit({ formData, setFormData, isEditing }: TabKitProps) {
                   </div>
 
                   {/* Cantidad */}
-                  <div className="md:col-span-2">
-                    <Label className="text-xs">Cantidad</Label>
+                  <div className="md:col-span-1">
+                    <Label className="text-xs">Cant.</Label>
                     <Input
                       type="number"
                       min="1"
@@ -352,6 +577,98 @@ export function TabKit({ formData, setFormData, isEditing }: TabKitProps) {
                       disabled={!isEditing}
                     />
                   </div>
+
+                  {/* Precio Original (solo lectura) - muestra venta y PVP */}
+                  {modoKit === 'kit_simple' && componente.productoId && (
+                    <div className="md:col-span-2">
+                      <Label className="text-xs text-muted-foreground">P. Original</Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="h-10 flex items-center justify-between px-3 border rounded-md bg-muted/50 text-sm cursor-help">
+                              <span>{(componente.precioUnitarioOriginal || 0).toFixed(2)} €</span>
+                              <span className="text-xs text-muted-foreground">
+                                PVP: {getProductoPVP(componente.productoId).toFixed(2)}€
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Venta: {(componente.precioUnitarioOriginal || 0).toFixed(2)}€ (sin imp.)</p>
+                            <p>PVP: {getProductoPVP(componente.productoId).toFixed(2)}€ (con imp.)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  )}
+
+                  {/* Descuento */}
+                  {modoKit === 'kit_simple' && componente.productoId && (
+                    <div className="md:col-span-2">
+                      <Label className="text-xs">Dto. %</Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={componente.descuentoPorcentaje || 0}
+                          onChange={(e) => handleDescuentoChange(index, parseFloat(e.target.value) || 0)}
+                          disabled={!isEditing}
+                          className="pr-8"
+                        />
+                        <Percent className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Precio Kit (editable) */}
+                  {modoKit === 'kit_simple' && componente.productoId && (
+                    <div className="md:col-span-2">
+                      <Label className="text-xs">P. Kit</Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={componente.precioUnitario || 0}
+                          onChange={(e) => handlePrecioChange(index, parseFloat(e.target.value) || 0)}
+                          disabled={!isEditing}
+                          className="pr-8"
+                        />
+                        <Euro className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subtotal - muestra venta y PVP */}
+                  {modoKit === 'kit_simple' && componente.productoId && (
+                    <div className="md:col-span-2">
+                      <Label className="text-xs text-muted-foreground">Subtotal</Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="h-10 flex items-center justify-between px-3 border rounded-md bg-primary/5 text-sm font-medium cursor-help">
+                              <div className="flex flex-col leading-tight">
+                                <span>{calcularSubtotalComponente(componente).toFixed(2)} €</span>
+                                <span className="text-xs text-primary font-normal">
+                                  PVP: {calcularSubtotalPVP(componente).toFixed(2)}€
+                                </span>
+                              </div>
+                              {(componente.descuentoPorcentaje || 0) > 0 && (
+                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                  -{componente.descuentoPorcentaje}%
+                                </Badge>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Subtotal Venta: {calcularSubtotalComponente(componente).toFixed(2)}€</p>
+                            <p>Subtotal PVP: {calcularSubtotalPVP(componente).toFixed(2)}€</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  )}
 
                   {/* Grupo de selección (solo para seleccionables en modo menú) */}
                   {modoKit === 'menu_combinado' && componente.tipoComponente === 'seleccionable' && (

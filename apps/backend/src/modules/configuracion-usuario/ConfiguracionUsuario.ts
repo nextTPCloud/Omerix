@@ -37,12 +37,21 @@ export interface IModuleConfig {
   densidad?: 'compact' | 'normal' | 'comfortable'; // 🆕 Densidad de la tabla
 }
 
+// Favorito del menú
+export interface IFavorito {
+  href: string;      // Ruta del elemento (ej: '/clientes', '/productos')
+  title: string;     // Título a mostrar
+  icon?: string;     // Nombre del icono (opcional, para referencia)
+  orden: number;     // Orden en el que aparece
+  fechaAgregado: Date;
+}
+
 // Documento principal
 export interface IConfiguracionUsuario extends Document {
   _id: mongoose.Types.ObjectId;
   usuarioId: mongoose.Types.ObjectId;
   empresaId: mongoose.Types.ObjectId;
-  
+
   // Configuraciones por módulo
   configuraciones: {
     clientes?: IModuleConfig;
@@ -56,7 +65,10 @@ export interface IConfiguracionUsuario extends Document {
     usuarios?: IModuleConfig;
     [key: string]: IModuleConfig | undefined; // Permitir módulos dinámicos
   };
-  
+
+  // Favoritos del menú
+  favoritos: IFavorito[];
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -141,6 +153,31 @@ const ModuleConfigSchema = new Schema<IModuleConfig>(
   { _id: false }
 );
 
+const FavoritoSchema = new Schema<IFavorito>(
+  {
+    href: {
+      type: String,
+      required: true,
+    },
+    title: {
+      type: String,
+      required: true,
+    },
+    icon: {
+      type: String,
+    },
+    orden: {
+      type: Number,
+      default: 0,
+    },
+    fechaAgregado: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
+
 const ConfiguracionUsuarioSchema = new Schema<IConfiguracionUsuario>(
   {
     _id: {
@@ -170,6 +207,10 @@ const ConfiguracionUsuarioSchema = new Schema<IConfiguracionUsuario>(
       almacenes: { type: ModuleConfigSchema, default: null },
       inventario: { type: ModuleConfigSchema, default: null },
       usuarios: { type: ModuleConfigSchema, default: null },
+    },
+    favoritos: {
+      type: [FavoritoSchema],
+      default: [],
     },
   },
   {
