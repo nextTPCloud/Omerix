@@ -30,7 +30,7 @@ export function Header({ onMenuClick, isMobileMenuOpen }: HeaderProps) {
   const { user, clearAuth } = useAuthStore()
 
   const handleLogout = () => {
-    authService.logout()
+    authService.logoutLocal()
     clearAuth()
     toast.success('Sesión cerrada')
     router.push('/login')

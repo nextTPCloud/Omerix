@@ -112,7 +112,10 @@ export default function FormasPagoPage() {
       const response = await formasPagoService.getAll(params)
       if (response.data) {
         setFormasPago(response.data || [])
-        setPagination(response.pagination || { page: 1, limit: 25, total: 0, pages: 0 })
+        const pag = response.pagination as any
+        if (pag) {
+          setPagination({ page: pag.page, limit: pag.limit, total: pag.total, pages: pag.totalPages || pag.pages || 0 })
+        }
       } else {
         setFormasPago([])
         toast.error('Error al cargar las formas de pago')

@@ -564,13 +564,13 @@ export default function ClienteDetailPage() {
                         return (
                           <div
                             key={idx}
-                            className={`p-4 border rounded-lg ${dir.esPredeterminada ? 'border-primary bg-primary/5' : ''}`}
+                            className={`p-4 border rounded-lg ${dir.predeterminada ? 'border-primary bg-primary/5' : ''}`}
                           >
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 <TipoIcon className="h-4 w-4 text-muted-foreground" />
                                 <span className="font-medium">{dir.nombre || tipoInfo?.label || 'Direccion'}</span>
-                                {dir.esPredeterminada && (
+                                {dir.predeterminada && (
                                   <Badge variant="default" className="text-xs">
                                     <Star className="h-3 w-3 mr-1" />
                                     Principal
@@ -638,14 +638,15 @@ export default function ClienteDetailPage() {
                           size="icon"
                           className="h-8 w-8"
                           onClick={() => {
-                            const { direccion } = cliente
+                            const direccion = cliente.direccion
+                            if (!direccion) return
                             if (direccion.latitud && direccion.longitud) {
                               window.open(
                                 `https://www.google.com/maps?q=${direccion.latitud},${direccion.longitud}`,
                                 '_blank'
                               )
                             } else {
-                              const address = `${direccion.calle}${direccion.numero ? ' ' + direccion.numero : ''}, ${direccion.codigoPostal} ${direccion.ciudad}, ${direccion.provincia}, ${direccion.pais}`
+                              const address = `${direccion.calle || ''}${direccion.numero ? ' ' + direccion.numero : ''}, ${direccion.codigoPostal || ''} ${direccion.ciudad || ''}, ${direccion.provincia || ''}, ${direccion.pais || ''}`
                               window.open(
                                 `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
                                 '_blank'
@@ -760,8 +761,8 @@ export default function ClienteDetailPage() {
                   {cliente.cuentasBancarias && cliente.cuentasBancarias.length > 0 ? (
                     <div className="grid gap-4 md:grid-cols-2">
                       {cliente.cuentasBancarias.map((cuenta, idx) => {
-                        const mandatoInfo = cuenta.mandatoSEPA?.tipo
-                          ? TIPOS_MANDATO_SEPA.find(t => t.value === cuenta.mandatoSEPA?.tipo)
+                        const mandatoInfo = cuenta.mandatoSEPA?.tipoMandato
+                          ? TIPOS_MANDATO_SEPA.find(t => t.value === cuenta.mandatoSEPA?.tipoMandato)
                           : null
 
                         // Formatear IBAN para mostrar
@@ -770,13 +771,13 @@ export default function ClienteDetailPage() {
                         return (
                           <div
                             key={idx}
-                            className={`p-4 border rounded-lg ${cuenta.esPredeterminada ? 'border-primary bg-primary/5' : ''}`}
+                            className={`p-4 border rounded-lg ${cuenta.predeterminada ? 'border-primary bg-primary/5' : ''}`}
                           >
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center gap-2">
                                 <Landmark className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{cuenta.nombreBanco || 'Cuenta bancaria'}</span>
-                                {cuenta.esPredeterminada && (
+                                <span className="font-medium">{cuenta.banco || cuenta.alias || 'Cuenta bancaria'}</span>
+                                {cuenta.predeterminada && (
                                   <Badge variant="default" className="text-xs">
                                     <Star className="h-3 w-3 mr-1" />
                                     Principal
@@ -815,9 +816,9 @@ export default function ClienteDetailPage() {
                                   <div className="flex items-center gap-2 mb-1">
                                     <CreditCard className="h-3 w-3" />
                                     <span className="text-xs font-medium">Mandato SEPA</span>
-                                    {cuenta.mandatoSEPA.activo && (
+                                    {cuenta.mandatoSEPA.firmado && (
                                       <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
-                                        Activo
+                                        Firmado
                                       </Badge>
                                     )}
                                   </div>

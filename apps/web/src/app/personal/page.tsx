@@ -294,12 +294,10 @@ export default function PersonalPage() {
 
       if (response.success) {
         setPersonal(response.data || [])
-        setPagination(response.pagination || {
-          page: 1,
-          limit: 25,
-          total: 0,
-          pages: 0,
-        })
+        const pag = response.pagination as any
+        if (pag) {
+          setPagination({ page: pag.page, limit: pag.limit, total: pag.total, pages: pag.totalPages || pag.pages || 0 })
+        }
       } else {
         setPersonal([])
         toast.error('Error al cargar el personal')
@@ -339,7 +337,7 @@ export default function PersonalPage() {
     }
 
     // Campos de búsqueda por texto
-    const searchableFields = ['codigo', 'nombre', 'nif', 'puesto', 'emailCorporativo', 'telefono']
+    const searchableFields = ['codigo', 'nombre', 'nif', 'puesto', 'emailCorporativo', 'telefono', 'departamento']
     const searchTerms: string[] = []
 
     searchableFields.forEach(field => {
@@ -352,7 +350,7 @@ export default function PersonalPage() {
       combinedFilters.search = searchTerms.join(' ')
     }
 
-    // Filtros de select
+    // Filtros de select y numéricos
     Object.entries(debouncedColumnFilters).forEach(([key, value]) => {
       if (key === 'tipoContrato') {
         if (value !== 'all') {
@@ -365,6 +363,14 @@ export default function PersonalPage() {
       } else if (key === 'estado') {
         if (value !== 'all') {
           combinedFilters.estado = value
+        }
+      } else if (key === 'antiguedadRango') {
+        if (value && value !== 'all') {
+          combinedFilters.antiguedadRango = value
+        }
+      } else if (key === 'salarioMinimo') {
+        if (value) {
+          combinedFilters.salarioMinimo = parseFloat(value)
         }
       }
     })
@@ -1205,15 +1211,43 @@ export default function PersonalPage() {
                   )}
 
                   {columnasVisibles.includes('antiguedad') && (
-                    <th className="px-3 py-1.5"></th>
+                    <th className="px-3 py-1.5">
+                      <TableSelect
+                        value={columnFiltersInput.antiguedadRango || 'all'}
+                        onValueChange={(value) => handleColumnFilterInput('antiguedadRango', value)}
+                        placeholder="Todos"
+                        options={[
+                          { value: 'all', label: 'Todos' },
+                          { value: '0-1', label: '< 1 año' },
+                          { value: '1-3', label: '1-3 años' },
+                          { value: '3-5', label: '3-5 años' },
+                          { value: '5+', label: '> 5 años' },
+                        ]}
+                      />
+                    </th>
                   )}
 
                   {columnasVisibles.includes('departamento') && (
-                    <th className="px-3 py-1.5"></th>
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Filtrar..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        value={columnFiltersInput.departamento || ''}
+                        onChange={(e) => handleColumnFilterInput('departamento', e.target.value)}
+                      />
+                    </th>
                   )}
 
                   {columnasVisibles.includes('salario') && (
-                    <th className="px-3 py-1.5"></th>
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Min..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        type="number"
+                        value={columnFiltersInput.salarioMinimo || ''}
+                        onChange={(e) => handleColumnFilterInput('salarioMinimo', e.target.value)}
+                      />
+                    </th>
                   )}
 
                   {columnasVisibles.includes('activo') && (
@@ -1430,7 +1464,7 @@ export default function PersonalPage() {
                   <SelectTrigger className="w-[80px] h-9">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="min-w-[80px] w-auto" align="start">
+                  <SelectContent className="min-w-[80px] w-auto">
                     <SelectItem value="10">10</SelectItem>
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>

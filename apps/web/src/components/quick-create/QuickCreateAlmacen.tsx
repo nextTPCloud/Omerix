@@ -31,7 +31,7 @@ export function QuickCreateAlmacen({ open, onOpenChange, onCreated }: QuickCreat
     try {
       const response = await almacenesService.create({
         nombre: formData.nombre.trim(),
-        codigo: formData.codigo.trim() || undefined,
+        codigo: formData.codigo.trim(),
         activo: true,
       })
 
@@ -40,7 +40,7 @@ export function QuickCreateAlmacen({ open, onOpenChange, onCreated }: QuickCreat
         onCreated({
           _id: response.data._id,
           nombre: response.data.nombre,
-          codigo: response.data.codigo,
+          codigo: response.data.codigo || '',
         })
         onOpenChange(false)
         setFormData({ nombre: '', codigo: '' })

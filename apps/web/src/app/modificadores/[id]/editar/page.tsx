@@ -24,12 +24,9 @@ export default function EditarModificadorPage() {
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
-    tipo: 'preparacion' as 'preparacion' | 'ingrediente' | 'porcion' | 'otro',
-    aplicaA: 'todos' as 'todos' | 'categorias' | 'productos',
+    tipo: 'gratis' as 'gratis' | 'cargo' | 'descuento',
+    aplicaA: 'todos' as 'todos' | 'familias' | 'productos',
     precioExtra: 0,
-    afectaTiempoPreparacion: false,
-    tiempoExtraMinutos: 0,
-    requiereStock: false,
     orden: 0,
     activo: true,
   })
@@ -44,12 +41,9 @@ export default function EditarModificadorPage() {
           setFormData({
             nombre: m.nombre || '',
             descripcion: m.descripcion || '',
-            tipo: m.tipo || 'preparacion',
+            tipo: m.tipo || 'gratis',
             aplicaA: m.aplicaA || 'todos',
             precioExtra: m.precioExtra || 0,
-            afectaTiempoPreparacion: m.afectaTiempoPreparacion || false,
-            tiempoExtraMinutos: m.tiempoExtraMinutos || 0,
-            requiereStock: m.requiereStock || false,
             orden: m.orden || 0,
             activo: m.activo !== undefined ? m.activo : true,
           })
@@ -101,13 +95,8 @@ export default function EditarModificadorPage() {
           <Card className="mt-4">
             <CardHeader><CardTitle>Configuración</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Orden</Label><Input type="number" value={formData.orden} onChange={e => setFormData({ ...formData, orden: parseInt(e.target.value) || 0 })} min={0} /></div>
-                <div className="space-y-2"><Label>Tiempo extra (min)</Label><Input type="number" value={formData.tiempoExtraMinutos} onChange={e => setFormData({ ...formData, tiempoExtraMinutos: parseInt(e.target.value) || 0 })} min={0} /></div>
-              </div>
+              <div className="space-y-2"><Label>Orden</Label><Input type="number" value={formData.orden} onChange={e => setFormData({ ...formData, orden: parseInt(e.target.value) || 0 })} min={0} /></div>
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg"><div><Label className="font-medium">Afecta tiempo</Label></div><Switch checked={formData.afectaTiempoPreparacion} onCheckedChange={c => setFormData({ ...formData, afectaTiempoPreparacion: c })} /></div>
-                <div className="flex items-center justify-between p-3 border rounded-lg"><div><Label className="font-medium">Requiere stock</Label></div><Switch checked={formData.requiereStock} onCheckedChange={c => setFormData({ ...formData, requiereStock: c })} /></div>
                 <div className="flex items-center justify-between p-3 border rounded-lg"><div><Label className="font-medium">Activo</Label></div><Switch checked={formData.activo} onCheckedChange={c => setFormData({ ...formData, activo: c })} /></div>
               </div>
             </CardContent>

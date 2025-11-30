@@ -325,7 +325,7 @@ export function TabDirecciones({ direcciones, onChange, readOnly = false }: TabD
                 <Label>Tipo de direccion *</Label>
                 <Select
                   value={formData.tipo}
-                  onValueChange={(value: TipoDireccion) => setFormData({ ...formData, tipo: value })}
+                  onValueChange={(value) => setFormData({ ...formData, tipo: value as TipoDireccion })}
                 >
                   <SelectTrigger>
                     <SelectValue />

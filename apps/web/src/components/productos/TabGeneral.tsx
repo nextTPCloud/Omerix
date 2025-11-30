@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { CodeInput } from '@/components/ui/code-input'
 import { FormattedText } from '@/components/ui/formatted-text'
-import { QuickCreateFamilia } from '@/components/quick-create'
+import { FullCreateFamilia } from '@/components/full-create'
 import { Plus, X, Sparkles, Loader2, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { familiasService } from '@/services/familias.service'
@@ -691,8 +691,8 @@ export function TabGeneral({ formData, setFormData, isEditing }: TabGeneralProps
         </div>
       </Card>
 
-      {/* Modal de creación rápida de familia */}
-      <QuickCreateFamilia
+      {/* Modal de creación de familia */}
+      <FullCreateFamilia
         open={showCreateFamilia}
         onOpenChange={setShowCreateFamilia}
         onCreated={handleFamiliaCreated}

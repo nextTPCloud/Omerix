@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { TipoImpuestoForm } from '@/components/tipos-impuesto/TipoImpuestoForm'
 import { tiposImpuestoService } from '@/services/tipos-impuesto.service'
-import { CreateTipoImpuestoDTO } from '@/types/tipo-impuesto.types'
+import { CreateTipoImpuestoDTO, UpdateTipoImpuestoDTO } from '@/types/tipo-impuesto.types'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Percent } from 'lucide-react'
@@ -15,10 +15,10 @@ export default function NuevoTipoImpuestoPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (data: CreateTipoImpuestoDTO) => {
+  const handleSubmit = async (data: CreateTipoImpuestoDTO | UpdateTipoImpuestoDTO) => {
     try {
       setIsLoading(true)
-      const response = await tiposImpuestoService.create(data)
+      const response = await tiposImpuestoService.create(data as CreateTipoImpuestoDTO)
 
       if (response.success) {
         toast.success('Tipo de impuesto creado correctamente')

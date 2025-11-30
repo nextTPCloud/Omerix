@@ -46,6 +46,7 @@ import {
   Briefcase,
   UserCog,
   Star,
+  FolderKanban,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFavoritosContext } from '@/contexts/FavoritosContext'
@@ -67,7 +68,7 @@ const iconMap: { [key: string]: any } = {
   Building2, BookOpen, FolderTree, Warehouse, Percent, Tag, ListChecks,
   Layers, UtensilsCrossed, Printer, ChefHat, AlertTriangle, SlidersHorizontal,
   Grid3X3, Palette, Database, FileStack, CreditCard, Clock, Landmark,
-  Briefcase, UserCog, Star,
+  Briefcase, UserCog, Star, FolderKanban,
 }
 
 const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
@@ -166,6 +167,14 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
     group: 'Servicios',
     icon: Wrench,
     items: [
+      {
+        title: 'Proyectos',
+        icon: FolderKanban,
+        children: [
+          { title: 'Listado', href: '/proyectos' },
+          { title: 'Nuevo', href: '/proyectos/nuevo' },
+        ],
+      },
       {
         title: 'Partes de Trabajo',
         icon: Wrench,

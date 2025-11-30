@@ -1,3 +1,7 @@
 export { QuickCreateFamilia } from './QuickCreateFamilia'
 export { QuickCreateTipoImpuesto } from './QuickCreateTipoImpuesto'
 export { QuickCreateAlmacen } from './QuickCreateAlmacen'
+export { QuickCreateCliente } from './QuickCreateCliente'
+export { QuickCreateAgenteComercial } from './QuickCreateAgenteComercial'
+export { QuickCreateProyecto } from './QuickCreateProyecto'
+export { QuickCreatePersonal } from './QuickCreatePersonal'

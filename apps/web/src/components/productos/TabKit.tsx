@@ -698,7 +698,7 @@ export function TabKit({ formData, setFormData, isEditing }: TabKitProps) {
                               {grupo}
                             </SelectItem>
                           ))}
-                          <SelectItem value="_nuevo_" className="text-primary">
+                          <SelectItem value="_nuevo_">
                             + Crear nuevo grupo...
                           </SelectItem>
                         </SelectContent>

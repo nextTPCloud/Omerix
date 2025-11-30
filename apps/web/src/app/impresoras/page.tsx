@@ -181,7 +181,10 @@ export default function ImpresorasPage() {
       const response = await impresorasService.getAll(params)
       if (response.success) {
         setImpresoras(response.data || [])
-        setPagination(response.pagination || { page: 1, limit: 25, total: 0, pages: 0 })
+        const pag = response.pagination as any
+        if (pag) {
+          setPagination({ page: pag.page, limit: pag.limit, total: pag.total, pages: pag.totalPages || pag.pages || 0 })
+        }
       } else {
         setImpresoras([])
         toast.error('Error al cargar las impresoras')

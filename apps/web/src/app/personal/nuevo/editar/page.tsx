@@ -79,7 +79,7 @@ export default function NuevoPersonalEditarPage() {
 
       if (response.success && response.data) {
         toast.success('Empleado creado correctamente')
-        const empleadoId = response.data._id || response.data.id
+        const empleadoId = response.data._id
         if (empleadoId) {
           router.push(`/personal/${empleadoId}`)
         } else {

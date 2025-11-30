@@ -15,7 +15,7 @@ export default function NuevaClasificacionPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (data: CreateClasificacionDTO) => {
+  const handleSubmit = async (data: CreateClasificacionDTO | any) => {
     try {
       setIsLoading(true)
       const response = await clasificacionesService.create(data)

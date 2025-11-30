@@ -195,7 +195,7 @@ export default function NuevoProductoPage() {
 
     try {
       // Limpiar campos ObjectId vacíos (convertir '' a undefined)
-      const cleanedData = { ...formData }
+      const cleanedData: any = { ...formData }
       const objectIdFields = ['familiaId', 'estadoId', 'situacionId', 'clasificacionId', 'tipoImpuestoId']
       objectIdFields.forEach(field => {
         if (cleanedData[field] === '') {

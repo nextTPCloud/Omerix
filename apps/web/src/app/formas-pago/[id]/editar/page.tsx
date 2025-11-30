@@ -189,7 +189,7 @@ export default function EditarFormaPagoPage() {
                   <Label htmlFor="tipo">Tipo *</Label>
                   <Select
                     value={formData.tipo}
-                    onValueChange={(value: TipoFormaPago) => handleTipoChange(value)}
+                    onValueChange={(value) => handleTipoChange(value as TipoFormaPago)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona el tipo" />
@@ -467,11 +467,11 @@ export default function EditarFormaPagoPage() {
                         <Label>Entorno</Label>
                         <Select
                           value={formData.configuracionPasarela?.redsysEnvironment || 'test'}
-                          onValueChange={(value: 'test' | 'production') => setFormData({
+                          onValueChange={(value) => setFormData({
                             ...formData,
                             configuracionPasarela: {
                               ...formData.configuracionPasarela!,
-                              redsysEnvironment: value,
+                              redsysEnvironment: value as 'test' | 'production',
                             }
                           })}
                         >
@@ -522,11 +522,11 @@ export default function EditarFormaPagoPage() {
                         <Label>Entorno</Label>
                         <Select
                           value={formData.configuracionPasarela?.paypalEnvironment || 'sandbox'}
-                          onValueChange={(value: 'sandbox' | 'production') => setFormData({
+                          onValueChange={(value) => setFormData({
                             ...formData,
                             configuracionPasarela: {
                               ...formData.configuracionPasarela!,
-                              paypalEnvironment: value,
+                              paypalEnvironment: value as 'sandbox' | 'production',
                             }
                           })}
                         >

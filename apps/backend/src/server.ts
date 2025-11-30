@@ -43,6 +43,13 @@ import vencimientosRoutes from './modules/tesoreria/vencimientos.routes';
 import agentesRoutes from './modules/agentes-comerciales/agentes-comerciales.routes';
 import personalRoutes from './modules/personal/personal.routes';
 
+// Importar rutas de proyectos y presupuestos
+import proyectosRoutes from './modules/proyectos/proyectos.routes';
+import presupuestosRoutes from './modules/presupuestos/presupuestos.routes';
+
+// Importar rutas de empresa
+import empresaRoutes from './modules/empresa/empresa.routes';
+
 // Importar rutas de IA
 import aiRoutes from './modules/ai/ai.routes';
 
@@ -244,6 +251,13 @@ app.use('/api/vencimientos', vencimientosRoutes);
 // Rutas de RRHH y comercial
 app.use('/api/agentes-comerciales', agentesRoutes);
 app.use('/api/personal', personalRoutes);
+
+// Rutas de proyectos y presupuestos
+app.use('/api/proyectos', proyectosRoutes);
+app.use('/api/presupuestos', presupuestosRoutes);
+
+// Rutas de empresa (configuración, email, etc.)
+app.use('/api/empresa', empresaRoutes);
 
 // Rutas de IA
 app.use('/api/ai', aiRoutes);

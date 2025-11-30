@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { EstadoForm } from '@/components/estados/EstadoForm'
 import { estadosService } from '@/services/estados.service'
-import { CreateEstadoDTO } from '@/types/estado.types'
+import { CreateEstadoDTO, UpdateEstadoDTO } from '@/types/estado.types'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Tag } from 'lucide-react'
@@ -15,10 +15,10 @@ export default function NuevoEstadoPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (data: CreateEstadoDTO) => {
+  const handleSubmit = async (data: CreateEstadoDTO | UpdateEstadoDTO) => {
     try {
       setIsLoading(true)
-      const response = await estadosService.create(data)
+      const response = await estadosService.create(data as CreateEstadoDTO)
 
       if (response.success) {
         toast.success('Estado creado correctamente')

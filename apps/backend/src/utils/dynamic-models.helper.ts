@@ -21,6 +21,9 @@ import { FormaPago, IFormaPago } from '../models/FormaPago';
 import { Vencimiento, IVencimiento } from '../models/Vencimiento';
 import { Personal, IPersonal } from '../modules/personal/Personal';
 import { AgenteComercial, IAgenteComercial } from '../modules/agentes-comerciales/AgenteComercial';
+import { Proyecto, IProyecto } from '../modules/proyectos/Proyecto';
+import { Presupuesto, IPresupuesto } from '../modules/presupuestos/Presupuesto';
+import Usuario, { IUsuario } from '../models/Usuario';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -348,6 +351,55 @@ export const getAgenteComercialModel = async (
 };
 
 /**
+ * Obtener modelo de Proyecto para una empresa específica
+ */
+export const getProyectoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IProyecto>> => {
+  const ProyectoSchema = Proyecto.schema;
+  return databaseManager.getModel<IProyecto>(
+    empresaId,
+    dbConfig,
+    'Proyecto',
+    ProyectoSchema
+  );
+};
+
+/**
+ * Obtener modelo de Presupuesto para una empresa específica
+ */
+export const getPresupuestoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IPresupuesto>> => {
+  const PresupuestoSchema = Presupuesto.schema;
+  return databaseManager.getModel<IPresupuesto>(
+    empresaId,
+    dbConfig,
+    'Presupuesto',
+    PresupuestoSchema
+  );
+};
+
+/**
+ * Obtener modelo de Usuario para una empresa específica
+ * Nota: Se registra como 'User' para compatibilidad con referencias en otros modelos
+ */
+export const getUserModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IUsuario>> => {
+  const UsuarioSchema = Usuario.schema;
+  return databaseManager.getModel<IUsuario>(
+    empresaId,
+    dbConfig,
+    'User',
+    UsuarioSchema
+  );
+};
+
+/**
  * Objeto con todos los modelos por empresa
  * Se puede extender con más modelos según sea necesario
  */
@@ -372,6 +424,9 @@ export const EmpresaModels = {
   Vencimiento: getVencimientoModel,
   Personal: getPersonalModel,
   AgenteComercial: getAgenteComercialModel,
+  Proyecto: getProyectoModel,
+  Presupuesto: getPresupuestoModel,
+  User: getUserModel,
 };
 
 /**

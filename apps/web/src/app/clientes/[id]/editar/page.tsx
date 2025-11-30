@@ -14,14 +14,14 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface EditarClientePageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default function EditarClientePage({ params }: EditarClientePageProps) {
   const router = useRouter()
-    const resolvedParams = React.use(params)
+  const resolvedParams = React.use(params)
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)

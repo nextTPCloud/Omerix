@@ -38,6 +38,11 @@ export function ExportButton({
       return
     }
 
+    if (!columns || !data) {
+      toast.error('No hay datos para exportar')
+      return
+    }
+
     try {
       // Headers
       const headers = columns.map((col) => col.label).join(',')
@@ -95,6 +100,11 @@ export function ExportButton({
       return
     }
 
+    if (!columns || !data) {
+      toast.error('No hay datos para exportar')
+      return
+    }
+
     try {
       // Construir el body de la petición
       const exportData = {
@@ -138,6 +148,11 @@ export function ExportButton({
   const handleExportPDF = async () => {
     if (onExportPDF) {
       onExportPDF()
+      return
+    }
+
+    if (!columns || !data) {
+      toast.error('No hay datos para exportar')
       return
     }
 

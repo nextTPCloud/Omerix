@@ -32,8 +32,8 @@ export default function EditarProductoPage({ params }: EditarProductoPageProps) 
     descripcion: '',
     familiaId: '',
     codigoBarras: '',
-    precio: {
-      base: 0,
+    precios: {
+      compra: 0,
       venta: 0,
     },
     stock: {
@@ -42,7 +42,6 @@ export default function EditarProductoPage({ params }: EditarProductoPageProps) 
       maximo: 0,
     },
     activo: true,
-    visible: true,
   });
 
   useEffect(() => {
@@ -65,17 +64,16 @@ export default function EditarProductoPage({ params }: EditarProductoPageProps) 
         descripcion: prod.descripcion || '',
         familiaId: prod.familiaId || '',
         codigoBarras: prod.codigoBarras || '',
-        precio: {
-          base: prod.precio.base,
-          venta: prod.precio.venta,
+        precios: {
+          compra: prod.precios?.compra || 0,
+          venta: prod.precios?.venta || 0,
         },
         stock: {
-          cantidad: prod.stock.cantidad,
-          minimo: prod.stock.minimo,
-          maximo: prod.stock.maximo,
+          cantidad: prod.stock?.cantidad || 0,
+          minimo: prod.stock?.minimo || 0,
+          maximo: prod.stock?.maximo || 0,
         },
         activo: prod.activo,
-        visible: prod.visible,
       });
     } catch (err: any) {
       console.error('Error al cargar producto:', err);
@@ -104,7 +102,7 @@ export default function EditarProductoPage({ params }: EditarProductoPageProps) 
       if (!formData.nombre?.trim()) {
         throw new Error('El nombre es obligatorio');
       }
-      if (formData.precio && (formData.precio.base! < 0 || formData.precio.venta! < 0)) {
+      if (formData.precios && (formData.precios.compra < 0 || formData.precios.venta < 0)) {
         throw new Error('Los precios no pueden ser negativos');
       }
 
@@ -117,9 +115,9 @@ export default function EditarProductoPage({ params }: EditarProductoPageProps) 
         }
       });
       // Limpiar campos de restauración
-      if (cleanedData.restauracion) {
-        if ((cleanedData.restauracion as any).zonaPreparacionId === '') delete (cleanedData.restauracion as any).zonaPreparacionId;
-        if ((cleanedData.restauracion as any).impresoraId === '') delete (cleanedData.restauracion as any).impresoraId;
+      if ((cleanedData as any).restauracion) {
+        if ((cleanedData as any).restauracion.zonaPreparacionId === '') delete (cleanedData as any).restauracion.zonaPreparacionId;
+        if ((cleanedData as any).restauracion.impresoraId === '') delete (cleanedData as any).restauracion.impresoraId;
       }
 
       await productosService.update(id, cleanedData);
@@ -283,11 +281,11 @@ export default function EditarProductoPage({ params }: EditarProductoPageProps) 
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.precio?.base || 0}
+                  value={formData.precios?.compra || 0}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      precio: { ...formData.precio!, base: parseFloat(e.target.value) || 0 },
+                      precios: { ...formData.precios!, compra: parseFloat(e.target.value) || 0 },
                     })
                   }
                   placeholder="0.00"
@@ -308,11 +306,11 @@ export default function EditarProductoPage({ params }: EditarProductoPageProps) 
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.precio?.venta || 0}
+                  value={formData.precios?.venta || 0}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      precio: { ...formData.precio!, venta: parseFloat(e.target.value) || 0 },
+                      precios: { ...formData.precios!, venta: parseFloat(e.target.value) || 0 },
                     })
                   }
                   placeholder="0.00"
@@ -405,20 +403,7 @@ export default function EditarProductoPage({ params }: EditarProductoPageProps) 
               </label>
             </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="visible"
-                checked={formData.visible}
-                onChange={(e) =>
-                  setFormData({ ...formData, visible: e.target.checked })
-                }
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="visible" className="ml-2 block text-sm text-gray-900">
-                Visible en catálogo
-              </label>
-            </div>
+            {/* Visible en catálogo - removed as not in DTO */}
           </div>
         </div>
 

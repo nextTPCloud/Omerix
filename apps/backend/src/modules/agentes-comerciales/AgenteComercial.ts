@@ -324,8 +324,8 @@ const AgenteComercialSchema = new Schema<IAgenteComercial, IAgenteComercialModel
 // ============================================
 // ÍNDICES
 // ============================================
+// Nota: codigo ya tiene unique:true en la definición del campo, no duplicar aquí
 
-AgenteComercialSchema.index({ codigo: 1 }, { unique: true });
 AgenteComercialSchema.index({ nif: 1 }, { sparse: true });
 AgenteComercialSchema.index({ activo: 1 });
 AgenteComercialSchema.index({ tipo: 1 });

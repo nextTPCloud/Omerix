@@ -333,12 +333,10 @@ const {
 
       if (response.success) {
         setTiposImpuesto(response.data || [])
-        setPagination(response.pagination || {
-          page: 1,
-          limit: 25,
-          total: 0,
-          pages: 0,
-        })
+        const pag = response.pagination as any
+        if (pag) {
+          setPagination({ page: pag.page, limit: pag.limit, total: pag.total, pages: pag.totalPages || pag.pages || 0 })
+        }
       } else {
         setTiposImpuesto([])
         toast.error('Error al cargar los tipos de impuesto')
@@ -1427,7 +1425,7 @@ const {
                   <SelectTrigger className="w-[80px] h-9">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="min-w-[80px] w-auto" align="start">
+                  <SelectContent className="min-w-[80px] w-auto">
                     <SelectItem value="10">10</SelectItem>
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>

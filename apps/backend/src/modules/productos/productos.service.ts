@@ -12,16 +12,31 @@ import {
   AtributoDTO,
 } from './productos.dto';
 import { IDatabaseConfig } from '../../types/express';
-import { getProductoModel, getFamiliaModel } from '../../utils/dynamic-models.helper';
+import {
+  getProductoModel,
+  getFamiliaModel,
+  getEstadoModel,
+  getSituacionModel,
+  getTiposImpuestoModel
+} from '../../utils/dynamic-models.helper';
 
 export class ProductosService {
   /**
    * Obtener modelo de Producto para una empresa específica
+   * También registra los modelos referenciados para que populate funcione
    */
   private async getModeloProducto(
     empresaId: string,
     dbConfig: IDatabaseConfig
   ): Promise<Model<IProducto>> {
+    // Registrar primero los modelos referenciados para que populate funcione
+    await Promise.all([
+      getFamiliaModel(empresaId, dbConfig),
+      getEstadoModel(empresaId, dbConfig),
+      getSituacionModel(empresaId, dbConfig),
+      getTiposImpuestoModel(empresaId, dbConfig),
+    ]);
+
     return await getProductoModel(empresaId, dbConfig);
   }
 

@@ -9,12 +9,26 @@ export interface IDatabaseConfig {
   uri?: string; // URI completa de MongoDB
 }
 
+export interface IEmailConfig {
+  host: string;
+  port: number;
+  secure: boolean; // true para 465, false para otros puertos
+  user: string;
+  password: string;
+  fromName?: string; // Nombre que aparece como remitente
+  fromEmail?: string; // Email del remitente (si es diferente al user)
+  replyTo?: string; // Email de respuesta
+}
+
 export interface IEmpresa extends Document {
   _id: Types.ObjectId;
   nombre: string;
+  nombreComercial?: string;
   nif: string;
   email: string;
   telefono?: string;
+  web?: string;
+  logo?: string; // URL del logo
   direccion?: {
     calle: string;
     ciudad: string;
@@ -28,6 +42,9 @@ export interface IEmpresa extends Document {
 
   // Configuración de base de datos dedicada
   databaseConfig: IDatabaseConfig;
+
+  // Configuración de email SMTP
+  emailConfig?: IEmailConfig;
 
   // IDs de pasarelas de pago
   stripeCustomerId?: string;
@@ -47,6 +64,17 @@ const DatabaseConfigSchema = new Schema<IDatabaseConfig>({
   uri: { type: String, select: false }, // URI completa, tampoco se devuelve por defecto
 }, { _id: false });
 
+const EmailConfigSchema = new Schema<IEmailConfig>({
+  host: { type: String, required: true, trim: true },
+  port: { type: Number, required: true, default: 587 },
+  secure: { type: Boolean, default: false },
+  user: { type: String, required: true, trim: true },
+  password: { type: String, required: true, select: false }, // No se devuelve por defecto
+  fromName: { type: String, trim: true },
+  fromEmail: { type: String, trim: true, lowercase: true },
+  replyTo: { type: String, trim: true, lowercase: true },
+}, { _id: false });
+
 const EmpresaSchema = new Schema<IEmpresa>(
   {
      _id: {
@@ -60,6 +88,11 @@ const EmpresaSchema = new Schema<IEmpresa>(
       required: [true, 'El nombre es obligatorio'],
       trim: true,
       maxlength: [100, 'El nombre no puede exceder 100 caracteres'],
+    },
+    nombreComercial: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'El nombre comercial no puede exceder 100 caracteres'],
     },
     nif: {
       type: String,
@@ -77,6 +110,14 @@ const EmpresaSchema = new Schema<IEmpresa>(
       match: [/^\S+@\S+\.\S+$/, 'Email no válido'],
     },
     telefono: {
+      type: String,
+      trim: true,
+    },
+    web: {
+      type: String,
+      trim: true,
+    },
+    logo: {
       type: String,
       trim: true,
     },
@@ -106,6 +147,11 @@ const EmpresaSchema = new Schema<IEmpresa>(
     databaseConfig: {
       type: DatabaseConfigSchema,
       required: true,
+    },
+
+    // Configuración de email SMTP
+    emailConfig: {
+      type: EmailConfigSchema,
     },
 
     // IDs de pasarelas de pago

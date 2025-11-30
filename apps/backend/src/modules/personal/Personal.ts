@@ -521,8 +521,8 @@ const PersonalSchema = new Schema<IPersonal, IPersonalModel>({
 // ============================================
 // ÍNDICES
 // ============================================
+// Nota: codigo ya tiene unique:true en la definición del campo, no duplicar aquí
 
-PersonalSchema.index({ codigo: 1 }, { unique: true });
 PersonalSchema.index({ 'documentacion.nif': 1 }, { sparse: true });
 PersonalSchema.index({ activo: 1 });
 PersonalSchema.index({ estado: 1 });

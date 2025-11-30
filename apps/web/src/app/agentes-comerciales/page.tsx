@@ -340,7 +340,7 @@ export default function AgentesPage() {
     }
 
     // Campos de búsqueda por texto
-    const searchableFields = ['codigo', 'nombre', 'nif', 'email', 'telefono']
+    const searchableFields = ['codigo', 'nombre', 'nif', 'email', 'telefono', 'supervisor']
     const searchTerms: string[] = []
 
     searchableFields.forEach(field => {
@@ -353,7 +353,7 @@ export default function AgentesPage() {
       combinedFilters.search = searchTerms.join(' ')
     }
 
-    // Filtros de select
+    // Filtros de select y numéricos
     Object.entries(debouncedColumnFilters).forEach(([key, value]) => {
       if (key === 'tipo') {
         if (value !== 'all') {
@@ -366,6 +366,18 @@ export default function AgentesPage() {
       } else if (key === 'estado') {
         if (value !== 'all') {
           combinedFilters.estado = value
+        }
+      } else if (key === 'comisionMinima') {
+        if (value) {
+          combinedFilters.comisionMinima = parseFloat(value)
+        }
+      } else if (key === 'ventasMinimas') {
+        if (value) {
+          combinedFilters.ventasMinimas = parseFloat(value)
+        }
+      } else if (key === 'comisionesMinimas') {
+        if (value) {
+          combinedFilters.comisionesMinimas = parseFloat(value)
         }
       }
     })
@@ -1197,19 +1209,51 @@ export default function AgentesPage() {
                   )}
 
                   {columnasVisibles.includes('comision') && (
-                    <th className="px-3 py-1.5"></th>
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Min %..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        type="number"
+                        step="0.1"
+                        value={columnFiltersInput.comisionMinima || ''}
+                        onChange={(e) => handleColumnFilterInput('comisionMinima', e.target.value)}
+                      />
+                    </th>
                   )}
 
                   {columnasVisibles.includes('ventasTotales') && (
-                    <th className="px-3 py-1.5"></th>
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Min..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        type="number"
+                        value={columnFiltersInput.ventasMinimas || ''}
+                        onChange={(e) => handleColumnFilterInput('ventasMinimas', e.target.value)}
+                      />
+                    </th>
                   )}
 
                   {columnasVisibles.includes('comisionesAcumuladas') && (
-                    <th className="px-3 py-1.5"></th>
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Min..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        type="number"
+                        value={columnFiltersInput.comisionesMinimas || ''}
+                        onChange={(e) => handleColumnFilterInput('comisionesMinimas', e.target.value)}
+                      />
+                    </th>
                   )}
 
                   {columnasVisibles.includes('supervisor') && (
-                    <th className="px-3 py-1.5"></th>
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Filtrar..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        value={columnFiltersInput.supervisor || ''}
+                        onChange={(e) => handleColumnFilterInput('supervisor', e.target.value)}
+                      />
+                    </th>
                   )}
 
                   {columnasVisibles.includes('activo') && (
@@ -1336,7 +1380,7 @@ export default function AgentesPage() {
 
                       {columnasVisibles.includes('supervisor') && (
                         <td className={`${densityClasses.cell} ${densityClasses.text} text-muted-foreground`}>
-                          {agente.supervisor?.nombreCompleto || agente.supervisor?.nombre || '-'}
+                          {agente.supervisor ? `${agente.supervisor.nombre} ${agente.supervisor.apellidos || ''}`.trim() : '-'}
                         </td>
                       )}
 
@@ -1426,7 +1470,7 @@ export default function AgentesPage() {
                   <SelectTrigger className="w-[80px] h-9">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="min-w-[80px] w-auto" align="start">
+                  <SelectContent className="min-w-[80px] w-auto">
                     <SelectItem value="10">10</SelectItem>
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>

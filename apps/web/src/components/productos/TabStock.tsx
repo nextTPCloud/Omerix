@@ -24,7 +24,7 @@ export function TabStock({ formData, setFormData, isEditing }: TabStockProps) {
     const fetchAlmacenes = async () => {
       try {
         setLoadingAlmacenes(true)
-        const response = await almacenesService.getAll({ limit: 1000, activo: true })
+        const response = await almacenesService.getAll({ limit: 1000, activo: 'true' })
         setAlmacenes(response.data || [])
       } catch (error) {
         console.error('Error al cargar almacenes:', error)

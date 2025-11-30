@@ -76,6 +76,14 @@ export function SearchableSelect({
     onValueChange('')
   }
 
+  // Manejar teclas en el trigger
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setOpen(true)
+    }
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -85,6 +93,7 @@ export function SearchableSelect({
           role="combobox"
           aria-expanded={open}
           disabled={disabled || loading}
+          onKeyDown={handleKeyDown}
           className={cn(
             'w-full justify-between font-normal',
             !selectedOption && 'text-muted-foreground',

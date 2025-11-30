@@ -1,0 +1,865 @@
+'use client'
+
+import React, { useEffect, useState, useRef, use } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useReactToPrint } from 'react-to-print'
+import { DashboardLayout } from '@/components/layout/DashboardLayout'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { presupuestosService } from '@/services/presupuestos.service'
+import { empresaService, EmpresaInfo } from '@/services/empresa.service'
+import { IPresupuesto, getEstadoConfig, getTipoLineaLabel, ESTADOS_PRESUPUESTO, EstadoPresupuesto } from '@/types/presupuesto.types'
+import { PresupuestoPrintView } from '@/components/presupuestos/PresupuestoPrintView'
+import { toast } from 'sonner'
+import {
+  ArrowLeft,
+  Pencil,
+  Trash2,
+  Mail,
+  Download,
+  MoreVertical,
+  Calendar,
+  FileText,
+  User,
+  MapPin,
+  Eye,
+  EyeOff,
+  Copy,
+  Send,
+  Check,
+  X,
+  Clock,
+  TrendingUp,
+  Package,
+  ShoppingCart,
+  Printer,
+  MessageCircle,
+  ChevronDown,
+} from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default function PresupuestoDetailPage({ params }: PageProps) {
+  const resolvedParams = use(params)
+  const router = useRouter()
+  const [presupuesto, setPresupuesto] = useState<IPresupuesto | null>(null)
+  const [empresa, setEmpresa] = useState<EmpresaInfo | undefined>(undefined)
+  const [isLoading, setIsLoading] = useState(true)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showPrintView, setShowPrintView] = useState(false)
+  const [mostrarCostes, setMostrarCostes] = useState(true)
+  const printRef = useRef<HTMLDivElement>(null)
+
+  // Hook para imprimir
+  const handlePrintDocument = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: presupuesto ? `Presupuesto_${presupuesto.codigo}` : 'Presupuesto',
+    onAfterPrint: () => setShowPrintView(false),
+  })
+
+  useEffect(() => {
+    loadPresupuesto()
+    loadEmpresa()
+  }, [resolvedParams.id])
+
+  const loadPresupuesto = async () => {
+    try {
+      setIsLoading(true)
+      const response = await presupuestosService.getById(resolvedParams.id)
+      if (response.success && response.data) {
+        setPresupuesto(response.data)
+        setMostrarCostes(response.data.mostrarCostes !== false)
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al cargar presupuesto')
+      router.push('/presupuestos')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadEmpresa = async () => {
+    try {
+      const response = await empresaService.getMiEmpresa()
+      if (response.success && response.data) {
+        setEmpresa(response.data)
+      }
+    } catch (error) {
+      console.error('Error al cargar empresa:', error)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!presupuesto) return
+
+    try {
+      await presupuestosService.delete(presupuesto._id)
+      toast.success('Presupuesto eliminado correctamente')
+      router.push('/presupuestos')
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al eliminar presupuesto')
+    } finally {
+      setShowDeleteDialog(false)
+    }
+  }
+
+  const handleDuplicar = async () => {
+    if (!presupuesto) return
+
+    try {
+      const response = await presupuestosService.duplicar(presupuesto._id)
+      if (response.success && response.data) {
+        toast.success('Presupuesto duplicado correctamente')
+        router.push(`/presupuestos/${response.data._id}/editar`)
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al duplicar presupuesto')
+    }
+  }
+
+  const handleCambiarEstado = async (estado: EstadoPresupuesto) => {
+    if (!presupuesto) return
+
+    try {
+      const response = await presupuestosService.cambiarEstado(presupuesto._id, estado)
+      if (response.success && response.data) {
+        setPresupuesto(response.data)
+        const estadoConfig = getEstadoConfig(estado)
+        toast.success(`Estado cambiado a ${estadoConfig.label}`)
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al cambiar estado')
+    }
+  }
+
+  const handlePrint = () => {
+    if (!presupuesto) return
+    setShowPrintView(true)
+    // Esperar a que se renderice la vista y luego imprimir
+    setTimeout(() => {
+      handlePrintDocument()
+    }, 100)
+  }
+
+  const handleExportPDF = () => {
+    if (!presupuesto) return
+    // Usamos la misma vista de impresión, el usuario puede guardar como PDF
+    setShowPrintView(true)
+    setTimeout(() => {
+      handlePrintDocument()
+    }, 100)
+  }
+
+  const handleEnviarEmail = async () => {
+    if (!presupuesto) return
+
+    const email = presupuesto.clienteEmail
+    if (!email) {
+      toast.error('El cliente no tiene email configurado')
+      return
+    }
+
+    try {
+      toast.loading('Enviando email...', { id: 'sending-email' })
+
+      // Generar HTML del email
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+          <h2 style="color: #1a1a1a; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">
+            Presupuesto ${presupuesto.codigo}
+          </h2>
+
+          <p>Estimado/a ${clienteNombre},</p>
+
+          <p>Adjunto le enviamos el presupuesto solicitado con los siguientes detalles:</p>
+
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background-color: #f5f5f5;">
+              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Código</strong></td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${presupuesto.codigo}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Fecha</strong></td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${formatDate(presupuesto.fecha)}</td>
+            </tr>
+            <tr style="background-color: #f5f5f5;">
+              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Válido hasta</strong></td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${formatDate(presupuesto.fechaValidez)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Importe Total</strong></td>
+              <td style="padding: 10px; border: 1px solid #ddd; font-size: 18px; font-weight: bold; color: #0066cc;">
+                ${formatCurrency(presupuesto.totales?.totalPresupuesto || 0)}
+              </td>
+            </tr>
+          </table>
+
+          ${presupuesto.titulo ? `<p><strong>Concepto:</strong> ${presupuesto.titulo}</p>` : ''}
+
+          <p>Quedamos a su disposición para cualquier consulta o aclaración.</p>
+
+          <p style="margin-top: 30px;">Saludos cordiales,</p>
+          <p><strong>${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}</strong></p>
+
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+          <p style="font-size: 12px; color: #666;">
+            Este email ha sido enviado automáticamente desde Omerix.
+          </p>
+        </div>
+      `
+
+      const textContent = `
+Presupuesto ${presupuesto.codigo}
+
+Estimado/a ${clienteNombre},
+
+Adjunto le enviamos el presupuesto solicitado:
+
+- Código: ${presupuesto.codigo}
+- Fecha: ${formatDate(presupuesto.fecha)}
+- Válido hasta: ${formatDate(presupuesto.fechaValidez)}
+- Importe Total: ${formatCurrency(presupuesto.totales?.totalPresupuesto || 0)}
+
+${presupuesto.titulo ? `Concepto: ${presupuesto.titulo}` : ''}
+
+Quedamos a su disposición para cualquier consulta.
+
+Saludos cordiales,
+${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}
+      `
+
+      const response = await empresaService.sendEmail({
+        to: email,
+        subject: `Presupuesto ${presupuesto.codigo}`,
+        html: htmlContent,
+        text: textContent,
+      })
+
+      toast.dismiss('sending-email')
+
+      if (response.success) {
+        toast.success('Email enviado correctamente')
+      } else {
+        toast.error(response.message || 'Error al enviar email')
+      }
+    } catch (error: any) {
+      toast.dismiss('sending-email')
+
+      // Si falla el envío por backend, mostrar opción de mailto
+      if (error.response?.status === 400 && error.response?.data?.message?.includes('configuración')) {
+        toast.error('No hay configuración de email. Configúrala en Ajustes > Email SMTP')
+      } else {
+        toast.error(error.response?.data?.message || 'Error al enviar email')
+      }
+    }
+  }
+
+  const handleEnviarWhatsApp = () => {
+    if (!presupuesto) return
+
+    const telefono = presupuesto.clienteTelefono?.replace(/\s/g, '').replace(/[^0-9]/g, '')
+    if (!telefono) {
+      toast.error('El cliente no tiene teléfono configurado')
+      return
+    }
+
+    // Formatear teléfono para WhatsApp (añadir código de país si no lo tiene)
+    let telefonoWA = telefono
+    if (!telefono.startsWith('34') && telefono.length === 9) {
+      telefonoWA = '34' + telefono
+    }
+
+    const mensaje = encodeURIComponent(
+      `Hola ${clienteNombre},\n\n` +
+      `Le enviamos el presupuesto *${presupuesto.codigo}* por un importe de *${formatCurrency(presupuesto.totales?.totalPresupuesto || 0)}*.\n\n` +
+      `Válido hasta: ${formatDate(presupuesto.fechaValidez)}\n\n` +
+      `Quedamos a su disposición para cualquier consulta.`
+    )
+
+    window.open(`https://wa.me/${telefonoWA}?text=${mensaje}`, '_blank')
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: 'EUR',
+    }).format(value || 0)
+  }
+
+  const formatDate = (date: string | Date) => {
+    return new Date(date).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+  }
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Cargando presupuesto...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (!presupuesto) {
+    return (
+      <DashboardLayout>
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Presupuesto no encontrado</p>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  const estadoConfig = getEstadoConfig(presupuesto.estado)
+  const clienteNombre = typeof presupuesto.clienteId === 'object'
+    ? presupuesto.clienteId.nombre
+    : presupuesto.clienteNombre
+
+  const agenteNombre = typeof presupuesto.agenteComercialId === 'object'
+    ? `${presupuesto.agenteComercialId.nombre} ${presupuesto.agenteComercialId.apellidos}`
+    : undefined
+
+  const proyectoNombre = typeof presupuesto.proyectoId === 'object'
+    ? presupuesto.proyectoId.nombre
+    : undefined
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Cabecera */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-3">
+            <Link href="/presupuestos">
+              <Button variant="ghost" size="icon" className="mt-1">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="text-3xl font-bold tracking-tight">
+                      {presupuesto.codigo}
+                    </h1>
+                    <Badge className={estadoConfig.color}>
+                      {estadoConfig.label}
+                    </Badge>
+                    {presupuesto.diasParaCaducar !== null && presupuesto.diasParaCaducar !== undefined && (
+                      <Badge variant={presupuesto.diasParaCaducar < 0 ? 'destructive' : presupuesto.diasParaCaducar <= 7 ? 'secondary' : 'outline'}>
+                        <Clock className="h-3 w-3 mr-1" />
+                        {presupuesto.diasParaCaducar < 0
+                          ? 'Caducado'
+                          : presupuesto.diasParaCaducar === 0
+                          ? 'Caduca hoy'
+                          : `${presupuesto.diasParaCaducar} días`}
+                      </Badge>
+                    )}
+                  </div>
+                  {presupuesto.titulo && (
+                    <p className="text-lg text-muted-foreground mt-1">{presupuesto.titulo}</p>
+                  )}
+                  <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      {formatDate(presupuesto.fecha)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <User className="h-4 w-4" />
+                      {clienteNombre}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Toolbar */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Toggle costes */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                    <Switch
+                      id="mostrarCostes"
+                      checked={mostrarCostes}
+                      onCheckedChange={setMostrarCostes}
+                    />
+                    <Label htmlFor="mostrarCostes" className="text-sm cursor-pointer">
+                      {mostrarCostes ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    </Label>
+                  </div>
+
+                  <Separator orientation="vertical" className="h-8" />
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/presupuestos/${presupuesto._id}/editar`)}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar
+                  </Button>
+
+                  {/* Cambiar estado - Dropdown con todos los estados */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <span className={`w-2 h-2 rounded-full mr-2 ${estadoConfig.dotColor || 'bg-gray-400'}`} />
+                        Cambiar estado
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuLabel>Cambiar estado a:</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {ESTADOS_PRESUPUESTO.map((estado) => {
+                        const config = getEstadoConfig(estado.value)
+                        const isCurrentState = presupuesto.estado === estado.value
+                        return (
+                          <DropdownMenuItem
+                            key={estado.value}
+                            onClick={() => !isCurrentState && handleCambiarEstado(estado.value)}
+                            disabled={isCurrentState}
+                            className={isCurrentState ? 'opacity-50' : ''}
+                          >
+                            <span className={`w-2 h-2 rounded-full mr-2 ${config.dotColor || 'bg-gray-400'}`} />
+                            {estado.label}
+                            {isCurrentState && <Check className="ml-auto h-4 w-4" />}
+                          </DropdownMenuItem>
+                        )
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Acciones de envío */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Send className="mr-2 h-4 w-4" />
+                        Enviar
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={handleEnviarEmail}>
+                        <Mail className="mr-2 h-4 w-4" />
+                        Enviar por Email
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleEnviarWhatsApp}>
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        Enviar por WhatsApp
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Imprimir / PDF */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Printer className="mr-2 h-4 w-4" />
+                        Imprimir
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={handlePrint}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Imprimir
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExportPDF}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Descargar PDF
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Más acciones */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuLabel>Más acciones</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleDuplicar}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Duplicar
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setShowDeleteDialog(true)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Resumen en cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">{formatCurrency(presupuesto.totales?.totalPresupuesto || 0)}</div>
+              <p className="text-sm text-muted-foreground">Total Presupuesto</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-2xl font-bold">{formatCurrency(presupuesto.totales?.subtotalNeto || 0)}</div>
+              <p className="text-sm text-muted-foreground">Base Imponible</p>
+            </CardContent>
+          </Card>
+          {mostrarCostes && (
+            <>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-2xl font-bold text-blue-600">{formatCurrency(presupuesto.totales?.costeTotal || 0)}</div>
+                  <p className="text-sm text-muted-foreground">Coste Total</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className={`text-2xl font-bold ${(presupuesto.totales?.margenBruto || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(presupuesto.totales?.margenBruto || 0)}
+                    <span className="text-sm font-normal ml-2">
+                      ({(presupuesto.totales?.margenPorcentaje || 0).toFixed(1)}%)
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Margen Bruto</p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+
+        {/* Contenido principal */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Columna principal - Líneas */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Líneas del presupuesto */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShoppingCart className="h-5 w-5" />
+                  Líneas del Presupuesto
+                </CardTitle>
+                <CardDescription>
+                  {presupuesto.lineas?.length || 0} líneas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="px-3 py-3 text-left">Descripción</th>
+                        <th className="px-3 py-3 text-right w-16">Cant.</th>
+                        <th className="px-3 py-3 text-right w-24">Precio</th>
+                        {mostrarCostes && (
+                          <th className="px-3 py-3 text-right w-24 text-blue-600">Coste</th>
+                        )}
+                        <th className="px-3 py-3 text-right w-16">Dto</th>
+                        <th className="px-3 py-3 text-right w-28">Subtotal</th>
+                        {mostrarCostes && (
+                          <th className="px-3 py-3 text-right w-24 text-green-600">Margen</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(presupuesto.lineas || []).map((linea, index) => (
+                        <tr key={linea._id || index} className="border-b hover:bg-muted/30">
+                          <td className="px-3 py-3">
+                            <div>
+                              <div className="font-medium">{linea.nombre}</div>
+                              {linea.descripcion && (
+                                <div className="text-xs text-muted-foreground">{linea.descripcion}</div>
+                              )}
+                              <Badge variant="outline" className="text-xs mt-1">
+                                {getTipoLineaLabel(linea.tipo)}
+                              </Badge>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-right">{linea.cantidad} {linea.unidad}</td>
+                          <td className="px-3 py-3 text-right">{formatCurrency(linea.precioUnitario)}</td>
+                          {mostrarCostes && (
+                            <td className="px-3 py-3 text-right text-blue-600">{formatCurrency(linea.costeUnitario)}</td>
+                          )}
+                          <td className="px-3 py-3 text-right">
+                            {linea.descuento > 0 ? `${linea.descuento}%` : '-'}
+                          </td>
+                          <td className="px-3 py-3 text-right font-medium">{formatCurrency(linea.subtotal)}</td>
+                          {mostrarCostes && (
+                            <td className="px-3 py-3 text-right">
+                              <span className={linea.margenTotalLinea >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                {formatCurrency(linea.margenTotalLinea)}
+                              </span>
+                              <span className="text-xs text-muted-foreground block">
+                                {linea.margenPorcentaje.toFixed(1)}%
+                              </span>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-muted/30">
+                      <tr>
+                        <td colSpan={mostrarCostes ? 5 : 4} className="px-3 py-2 text-right font-medium">
+                          Base Imponible:
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold">
+                          {formatCurrency(presupuesto.totales?.subtotalNeto || 0)}
+                        </td>
+                        {mostrarCostes && <td></td>}
+                      </tr>
+                      <tr>
+                        <td colSpan={mostrarCostes ? 5 : 4} className="px-3 py-2 text-right font-medium">
+                          IVA:
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold">
+                          {formatCurrency(presupuesto.totales?.totalIva || 0)}
+                        </td>
+                        {mostrarCostes && <td></td>}
+                      </tr>
+                      <tr className="text-lg">
+                        <td colSpan={mostrarCostes ? 5 : 4} className="px-3 py-3 text-right font-bold">
+                          TOTAL:
+                        </td>
+                        <td className="px-3 py-3 text-right font-bold text-primary">
+                          {formatCurrency(presupuesto.totales?.totalPresupuesto || 0)}
+                        </td>
+                        {mostrarCostes && <td></td>}
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Observaciones */}
+            {presupuesto.observaciones && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Observaciones</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="whitespace-pre-wrap">{presupuesto.observaciones}</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Columna lateral - Info */}
+          <div className="space-y-6">
+            {/* Cliente */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Cliente
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">Nombre</p>
+                  <p className="font-medium">{clienteNombre}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">NIF</p>
+                  <p>{presupuesto.clienteNif}</p>
+                </div>
+                {presupuesto.clienteEmail && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <p>{presupuesto.clienteEmail}</p>
+                  </div>
+                )}
+                {presupuesto.clienteTelefono && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Teléfono</p>
+                    <p>{presupuesto.clienteTelefono}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Fechas y validez */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Fechas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">Fecha</p>
+                  <p>{formatDate(presupuesto.fecha)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Válido hasta</p>
+                  <p>{formatDate(presupuesto.fechaValidez)}</p>
+                </div>
+                {presupuesto.fechaEnvio && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Fecha envío</p>
+                    <p>{formatDate(presupuesto.fechaEnvio)}</p>
+                  </div>
+                )}
+                {presupuesto.fechaRespuesta && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">Fecha respuesta</p>
+                    <p>{formatDate(presupuesto.fechaRespuesta)}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Relaciones */}
+            {(agenteNombre || proyectoNombre) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Relaciones</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {agenteNombre && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Agente Comercial</p>
+                      <p>{agenteNombre}</p>
+                    </div>
+                  )}
+                  {proyectoNombre && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Proyecto</p>
+                      <p>{proyectoNombre}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Dirección de entrega */}
+            {presupuesto.direccionEntrega && presupuesto.direccionEntrega.tipo === 'personalizada' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Dirección de Entrega
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <address className="not-italic text-sm">
+                    {presupuesto.direccionEntrega.nombre && <p className="font-medium">{presupuesto.direccionEntrega.nombre}</p>}
+                    <p>{presupuesto.direccionEntrega.calle} {presupuesto.direccionEntrega.numero}</p>
+                    {presupuesto.direccionEntrega.piso && <p>{presupuesto.direccionEntrega.piso}</p>}
+                    <p>{presupuesto.direccionEntrega.codigoPostal} {presupuesto.direccionEntrega.ciudad}</p>
+                    <p>{presupuesto.direccionEntrega.provincia}, {presupuesto.direccionEntrega.pais}</p>
+                  </address>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Información del sistema */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Sistema</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Creado</p>
+                  <p>{new Date(presupuesto.fechaCreacion).toLocaleString('es-ES')}</p>
+                </div>
+                {presupuesto.fechaModificacion && (
+                  <div>
+                    <p className="text-muted-foreground">Última modificación</p>
+                    <p>{new Date(presupuesto.fechaModificacion).toLocaleString('es-ES')}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-muted-foreground">ID</p>
+                  <p className="font-mono text-xs">{presupuesto._id}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      {/* Diálogo de confirmación para eliminar */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar presupuesto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estás a punto de eliminar el presupuesto <span className="font-semibold">{presupuesto.codigo}</span>.
+              Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar presupuesto
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Vista oculta para impresión */}
+      {showPrintView && (
+        <div className="fixed inset-0 bg-white z-[9999] overflow-auto print:relative print:inset-auto print:z-auto">
+          <div className="no-print absolute top-4 right-4 z-10">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPrintView(false)}
+            >
+              Cerrar vista previa
+            </Button>
+          </div>
+          <PresupuestoPrintView
+            ref={printRef}
+            presupuesto={presupuesto}
+            empresa={empresa}
+          />
+        </div>
+      )}
+    </DashboardLayout>
+  )
+}

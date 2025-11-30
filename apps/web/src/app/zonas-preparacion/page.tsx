@@ -159,7 +159,10 @@ export default function ZonasPreparacionPage() {
       const response = await zonasPreparacionService.getAll(params)
       if (response.success) {
         setZonas(response.data || [])
-        setPagination(response.pagination || { page: 1, limit: 25, total: 0, pages: 0 })
+        const pag = response.pagination as any
+        if (pag) {
+          setPagination({ page: pag.page, limit: pag.limit, total: pag.total, pages: pag.totalPages || pag.pages || 0 })
+        }
       } else {
         setZonas([])
         toast.error('Error al cargar las zonas')

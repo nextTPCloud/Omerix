@@ -42,6 +42,7 @@ import {
   Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { DateInput } from '@/components/ui/date-picker'
 
 interface TabCuentasBancariasProps {
   cuentas: CuentaBancaria[]
@@ -456,16 +457,17 @@ export function TabCuentasBancarias({
                     </div>
                     <div className="space-y-2">
                       <Label>Fecha de firma *</Label>
-                      <Input
-                        type="date"
+                      <DateInput
                         value={formData.mandatoSEPA?.fechaFirma?.split('T')[0] || ''}
-                        onChange={(e) => setFormData({
+                        onChange={(value) => setFormData({
                           ...formData,
                           mandatoSEPA: {
                             ...formData.mandatoSEPA!,
-                            fechaFirma: e.target.value,
+                            fechaFirma: value,
                           },
                         })}
+                        placeholder="Seleccionar fecha"
+                        allowClear={false}
                       />
                     </div>
                   </div>
@@ -475,11 +477,11 @@ export function TabCuentasBancarias({
                       <Label>Tipo de mandato</Label>
                       <Select
                         value={formData.mandatoSEPA?.tipoMandato || 'recurrente'}
-                        onValueChange={(value: TipoMandatoSEPA) => setFormData({
+                        onValueChange={(value) => setFormData({
                           ...formData,
                           mandatoSEPA: {
                             ...formData.mandatoSEPA!,
-                            tipoMandato: value,
+                            tipoMandato: value as TipoMandatoSEPA,
                           },
                         })}
                       >

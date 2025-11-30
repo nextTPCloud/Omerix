@@ -86,9 +86,9 @@ export default function ProductoDetallePage() {
         }
       })
       // Limpiar campos de restauración
-      if (cleanedData.restauracion) {
-        if (cleanedData.restauracion.zonaPreparacionId === '') delete (cleanedData.restauracion as any).zonaPreparacionId
-        if (cleanedData.restauracion.impresoraId === '') delete (cleanedData.restauracion as any).impresoraId
+      if ((cleanedData as any).restauracion) {
+        if ((cleanedData as any).restauracion.zonaPreparacionId === '') delete (cleanedData as any).restauracion.zonaPreparacionId
+        if ((cleanedData as any).restauracion.impresoraId === '') delete (cleanedData as any).restauracion.impresoraId
       }
 
       await productosService.update(productoId, cleanedData)

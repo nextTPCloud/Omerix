@@ -167,7 +167,7 @@ export default function EditarGrupoModificadoresPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="tipo">Tipo de Selección</Label>
-                  <Select value={formData.tipo} onValueChange={(v: 'exclusivo' | 'multiple') => setFormData({ ...formData, tipo: v })}>
+                  <Select value={formData.tipo} onValueChange={(v) => setFormData({ ...formData, tipo: v as 'exclusivo' | 'multiple' })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="exclusivo">Exclusivo (solo uno)</SelectItem>

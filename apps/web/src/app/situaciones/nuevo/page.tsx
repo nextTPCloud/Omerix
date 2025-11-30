@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { SituacionForm } from '@/components/situaciones/SituacionForm'
 import { situacionesService } from '@/services/situaciones.service'
-import { CreateSituacionDTO } from '@/types/situacion.types'
+import { CreateSituacionDTO, UpdateSituacionDTO } from '@/types/situacion.types'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, ListChecks } from 'lucide-react'
@@ -15,10 +15,10 @@ export default function NuevaSituacionPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (data: CreateSituacionDTO) => {
+  const handleSubmit = async (data: CreateSituacionDTO | UpdateSituacionDTO) => {
     try {
       setIsLoading(true)
-      const response = await situacionesService.create(data)
+      const response = await situacionesService.create(data as CreateSituacionDTO)
 
       if (response.success) {
         toast.success('Situación creada correctamente')

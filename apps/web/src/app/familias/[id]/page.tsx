@@ -32,6 +32,7 @@ import {
   Hash,
   CheckCircle,
   XCircle,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -554,7 +555,7 @@ export default function FamiliaDetailPage() {
                         <span className="font-medium">{producto.nombre}</span>
                       </td>
                       <td className="py-2 px-2 text-right">
-                        <span className="font-semibold">{producto.precio.venta.toFixed(2)} €</span>
+                        <span className="font-semibold">{producto.precios?.venta?.toFixed(2) || '0.00'} €</span>
                       </td>
                       <td className="py-2 px-2 text-right">
                         <span className={producto.stock.cantidad <= producto.stock.minimo ? 'text-destructive font-semibold' : ''}>

@@ -36,6 +36,7 @@ export function QuickCreateTipoImpuesto({ open, onOpenChange, onCreated }: Quick
     setLoading(true)
     try {
       const response = await tiposImpuestoService.create({
+        codigo: formData.nombre.trim().toUpperCase().replace(/\s+/g, '_').substring(0, 10),
         nombre: formData.nombre.trim(),
         porcentaje,
         activo: true,

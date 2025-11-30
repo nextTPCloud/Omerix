@@ -111,7 +111,7 @@ export default function EditarAgentePage() {
 
       if (response.success && response.data) {
         toast.success(isNew ? 'Agente creado correctamente' : 'Agente actualizado correctamente')
-        const agenteId = response.data._id || response.data.id
+        const agenteId = response.data._id
         if (agenteId) {
           router.push(`/agentes-comerciales/${agenteId}`)
         } else {
