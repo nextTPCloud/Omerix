@@ -539,6 +539,53 @@ export class FamiliasService {
 
     return `${prefijo}${numeroStr}`;
   }
+
+  /**
+   * Duplicar una familia
+   */
+  async duplicar(
+    id: string,
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ) {
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
+    const original = await FamiliaModel.findOne({ _id: id }).lean();
+
+    if (!original) {
+      throw new Error('Familia no encontrada');
+    }
+
+    // Generar nuevo código
+    const baseCode = original.codigo.replace(/-COPIA(\d*)$/, '');
+    let newCode = `${baseCode}-COPIA`;
+    let counter = 1;
+
+    while (await FamiliaModel.findOne({ codigo: newCode })) {
+      newCode = `${baseCode}-COPIA${counter}`;
+      counter++;
+    }
+
+    // Obtener siguiente orden
+    const maxOrden = await FamiliaModel.findOne().sort({ orden: -1 }).select('orden').lean();
+    const nuevoOrden = (maxOrden?.orden || 0) + 1;
+
+    // Crear copia (sin subfamilias)
+    const { _id, createdAt, updatedAt, ruta, ...datosParaCopiar } = original as any;
+
+    const copia = new FamiliaModel({
+      ...datosParaCopiar,
+      codigo: newCode,
+      nombre: `${original.nombre} (Copia)`,
+      orden: nuevoOrden,
+      activo: false,
+      ruta: original.familiaPadreId ? ruta : [],
+    });
+
+    await copia.save();
+
+    return copia;
+  }
 }
 
 export const familiasService = new FamiliasService();

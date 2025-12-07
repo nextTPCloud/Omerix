@@ -6,6 +6,7 @@ import {
   CreatePresupuestoDTO,
   UpdatePresupuestoDTO,
   ILineaPresupuesto,
+  IComponenteKit,
   IDireccionEntrega,
   ICondicionesComerciales,
   TipoLinea,
@@ -58,12 +59,15 @@ import {
   Percent,
   Package,
   ChevronDown,
+  ChevronRight,
   Import,
   GripVertical,
+  Layers,
+  Check,
 } from 'lucide-react'
 
 // Components
-import { SearchableSelect } from '@/components/ui/searchable-select'
+import { SearchableSelect, EditableSearchableSelect } from '@/components/ui/searchable-select'
 import { FullCreateCliente, FullCreateAgenteComercial, FullCreateProyecto } from '@/components/full-create'
 import { DateInput } from '@/components/ui/date-picker'
 
@@ -73,12 +77,16 @@ import { agentesService } from '@/services/agentes-comerciales.service'
 import { proyectosService } from '@/services/proyectos.service'
 import { productosService } from '@/services/productos.service'
 import { presupuestosService } from '@/services/presupuestos.service'
+import { formasPagoService } from '@/services/formas-pago.service'
+import { terminosPagoService } from '@/services/terminos-pago.service'
 
 // Types
 import { Cliente, DireccionExtendida } from '@/types/cliente.types'
 import { AgenteComercial } from '@/types/agente-comercial.types'
 import { IProyecto } from '@/types/proyecto.types'
 import { Producto } from '@/types/producto.types'
+import { FormaPago } from '@/types/forma-pago.types'
+import { TerminoPago } from '@/types/termino-pago.types'
 import { toast } from 'sonner'
 
 interface PresupuestoFormProps {
@@ -101,6 +109,8 @@ export function PresupuestoForm({
   const [agentes, setAgentes] = useState<AgenteComercial[]>([])
   const [proyectos, setProyectos] = useState<IProyecto[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
+  const [formasPago, setFormasPago] = useState<FormaPago[]>([])
+  const [terminosPago, setTerminosPago] = useState<TerminoPago[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
   const [loadingProductos, setLoadingProductos] = useState(false)
 
@@ -109,6 +119,10 @@ export function PresupuestoForm({
 
   // Estado de visibilidad de costes
   const [mostrarCostes, setMostrarCostes] = useState(true)
+
+  // Referencias para inputs (para navegación con teclado)
+  const cantidadRefs = React.useRef<Map<number, HTMLInputElement>>(new Map())
+  const productoRefs = React.useRef<Map<number, HTMLInputElement>>(new Map())
 
   // Diálogos
   const [showMargenDialog, setShowMargenDialog] = useState(false)
@@ -159,11 +173,13 @@ export function PresupuestoForm({
     const loadOptions = async () => {
       try {
         setLoadingOptions(true)
-        const [clientesRes, agentesRes, proyectosRes, productosRes] = await Promise.all([
+        const [clientesRes, agentesRes, proyectosRes, productosRes, formasPagoRes, terminosPagoRes] = await Promise.all([
           clientesService.getAll({ activo: true, limit: 100 }),
           agentesService.getAll({ activo: true, limit: 100 }),
           proyectosService.getAll({ activo: 'true', limit: 100 }),
           productosService.getAll({ activo: true, limit: 100 }),
+          formasPagoService.getActivas().catch(() => ({ success: true, data: [] })),
+          terminosPagoService.getAll({ activo: 'true', limit: 100 }).catch(() => ({ success: true, data: [] })),
         ])
 
         console.log('Respuestas cargadas:', { clientesRes, agentesRes, proyectosRes, productosRes })
@@ -172,6 +188,8 @@ export function PresupuestoForm({
         if (agentesRes.success) setAgentes(agentesRes.data || [])
         if (proyectosRes.success) setProyectos(proyectosRes.data || [])
         if (productosRes.success) setProductos(productosRes.data || [])
+        if (formasPagoRes.success) setFormasPago(formasPagoRes.data || [])
+        if (terminosPagoRes.success) setTerminosPago(terminosPagoRes.data || [])
       } catch (error) {
         console.error('Error cargando opciones:', error)
         toast.error('Error al cargar las opciones')
@@ -197,6 +215,19 @@ export function PresupuestoForm({
         ? initialData.proyectoId._id
         : initialData.proyectoId
 
+      // Extraer IDs de condiciones si vienen como objetos poblados
+      const formaPagoId = initialData.condiciones?.formaPagoId
+        ? (typeof initialData.condiciones.formaPagoId === 'object'
+          ? (initialData.condiciones.formaPagoId as any)._id
+          : initialData.condiciones.formaPagoId)
+        : undefined
+
+      const terminoPagoId = initialData.condiciones?.terminoPagoId
+        ? (typeof initialData.condiciones.terminoPagoId === 'object'
+          ? (initialData.condiciones.terminoPagoId as any)._id
+          : initialData.condiciones.terminoPagoId)
+        : undefined
+
       setFormData({
         codigo: initialData.codigo,
         serie: initialData.serie,
@@ -220,7 +251,11 @@ export function PresupuestoForm({
         titulo: initialData.titulo,
         descripcion: initialData.descripcion,
         lineas: initialData.lineas || [],
-        condiciones: initialData.condiciones,
+        condiciones: {
+          ...initialData.condiciones,
+          formaPagoId,
+          terminoPagoId,
+        },
         descuentoGlobalPorcentaje: initialData.descuentoGlobalPorcentaje || 0,
         introduccion: initialData.introduccion,
         piePagina: initialData.piePagina,
@@ -233,8 +268,16 @@ export function PresupuestoForm({
       })
 
       setMostrarCostes(initialData.mostrarCostes !== false)
+
+      // Cargar direcciones del cliente si viene preseleccionado
+      if (clienteId) {
+        const cliente = clientes.find(c => c._id === clienteId)
+        if (cliente?.direcciones) {
+          setDireccionesCliente(cliente.direcciones)
+        }
+      }
     }
-  }, [initialData])
+  }, [initialData, clientes])
 
   // Recalcular totales cuando cambian las líneas
   useEffect(() => {
@@ -321,6 +364,22 @@ export function PresupuestoForm({
     }))
   }, [direccionesCliente])
 
+  const formasPagoOptions = React.useMemo(() => {
+    return formasPago.map((fp) => ({
+      value: fp._id,
+      label: fp.nombre,
+      description: fp.descripcion || fp.tipo,
+    }))
+  }, [formasPago])
+
+  const terminosPagoOptions = React.useMemo(() => {
+    return terminosPago.map((tp) => ({
+      value: tp._id,
+      label: tp.nombre,
+      description: tp.resumenVencimientos || tp.descripcion,
+    }))
+  }, [terminosPago])
+
   // Handlers para cuando se crea un nuevo elemento
   const handleClienteCreated = (newCliente: { _id: string; codigo: string; nombre: string; nif: string }) => {
     setClientes(prev => [...prev, { ...newCliente, activo: true } as Cliente])
@@ -365,6 +424,31 @@ export function PresupuestoForm({
   const handleProductoSelect = (index: number, productoId: string) => {
     const producto = productos.find(p => p._id === productoId)
     if (producto) {
+      // Determinar si es un kit (tipo compuesto o tiene componentesKit)
+      const esKit = producto.tipo === 'compuesto' || (producto.componentesKit && producto.componentesKit.length > 0)
+
+      // Construir los componentes del kit si aplica
+      let componentesKit: IComponenteKit[] | undefined = undefined
+      if (esKit && producto.componentesKit && producto.componentesKit.length > 0) {
+        componentesKit = producto.componentesKit.map(comp => {
+          // Buscar el producto componente para obtener sus precios
+          const productoComponente = productos.find(p => p._id === comp.productoId)
+          return {
+            productoId: comp.productoId,
+            nombre: comp.producto?.nombre || productoComponente?.nombre || 'Componente',
+            sku: comp.producto?.sku || productoComponente?.sku,
+            cantidad: comp.cantidad,
+            precioUnitario: productoComponente?.precios?.venta || 0,
+            costeUnitario: productoComponente?.precios?.compra || 0,
+            descuento: 0,
+            iva: productoComponente?.iva || 21,
+            subtotal: (productoComponente?.precios?.venta || 0) * comp.cantidad,
+            opcional: comp.opcional,
+            seleccionado: !comp.opcional, // Los no opcionales están siempre seleccionados
+          }
+        })
+      }
+
       handleUpdateLinea(index, {
         productoId: producto._id,
         codigo: producto.sku || '',
@@ -372,9 +456,25 @@ export function PresupuestoForm({
         descripcion: producto.descripcionCorta || producto.descripcion || '',
         precioUnitario: producto.precios?.venta || 0,
         costeUnitario: producto.precios?.compra || 0,
-        iva: 21, // TODO: obtener IVA del tipo de impuesto del producto
+        iva: producto.iva || 21,
         unidad: 'ud',
+        tipo: esKit ? TipoLinea.KIT : TipoLinea.PRODUCTO,
+        componentesKit,
+        mostrarComponentes: esKit, // Mostrar componentes automáticamente si es kit
       })
+    }
+  }
+
+  // Handler para cambiar el nombre/descripción de la línea
+  const handleNombreChange = (index: number, nombre: string) => {
+    handleUpdateLinea(index, { nombre })
+  }
+
+  // Handler para toggle de mostrar/ocultar componentes del kit
+  const handleToggleComponentes = (index: number) => {
+    const linea = formData.lineas?.[index]
+    if (linea) {
+      handleUpdateLinea(index, { mostrarComponentes: !linea.mostrarComponentes })
     }
   }
 
@@ -401,16 +501,87 @@ export function PresupuestoForm({
     }
   }
 
-  const handleAddLinea = (tipo: TipoLinea = TipoLinea.PRODUCTO) => {
+  // Función para enfocar el campo de producto de una línea
+  const focusProducto = useCallback((index: number) => {
+    setTimeout(() => {
+      const input = productoRefs.current.get(index)
+      if (input) {
+        input.focus()
+      }
+    }, 50)
+  }, [])
+
+  // Función para enfocar el campo de cantidad de una línea
+  const focusCantidad = useCallback((index: number) => {
+    setTimeout(() => {
+      const input = cantidadRefs.current.get(index)
+      if (input) {
+        input.focus()
+        input.select()
+      }
+    }, 50)
+  }, [])
+
+  const handleAddLinea = useCallback((tipo: TipoLinea = TipoLinea.PRODUCTO) => {
+    const newIndex = formData.lineas?.length || 0
     const newLinea = {
-      ...crearLineaVacia((formData.lineas?.length || 0) + 1),
+      ...crearLineaVacia(newIndex + 1),
       tipo,
     }
     setFormData(prev => ({
       ...prev,
       lineas: [...(prev.lineas || []), newLinea as ILineaPresupuesto],
     }))
-  }
+    // Enfocar el campo de producto de la nueva línea
+    focusProducto(newIndex)
+  }, [formData.lineas?.length, focusProducto])
+
+  // Handler para cuando se presiona Enter en el buscador de producto
+  const handleProductEnterPress = useCallback((index: number) => {
+    focusCantidad(index)
+  }, [focusCantidad])
+
+  // Handler para cuando se presiona Enter en el campo de cantidad
+  const handleCantidadKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      // Añadir nueva línea y enfocar su campo de producto
+      handleAddLinea(TipoLinea.PRODUCTO)
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      // Ir a la cantidad de la siguiente línea si existe
+      const nextInput = cantidadRefs.current.get(index + 1)
+      if (nextInput) {
+        nextInput.focus()
+        nextInput.select()
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      // Ir a la cantidad de la línea anterior si existe
+      const prevInput = cantidadRefs.current.get(index - 1)
+      if (prevInput) {
+        prevInput.focus()
+        prevInput.select()
+      }
+    }
+  }, [handleAddLinea])
+
+  // Atajo global Ctrl+Enter para añadir línea
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Solo en la pestaña de líneas
+      if (activeTab !== 'lineas') return
+
+      // Ctrl+Enter o Ctrl+N para añadir línea
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 'n')) {
+        e.preventDefault()
+        handleAddLinea(TipoLinea.PRODUCTO)
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [activeTab, handleAddLinea])
 
   const handleUpdateLinea = (index: number, updates: Partial<ILineaPresupuesto>) => {
     setFormData(prev => {
@@ -522,6 +693,24 @@ export function PresupuestoForm({
     if (!formData.clienteId) {
       toast.error('Debe seleccionar un cliente')
       setActiveTab('cliente')
+      return
+    }
+
+    // Validar que no haya líneas vacías
+    const lineas = formData.lineas || []
+    const lineasVacias = lineas.filter((linea, index) => {
+      // Las líneas de tipo TEXTO, SUBTOTAL o DESCUENTO pueden estar sin producto
+      if (linea.tipo === TipoLinea.TEXTO || linea.tipo === TipoLinea.SUBTOTAL || linea.tipo === TipoLinea.DESCUENTO) {
+        return false
+      }
+      // Para productos, servicios y kits, validar que tengan nombre
+      return !linea.nombre || linea.nombre.trim() === ''
+    })
+
+    if (lineasVacias.length > 0) {
+      const numeroLinea = lineas.findIndex((l) => lineasVacias.includes(l)) + 1
+      toast.error(`Hay ${lineasVacias.length} línea${lineasVacias.length > 1 ? 's' : ''} sin producto. Revise la línea ${numeroLinea}.`)
+      setActiveTab('lineas')
       return
     }
 
@@ -717,35 +906,72 @@ export function PresupuestoForm({
 
                 {formData.clienteId && (
                   <>
+                    {/* Datos fiscales del cliente */}
+                    {(() => {
+                      const clienteSeleccionado = clientes.find(c => c._id === formData.clienteId)
+                      const direccionFiscal = clienteSeleccionado?.direcciones?.find(d => d.tipo === 'fiscal' && d.activa)
+                        || clienteSeleccionado?.direccion
+
+                      return (
+                        <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium text-sm">Datos Fiscales</h4>
+                            <Badge variant="outline" className="text-xs">
+                              {clienteSeleccionado?.tipoCliente === 'empresa' ? 'Empresa' : 'Particular'}
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <span className="text-muted-foreground text-xs">NIF</span>
+                              <p className="font-medium">{formData.clienteNif || '-'}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground text-xs">Teléfono</span>
+                              <p className="font-medium">{formData.clienteTelefono || clienteSeleccionado?.telefono || '-'}</p>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground text-xs">Email</span>
+                              <p className="font-medium">{formData.clienteEmail || '-'}</p>
+                            </div>
+                          </div>
+
+                          {direccionFiscal && (
+                            <div className="pt-2 border-t">
+                              <span className="text-muted-foreground text-xs">Dirección Fiscal</span>
+                              <p className="text-sm">
+                                {direccionFiscal.calle} {direccionFiscal.numero}
+                                {direccionFiscal.piso && `, ${direccionFiscal.piso}`}
+                              </p>
+                              <p className="text-sm">
+                                {direccionFiscal.codigoPostal} {direccionFiscal.ciudad}
+                                {direccionFiscal.provincia && `, ${direccionFiscal.provincia}`}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>NIF</Label>
-                        <Input value={formData.clienteNif || ''} disabled className="bg-muted" />
+                        <Label htmlFor="referenciaCliente">Referencia del Cliente</Label>
+                        <Input
+                          id="referenciaCliente"
+                          value={formData.referenciaCliente || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, referenciaCliente: e.target.value }))}
+                          placeholder="Ref. interna del cliente"
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label>Email</Label>
-                        <Input value={formData.clienteEmail || ''} disabled className="bg-muted" />
+                        <Label htmlFor="pedidoCliente">Nº Pedido Cliente</Label>
+                        <Input
+                          id="pedidoCliente"
+                          value={formData.pedidoCliente || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, pedidoCliente: e.target.value }))}
+                          placeholder="Número de pedido del cliente"
+                        />
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="referenciaCliente">Referencia del Cliente</Label>
-                      <Input
-                        id="referenciaCliente"
-                        value={formData.referenciaCliente || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, referenciaCliente: e.target.value }))}
-                        placeholder="Ref. interna del cliente"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="pedidoCliente">Nº Pedido Cliente</Label>
-                      <Input
-                        id="pedidoCliente"
-                        value={formData.pedidoCliente || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, pedidoCliente: e.target.value }))}
-                        placeholder="Número de pedido del cliente"
-                      />
                     </div>
                   </>
                 )}
@@ -790,6 +1016,102 @@ export function PresupuestoForm({
               </div>
             </CardContent>
           </Card>
+
+          {/* Estado y Condiciones de Pago */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Estado y Condiciones</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="estado">Estado del Presupuesto</Label>
+                <select
+                  id="estado"
+                  value={formData.estado || EstadoPresupuesto.BORRADOR}
+                  onChange={(e) => setFormData(prev => ({ ...prev, estado: e.target.value as EstadoPresupuesto }))}
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {ESTADOS_PRESUPUESTO.map(estado => (
+                    <option key={estado.value} value={estado.value}>{estado.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="formaPagoId">Forma de Pago</Label>
+                <SearchableSelect
+                  options={formasPagoOptions}
+                  value={formData.condiciones?.formaPagoId || ''}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, formaPagoId: value || undefined }
+                  }))}
+                  placeholder="Seleccionar forma de pago..."
+                  searchPlaceholder="Buscar..."
+                  emptyMessage="No hay formas de pago"
+                  allowClear
+                  loading={loadingOptions}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="terminoPagoId">Término de Pago</Label>
+                <SearchableSelect
+                  options={terminosPagoOptions}
+                  value={formData.condiciones?.terminoPagoId || ''}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, terminoPagoId: value || undefined }
+                  }))}
+                  placeholder="Seleccionar término de pago..."
+                  searchPlaceholder="Buscar..."
+                  emptyMessage="No hay términos de pago"
+                  allowClear
+                  loading={loadingOptions}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="validezDias">Validez (días)</Label>
+                <Input
+                  id="validezDias"
+                  type="number"
+                  min="1"
+                  value={formData.condiciones?.validezDias || 30}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, validezDias: parseInt(e.target.value) || 30 }
+                  }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tiempoEntrega">Tiempo de Entrega</Label>
+                <Input
+                  id="tiempoEntrega"
+                  value={formData.condiciones?.tiempoEntrega || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, tiempoEntrega: e.target.value }
+                  }))}
+                  placeholder="Ej: 15 días laborables"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="garantia">Garantía</Label>
+                <Input
+                  id="garantia"
+                  value={formData.condiciones?.garantia || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, garantia: e.target.value }
+                  }))}
+                  placeholder="Ej: 2 años"
+                />
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ============================================ */}
@@ -805,108 +1127,142 @@ export function PresupuestoForm({
                     {numLineas} línea{numLineas !== 1 ? 's' : ''} · Total: {formatCurrency(totales.totalPresupuesto)}
                   </CardDescription>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button type="button">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Añadir Línea
-                      <ChevronDown className="h-4 w-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.PRODUCTO)}>
-                      <Package className="h-4 w-4 mr-2" />
-                      Producto
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.SERVICIO)}>
-                      <Settings className="h-4 w-4 mr-2" />
-                      Servicio
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.KIT)}>
-                      <Package className="h-4 w-4 mr-2" />
-                      Kit
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.TEXTO)}>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Texto/Comentario
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.SUBTOTAL)}>
-                      <Calculator className="h-4 w-4 mr-2" />
-                      Subtotal
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.DESCUENTO)}>
-                      <Percent className="h-4 w-4 mr-2" />
-                      Descuento
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button type="button" onClick={() => handleAddLinea(TipoLinea.PRODUCTO)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Añadir Línea
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
               {/* Tabla de líneas */}
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed" style={{ minWidth: mostrarCostes ? '1200px' : '900px' }}>
+                  <colgroup>
+                    <col style={{ width: '32px' }} />
+                    <col style={{ width: '90px' }} />
+                    <col style={{ width: 'auto', minWidth: '200px' }} />
+                    <col style={{ width: '70px' }} />
+                    {mostrarCostes && <col style={{ width: '85px' }} />}
+                    {mostrarCostes && <col style={{ width: '75px' }} />}
+                    <col style={{ width: '85px' }} />
+                    <col style={{ width: '65px' }} />
+                    <col style={{ width: '70px' }} />
+                    <col style={{ width: '95px' }} />
+                    {mostrarCostes && <col style={{ width: '90px' }} />}
+                    <col style={{ width: '120px' }} />
+                  </colgroup>
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="w-8 px-2 py-3"></th>
-                      <th className="px-2 py-3 text-left">Tipo</th>
-                      <th className="px-2 py-3 text-left min-w-[200px]">Descripción</th>
-                      <th className="px-2 py-3 text-right w-20">Cant.</th>
+                      <th className="px-1 py-3"></th>
+                      <th className="px-1 py-3 text-left text-xs">Tipo</th>
+                      <th className="px-2 py-3 text-left">Descripción</th>
+                      <th className="px-1 py-3 text-right text-xs">Cant.</th>
                       {mostrarCostes && (
-                        <th className="px-2 py-3 text-right w-24 text-blue-600">Coste</th>
+                        <th className="px-1 py-3 text-right text-xs text-blue-600">Coste</th>
                       )}
                       {mostrarCostes && (
-                        <th className="px-2 py-3 text-right w-20 text-green-600" title="Edita el margen para recalcular el precio">Margen %</th>
+                        <th className="px-1 py-3 text-right text-xs text-green-600" title="Edita el margen para recalcular el precio">Margen%</th>
                       )}
-                      <th className="px-2 py-3 text-right w-24">Precio</th>
-                      <th className="px-2 py-3 text-right w-20">Dto %</th>
-                      <th className="px-2 py-3 text-right w-20">IVA %</th>
-                      <th className="px-2 py-3 text-right w-28">Subtotal</th>
+                      <th className="px-1 py-3 text-right text-xs">Precio</th>
+                      <th className="px-1 py-3 text-right text-xs">Dto%</th>
+                      <th className="px-1 py-3 text-right text-xs">IVA%</th>
+                      <th className="px-1 py-3 text-right text-xs">Subtotal</th>
                       {mostrarCostes && (
-                        <th className="px-2 py-3 text-right w-24 text-green-600">Margen €</th>
+                        <th className="px-1 py-3 text-right text-xs text-green-600">Margen€</th>
                       )}
-                      <th className="w-24 px-2 py-3"></th>
+                      <th className="px-1 py-3"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {(formData.lineas || []).map((linea, index) => (
                       <tr key={index} className="border-b hover:bg-muted/30">
-                        <td className="px-2 py-2">
+                        <td className="px-1 py-2">
                           <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-1 py-2">
                           <select
                             value={linea.tipo}
                             onChange={(e) => handleUpdateLinea(index, { tipo: e.target.value as TipoLinea })}
-                            className="h-8 w-full text-xs rounded border border-input bg-background px-2"
+                            className="h-8 w-full text-[11px] rounded border border-input bg-background px-1"
                           >
                             {TIPOS_LINEA.map(tipo => (
                               <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
                             ))}
                           </select>
                         </td>
-                        <td className="px-2 py-2 min-w-[250px]">
+                        <td className="px-2 py-2">
                           {(linea.tipo === TipoLinea.PRODUCTO || linea.tipo === TipoLinea.KIT) ? (
                             <div className="space-y-1">
-                              <SearchableSelect
-                                options={productosOptions}
-                                value={linea.productoId || ''}
-                                onValueChange={(value) => handleProductoSelect(index, value)}
-                                placeholder="Buscar producto..."
-                                searchPlaceholder="Buscar por nombre o código..."
-                                emptyMessage={loadingOptions ? "Cargando productos..." : "No se encontraron productos"}
-                                loading={loadingOptions}
-                                triggerClassName="h-8 text-xs"
-                                className="w-[300px]"
-                              />
-                              {linea.productoId && (
-                                <Input
-                                  value={linea.nombre || ''}
-                                  onChange={(e) => handleUpdateLinea(index, { nombre: e.target.value })}
-                                  placeholder="Descripción adicional..."
-                                  className="h-7 text-xs"
+                              <div className="flex items-center gap-1">
+                                {/* Botón para expandir/colapsar componentes del kit */}
+                                {linea.tipo === TipoLinea.KIT && linea.componentesKit && linea.componentesKit.length > 0 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 flex-shrink-0"
+                                    onClick={() => handleToggleComponentes(index)}
+                                    title={linea.mostrarComponentes ? 'Ocultar componentes' : 'Mostrar componentes'}
+                                  >
+                                    {linea.mostrarComponentes ? (
+                                      <ChevronDown className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                )}
+                                {/* Input editable con búsqueda integrada */}
+                                <EditableSearchableSelect
+                                  options={productosOptions}
+                                  value={linea.productoId || ''}
+                                  displayValue={linea.nombre || ''}
+                                  onValueChange={(value) => handleProductoSelect(index, value)}
+                                  onDisplayValueChange={(nombre) => handleNombreChange(index, nombre)}
+                                  placeholder="Buscar o escribir producto..."
+                                  emptyMessage={loadingOptions ? "Cargando..." : "No encontrado"}
+                                  loading={loadingOptions}
+                                  className="flex-1"
+                                  inputClassName="text-xs"
+                                  onEnterPress={() => handleProductEnterPress(index)}
+                                  onArrowDownPress={() => focusCantidad(index)}
+                                  inputRef={(el) => {
+                                    if (el) productoRefs.current.set(index, el)
+                                    else productoRefs.current.delete(index)
+                                  }}
                                 />
+                                {/* Indicador de kit */}
+                                {linea.tipo === TipoLinea.KIT && (
+                                  <Badge variant="secondary" className="flex-shrink-0 gap-1">
+                                    <Layers className="h-3 w-3" />
+                                    Kit
+                                  </Badge>
+                                )}
+                              </div>
+                              {/* Componentes del kit expandidos */}
+                              {linea.tipo === TipoLinea.KIT && linea.mostrarComponentes && linea.componentesKit && linea.componentesKit.length > 0 && (
+                                <div className="ml-6 mt-2 space-y-1 border-l-2 border-primary/20 pl-3">
+                                  <div className="text-xs font-medium text-muted-foreground mb-1">
+                                    Componentes del kit ({linea.componentesKit.length}):
+                                  </div>
+                                  {linea.componentesKit.map((comp, compIndex) => (
+                                    <div
+                                      key={compIndex}
+                                      className={`flex items-center gap-2 text-xs py-1 px-2 rounded ${
+                                        comp.opcional ? 'bg-amber-50 border border-amber-200' : 'bg-muted/50'
+                                      }`}
+                                    >
+                                      <Package className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                      <span className="flex-1 truncate">{comp.nombre}</span>
+                                      <span className="text-muted-foreground">x{comp.cantidad}</span>
+                                      {comp.opcional && (
+                                        <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                          Opcional
+                                        </Badge>
+                                      )}
+                                      <span className="font-medium">{formatCurrency(comp.subtotal)}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               )}
                             </div>
                           ) : (
@@ -918,51 +1274,56 @@ export function PresupuestoForm({
                             />
                           )}
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-1 py-2">
                           <Input
+                            ref={(el) => {
+                              if (el) cantidadRefs.current.set(index, el)
+                              else cantidadRefs.current.delete(index)
+                            }}
                             type="number"
                             min="0"
                             step="0.01"
                             value={linea.cantidad || 0}
                             onChange={(e) => handleUpdateLinea(index, { cantidad: parseFloat(e.target.value) || 0 })}
-                            className="h-8 text-sm text-right"
+                            onKeyDown={(e) => handleCantidadKeyDown(e, index)}
+                            className="h-7 text-xs text-right px-1"
                           />
                         </td>
                         {mostrarCostes && (
-                          <td className="px-2 py-2">
+                          <td className="px-1 py-2">
                             <Input
                               type="number"
                               min="0"
                               step="0.01"
                               value={linea.costeUnitario || 0}
                               onChange={(e) => handleUpdateLinea(index, { costeUnitario: parseFloat(e.target.value) || 0 })}
-                              className="h-8 text-sm text-right text-blue-600"
+                              className="h-7 text-xs text-right text-blue-600 px-1"
                             />
                           </td>
                         )}
                         {mostrarCostes && (
-                          <td className="px-2 py-2">
+                          <td className="px-1 py-2">
                             <Input
                               type="number"
                               step="0.1"
                               value={linea.margenPorcentaje || 0}
                               onChange={(e) => handleUpdateMargen(index, parseFloat(e.target.value) || 0)}
-                              className="h-8 text-sm text-right text-green-600"
+                              className="h-7 text-xs text-right text-green-600 px-1"
                               title="Editar margen recalcula precio"
                             />
                           </td>
                         )}
-                        <td className="px-2 py-2">
+                        <td className="px-1 py-2">
                           <Input
                             type="number"
                             min="0"
                             step="0.01"
                             value={linea.precioUnitario || 0}
                             onChange={(e) => handleUpdateLinea(index, { precioUnitario: parseFloat(e.target.value) || 0 })}
-                            className="h-8 text-sm text-right"
+                            className="h-7 text-xs text-right px-1"
                           />
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-1 py-2">
                           <Input
                             type="number"
                             min="0"
@@ -970,31 +1331,31 @@ export function PresupuestoForm({
                             step="0.1"
                             value={linea.descuento || 0}
                             onChange={(e) => handleUpdateLinea(index, { descuento: parseFloat(e.target.value) || 0 })}
-                            className="h-8 text-sm text-right"
+                            className="h-7 text-xs text-right px-1"
                           />
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-1 py-2">
                           <select
                             value={linea.iva || 21}
                             onChange={(e) => handleUpdateLinea(index, { iva: parseInt(e.target.value) })}
-                            className="h-8 w-full text-xs rounded border border-input bg-background px-2"
+                            className="h-7 w-full text-[11px] rounded border border-input bg-background px-1"
                           >
                             {TIPOS_IVA.map(tipo => (
                               <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
                             ))}
                           </select>
                         </td>
-                        <td className="px-2 py-2 text-right font-medium">
+                        <td className="px-1 py-2 text-right font-medium text-xs whitespace-nowrap">
                           {formatCurrency(linea.subtotal || 0)}
                         </td>
                         {mostrarCostes && (
-                          <td className="px-2 py-2 text-right">
+                          <td className="px-1 py-2 text-right text-xs whitespace-nowrap">
                             <span className={linea.margenTotalLinea >= 0 ? 'text-green-600' : 'text-red-600'}>
                               {formatCurrency(linea.margenTotalLinea || 0)}
                             </span>
                           </td>
                         )}
-                        <td className="px-2 py-2">
+                        <td className="px-1 py-2">
                           <div className="flex items-center gap-1">
                             <Button
                               type="button"
@@ -1129,62 +1490,146 @@ export function PresupuestoForm({
               <CardTitle>Dirección de Entrega</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Tipo de Entrega</Label>
-                <select
-                  value={formData.direccionEntrega?.tipo || 'cliente'}
-                  onChange={(e) => setFormData(prev => ({
+              {/* Selector de tipo de entrega */}
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  type="button"
+                  variant={formData.direccionEntrega?.tipo === 'cliente' || !formData.direccionEntrega?.tipo ? 'default' : 'outline'}
+                  className="w-full"
+                  onClick={() => setFormData(prev => ({
                     ...prev,
-                    direccionEntrega: {
-                      ...prev.direccionEntrega,
-                      tipo: e.target.value as 'cliente' | 'personalizada' | 'recogida',
-                    },
+                    direccionEntrega: { ...prev.direccionEntrega, tipo: 'cliente' },
                   }))}
-                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="cliente">Dirección del cliente</option>
-                  <option value="personalizada">Dirección personalizada</option>
-                  <option value="recogida">Recogida en tienda</option>
-                </select>
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Del Cliente
+                </Button>
+                <Button
+                  type="button"
+                  variant={formData.direccionEntrega?.tipo === 'personalizada' ? 'default' : 'outline'}
+                  className="w-full"
+                  onClick={() => setFormData(prev => ({
+                    ...prev,
+                    direccionEntrega: { ...prev.direccionEntrega, tipo: 'personalizada' },
+                  }))}
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Personalizada
+                </Button>
+                <Button
+                  type="button"
+                  variant={formData.direccionEntrega?.tipo === 'recogida' ? 'default' : 'outline'}
+                  className="w-full"
+                  onClick={() => setFormData(prev => ({
+                    ...prev,
+                    direccionEntrega: { ...prev.direccionEntrega, tipo: 'recogida' },
+                  }))}
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  Recogida
+                </Button>
               </div>
 
-              {/* Selector de direcciones del cliente */}
-              {formData.direccionEntrega?.tipo === 'cliente' && formData.clienteId && (
-                <div className="space-y-2">
-                  <Label>Seleccionar dirección del cliente</Label>
-                  {direccionesCliente.length > 0 ? (
-                    <SearchableSelect
-                      options={direccionesOptions}
-                      value=""
-                      onValueChange={handleDireccionSelect}
-                      placeholder="Seleccionar una dirección..."
-                      searchPlaceholder="Buscar dirección..."
-                      emptyMessage="No hay direcciones disponibles"
-                    />
+              {/* Direcciones del cliente */}
+              {(formData.direccionEntrega?.tipo === 'cliente' || !formData.direccionEntrega?.tipo) && (
+                <>
+                  {!formData.clienteId ? (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
+                      <p className="text-sm text-amber-800">
+                        Seleccione un cliente primero para ver sus direcciones disponibles.
+                      </p>
+                    </div>
+                  ) : direccionesCliente.length === 0 ? (
+                    <div className="p-4 bg-muted rounded-lg text-center">
+                      <p className="text-sm text-muted-foreground">
+                        El cliente no tiene direcciones registradas.
+                      </p>
+                    </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
-                      El cliente no tiene direcciones registradas. Puede añadirlas desde la ficha del cliente.
-                    </p>
-                  )}
-                  {formData.direccionEntrega?.calle && (
-                    <div className="p-3 bg-muted rounded-md text-sm">
-                      <p className="font-medium">{formData.direccionEntrega.nombre}</p>
-                      <p>{formData.direccionEntrega.calle} {formData.direccionEntrega.numero}</p>
-                      <p>{formData.direccionEntrega.codigoPostal} {formData.direccionEntrega.ciudad}</p>
-                      {formData.direccionEntrega.provincia && <p>{formData.direccionEntrega.provincia}, {formData.direccionEntrega.pais}</p>}
+                    <div className="space-y-3">
+                      <Label>Seleccionar dirección de entrega</Label>
+                      <div className="grid gap-2">
+                        {direccionesCliente.filter(d => d.activa !== false).map((dir, index) => {
+                          const isSelected = formData.direccionEntrega?.calle === dir.calle &&
+                            formData.direccionEntrega?.codigoPostal === dir.codigoPostal
+                          return (
+                            <div
+                              key={dir._id || index}
+                              onClick={() => handleDireccionSelect(index.toString())}
+                              className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                                isSelected
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium text-sm">
+                                      {dir.nombre || `Dirección ${index + 1}`}
+                                    </span>
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {dir.tipo?.charAt(0).toUpperCase() + dir.tipo?.slice(1) || 'Envío'}
+                                    </Badge>
+                                    {dir.predeterminada && (
+                                      <Badge variant="secondary" className="text-[10px]">
+                                        Predeterminada
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {dir.calle} {dir.numero}{dir.piso && `, ${dir.piso}`}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {dir.codigoPostal} {dir.ciudad}{dir.provincia && `, ${dir.provincia}`}
+                                  </p>
+                                  {dir.personaContacto && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Contacto: {dir.personaContacto} {dir.telefonoContacto && `- ${dir.telefonoContacto}`}
+                                    </p>
+                                  )}
+                                </div>
+                                {isSelected && (
+                                  <Check className="h-5 w-5 text-primary flex-shrink-0" />
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
+                </>
+              )}
+
+              {/* Recogida en tienda */}
+              {formData.direccionEntrega?.tipo === 'recogida' && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="h-5 w-5 text-blue-600" />
+                    <span className="font-medium text-blue-900">Recogida en tienda</span>
+                  </div>
+                  <p className="text-sm text-blue-800">
+                    El cliente recogerá el pedido en nuestras instalaciones.
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    <Label>Observaciones para la recogida</Label>
+                    <Textarea
+                      value={formData.direccionEntrega?.instrucciones || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        direccionEntrega: { ...prev.direccionEntrega!, tipo: 'recogida', instrucciones: e.target.value },
+                      }))}
+                      rows={2}
+                      placeholder="Instrucciones especiales para la recogida..."
+                    />
+                  </div>
                 </div>
               )}
 
-              {formData.direccionEntrega?.tipo === 'cliente' && !formData.clienteId && (
-                <p className="text-sm text-muted-foreground p-3 bg-amber-50 border border-amber-200 rounded-md">
-                  Debe seleccionar un cliente primero para ver sus direcciones.
-                </p>
-              )}
-
+              {/* Dirección personalizada */}
               {formData.direccionEntrega?.tipo === 'personalizada' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   <div className="md:col-span-2 space-y-2">
                     <Label>Nombre / Empresa</Label>
                     <Input
@@ -1193,16 +1638,18 @@ export function PresupuestoForm({
                         ...prev,
                         direccionEntrega: { ...prev.direccionEntrega!, nombre: e.target.value },
                       }))}
+                      placeholder="Nombre del destinatario o empresa"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Calle</Label>
+                    <Label>Calle *</Label>
                     <Input
                       value={formData.direccionEntrega?.calle || ''}
                       onChange={(e) => setFormData(prev => ({
                         ...prev,
                         direccionEntrega: { ...prev.direccionEntrega!, calle: e.target.value },
                       }))}
+                      placeholder="Nombre de la calle"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -1214,37 +1661,41 @@ export function PresupuestoForm({
                           ...prev,
                           direccionEntrega: { ...prev.direccionEntrega!, numero: e.target.value },
                         }))}
+                        placeholder="Nº"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Piso</Label>
+                      <Label>Piso/Puerta</Label>
                       <Input
                         value={formData.direccionEntrega?.piso || ''}
                         onChange={(e) => setFormData(prev => ({
                           ...prev,
                           direccionEntrega: { ...prev.direccionEntrega!, piso: e.target.value },
                         }))}
+                        placeholder="Ej: 2º A"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Código Postal</Label>
+                    <Label>Código Postal *</Label>
                     <Input
                       value={formData.direccionEntrega?.codigoPostal || ''}
                       onChange={(e) => setFormData(prev => ({
                         ...prev,
                         direccionEntrega: { ...prev.direccionEntrega!, codigoPostal: e.target.value },
                       }))}
+                      placeholder="Ej: 28001"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Ciudad</Label>
+                    <Label>Ciudad *</Label>
                     <Input
                       value={formData.direccionEntrega?.ciudad || ''}
                       onChange={(e) => setFormData(prev => ({
                         ...prev,
                         direccionEntrega: { ...prev.direccionEntrega!, ciudad: e.target.value },
                       }))}
+                      placeholder="Ciudad"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1255,6 +1706,7 @@ export function PresupuestoForm({
                         ...prev,
                         direccionEntrega: { ...prev.direccionEntrega!, provincia: e.target.value },
                       }))}
+                      placeholder="Provincia"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1267,37 +1719,46 @@ export function PresupuestoForm({
                       }))}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Persona de Contacto</Label>
-                    <Input
-                      value={formData.direccionEntrega?.personaContacto || ''}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        direccionEntrega: { ...prev.direccionEntrega!, personaContacto: e.target.value },
-                      }))}
-                    />
+
+                  <div className="md:col-span-2 border-t pt-4 mt-2">
+                    <h4 className="font-medium text-sm mb-3">Datos de contacto</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Persona de Contacto</Label>
+                        <Input
+                          value={formData.direccionEntrega?.personaContacto || ''}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            direccionEntrega: { ...prev.direccionEntrega!, personaContacto: e.target.value },
+                          }))}
+                          placeholder="Nombre del contacto"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Teléfono de Contacto</Label>
+                        <Input
+                          value={formData.direccionEntrega?.telefonoContacto || ''}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            direccionEntrega: { ...prev.direccionEntrega!, telefonoContacto: e.target.value },
+                          }))}
+                          placeholder="Teléfono"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Horario de Entrega</Label>
+                        <Input
+                          value={formData.direccionEntrega?.horarioEntrega || ''}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            direccionEntrega: { ...prev.direccionEntrega!, horarioEntrega: e.target.value },
+                          }))}
+                          placeholder="Ej: L-V de 9:00 a 18:00"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Teléfono de Contacto</Label>
-                    <Input
-                      value={formData.direccionEntrega?.telefonoContacto || ''}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        direccionEntrega: { ...prev.direccionEntrega!, telefonoContacto: e.target.value },
-                      }))}
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-2">
-                    <Label>Horario de Entrega</Label>
-                    <Input
-                      value={formData.direccionEntrega?.horarioEntrega || ''}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        direccionEntrega: { ...prev.direccionEntrega!, horarioEntrega: e.target.value },
-                      }))}
-                      placeholder="Ej: Lunes a Viernes de 9:00 a 18:00"
-                    />
-                  </div>
+
                   <div className="md:col-span-2 space-y-2">
                     <Label>Instrucciones de Entrega</Label>
                     <Textarea
@@ -1306,7 +1767,7 @@ export function PresupuestoForm({
                         ...prev,
                         direccionEntrega: { ...prev.direccionEntrega!, instrucciones: e.target.value },
                       }))}
-                      rows={3}
+                      rows={2}
                       placeholder="Instrucciones especiales para la entrega..."
                     />
                   </div>

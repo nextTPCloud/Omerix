@@ -310,4 +310,32 @@ router.patch(
   clasificacionesController.changeStatus.bind(clasificacionesController)
 );
 
+/**
+ * @swagger
+ * /clasificaciones/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar una clasificación
+ *     tags: [Clasificaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la clasificación a duplicar
+ *     responses:
+ *       201:
+ *         description: Clasificación duplicada exitosamente
+ *       404:
+ *         description: Clasificación no encontrada
+ *       401:
+ *         description: No autenticado
+ */
+router.post(
+  '/:id/duplicar',
+  clasificacionesController.duplicar.bind(clasificacionesController)
+);
+
 export default router;

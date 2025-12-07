@@ -228,6 +228,28 @@ export class TiposImpuestoController {
       next(error);
     }
   }
+
+  async duplicar(req: Request, res: Response, next: NextFunction) {
+    try {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autorizado',
+        });
+      }
+
+      const result = await tiposImpuestoService.duplicar(req.params.id, empresaId, req.empresaDbConfig);
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: 'Tipo de impuesto duplicado correctamente',
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  }
 }
 
 export const tiposImpuestoController = new TiposImpuestoController();

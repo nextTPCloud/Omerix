@@ -396,6 +396,50 @@ export class SituacionesController {
       });
     }
   }
+
+  // ============================================
+  // DUPLICAR
+  // ============================================
+
+  async duplicar(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const usuarioId = new mongoose.Types.ObjectId(req.userId);
+
+      const situacion = await situacionesService.duplicar(
+        req.params.id,
+        empresaId,
+        usuarioId,
+        req.empresaDbConfig
+      );
+
+      res.status(201).json({
+        success: true,
+        data: situacion,
+        message: 'Situación duplicada correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al duplicar situación:', error);
+      res.status(error.message === 'Situación no encontrada' ? 404 : 500).json({
+        success: false,
+        message: error.message || 'Error al duplicar la situación',
+      });
+    }
+  }
 }
 
 export const situacionesController = new SituacionesController();

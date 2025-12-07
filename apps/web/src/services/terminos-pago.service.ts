@@ -62,6 +62,11 @@ class TerminosPagoService {
     )
     return response.data.data
   }
+
+  async duplicar(id: string): Promise<TerminoPagoResponse> {
+    const response = await api.post<TerminoPagoResponse>(`${this.BASE_URL}/${id}/duplicar`)
+    return response.data
+  }
 }
 
 export const terminosPagoService = new TerminosPagoService()

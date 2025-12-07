@@ -309,4 +309,29 @@ router.put('/:id', terminosPagoController.update.bind(terminosPagoController));
  */
 router.delete('/:id', terminosPagoController.delete.bind(terminosPagoController));
 
+/**
+ * @swagger
+ * /api/terminos-pago/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar un término de pago
+ *     tags: [TerminosPago]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del término de pago a duplicar
+ *     responses:
+ *       201:
+ *         description: Término de pago duplicado exitosamente
+ *       404:
+ *         description: Término de pago no encontrado
+ *       401:
+ *         description: No autenticado
+ */
+router.post('/:id/duplicar', terminosPagoController.duplicar.bind(terminosPagoController));
+
 export default router;

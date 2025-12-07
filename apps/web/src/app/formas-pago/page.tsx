@@ -25,7 +25,7 @@ import {
 import {
   ArrowUp, ArrowDown, ArrowUpDown, Plus, Search, Edit, Eye, Trash2, MoreHorizontal,
   FileSpreadsheet, RefreshCw, CreditCard, Columns, ChevronLeft, ChevronRight,
-  ChevronsLeft, ChevronsRight, CheckCircle, XCircle, Banknote, Building,
+  ChevronsLeft, ChevronsRight, CheckCircle, XCircle, Banknote, Building, Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -188,10 +188,22 @@ export default function FormasPagoPage() {
   const handleSelectItem = (id: string) => { if (selectedItems.includes(id)) setSelectedItems(selectedItems.filter(i => i !== id)); else setSelectedItems([...selectedItems, id]) }
   const toggleColumna = (key: string) => { if (!moduleConfig) return; const newCols = moduleConfig.columnas.map(col => { if (col.key === key) { const visCount = moduleConfig.columnas.filter(c => c.visible).length; if (col.visible && visCount <= 1) { toast.warning('Debe haber al menos una columna visible'); return col } return { ...col, visible: !col.visible } } return col }); updateColumnas(newCols) }
   const handleDeleteConfirm = async () => { try { await Promise.all(deleteDialog.ids.map(id => formasPagoService.delete(id))); toast.success('Forma(s) de pago eliminada(s)'); cargarFormasPago(); setSelectedItems([]); setSelectAll(false); setDeleteDialog({ open: false, ids: [], nombres: [] }) } catch { toast.error('Error al eliminar') } }
+  const handleDuplicar = async (id: string) => {
+    try {
+      const response = await formasPagoService.duplicar(id)
+      if (response.success && response.data) {
+        toast.success('Forma de pago duplicada correctamente')
+        router.push(`/formas-pago/${response.data._id}/editar`)
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al duplicar')
+    }
+  }
   const handleAction = async (id: string, action: string) => {
     switch (action) {
       case 'view': router.push(`/formas-pago/${id}`); break
       case 'edit': router.push(`/formas-pago/${id}/editar`); break
+      case 'duplicate': handleDuplicar(id); break
       case 'delete': const f = formasPago.find(fp => fp._id === id); if (f) setDeleteDialog({ open: true, ids: [id], nombres: [f.nombre] }); break
     }
   }
@@ -310,6 +322,7 @@ export default function FormasPagoPage() {
                           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => handleAction(fp._id, 'view')}><Eye className="mr-2 h-4 w-4" />Ver detalle</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleAction(fp._id, 'edit')}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleAction(fp._id, 'duplicate')}><Copy className="mr-2 h-4 w-4" />Duplicar</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onClick={() => handleAction(fp._id, 'delete')}><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>
                         </DropdownMenuContent>

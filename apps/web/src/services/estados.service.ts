@@ -68,6 +68,22 @@ class EstadosService {
     const response = await api.post(`${this.baseUrl}/bulk-delete`, { ids });
     return response.data;
   }
+
+  /**
+   * Duplicar un estado
+   */
+  async duplicar(id: string): Promise<EstadoResponse> {
+    const response = await api.post<EstadoResponse>(`${this.baseUrl}/${id}/duplicar`);
+    return response.data;
+  }
+
+  /**
+   * Cambiar estado activo/inactivo
+   */
+  async changeStatus(id: string, activo: boolean): Promise<EstadoResponse> {
+    const response = await api.patch<EstadoResponse>(`${this.baseUrl}/${id}/estado`, { activo });
+    return response.data;
+  }
 }
 
 export const estadosService = new EstadosService();

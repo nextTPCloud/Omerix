@@ -57,6 +57,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -595,6 +596,20 @@ export default function TerminosPagoPage() {
         break
       case 'edit':
         router.push(`/terminos-pago/${terminoId}/editar`)
+        break
+      case 'duplicate':
+        try {
+          toast.loading('Duplicando término de pago...')
+          const response = await terminosPagoService.duplicar(terminoId)
+          toast.dismiss()
+          if (response.success) {
+            toast.success('Término de pago duplicado correctamente')
+            router.push(`/terminos-pago/${response.data._id}/editar`)
+          }
+        } catch (error: any) {
+          toast.dismiss()
+          toast.error(error.response?.data?.message || 'Error al duplicar el término de pago')
+        }
         break
       case 'delete':
         const termino = terminosPago.find(t => t._id === terminoId)
@@ -1140,6 +1155,10 @@ export default function TerminosPagoPage() {
                             <DropdownMenuItem onClick={() => handleTerminoAction(termino._id, 'edit')}>
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleTerminoAction(termino._id, 'duplicate')}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

@@ -1,16 +1,34 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
-import { empresaService, EmpresaInfo, EmailConfig } from '@/services/empresa.service'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { empresaService, EmpresaInfo, EmailConfig, CuentaBancariaEmpresa, TextosLegales, DatosRegistro } from '@/services/empresa.service'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from 'sonner'
 import {
@@ -25,6 +43,17 @@ import {
   Eye,
   EyeOff,
   Shield,
+  CreditCard,
+  FileText,
+  Plus,
+  Trash2,
+  Edit,
+  Upload,
+  Image as ImageIcon,
+  Landmark,
+  ScrollText,
+  Settings,
+  Hash,
 } from 'lucide-react'
 
 // Roles permitidos para acceder a esta página
@@ -39,6 +68,8 @@ export default function ConfiguracionEmpresaPage() {
   const [isTesting, setIsTesting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [testEmail, setTestEmail] = useState('')
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
 
   // Estado de la empresa
   const [empresa, setEmpresa] = useState<Partial<EmpresaInfo>>({
@@ -47,14 +78,28 @@ export default function ConfiguracionEmpresaPage() {
     nif: '',
     email: '',
     telefono: '',
+    movil: '',
+    fax: '',
     web: '',
     logo: '',
     direccion: {
       calle: '',
+      numero: '',
+      piso: '',
       ciudad: '',
       provincia: '',
       codigoPostal: '',
       pais: 'España',
+    },
+    datosRegistro: {},
+    cuentasBancarias: [],
+    textosLegales: {},
+    seriesDocumentos: {
+      presupuestos: 'P',
+      pedidos: 'PED',
+      albaranes: 'ALB',
+      facturas: 'F',
+      facturasRectificativas: 'FR',
     },
   })
 
@@ -70,6 +115,19 @@ export default function ConfiguracionEmpresaPage() {
     replyTo: '',
   })
   const [emailConfigExists, setEmailConfigExists] = useState(false)
+
+  // Estado para diálogos
+  const [showCuentaDialog, setShowCuentaDialog] = useState(false)
+  const [editingCuenta, setEditingCuenta] = useState<CuentaBancariaEmpresa | null>(null)
+  const [cuentaForm, setCuentaForm] = useState<Partial<CuentaBancariaEmpresa>>({
+    titular: '',
+    iban: '',
+    swift: '',
+    banco: '',
+    alias: '',
+    predeterminada: false,
+    activa: true,
+  })
 
   // Verificar permisos al cargar
   useEffect(() => {
@@ -197,6 +255,139 @@ export default function ConfiguracionEmpresaPage() {
     }
   }
 
+  // ============================================
+  // CUENTAS BANCARIAS
+  // ============================================
+
+  const handleAddCuenta = () => {
+    setCuentaForm({
+      titular: empresa.nombre || '',
+      iban: '',
+      swift: '',
+      banco: '',
+      alias: '',
+      predeterminada: (empresa.cuentasBancarias?.length || 0) === 0,
+      activa: true,
+    })
+    setEditingCuenta(null)
+    setShowCuentaDialog(true)
+  }
+
+  const handleEditCuenta = (cuenta: CuentaBancariaEmpresa) => {
+    setCuentaForm(cuenta)
+    setEditingCuenta(cuenta)
+    setShowCuentaDialog(true)
+  }
+
+  const handleSaveCuenta = async () => {
+    if (!cuentaForm.titular || !cuentaForm.iban) {
+      toast.error('El titular y el IBAN son obligatorios')
+      return
+    }
+
+    const cuentas = [...(empresa.cuentasBancarias || [])]
+
+    // Si es predeterminada, quitar el flag de las demás
+    if (cuentaForm.predeterminada) {
+      cuentas.forEach(c => c.predeterminada = false)
+    }
+
+    if (editingCuenta && editingCuenta._id) {
+      // Editar existente
+      const index = cuentas.findIndex(c => c._id === editingCuenta._id)
+      if (index >= 0) {
+        cuentas[index] = { ...cuentas[index], ...cuentaForm }
+      }
+    } else {
+      // Nueva cuenta
+      cuentas.push(cuentaForm as CuentaBancariaEmpresa)
+    }
+
+    setEmpresa({ ...empresa, cuentasBancarias: cuentas })
+    setShowCuentaDialog(false)
+    toast.success(editingCuenta ? 'Cuenta actualizada' : 'Cuenta añadida')
+  }
+
+  const handleDeleteCuenta = (cuenta: CuentaBancariaEmpresa) => {
+    const cuentas = empresa.cuentasBancarias?.filter(c => c._id !== cuenta._id) || []
+    setEmpresa({ ...empresa, cuentasBancarias: cuentas })
+    toast.success('Cuenta eliminada')
+  }
+
+  // ============================================
+  // TEXTOS LEGALES
+  // ============================================
+
+  const handleSaveTextosLegales = async () => {
+    try {
+      setIsSaving(true)
+      const response = await empresaService.updateInfo({
+        textosLegales: empresa.textosLegales,
+      })
+      if (response.success) {
+        toast.success('Textos legales guardados')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al guardar')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // ============================================
+  // SERIES Y NUMERACIÓN
+  // ============================================
+
+  const handleSaveSeries = async () => {
+    try {
+      setIsSaving(true)
+      const response = await empresaService.updateInfo({
+        seriesDocumentos: empresa.seriesDocumentos,
+      })
+      if (response.success) {
+        toast.success('Series guardadas')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al guardar')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // ============================================
+  // LOGO
+  // ============================================
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validar tipo
+    if (!file.type.startsWith('image/')) {
+      toast.error('Solo se permiten imágenes')
+      return
+    }
+
+    // Validar tamaño (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('El archivo no puede superar 2MB')
+      return
+    }
+
+    try {
+      setIsUploadingLogo(true)
+      const response = await empresaService.updateLogo(file)
+      if (response.success && response.data) {
+        setEmpresa({ ...empresa, logo: response.data.logoUrl })
+        toast.success('Logo actualizado')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al subir el logo')
+    } finally {
+      setIsUploadingLogo(false)
+    }
+  }
+
   // Mostrar loading mientras carga datos
   if (isLoading) {
     return (
@@ -229,10 +420,22 @@ export default function ConfiguracionEmpresaPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="empresa" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Empresa
+            </TabsTrigger>
+            <TabsTrigger value="bancaria" className="flex items-center gap-2">
+              <Landmark className="h-4 w-4" />
+              Cuentas Bancarias
+            </TabsTrigger>
+            <TabsTrigger value="textos" className="flex items-center gap-2">
+              <ScrollText className="h-4 w-4" />
+              Textos Legales
+            </TabsTrigger>
+            <TabsTrigger value="series" className="flex items-center gap-2">
+              <Hash className="h-4 w-4" />
+              Series y Numeración
             </TabsTrigger>
             <TabsTrigger value="email" className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
@@ -307,7 +510,7 @@ export default function ConfiguracionEmpresaPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="web">Página Web</Label>
                     <Input
@@ -318,16 +521,83 @@ export default function ConfiguracionEmpresaPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="logo">URL del Logo</Label>
+                    <Label htmlFor="movil">Móvil</Label>
                     <Input
-                      id="logo"
-                      value={empresa.logo || ''}
-                      onChange={(e) => setEmpresa({ ...empresa, logo: e.target.value })}
-                      placeholder="https://..."
+                      id="movil"
+                      value={empresa.movil || ''}
+                      onChange={(e) => setEmpresa({ ...empresa, movil: e.target.value })}
+                      placeholder="600123456"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Próximamente: subida de archivos
-                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fax">Fax</Label>
+                    <Input
+                      id="fax"
+                      value={empresa.fax || ''}
+                      onChange={(e) => setEmpresa({ ...empresa, fax: e.target.value })}
+                      placeholder="912345679"
+                    />
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Logo */}
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Logo de la Empresa</h3>
+                  <div className="flex items-start gap-6">
+                    {/* Vista previa del logo */}
+                    <div className="flex-shrink-0">
+                      <div className="w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
+                        {empresa.logo ? (
+                          <img
+                            src={empresa.logo}
+                            alt="Logo"
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="logo">URL del Logo</Label>
+                        <Input
+                          id="logo"
+                          value={empresa.logo || ''}
+                          onChange={(e) => setEmpresa({ ...empresa, logo: e.target.value })}
+                          placeholder="https://..."
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">o</span>
+                        <input
+                          type="file"
+                          ref={logoInputRef}
+                          onChange={handleLogoUpload}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => logoInputRef.current?.click()}
+                          disabled={isUploadingLogo}
+                        >
+                          {isUploadingLogo ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="mr-2 h-4 w-4" />
+                          )}
+                          Subir imagen
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Formatos: JPG, PNG, SVG. Máximo 2MB. Recomendado: 200x200px
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -400,6 +670,99 @@ export default function ConfiguracionEmpresaPage() {
                   </div>
                 </div>
 
+                <Separator />
+
+                {/* Datos de Registro Mercantil */}
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Datos de Registro Mercantil</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-2 space-y-2">
+                      <Label htmlFor="registroMercantil">Registro Mercantil</Label>
+                      <Input
+                        id="registroMercantil"
+                        value={empresa.datosRegistro?.registroMercantil || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          datosRegistro: { ...empresa.datosRegistro, registroMercantil: e.target.value }
+                        })}
+                        placeholder="Registro Mercantil de Madrid"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="tomo">Tomo</Label>
+                      <Input
+                        id="tomo"
+                        value={empresa.datosRegistro?.tomo || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          datosRegistro: { ...empresa.datosRegistro, tomo: e.target.value }
+                        })}
+                        placeholder="12345"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="libro">Libro</Label>
+                      <Input
+                        id="libro"
+                        value={empresa.datosRegistro?.libro || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          datosRegistro: { ...empresa.datosRegistro, libro: e.target.value }
+                        })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="folio">Folio</Label>
+                      <Input
+                        id="folio"
+                        value={empresa.datosRegistro?.folio || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          datosRegistro: { ...empresa.datosRegistro, folio: e.target.value }
+                        })}
+                        placeholder="123"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="seccion">Sección</Label>
+                      <Input
+                        id="seccion"
+                        value={empresa.datosRegistro?.seccion || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          datosRegistro: { ...empresa.datosRegistro, seccion: e.target.value }
+                        })}
+                        placeholder="8"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="hoja">Hoja</Label>
+                      <Input
+                        id="hoja"
+                        value={empresa.datosRegistro?.hoja || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          datosRegistro: { ...empresa.datosRegistro, hoja: e.target.value }
+                        })}
+                        placeholder="M-123456"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="inscripcion">Inscripción</Label>
+                      <Input
+                        id="inscripcion"
+                        value={empresa.datosRegistro?.inscripcion || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          datosRegistro: { ...empresa.datosRegistro, inscripcion: e.target.value }
+                        })}
+                        placeholder="1ª"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex justify-end pt-4">
                   <Button onClick={handleSaveEmpresa} disabled={isSaving}>
                     {isSaving ? (
@@ -408,6 +771,417 @@ export default function ConfiguracionEmpresaPage() {
                       <Save className="mr-2 h-4 w-4" />
                     )}
                     Guardar Cambios
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ============================================ */}
+          {/* TAB: CUENTAS BANCARIAS */}
+          {/* ============================================ */}
+          <TabsContent value="bancaria" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Landmark className="h-5 w-5" />
+                      Cuentas Bancarias
+                    </CardTitle>
+                    <CardDescription>
+                      Gestiona las cuentas bancarias de tu empresa para cobros y pagos
+                    </CardDescription>
+                  </div>
+                  <Button onClick={handleAddCuenta}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Añadir Cuenta
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(empresa.cuentasBancarias?.length || 0) === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Landmark className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                    <p>No hay cuentas bancarias configuradas</p>
+                    <p className="text-sm">Añade una cuenta para poder incluirla en tus facturas y presupuestos</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Alias / Banco</TableHead>
+                        <TableHead>IBAN</TableHead>
+                        <TableHead>Titular</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {empresa.cuentasBancarias?.map((cuenta, index) => (
+                        <TableRow key={cuenta._id || index}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{cuenta.alias || cuenta.banco || 'Sin nombre'}</p>
+                              {cuenta.banco && cuenta.alias && (
+                                <p className="text-sm text-muted-foreground">{cuenta.banco}</p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">{cuenta.iban}</TableCell>
+                          <TableCell>{cuenta.titular}</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              {cuenta.predeterminada && (
+                                <Badge variant="default">Principal</Badge>
+                              )}
+                              <Badge variant={cuenta.activa ? 'secondary' : 'outline'}>
+                                {cuenta.activa ? 'Activa' : 'Inactiva'}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditCuenta(cuenta)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteCuenta(cuenta)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+              {(empresa.cuentasBancarias?.length || 0) > 0 && (
+                <CardFooter className="justify-end border-t pt-4">
+                  <Button onClick={handleSaveEmpresa} disabled={isSaving}>
+                    {isSaving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Guardar Cambios
+                  </Button>
+                </CardFooter>
+              )}
+            </Card>
+          </TabsContent>
+
+          {/* ============================================ */}
+          {/* TAB: TEXTOS LEGALES */}
+          {/* ============================================ */}
+          <TabsContent value="textos" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ScrollText className="h-5 w-5" />
+                  Textos Legales y Plantillas
+                </CardTitle>
+                <CardDescription>
+                  Configura los textos que aparecerán automáticamente en presupuestos, facturas y emails
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Textos para Presupuestos */}
+                <div>
+                  <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Presupuestos
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="presupuestoIntroduccion">Texto de Introducción</Label>
+                      <Textarea
+                        id="presupuestoIntroduccion"
+                        value={empresa.textosLegales?.presupuestoIntroduccion || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, presupuestoIntroduccion: e.target.value }
+                        })}
+                        placeholder="Texto que aparecerá al inicio del presupuesto..."
+                        rows={3}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="presupuestoCondiciones">Condiciones Comerciales</Label>
+                      <Textarea
+                        id="presupuestoCondiciones"
+                        value={empresa.textosLegales?.presupuestoCondiciones || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, presupuestoCondiciones: e.target.value }
+                        })}
+                        placeholder="Condiciones de pago, plazos de entrega, garantías..."
+                        rows={4}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="presupuestoPiePagina">Pie de Página</Label>
+                      <Textarea
+                        id="presupuestoPiePagina"
+                        value={empresa.textosLegales?.presupuestoPiePagina || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, presupuestoPiePagina: e.target.value }
+                        })}
+                        placeholder="Texto que aparecerá al final del presupuesto..."
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Textos para Facturas */}
+                <div>
+                  <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Facturas
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="facturaCondiciones">Condiciones de Pago</Label>
+                      <Textarea
+                        id="facturaCondiciones"
+                        value={empresa.textosLegales?.facturaCondiciones || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, facturaCondiciones: e.target.value }
+                        })}
+                        placeholder="Condiciones de pago para facturas..."
+                        rows={3}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="facturaPiePagina">Pie de Página</Label>
+                      <Textarea
+                        id="facturaPiePagina"
+                        value={empresa.textosLegales?.facturaPiePagina || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, facturaPiePagina: e.target.value }
+                        })}
+                        placeholder="Texto que aparecerá al final de la factura..."
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Textos para Emails */}
+                <div>
+                  <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                    <Mail className="h-5 w-5" />
+                    Emails
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="emailFirma">Firma de Email</Label>
+                      <Textarea
+                        id="emailFirma"
+                        value={empresa.textosLegales?.emailFirma || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, emailFirma: e.target.value }
+                        })}
+                        placeholder="Firma que aparecerá en los emails enviados..."
+                        rows={4}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emailDisclaimer">Disclaimer / Aviso Legal</Label>
+                      <Textarea
+                        id="emailDisclaimer"
+                        value={empresa.textosLegales?.emailDisclaimer || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, emailDisclaimer: e.target.value }
+                        })}
+                        placeholder="Texto legal al pie del email (confidencialidad, etc.)..."
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* LOPD / RGPD */}
+                <div>
+                  <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    LOPD / RGPD
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="textoLOPD">Texto LOPD para Documentos</Label>
+                      <Textarea
+                        id="textoLOPD"
+                        value={empresa.textosLegales?.textoLOPD || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, textoLOPD: e.target.value }
+                        })}
+                        placeholder="En cumplimiento de la Ley Orgánica de Protección de Datos..."
+                        rows={4}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Este texto aparecerá en presupuestos, facturas y comunicaciones
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="condicionesVenta">Condiciones Generales de Venta</Label>
+                      <Textarea
+                        id="condicionesVenta"
+                        value={empresa.textosLegales?.condicionesVenta || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, condicionesVenta: e.target.value }
+                        })}
+                        placeholder="Condiciones generales de venta..."
+                        rows={4}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4">
+                  <Button onClick={handleSaveTextosLegales} disabled={isSaving}>
+                    {isSaving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Guardar Textos
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ============================================ */}
+          {/* TAB: SERIES Y NUMERACIÓN */}
+          {/* ============================================ */}
+          <TabsContent value="series" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Hash className="h-5 w-5" />
+                  Series de Documentos
+                </CardTitle>
+                <CardDescription>
+                  Configura las series (prefijos) para la numeración de documentos
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="seriePresupuestos">Serie Presupuestos</Label>
+                    <Input
+                      id="seriePresupuestos"
+                      value={empresa.seriesDocumentos?.presupuestos || ''}
+                      onChange={(e) => setEmpresa({
+                        ...empresa,
+                        seriesDocumentos: { ...empresa.seriesDocumentos, presupuestos: e.target.value.toUpperCase() }
+                      })}
+                      placeholder="P"
+                      maxLength={5}
+                    />
+                    <p className="text-xs text-muted-foreground">Ejemplo: P-2024-00001</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="seriePedidos">Serie Pedidos</Label>
+                    <Input
+                      id="seriePedidos"
+                      value={empresa.seriesDocumentos?.pedidos || ''}
+                      onChange={(e) => setEmpresa({
+                        ...empresa,
+                        seriesDocumentos: { ...empresa.seriesDocumentos, pedidos: e.target.value.toUpperCase() }
+                      })}
+                      placeholder="PED"
+                      maxLength={5}
+                    />
+                    <p className="text-xs text-muted-foreground">Ejemplo: PED-2024-00001</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="serieAlbaranes">Serie Albaranes</Label>
+                    <Input
+                      id="serieAlbaranes"
+                      value={empresa.seriesDocumentos?.albaranes || ''}
+                      onChange={(e) => setEmpresa({
+                        ...empresa,
+                        seriesDocumentos: { ...empresa.seriesDocumentos, albaranes: e.target.value.toUpperCase() }
+                      })}
+                      placeholder="ALB"
+                      maxLength={5}
+                    />
+                    <p className="text-xs text-muted-foreground">Ejemplo: ALB-2024-00001</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="serieFacturas">Serie Facturas</Label>
+                    <Input
+                      id="serieFacturas"
+                      value={empresa.seriesDocumentos?.facturas || ''}
+                      onChange={(e) => setEmpresa({
+                        ...empresa,
+                        seriesDocumentos: { ...empresa.seriesDocumentos, facturas: e.target.value.toUpperCase() }
+                      })}
+                      placeholder="F"
+                      maxLength={5}
+                    />
+                    <p className="text-xs text-muted-foreground">Ejemplo: F-2024-00001</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="serieFacturasRectificativas">Serie Facturas Rectificativas</Label>
+                    <Input
+                      id="serieFacturasRectificativas"
+                      value={empresa.seriesDocumentos?.facturasRectificativas || ''}
+                      onChange={(e) => setEmpresa({
+                        ...empresa,
+                        seriesDocumentos: { ...empresa.seriesDocumentos, facturasRectificativas: e.target.value.toUpperCase() }
+                      })}
+                      placeholder="FR"
+                      maxLength={5}
+                    />
+                    <p className="text-xs text-muted-foreground">Ejemplo: FR-2024-00001</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <h4 className="font-medium text-amber-800 mb-2">Información sobre Numeración</h4>
+                  <ul className="text-sm text-amber-700 space-y-1">
+                    <li>• La numeración es automática y correlativa dentro de cada serie</li>
+                    <li>• Por defecto, la numeración se reinicia cada año fiscal</li>
+                    <li>• Los números asignados no pueden ser modificados para cumplir con la normativa fiscal</li>
+                    <li>• Los cambios en las series solo afectan a documentos nuevos</li>
+                  </ul>
+                </div>
+
+                <div className="flex justify-end pt-4">
+                  <Button onClick={handleSaveSeries} disabled={isSaving}>
+                    {isSaving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Guardar Series
                   </Button>
                 </div>
               </CardContent>
@@ -643,6 +1417,112 @@ export default function ConfiguracionEmpresaPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* ============================================ */}
+        {/* DIALOG: CUENTA BANCARIA */}
+        {/* ============================================ */}
+        <Dialog open={showCuentaDialog} onOpenChange={setShowCuentaDialog}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {editingCuenta ? 'Editar Cuenta Bancaria' : 'Nueva Cuenta Bancaria'}
+              </DialogTitle>
+              <DialogDescription>
+                {editingCuenta
+                  ? 'Modifica los datos de la cuenta bancaria'
+                  : 'Añade una nueva cuenta bancaria a tu empresa'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="cuentaTitular">Titular *</Label>
+                  <Input
+                    id="cuentaTitular"
+                    value={cuentaForm.titular || ''}
+                    onChange={(e) => setCuentaForm({ ...cuentaForm, titular: e.target.value })}
+                    placeholder="Nombre del titular de la cuenta"
+                  />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="cuentaIban">IBAN *</Label>
+                  <Input
+                    id="cuentaIban"
+                    value={cuentaForm.iban || ''}
+                    onChange={(e) => setCuentaForm({ ...cuentaForm, iban: e.target.value.toUpperCase().replace(/\s/g, '') })}
+                    placeholder="ES00 0000 0000 0000 0000 0000"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cuentaSwift">SWIFT/BIC</Label>
+                  <Input
+                    id="cuentaSwift"
+                    value={cuentaForm.swift || ''}
+                    onChange={(e) => setCuentaForm({ ...cuentaForm, swift: e.target.value.toUpperCase() })}
+                    placeholder="XXXXXXXX"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cuentaBanco">Banco</Label>
+                  <Input
+                    id="cuentaBanco"
+                    value={cuentaForm.banco || ''}
+                    onChange={(e) => setCuentaForm({ ...cuentaForm, banco: e.target.value })}
+                    placeholder="Nombre del banco"
+                  />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="cuentaAlias">Alias (nombre descriptivo)</Label>
+                  <Input
+                    id="cuentaAlias"
+                    value={cuentaForm.alias || ''}
+                    onChange={(e) => setCuentaForm({ ...cuentaForm, alias: e.target.value })}
+                    placeholder="Ej: Cuenta Principal, Cuenta Pagos..."
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="cuentaPredeterminada" className="cursor-pointer">
+                    Cuenta predeterminada
+                  </Label>
+                  <Switch
+                    id="cuentaPredeterminada"
+                    checked={cuentaForm.predeterminada || false}
+                    onCheckedChange={(checked) => setCuentaForm({ ...cuentaForm, predeterminada: checked })}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  La cuenta predeterminada aparecerá automáticamente en facturas y presupuestos
+                </p>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="cuentaActiva" className="cursor-pointer">
+                    Cuenta activa
+                  </Label>
+                  <Switch
+                    id="cuentaActiva"
+                    checked={cuentaForm.activa !== false}
+                    onCheckedChange={(checked) => setCuentaForm({ ...cuentaForm, activa: checked })}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCuentaDialog(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveCuenta}>
+                {editingCuenta ? 'Guardar Cambios' : 'Añadir Cuenta'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   )

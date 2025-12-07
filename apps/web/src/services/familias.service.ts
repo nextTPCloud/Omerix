@@ -69,4 +69,10 @@ export const familiasService = {
     const response = await api.get('/familias/sugerir-codigo', { params });
     return response.data;
   },
+
+  // Duplicar familia
+  async duplicar(id: string): Promise<FamiliaResponse> {
+    const response = await api.post(`/familias/${id}/duplicar`);
+    return response.data;
+  },
 };

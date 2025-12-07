@@ -159,6 +159,28 @@ export class FormasPagoController {
       next(error);
     }
   }
+
+  async duplicar(req: Request, res: Response, next: NextFunction) {
+    try {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autorizado',
+        });
+      }
+
+      const result = await formasPagoService.duplicar(req.params.id, empresaId, req.empresaDbConfig);
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: 'Forma de pago duplicada correctamente',
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  }
 }
 
 export const formasPagoController = new FormasPagoController();

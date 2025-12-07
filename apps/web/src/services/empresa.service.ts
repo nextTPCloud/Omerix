@@ -1,6 +1,55 @@
 import { api } from './api';
 
-// Tipos
+// ============================================
+// INTERFACES
+// ============================================
+
+// Cuenta bancaria de la empresa
+export interface CuentaBancariaEmpresa {
+  _id?: string;
+  alias?: string;
+  titular: string;
+  iban: string;
+  swift?: string;
+  banco?: string;
+  sucursal?: string;
+  predeterminada: boolean;
+  activa: boolean;
+}
+
+// Textos legales configurables
+export interface TextosLegales {
+  // Para presupuestos
+  presupuestoIntroduccion?: string;
+  presupuestoPiePagina?: string;
+  presupuestoCondiciones?: string;
+  // Para facturas
+  facturaIntroduccion?: string;
+  facturaPiePagina?: string;
+  facturaCondiciones?: string;
+  // Para emails
+  emailFirma?: string;
+  emailDisclaimer?: string;
+  // LOPD / RGPD
+  textoLOPD?: string;
+  textoRGPD?: string;
+  // Política de privacidad, cookies, etc.
+  politicaPrivacidad?: string;
+  condicionesVenta?: string;
+}
+
+// Datos de registro mercantil
+export interface DatosRegistro {
+  registroMercantil?: string;
+  tomo?: string;
+  libro?: string;
+  folio?: string;
+  seccion?: string;
+  hoja?: string;
+  inscripcion?: string;
+}
+
+// Información principal de la empresa
 export interface EmpresaInfo {
   _id: string;
   nombre: string;
@@ -8,16 +57,47 @@ export interface EmpresaInfo {
   nif: string;
   email: string;
   telefono?: string;
+  movil?: string;
+  fax?: string;
   web?: string;
   logo?: string;
   direccion?: {
     calle: string;
+    numero?: string;
+    piso?: string;
     ciudad: string;
     provincia: string;
     codigoPostal: string;
     pais: string;
   };
   tipoNegocio: string;
+  // Datos de registro mercantil
+  datosRegistro?: DatosRegistro;
+  // Cuentas bancarias
+  cuentasBancarias?: CuentaBancariaEmpresa[];
+  // Textos legales
+  textosLegales?: TextosLegales;
+  // Series de documentos
+  seriesDocumentos?: {
+    presupuestos?: string;
+    pedidos?: string;
+    albaranes?: string;
+    facturas?: string;
+    facturasRectificativas?: string;
+  };
+  // Configuración de numeración
+  numeracion?: {
+    presupuestoActual?: number;
+    pedidoActual?: number;
+    albaranActual?: number;
+    facturaActual?: number;
+    facturaRectificativaActual?: number;
+    reiniciarAnualmente?: boolean;
+  };
+  // Moneda y formato
+  moneda?: string;
+  formatoFecha?: string;
+  formatoNumero?: string;
 }
 
 export interface EmailConfig {
@@ -74,6 +154,22 @@ export const empresaService = {
         };
       }
       return { success: false, message: 'No se pudo obtener la información de la empresa' };
+    }
+  },
+
+  /**
+   * Alias de getMiEmpresa para compatibilidad con código existente
+   */
+  getInfo: async (): Promise<EmpresaInfo | undefined> => {
+    try {
+      const response = await api.get('/empresa/mi-empresa');
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      return undefined;
+    } catch (error) {
+      console.error('Error obteniendo info empresa:', error);
+      return undefined;
     }
   },
 

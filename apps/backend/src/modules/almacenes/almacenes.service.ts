@@ -235,6 +235,44 @@ export class AlmacenesService {
 
     return almacenes.map(a => a.codigo);
   }
+
+  /**
+   * Duplicar un almacén
+   */
+  async duplicar(id: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const AlmacenModel = await this.getModelo(empresaId, dbConfig);
+
+    const original = await AlmacenModel.findById(id).lean();
+
+    if (!original) {
+      throw new AppError('Almacén no encontrado', 404);
+    }
+
+    // Generar nuevo código
+    const baseCode = original.codigo.replace(/-COPIA(\d*)$/, '');
+    let newCode = `${baseCode}-COPIA`;
+    let counter = 1;
+
+    while (await AlmacenModel.findOne({ codigo: newCode })) {
+      newCode = `${baseCode}-COPIA${counter}`;
+      counter++;
+    }
+
+    // Crear copia
+    const { _id, createdAt, updatedAt, ...datosParaCopiar } = original as any;
+
+    const copia = new AlmacenModel({
+      ...datosParaCopiar,
+      codigo: newCode,
+      nombre: `${original.nombre} (Copia)`,
+      esPrincipal: false,
+      activo: false,
+    });
+
+    await copia.save();
+
+    return copia.toObject();
+  }
 }
 
 export const almacenesService = new AlmacenesService();

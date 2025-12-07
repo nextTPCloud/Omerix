@@ -310,4 +310,32 @@ router.patch(
   estadosController.changeStatus.bind(estadosController)
 );
 
+/**
+ * @swagger
+ * /estados/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar un estado
+ *     tags: [Estados]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del estado a duplicar
+ *     responses:
+ *       201:
+ *         description: Estado duplicado exitosamente
+ *       404:
+ *         description: Estado no encontrado
+ *       401:
+ *         description: No autenticado
+ */
+router.post(
+  '/:id/duplicar',
+  estadosController.duplicar.bind(estadosController)
+);
+
 export default router;

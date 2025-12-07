@@ -308,4 +308,28 @@ router.put('/:id', formasPagoController.update.bind(formasPagoController));
  */
 router.delete('/:id', formasPagoController.delete.bind(formasPagoController));
 
+/**
+ * @swagger
+ * /api/formas-pago/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar una forma de pago
+ *     tags: [FormasPago]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       201:
+ *         description: Forma de pago duplicada exitosamente
+ *       404:
+ *         description: Forma de pago no encontrada
+ *       401:
+ *         description: No autorizado
+ */
+router.post('/:id/duplicar', formasPagoController.duplicar.bind(formasPagoController));
+
 export default router;

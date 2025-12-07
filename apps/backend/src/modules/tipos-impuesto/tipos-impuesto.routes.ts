@@ -489,4 +489,29 @@ router.post(
   tiposImpuestoController.setPredeterminado.bind(tiposImpuestoController)
 );
 
+/**
+ * @swagger
+ * /api/tipos-impuesto/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar un tipo de impuesto
+ *     tags: [Tipos de Impuesto]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del tipo de impuesto a duplicar
+ *     responses:
+ *       201:
+ *         description: Tipo de impuesto duplicado exitosamente
+ *       404:
+ *         description: Tipo de impuesto no encontrado
+ *       401:
+ *         description: No autenticado
+ */
+router.post('/:id/duplicar', tiposImpuestoController.duplicar.bind(tiposImpuestoController));
+
 export default router;

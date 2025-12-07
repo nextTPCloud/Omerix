@@ -242,6 +242,47 @@ export class ClasificacionesService {
       inactivos,
     };
   }
+
+  // ============================================
+  // DUPLICAR
+  // ============================================
+
+  async duplicar(
+    id: string,
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ): Promise<IClasificacion> {
+    const ClasificacionModel = await this.getModeloClasificacion(String(empresaId), dbConfig);
+
+    const original = await ClasificacionModel.findOne({ _id: id }).lean();
+
+    if (!original) {
+      throw new Error('Clasificación no encontrada');
+    }
+
+    let nuevoNombre = `${original.nombre} (Copia)`;
+    let counter = 1;
+    while (await ClasificacionModel.findOne({ nombre: nuevoNombre })) {
+      nuevoNombre = `${original.nombre} (Copia ${counter})`;
+      counter++;
+    }
+
+    const { _id, createdAt, updatedAt, creadoPor, fechaCreacion, ...datosParaCopiar } = original as any;
+
+    const copia = new ClasificacionModel({
+      ...datosParaCopiar,
+      nombre: nuevoNombre,
+      activo: false,
+      empresaId,
+      creadoPor: usuarioId,
+      fechaCreacion: new Date(),
+    });
+
+    await copia.save();
+
+    return copia;
+  }
 }
 
 export const clasificacionesService = new ClasificacionesService();

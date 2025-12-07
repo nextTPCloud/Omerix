@@ -356,6 +356,39 @@ export class FamiliasController {
       });
     }
   }
+
+  // Duplicar familia
+  async duplicar(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const { id } = req.params;
+
+      const familia = await familiasService.duplicar(
+        id,
+        empresaId,
+        req.empresaDbConfig
+      );
+
+      res.status(201).json({
+        success: true,
+        data: familia,
+        message: 'Familia duplicada correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al duplicar familia:', error);
+      res.status(error.message === 'Familia no encontrada' ? 404 : 500).json({
+        success: false,
+        message: error.message || 'Error al duplicar familia',
+      });
+    }
+  }
 }
 
 export const familiasController = new FamiliasController();

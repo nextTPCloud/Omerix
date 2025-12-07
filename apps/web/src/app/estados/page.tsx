@@ -55,6 +55,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -556,6 +557,20 @@ export default function EstadosPage() {
       case 'edit':
         router.push(`/estados/${estadoId}/editar`)
         break
+      case 'duplicate':
+        try {
+          toast.loading('Duplicando estado...')
+          const response = await estadosService.duplicar(estadoId)
+          toast.dismiss()
+          if (response.success) {
+            toast.success('Estado duplicado correctamente')
+            router.push(`/estados/${response.data._id}/editar`)
+          }
+        } catch (error: any) {
+          toast.dismiss()
+          toast.error(error.response?.data?.message || 'Error al duplicar el estado')
+        }
+        break
       case 'delete':
         const estado = estados.find(e => e._id === estadoId)
         if (estado) {
@@ -995,6 +1010,10 @@ export default function EstadosPage() {
                             <DropdownMenuItem onClick={() => handleEstadoAction(estado._id, 'edit')}>
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEstadoAction(estado._id, 'duplicate')}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

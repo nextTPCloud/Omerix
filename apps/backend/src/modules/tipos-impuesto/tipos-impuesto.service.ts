@@ -178,6 +178,44 @@ export class TiposImpuestoService {
 
     return tiposImpuesto.map(t => t.codigo);
   }
+
+  /**
+   * Duplicar un tipo de impuesto
+   */
+  async duplicar(id: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const TipoImpuestoModel = await this.getModelo(empresaId, dbConfig);
+
+    const original = await TipoImpuestoModel.findById(id).lean();
+
+    if (!original) {
+      throw new Error('Tipo de impuesto no encontrado');
+    }
+
+    // Generar nuevo código
+    const baseCode = original.codigo.replace(/-COPIA(\d*)$/, '');
+    let newCode = `${baseCode}-COPIA`;
+    let counter = 1;
+
+    while (await TipoImpuestoModel.findOne({ codigo: newCode })) {
+      newCode = `${baseCode}-COPIA${counter}`;
+      counter++;
+    }
+
+    // Crear copia
+    const { _id, createdAt, updatedAt, ...datosParaCopiar } = original as any;
+
+    const copia = new TipoImpuestoModel({
+      ...datosParaCopiar,
+      codigo: newCode,
+      nombre: `${original.nombre} (Copia)`,
+      predeterminado: false,
+      activo: false,
+    });
+
+    await copia.save();
+
+    return copia.toObject();
+  }
 }
 
 export const tiposImpuestoService = new TiposImpuestoService();

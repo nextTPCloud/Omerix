@@ -4,9 +4,30 @@ import React, { forwardRef } from 'react'
 import { IPresupuesto, getEstadoConfig, getTipoLineaLabel, TipoLinea } from '@/types/presupuesto.types'
 import { EmpresaInfo } from '@/services/empresa.service'
 
+export interface PrintOptions {
+  mostrarDescripcion: 'ninguna' | 'corta' | 'larga'
+  mostrarReferencias: boolean
+  mostrarCondiciones: boolean
+  mostrarFirmas: boolean
+  mostrarLOPD: boolean
+  mostrarRegistroMercantil: boolean
+  mostrarCuentaBancaria: boolean
+}
+
+export const defaultPrintOptions: PrintOptions = {
+  mostrarDescripcion: 'corta',
+  mostrarReferencias: true,
+  mostrarCondiciones: true,
+  mostrarFirmas: true,
+  mostrarLOPD: true,
+  mostrarRegistroMercantil: true,
+  mostrarCuentaBancaria: true,
+}
+
 interface PresupuestoPrintViewProps {
   presupuesto: IPresupuesto
   empresa?: EmpresaInfo
+  options?: PrintOptions
 }
 
 /**
@@ -14,7 +35,7 @@ interface PresupuestoPrintViewProps {
  * Diseño profesional con cabecera de empresa, datos del cliente y líneas.
  */
 export const PresupuestoPrintView = forwardRef<HTMLDivElement, PresupuestoPrintViewProps>(
-  ({ presupuesto, empresa }, ref) => {
+  ({ presupuesto, empresa, options = defaultPrintOptions }, ref) => {
     // Formatear moneda
     const formatCurrency = (value: number) => {
       return new Intl.NumberFormat('es-ES', {
@@ -176,10 +197,10 @@ export const PresupuestoPrintView = forwardRef<HTMLDivElement, PresupuestoPrintV
           </div>
         )}
 
-        {/* Introducción */}
-        {presupuesto.introduccion && (
+        {/* Introducción - Primero la del presupuesto, luego la de la empresa */}
+        {(presupuesto.introduccion || empresa?.textosLegales?.presupuestoIntroduccion) && (
           <div className="mb-4 text-sm text-gray-700 whitespace-pre-wrap">
-            {presupuesto.introduccion}
+            {presupuesto.introduccion || empresa?.textosLegales?.presupuestoIntroduccion}
           </div>
         )}
 
@@ -227,15 +248,24 @@ export const PresupuestoPrintView = forwardRef<HTMLDivElement, PresupuestoPrintV
                 }
 
                 // Línea normal
+                // Determinar qué descripción mostrar según las opciones
+                const descripcionMostrar = options.mostrarDescripcion === 'ninguna'
+                  ? null
+                  : options.mostrarDescripcion === 'larga'
+                    ? linea.descripcion
+                    : (linea.descripcion && linea.descripcion.length > 100
+                      ? linea.descripcion.substring(0, 100) + '...'
+                      : linea.descripcion)
+
                 return (
                   <tr key={index} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="px-2 py-2 text-gray-500">{index + 1}</td>
                     <td className="px-2 py-2">
                       <div className="font-medium text-gray-900">{linea.nombre}</div>
-                      {linea.descripcion && (
-                        <div className="text-gray-500 text-xs mt-0.5">{linea.descripcion}</div>
+                      {descripcionMostrar && (
+                        <div className="text-gray-500 text-xs mt-0.5">{descripcionMostrar}</div>
                       )}
-                      {linea.codigo && (
+                      {options.mostrarReferencias && linea.codigo && (
                         <div className="text-gray-400 text-xs">Ref: {linea.codigo}</div>
                       )}
                     </td>
@@ -310,8 +340,8 @@ export const PresupuestoPrintView = forwardRef<HTMLDivElement, PresupuestoPrintV
         {/* PIE DE PÁGINA Y CONDICIONES */}
         {/* ============================================ */}
         <footer className="mt-8 pt-4 border-t border-gray-300">
-          {/* Condiciones comerciales */}
-          {presupuesto.condiciones && (
+          {/* Condiciones comerciales del presupuesto */}
+          {options.mostrarCondiciones && presupuesto.condiciones && (
             <div className="mb-4 text-sm text-gray-600">
               <h4 className="font-semibold text-gray-800 mb-2">Condiciones:</h4>
               <ul className="list-disc list-inside space-y-1">
@@ -337,34 +367,107 @@ export const PresupuestoPrintView = forwardRef<HTMLDivElement, PresupuestoPrintV
             </div>
           )}
 
-          {/* Pie de página personalizado */}
-          {presupuesto.piePagina && (
-            <div className="mb-4 text-sm text-gray-600 whitespace-pre-wrap">
-              {presupuesto.piePagina}
+          {/* Condiciones generales de la empresa (si no hay en el presupuesto) */}
+          {options.mostrarCondiciones && !presupuesto.condicionesLegales && empresa?.textosLegales?.presupuestoCondiciones && (
+            <div className="mb-4 text-xs text-gray-600 whitespace-pre-wrap bg-gray-50 p-3 rounded border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-2 text-sm">Condiciones Generales:</h4>
+              {empresa.textosLegales.presupuestoCondiciones}
             </div>
           )}
 
-          {/* Condiciones legales */}
-          {presupuesto.condicionesLegales && (
+          {/* Pie de página - Del presupuesto o de la empresa */}
+          {(presupuesto.piePagina || empresa?.textosLegales?.presupuestoPiePagina) && (
+            <div className="mb-4 text-sm text-gray-600 whitespace-pre-wrap">
+              {presupuesto.piePagina || empresa?.textosLegales?.presupuestoPiePagina}
+            </div>
+          )}
+
+          {/* Condiciones legales específicas del presupuesto */}
+          {options.mostrarCondiciones && presupuesto.condicionesLegales && (
             <div className="text-xs text-gray-500 whitespace-pre-wrap border-t border-gray-200 pt-3 mt-3">
               {presupuesto.condicionesLegales}
             </div>
           )}
 
+          {/* Cuenta bancaria predeterminada */}
+          {options.mostrarCuentaBancaria && empresa?.cuentasBancarias && empresa.cuentasBancarias.length > 0 && (
+            <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200">
+              <h4 className="font-semibold text-gray-800 mb-2 text-sm">Datos Bancarios:</h4>
+              {(() => {
+                const cuentaPredeterminada = empresa.cuentasBancarias.find(c => c.predeterminada && c.activa)
+                  || empresa.cuentasBancarias.find(c => c.activa)
+                if (!cuentaPredeterminada) return null
+                return (
+                  <div className="text-xs text-gray-600 space-y-1">
+                    {cuentaPredeterminada.banco && (
+                      <p><span className="font-medium">Banco:</span> {cuentaPredeterminada.banco}</p>
+                    )}
+                    <p><span className="font-medium">Titular:</span> {cuentaPredeterminada.titular}</p>
+                    <p><span className="font-medium">IBAN:</span> {cuentaPredeterminada.iban}</p>
+                    {cuentaPredeterminada.swift && (
+                      <p><span className="font-medium">BIC/SWIFT:</span> {cuentaPredeterminada.swift}</p>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
           {/* Firma/Aceptación */}
-          <div className="mt-8 grid grid-cols-2 gap-8">
-            <div className="text-center">
-              <div className="border-t border-gray-400 pt-2 mt-8">
-                <p className="text-sm text-gray-600">Firma y sello de la empresa</p>
+          {options.mostrarFirmas && (
+            <div className="mt-8 grid grid-cols-2 gap-8">
+              <div className="text-center">
+                <div className="border-t border-gray-400 pt-2 mt-8">
+                  <p className="text-sm text-gray-600">Firma y sello de la empresa</p>
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="border-t border-gray-400 pt-2 mt-8">
+                  <p className="text-sm text-gray-600">Conforme del cliente</p>
+                  <p className="text-xs text-gray-400 mt-1">Fecha: ___/___/_____</p>
+                </div>
               </div>
             </div>
-            <div className="text-center">
-              <div className="border-t border-gray-400 pt-2 mt-8">
-                <p className="text-sm text-gray-600">Conforme del cliente</p>
-                <p className="text-xs text-gray-400 mt-1">Fecha: ___/___/_____</p>
+          )}
+
+          {/* ============================================ */}
+          {/* TEXTOS LEGALES LOPD/RGPD */}
+          {/* ============================================ */}
+          {options.mostrarLOPD && empresa?.textosLegales?.textoLOPD && (
+            <div className="mt-6 pt-4 border-t border-gray-300">
+              <div className="text-[9px] text-gray-500 whitespace-pre-wrap leading-tight">
+                {empresa.textosLegales.textoLOPD}
               </div>
             </div>
-          </div>
+          )}
+
+          {/* ============================================ */}
+          {/* DATOS DE REGISTRO MERCANTIL */}
+          {/* ============================================ */}
+          {options.mostrarRegistroMercantil && empresa?.datosRegistro && (
+            <div className="mt-4 pt-3 border-t border-gray-200 text-center">
+              <p className="text-[9px] text-gray-500">
+                {empresa.nombre}
+                {empresa.nif && ` · CIF: ${empresa.nif}`}
+                {empresa.datosRegistro.registroMercantil && ` · ${empresa.datosRegistro.registroMercantil}`}
+                {empresa.datosRegistro.tomo && ` · Tomo ${empresa.datosRegistro.tomo}`}
+                {empresa.datosRegistro.folio && `, Folio ${empresa.datosRegistro.folio}`}
+                {empresa.datosRegistro.hoja && `, Hoja ${empresa.datosRegistro.hoja}`}
+                {empresa.datosRegistro.inscripcion && `, Inscripción ${empresa.datosRegistro.inscripcion}`}
+              </p>
+              {empresa.direccion && (
+                <p className="text-[9px] text-gray-500 mt-1">
+                  {empresa.direccion.calle}
+                  {empresa.direccion.numero && `, ${empresa.direccion.numero}`}
+                  {empresa.direccion.codigoPostal && ` · ${empresa.direccion.codigoPostal}`}
+                  {empresa.direccion.ciudad && ` ${empresa.direccion.ciudad}`}
+                  {empresa.telefono && ` · Tel: ${empresa.telefono}`}
+                  {empresa.email && ` · ${empresa.email}`}
+                  {empresa.web && ` · ${empresa.web}`}
+                </p>
+              )}
+            </div>
+          )}
         </footer>
 
         {/* Estilos de impresión */}

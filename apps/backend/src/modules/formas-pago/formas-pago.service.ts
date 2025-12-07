@@ -192,6 +192,47 @@ export class FormasPagoService {
 
     return formasPago.map(f => f.codigo);
   }
+
+  /**
+   * Duplicar una forma de pago
+   */
+  async duplicar(id: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const FormaPagoModel = await this.getModelo(empresaId, dbConfig);
+    const original = await FormaPagoModel.findById(id).lean();
+
+    if (!original) {
+      throw new AppError('Forma de pago no encontrada', 404);
+    }
+
+    // Generar nuevo código
+    const baseCode = original.codigo.replace(/-COPIA(\d*)$/, '');
+    let newCode = `${baseCode}-COPIA`;
+    let counter = 1;
+
+    while (await FormaPagoModel.findOne({ codigo: newCode })) {
+      newCode = `${baseCode}-COPIA${counter}`;
+      counter++;
+    }
+
+    // Obtener siguiente orden
+    const maxOrden = await FormaPagoModel.findOne().sort({ orden: -1 }).select('orden').lean();
+    const nuevoOrden = (maxOrden?.orden || 0) + 1;
+
+    // Crear copia
+    const { _id, createdAt, updatedAt, ...datosParaCopiar } = original as any;
+
+    const copia = new FormaPagoModel({
+      ...datosParaCopiar,
+      codigo: newCode,
+      nombre: `${original.nombre} (Copia)`,
+      orden: nuevoOrden,
+      activo: false, // La copia se crea inactiva
+    });
+
+    await copia.save();
+
+    return copia.toObject();
+  }
 }
 
 export const formasPagoService = new FormasPagoService();

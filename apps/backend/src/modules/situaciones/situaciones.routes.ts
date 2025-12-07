@@ -310,4 +310,32 @@ router.patch(
   situacionesController.changeStatus.bind(situacionesController)
 );
 
+/**
+ * @swagger
+ * /situaciones/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar una situación
+ *     tags: [Situaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la situación a duplicar
+ *     responses:
+ *       201:
+ *         description: Situación duplicada exitosamente
+ *       404:
+ *         description: Situación no encontrada
+ *       401:
+ *         description: No autenticado
+ */
+router.post(
+  '/:id/duplicar',
+  situacionesController.duplicar.bind(situacionesController)
+);
+
 export default router;

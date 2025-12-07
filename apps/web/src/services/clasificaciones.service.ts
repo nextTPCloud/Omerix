@@ -68,6 +68,14 @@ class ClasificacionesService {
     const response = await api.post(`${this.baseUrl}/bulk-delete`, { ids });
     return response.data;
   }
+
+  /**
+   * Duplicar una clasificación
+   */
+  async duplicar(id: string): Promise<ClasificacionResponse> {
+    const response = await api.post<ClasificacionResponse>(`${this.baseUrl}/${id}/duplicar`);
+    return response.data;
+  }
 }
 
 export const clasificacionesService = new ClasificacionesService();

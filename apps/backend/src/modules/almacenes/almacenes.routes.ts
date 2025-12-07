@@ -569,4 +569,29 @@ router.delete('/:id', almacenesController.delete.bind(almacenesController));
  */
 router.post('/:id/principal', almacenesController.setPrincipal.bind(almacenesController));
 
+/**
+ * @swagger
+ * /api/almacenes/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar un almacén
+ *     tags: [Almacenes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del almacén a duplicar
+ *     responses:
+ *       201:
+ *         description: Almacén duplicado exitosamente
+ *       404:
+ *         description: Almacén no encontrado
+ *       401:
+ *         description: No autenticado
+ */
+router.post('/:id/duplicar', almacenesController.duplicar.bind(almacenesController));
+
 export default router;

@@ -1,4 +1,4 @@
-import Empresa, { IEmpresa, IEmailConfig } from '../../models/Empresa';
+import Empresa, { IEmpresa, IEmailConfig, ICuentaBancariaEmpresa, ITextosLegales, IDatosRegistro, encrypt, decrypt } from '../../models/Empresa';
 import nodemailer from 'nodemailer';
 import { Types } from 'mongoose';
 
@@ -25,15 +25,32 @@ export interface UpdateEmpresaDTO {
   nombreComercial?: string;
   email?: string;
   telefono?: string;
+  movil?: string;
+  fax?: string;
   web?: string;
   logo?: string;
   direccion?: {
     calle?: string;
+    numero?: string;
+    piso?: string;
     ciudad?: string;
     provincia?: string;
     codigoPostal?: string;
     pais?: string;
   };
+  datosRegistro?: IDatosRegistro;
+  cuentasBancarias?: ICuentaBancariaEmpresa[];
+  textosLegales?: ITextosLegales;
+  seriesDocumentos?: {
+    presupuestos?: string;
+    pedidos?: string;
+    albaranes?: string;
+    facturas?: string;
+    facturasRectificativas?: string;
+  };
+  moneda?: string;
+  formatoFecha?: string;
+  formatoNumero?: string;
 }
 
 export interface UpdateEmailConfigDTO {
@@ -89,9 +106,18 @@ class EmpresaService {
     if (data.nombreComercial !== undefined) updateData.nombreComercial = data.nombreComercial;
     if (data.email) updateData.email = data.email;
     if (data.telefono !== undefined) updateData.telefono = data.telefono;
+    if (data.movil !== undefined) updateData.movil = data.movil;
+    if (data.fax !== undefined) updateData.fax = data.fax;
     if (data.web !== undefined) updateData.web = data.web;
     if (data.logo !== undefined) updateData.logo = data.logo;
     if (data.direccion) updateData.direccion = data.direccion;
+    if (data.datosRegistro !== undefined) updateData.datosRegistro = data.datosRegistro;
+    if (data.cuentasBancarias !== undefined) updateData.cuentasBancarias = data.cuentasBancarias;
+    if (data.textosLegales !== undefined) updateData.textosLegales = data.textosLegales;
+    if (data.seriesDocumentos !== undefined) updateData.seriesDocumentos = data.seriesDocumentos;
+    if (data.moneda !== undefined) updateData.moneda = data.moneda;
+    if (data.formatoFecha !== undefined) updateData.formatoFecha = data.formatoFecha;
+    if (data.formatoNumero !== undefined) updateData.formatoNumero = data.formatoNumero;
 
     await Empresa.updateOne(
       { _id: empresaId },
@@ -104,6 +130,7 @@ class EmpresaService {
 
   /**
    * Actualizar configuración de email SMTP
+   * La contraseña se almacena encriptada
    */
   async updateEmailConfig(empresaId: string, config: UpdateEmailConfigDTO): Promise<IEmpresa | null> {
     // Primero obtener la empresa CON el password actual (select: false requiere +campo)
@@ -112,11 +139,17 @@ class EmpresaService {
       .lean();
     if (!empresaActual) return null;
 
-    // Si no se envía password, mantener la existente
-    const currentPassword = (empresaActual.emailConfig as any)?.password || '';
-    const newPassword = config.password || currentPassword;
+    // Si no se envía password, mantener la existente (ya está encriptada)
+    const currentEncryptedPassword = (empresaActual.emailConfig as any)?.password || '';
 
-    if (!newPassword) {
+    let passwordToStore: string;
+    if (config.password) {
+      // Nueva contraseña: encriptar antes de guardar
+      passwordToStore = encrypt(config.password);
+    } else if (currentEncryptedPassword) {
+      // Mantener la contraseña existente (ya encriptada)
+      passwordToStore = currentEncryptedPassword;
+    } else {
       throw new Error('La contraseña es obligatoria');
     }
 
@@ -125,7 +158,7 @@ class EmpresaService {
       port: config.port,
       secure: config.secure,
       user: config.user,
-      password: newPassword,
+      password: passwordToStore,
       fromName: config.fromName,
       fromEmail: config.fromEmail,
       replyTo: config.replyTo,
@@ -181,7 +214,12 @@ class EmpresaService {
     }
 
     try {
-      const transporter = this.createTransporter(empresa.emailConfig);
+      // Desencriptar la contraseña antes de usarla
+      const configWithDecryptedPassword = {
+        ...empresa.emailConfig,
+        password: decrypt((empresa.emailConfig as any).password),
+      };
+      const transporter = this.createTransporter(configWithDecryptedPassword);
 
       await transporter.sendMail({
         from: `"${empresa.emailConfig.fromName || empresa.nombre}" <${empresa.emailConfig.fromEmail || empresa.emailConfig.user}>`,
@@ -230,7 +268,12 @@ class EmpresaService {
     }
 
     try {
-      const transporter = this.createTransporter(empresa.emailConfig);
+      // Desencriptar la contraseña antes de usarla
+      const configWithDecryptedPassword = {
+        ...empresa.emailConfig,
+        password: decrypt((empresa.emailConfig as any).password),
+      };
+      const transporter = this.createTransporter(configWithDecryptedPassword);
 
       const mailOptions = {
         from: `"${empresa.emailConfig.fromName || empresa.nombre}" <${empresa.emailConfig.fromEmail || empresa.emailConfig.user}>`,

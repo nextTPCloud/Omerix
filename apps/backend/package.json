@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit",
     "seed:plans": "tsx src/scripts/seed-plans.ts",
     "seed:clientes": "tsx src/scripts/seedClientes.ts",
+    "seed:textos-legales": "tsx src/scripts/seedTextosLegales.ts",
     "migrate:multidb": "tsx src/scripts/migrateToMultiDB.ts"
   },
   "keywords": [],

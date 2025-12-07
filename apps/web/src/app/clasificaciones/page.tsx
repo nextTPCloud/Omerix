@@ -55,6 +55,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -556,6 +557,20 @@ export default function ClasificacionesPage() {
       case 'edit':
         router.push(`/clasificaciones/${clasificacionId}/editar`)
         break
+      case 'duplicate':
+        try {
+          toast.loading('Duplicando clasificación...')
+          const response = await clasificacionesService.duplicar(clasificacionId)
+          toast.dismiss()
+          if (response.success) {
+            toast.success('Clasificación duplicada correctamente')
+            router.push(`/clasificaciones/${response.data._id}/editar`)
+          }
+        } catch (error: any) {
+          toast.dismiss()
+          toast.error(error.response?.data?.message || 'Error al duplicar la clasificación')
+        }
+        break
       case 'delete':
         const clasificacion = clasificaciones.find(c => c._id === clasificacionId)
         if (clasificacion) {
@@ -995,6 +1010,10 @@ export default function ClasificacionesPage() {
                             <DropdownMenuItem onClick={() => handleClasificacionAction(clasificacion._id, 'edit')}>
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleClasificacionAction(clasificacion._id, 'duplicate')}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

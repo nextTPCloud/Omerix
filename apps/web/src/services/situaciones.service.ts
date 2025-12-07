@@ -68,6 +68,14 @@ class SituacionesService {
     const response = await api.post(`${this.baseUrl}/bulk-delete`, { ids });
     return response.data;
   }
+
+  /**
+   * Duplicar una situación
+   */
+  async duplicar(id: string): Promise<SituacionResponse> {
+    const response = await api.post<SituacionResponse>(`${this.baseUrl}/${id}/duplicar`);
+    return response.data;
+  }
 }
 
 export const situacionesService = new SituacionesService();

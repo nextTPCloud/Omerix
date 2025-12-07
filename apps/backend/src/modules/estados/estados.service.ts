@@ -242,6 +242,49 @@ export class EstadosService {
       inactivos,
     };
   }
+
+  // ============================================
+  // DUPLICAR
+  // ============================================
+
+  async duplicar(
+    id: string,
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ): Promise<IEstado> {
+    const EstadoModel = await this.getModeloEstado(String(empresaId), dbConfig);
+
+    const original = await EstadoModel.findOne({ _id: id }).lean();
+
+    if (!original) {
+      throw new Error('Estado no encontrado');
+    }
+
+    // Generar nuevo nombre
+    let nuevoNombre = `${original.nombre} (Copia)`;
+    let counter = 1;
+    while (await EstadoModel.findOne({ nombre: nuevoNombre })) {
+      nuevoNombre = `${original.nombre} (Copia ${counter})`;
+      counter++;
+    }
+
+    // Crear copia
+    const { _id, createdAt, updatedAt, creadoPor, fechaCreacion, ...datosParaCopiar } = original as any;
+
+    const copia = new EstadoModel({
+      ...datosParaCopiar,
+      nombre: nuevoNombre,
+      activo: false,
+      empresaId,
+      creadoPor: usuarioId,
+      fechaCreacion: new Date(),
+    });
+
+    await copia.save();
+
+    return copia;
+  }
 }
 
 export const estadosService = new EstadosService();

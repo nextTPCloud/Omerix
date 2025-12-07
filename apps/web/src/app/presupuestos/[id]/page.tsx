@@ -14,7 +14,15 @@ import { Label } from '@/components/ui/label'
 import { presupuestosService } from '@/services/presupuestos.service'
 import { empresaService, EmpresaInfo } from '@/services/empresa.service'
 import { IPresupuesto, getEstadoConfig, getTipoLineaLabel, ESTADOS_PRESUPUESTO, EstadoPresupuesto } from '@/types/presupuesto.types'
-import { PresupuestoPrintView } from '@/components/presupuestos/PresupuestoPrintView'
+import { PresupuestoPrintView, PrintOptions, defaultPrintOptions } from '@/components/presupuestos/PresupuestoPrintView'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import {
   ArrowLeft,
@@ -40,6 +48,16 @@ import {
   Printer,
   MessageCircle,
   ChevronDown,
+  CreditCard,
+  Truck,
+  FileCheck,
+  Building,
+  Phone,
+  AtSign,
+  Hash,
+  Timer,
+  Shield,
+  Banknote,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -72,7 +90,9 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showPrintView, setShowPrintView] = useState(false)
+  const [showPrintOptionsDialog, setShowPrintOptionsDialog] = useState(false)
   const [mostrarCostes, setMostrarCostes] = useState(true)
+  const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrintOptions)
   const printRef = useRef<HTMLDivElement>(null)
 
   // Hook para imprimir
@@ -159,17 +179,20 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
 
   const handlePrint = () => {
     if (!presupuesto) return
-    setShowPrintView(true)
-    // Esperar a que se renderice la vista y luego imprimir
-    setTimeout(() => {
-      handlePrintDocument()
-    }, 100)
+    // Abrir diálogo de opciones antes de imprimir
+    setShowPrintOptionsDialog(true)
   }
 
   const handleExportPDF = () => {
     if (!presupuesto) return
-    // Usamos la misma vista de impresión, el usuario puede guardar como PDF
+    // Abrir diálogo de opciones antes de imprimir
+    setShowPrintOptionsDialog(true)
+  }
+
+  const handleConfirmPrint = () => {
+    setShowPrintOptionsDialog(false)
     setShowPrintView(true)
+    // Esperar a que se renderice la vista y luego imprimir
     setTimeout(() => {
       handlePrintDocument()
     }, 100)
@@ -354,6 +377,19 @@ ${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}
   const proyectoNombre = typeof presupuesto.proyectoId === 'object'
     ? presupuesto.proyectoId.nombre
     : undefined
+
+  // Obtener nombres de forma de pago y término de pago si vienen poblados
+  const formaPagoNombre = presupuesto.condiciones?.formaPagoId
+    ? (typeof presupuesto.condiciones.formaPagoId === 'object'
+      ? (presupuesto.condiciones.formaPagoId as any).nombre
+      : null)
+    : null
+
+  const terminoPagoNombre = presupuesto.condiciones?.terminoPagoId
+    ? (typeof presupuesto.condiciones.terminoPagoId === 'object'
+      ? (presupuesto.condiciones.terminoPagoId as any).nombre
+      : null)
+    : null
 
   return (
     <DashboardLayout>
@@ -685,139 +721,469 @@ ${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}
 
           {/* Columna lateral - Info */}
           <div className="space-y-6">
+            {/* Estado del Presupuesto */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <FileCheck className="h-5 w-5" />
+                  Estado
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                  <div className={`w-3 h-3 rounded-full ${estadoConfig.dotColor}`} />
+                  <div className="flex-1">
+                    <p className="font-medium">{estadoConfig.label}</p>
+                    {presupuesto.diasParaCaducar !== null && presupuesto.diasParaCaducar !== undefined && (
+                      <p className={`text-xs ${presupuesto.diasParaCaducar < 0 ? 'text-destructive' : presupuesto.diasParaCaducar <= 7 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                        {presupuesto.diasParaCaducar < 0
+                          ? `Caducado hace ${Math.abs(presupuesto.diasParaCaducar)} días`
+                          : presupuesto.diasParaCaducar === 0
+                          ? 'Caduca hoy'
+                          : `Válido ${presupuesto.diasParaCaducar} días más`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Cliente */}
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
                   Cliente
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Nombre</p>
-                  <p className="font-medium">{clienteNombre}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">NIF</p>
-                  <p>{presupuesto.clienteNif}</p>
+                <div className="flex items-start gap-2">
+                  <Building className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">{clienteNombre}</p>
+                    <p className="text-sm text-muted-foreground">{presupuesto.clienteNif}</p>
+                  </div>
                 </div>
                 {presupuesto.clienteEmail && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p>{presupuesto.clienteEmail}</p>
+                  <div className="flex items-center gap-2">
+                    <AtSign className="h-4 w-4 text-muted-foreground" />
+                    <a href={`mailto:${presupuesto.clienteEmail}`} className="text-sm hover:underline text-primary">
+                      {presupuesto.clienteEmail}
+                    </a>
                   </div>
                 )}
                 {presupuesto.clienteTelefono && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Teléfono</p>
-                    <p>{presupuesto.clienteTelefono}</p>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <a href={`tel:${presupuesto.clienteTelefono}`} className="text-sm hover:underline">
+                      {presupuesto.clienteTelefono}
+                    </a>
+                  </div>
+                )}
+                {presupuesto.referenciaCliente && (
+                  <div className="flex items-center gap-2 pt-1 border-t">
+                    <Hash className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Ref. Cliente</p>
+                      <p className="text-sm">{presupuesto.referenciaCliente}</p>
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Fechas y validez */}
+            {/* Condiciones Comerciales */}
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Condiciones
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {formaPagoNombre && (
+                  <div className="flex items-start gap-2">
+                    <Banknote className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Forma de Pago</p>
+                      <p className="text-sm font-medium">{formaPagoNombre}</p>
+                    </div>
+                  </div>
+                )}
+                {terminoPagoNombre && (
+                  <div className="flex items-start gap-2">
+                    <Timer className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Término de Pago</p>
+                      <p className="text-sm font-medium">{terminoPagoNombre}</p>
+                    </div>
+                  </div>
+                )}
+                {presupuesto.condiciones?.validezDias && (
+                  <div className="flex items-start gap-2">
+                    <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Validez</p>
+                      <p className="text-sm">{presupuesto.condiciones.validezDias} días</p>
+                    </div>
+                  </div>
+                )}
+                {presupuesto.condiciones?.tiempoEntrega && (
+                  <div className="flex items-start gap-2">
+                    <Truck className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Tiempo Entrega</p>
+                      <p className="text-sm">{presupuesto.condiciones.tiempoEntrega}</p>
+                    </div>
+                  </div>
+                )}
+                {presupuesto.condiciones?.garantia && (
+                  <div className="flex items-start gap-2">
+                    <Shield className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Garantía</p>
+                      <p className="text-sm">{presupuesto.condiciones.garantia}</p>
+                    </div>
+                  </div>
+                )}
+                {presupuesto.condiciones?.portesPagados !== undefined && (
+                  <div className="flex items-center gap-2 pt-2 border-t">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-sm">
+                      {presupuesto.condiciones.portesPagados
+                        ? <span className="text-green-600 font-medium">Portes incluidos</span>
+                        : presupuesto.condiciones.portesImporte
+                          ? `Portes: ${formatCurrency(presupuesto.condiciones.portesImporte)}`
+                          : 'Portes a cargo del cliente'}
+                    </p>
+                  </div>
+                )}
+                {!formaPagoNombre && !terminoPagoNombre && !presupuesto.condiciones?.tiempoEntrega && !presupuesto.condiciones?.garantia && (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    Sin condiciones especificadas
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Fechas */}
+            <Card>
+              <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
                   Fechas
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Fecha</p>
-                  <p>{formatDate(presupuesto.fecha)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Válido hasta</p>
-                  <p>{formatDate(presupuesto.fechaValidez)}</p>
-                </div>
-                {presupuesto.fechaEnvio && (
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-sm text-muted-foreground">Fecha envío</p>
-                    <p>{formatDate(presupuesto.fechaEnvio)}</p>
+                    <p className="text-xs text-muted-foreground">Emisión</p>
+                    <p className="font-medium">{formatDate(presupuesto.fecha)}</p>
                   </div>
-                )}
-                {presupuesto.fechaRespuesta && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Fecha respuesta</p>
-                    <p>{formatDate(presupuesto.fechaRespuesta)}</p>
+                    <p className="text-xs text-muted-foreground">Validez</p>
+                    <p className="font-medium">{formatDate(presupuesto.fechaValidez)}</p>
                   </div>
-                )}
+                  {presupuesto.fechaEnvio && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Enviado</p>
+                      <p>{formatDate(presupuesto.fechaEnvio)}</p>
+                    </div>
+                  )}
+                  {presupuesto.fechaRespuesta && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Respuesta</p>
+                      <p>{formatDate(presupuesto.fechaRespuesta)}</p>
+                    </div>
+                  )}
+                  {presupuesto.fechaEntregaPrevista && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground">Entrega Prevista</p>
+                      <p className="font-medium text-primary">{formatDate(presupuesto.fechaEntregaPrevista)}</p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
+
+            {/* Dirección de entrega */}
+            {presupuesto.direccionEntrega && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Entrega
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {presupuesto.direccionEntrega.tipo === 'recogida' ? (
+                    <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <Package className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <p className="font-medium text-blue-900">Recogida en tienda</p>
+                        {presupuesto.direccionEntrega.instrucciones && (
+                          <p className="text-xs text-blue-700 mt-1">{presupuesto.direccionEntrega.instrucciones}</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : presupuesto.direccionEntrega.calle ? (
+                    <div className="space-y-2">
+                      <address className="not-italic text-sm">
+                        {presupuesto.direccionEntrega.nombre && (
+                          <p className="font-medium">{presupuesto.direccionEntrega.nombre}</p>
+                        )}
+                        <p>{presupuesto.direccionEntrega.calle} {presupuesto.direccionEntrega.numero}</p>
+                        {presupuesto.direccionEntrega.piso && <p>{presupuesto.direccionEntrega.piso}</p>}
+                        <p>{presupuesto.direccionEntrega.codigoPostal} {presupuesto.direccionEntrega.ciudad}</p>
+                        {presupuesto.direccionEntrega.provincia && (
+                          <p>{presupuesto.direccionEntrega.provincia}, {presupuesto.direccionEntrega.pais || 'España'}</p>
+                        )}
+                      </address>
+                      {(presupuesto.direccionEntrega.personaContacto || presupuesto.direccionEntrega.telefonoContacto) && (
+                        <div className="pt-2 border-t text-sm">
+                          {presupuesto.direccionEntrega.personaContacto && (
+                            <p><span className="text-muted-foreground">Contacto:</span> {presupuesto.direccionEntrega.personaContacto}</p>
+                          )}
+                          {presupuesto.direccionEntrega.telefonoContacto && (
+                            <p><span className="text-muted-foreground">Tel:</span> {presupuesto.direccionEntrega.telefonoContacto}</p>
+                          )}
+                        </div>
+                      )}
+                      {presupuesto.direccionEntrega.horarioEntrega && (
+                        <p className="text-xs text-muted-foreground pt-1 border-t">
+                          Horario: {presupuesto.direccionEntrega.horarioEntrega}
+                        </p>
+                      )}
+                      {presupuesto.direccionEntrega.instrucciones && (
+                        <p className="text-xs bg-amber-50 p-2 rounded border border-amber-200 text-amber-800">
+                          {presupuesto.direccionEntrega.instrucciones}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Dirección del cliente</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Relaciones */}
             {(agenteNombre || proyectoNombre) && (
               <Card>
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <CardTitle>Relaciones</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {agenteNombre && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Agente Comercial</p>
-                      <p>{agenteNombre}</p>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Agente Comercial</p>
+                        <p className="text-sm font-medium">{agenteNombre}</p>
+                      </div>
                     </div>
                   )}
                   {proyectoNombre && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Proyecto</p>
-                      <p>{proyectoNombre}</p>
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Proyecto</p>
+                        <p className="text-sm font-medium">{proyectoNombre}</p>
+                      </div>
                     </div>
                   )}
                 </CardContent>
               </Card>
             )}
 
-            {/* Dirección de entrega */}
-            {presupuesto.direccionEntrega && presupuesto.direccionEntrega.tipo === 'personalizada' && (
+            {/* Etiquetas */}
+            {presupuesto.tags && presupuesto.tags.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    Dirección de Entrega
-                  </CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle>Etiquetas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <address className="not-italic text-sm">
-                    {presupuesto.direccionEntrega.nombre && <p className="font-medium">{presupuesto.direccionEntrega.nombre}</p>}
-                    <p>{presupuesto.direccionEntrega.calle} {presupuesto.direccionEntrega.numero}</p>
-                    {presupuesto.direccionEntrega.piso && <p>{presupuesto.direccionEntrega.piso}</p>}
-                    <p>{presupuesto.direccionEntrega.codigoPostal} {presupuesto.direccionEntrega.ciudad}</p>
-                    <p>{presupuesto.direccionEntrega.provincia}, {presupuesto.direccionEntrega.pais}</p>
-                  </address>
+                  <div className="flex flex-wrap gap-1">
+                    {presupuesto.tags.map((tag, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}
 
             {/* Información del sistema */}
             <Card>
-              <CardHeader>
-                <CardTitle>Sistema</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-muted-foreground">Sistema</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Creado</p>
-                  <p>{new Date(presupuesto.fechaCreacion).toLocaleString('es-ES')}</p>
+              <CardContent className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Creado</span>
+                  <span>{new Date(presupuesto.fechaCreacion).toLocaleString('es-ES')}</span>
                 </div>
                 {presupuesto.fechaModificacion && (
-                  <div>
-                    <p className="text-muted-foreground">Última modificación</p>
-                    <p>{new Date(presupuesto.fechaModificacion).toLocaleString('es-ES')}</p>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Modificado</span>
+                    <span>{new Date(presupuesto.fechaModificacion).toLocaleString('es-ES')}</span>
                   </div>
                 )}
-                <div>
-                  <p className="text-muted-foreground">ID</p>
-                  <p className="font-mono text-xs">{presupuesto._id}</p>
+                <div className="flex justify-between pt-1 border-t">
+                  <span className="text-muted-foreground">Serie</span>
+                  <span className="font-mono">{presupuesto.serie || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Número</span>
+                  <span className="font-mono">{presupuesto.numero || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Versión</span>
+                  <span>{presupuesto.version || 1}</span>
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+
+      {/* Diálogo de opciones de impresión */}
+      <Dialog open={showPrintOptionsDialog} onOpenChange={setShowPrintOptionsDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="h-5 w-5" />
+              Opciones de Impresión
+            </DialogTitle>
+            <DialogDescription>
+              Personaliza cómo se imprimirá el presupuesto
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Descripción de productos */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Descripción de productos</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  type="button"
+                  variant={printOptions.mostrarDescripcion === 'ninguna' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrintOptions(prev => ({ ...prev, mostrarDescripcion: 'ninguna' }))}
+                  className="w-full"
+                >
+                  Ninguna
+                </Button>
+                <Button
+                  type="button"
+                  variant={printOptions.mostrarDescripcion === 'corta' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrintOptions(prev => ({ ...prev, mostrarDescripcion: 'corta' }))}
+                  className="w-full"
+                >
+                  Corta
+                </Button>
+                <Button
+                  type="button"
+                  variant={printOptions.mostrarDescripcion === 'larga' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrintOptions(prev => ({ ...prev, mostrarDescripcion: 'larga' }))}
+                  className="w-full"
+                >
+                  Completa
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {printOptions.mostrarDescripcion === 'ninguna' && 'Solo se mostrará el nombre del producto'}
+                {printOptions.mostrarDescripcion === 'corta' && 'Descripción truncada a 100 caracteres'}
+                {printOptions.mostrarDescripcion === 'larga' && 'Descripción completa del producto'}
+              </p>
+            </div>
+
+            <Separator />
+
+            {/* Otras opciones */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="mostrarReferencias" className="cursor-pointer">
+                  Mostrar referencias (SKU)
+                </Label>
+                <Switch
+                  id="mostrarReferencias"
+                  checked={printOptions.mostrarReferencias}
+                  onCheckedChange={(checked) => setPrintOptions(prev => ({ ...prev, mostrarReferencias: checked }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="mostrarCondiciones" className="cursor-pointer">
+                  Mostrar condiciones comerciales
+                </Label>
+                <Switch
+                  id="mostrarCondiciones"
+                  checked={printOptions.mostrarCondiciones}
+                  onCheckedChange={(checked) => setPrintOptions(prev => ({ ...prev, mostrarCondiciones: checked }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="mostrarFirmas" className="cursor-pointer">
+                  Mostrar espacio para firmas
+                </Label>
+                <Switch
+                  id="mostrarFirmas"
+                  checked={printOptions.mostrarFirmas}
+                  onCheckedChange={(checked) => setPrintOptions(prev => ({ ...prev, mostrarFirmas: checked }))}
+                />
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="mostrarCuentaBancaria" className="cursor-pointer">
+                  Mostrar datos bancarios
+                </Label>
+                <Switch
+                  id="mostrarCuentaBancaria"
+                  checked={printOptions.mostrarCuentaBancaria}
+                  onCheckedChange={(checked) => setPrintOptions(prev => ({ ...prev, mostrarCuentaBancaria: checked }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="mostrarLOPD" className="cursor-pointer">
+                  Mostrar texto LOPD/RGPD
+                </Label>
+                <Switch
+                  id="mostrarLOPD"
+                  checked={printOptions.mostrarLOPD}
+                  onCheckedChange={(checked) => setPrintOptions(prev => ({ ...prev, mostrarLOPD: checked }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="mostrarRegistroMercantil" className="cursor-pointer">
+                  Mostrar registro mercantil
+                </Label>
+                <Switch
+                  id="mostrarRegistroMercantil"
+                  checked={printOptions.mostrarRegistroMercantil}
+                  onCheckedChange={(checked) => setPrintOptions(prev => ({ ...prev, mostrarRegistroMercantil: checked }))}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowPrintOptionsDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmPrint}>
+              <Printer className="mr-2 h-4 w-4" />
+              Imprimir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo de confirmación para eliminar */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -857,6 +1223,7 @@ ${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}
             ref={printRef}
             presupuesto={presupuesto}
             empresa={empresa}
+            options={printOptions}
           />
         </div>
       )}

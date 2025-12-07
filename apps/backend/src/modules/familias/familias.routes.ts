@@ -401,4 +401,29 @@ router.delete('/:id', familiasController.eliminar.bind(familiasController));
  */
 router.post('/reordenar', familiasController.reordenar.bind(familiasController));
 
+/**
+ * @swagger
+ * /api/familias/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar una familia
+ *     tags: [Familias]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la familia a duplicar
+ *     responses:
+ *       201:
+ *         description: Familia duplicada exitosamente
+ *       404:
+ *         description: Familia no encontrada
+ *       401:
+ *         description: No autorizado
+ */
+router.post('/:id/duplicar', familiasController.duplicar.bind(familiasController));
+
 export default router;

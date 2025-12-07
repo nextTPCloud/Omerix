@@ -47,6 +47,7 @@ import {
   CheckCircle,
   XCircle,
   Layers,
+  Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -254,6 +255,18 @@ export default function FamiliasPage() {
       fetchFamilias()
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error al eliminar familias')
+    }
+  }
+
+  const handleDuplicar = async (id: string) => {
+    try {
+      const response = await familiasService.duplicar(id)
+      if (response.success && response.data) {
+        toast.success('Familia duplicada correctamente')
+        router.push(`/familias/${response.data._id}/editar`)
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al duplicar')
     }
   }
 
@@ -667,6 +680,9 @@ export default function FamiliasPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/familias/${familia._id}/editar`)}>
                               <Edit className="h-4 w-4 mr-2" />Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicar(familia._id)}>
+                              <Copy className="h-4 w-4 mr-2" />Duplicar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

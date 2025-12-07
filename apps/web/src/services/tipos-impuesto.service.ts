@@ -59,6 +59,11 @@ class TiposImpuestoService {
     );
     return response.data.data;
   }
+
+  async duplicar(id: string): Promise<TipoImpuestoResponse> {
+    const response = await api.post<TipoImpuestoResponse>(`${this.baseUrl}/${id}/duplicar`);
+    return response.data;
+  }
 }
 
 export const tiposImpuestoService = new TiposImpuestoService();

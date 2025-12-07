@@ -59,6 +59,7 @@ import {
   Star,
   CheckCircle,
   XCircle,
+  Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -669,6 +670,20 @@ const {
         break
       case 'edit':
         router.push(`/tipos-impuesto/${tipoId}/editar`)
+        break
+      case 'duplicate':
+        try {
+          toast.loading('Duplicando tipo de impuesto...')
+          const response = await tiposImpuestoService.duplicar(tipoId)
+          toast.dismiss()
+          if (response.success) {
+            toast.success('Tipo de impuesto duplicado correctamente')
+            router.push(`/tipos-impuesto/${response.data._id}/editar`)
+          }
+        } catch (error: any) {
+          toast.dismiss()
+          toast.error(error.response?.data?.message || 'Error al duplicar el tipo de impuesto')
+        }
         break
       case 'delete':
         const tipo = tiposImpuesto.find(t => t._id === tipoId)
@@ -1380,6 +1395,10 @@ const {
                             <DropdownMenuItem onClick={() => handleTipoAction(tipo._id, 'edit')}>
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleTipoAction(tipo._id, 'duplicate')}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicar
                             </DropdownMenuItem>
 
                             {!tipo.predeterminado && (

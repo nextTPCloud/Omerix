@@ -76,6 +76,11 @@ class AlmacenesService {
     );
     return response.data.data;
   }
+
+  async duplicar(id: string): Promise<AlmacenResponse> {
+    const response = await api.post<AlmacenResponse>(`${this.BASE_URL}/${id}/duplicar`);
+    return response.data;
+  }
 }
 
 export const almacenesService = new AlmacenesService();

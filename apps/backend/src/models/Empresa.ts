@@ -1,4 +1,35 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
+import crypto from 'crypto';
+
+// Clave de encriptación (en producción debería estar en variables de entorno)
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'omerix-encryption-key-32-chars!!'; // 32 caracteres
+const IV_LENGTH = 16;
+
+// Funciones de encriptación/desencriptación
+export function encrypt(text: string): string {
+  if (!text) return text;
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+export function decrypt(text: string): string {
+  if (!text || !text.includes(':')) return text;
+  try {
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift()!, 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+  } catch (error) {
+    console.error('Error desencriptando:', error);
+    return text; // Devolver original si falla (por si no está encriptado)
+  }
+}
 
 export interface IDatabaseConfig {
   host: string;
@@ -14,10 +45,55 @@ export interface IEmailConfig {
   port: number;
   secure: boolean; // true para 465, false para otros puertos
   user: string;
-  password: string;
+  password: string; // Almacenado encriptado
   fromName?: string; // Nombre que aparece como remitente
   fromEmail?: string; // Email del remitente (si es diferente al user)
   replyTo?: string; // Email de respuesta
+}
+
+// Cuenta bancaria de la empresa
+export interface ICuentaBancariaEmpresa {
+  _id?: Types.ObjectId;
+  alias?: string;
+  titular: string;
+  iban: string;
+  swift?: string;
+  banco?: string;
+  sucursal?: string;
+  predeterminada: boolean;
+  activa: boolean;
+}
+
+// Textos legales configurables
+export interface ITextosLegales {
+  // Para presupuestos
+  presupuestoIntroduccion?: string;
+  presupuestoPiePagina?: string;
+  presupuestoCondiciones?: string;
+  // Para facturas
+  facturaIntroduccion?: string;
+  facturaPiePagina?: string;
+  facturaCondiciones?: string;
+  // Para emails
+  emailFirma?: string;
+  emailDisclaimer?: string;
+  // LOPD / RGPD
+  textoLOPD?: string;
+  textoRGPD?: string;
+  // Política de privacidad, cookies, etc.
+  politicaPrivacidad?: string;
+  condicionesVenta?: string;
+}
+
+// Datos de registro mercantil
+export interface IDatosRegistro {
+  registroMercantil?: string;
+  tomo?: string;
+  libro?: string;
+  folio?: string;
+  seccion?: string;
+  hoja?: string;
+  inscripcion?: string;
 }
 
 export interface IEmpresa extends Document {
@@ -27,10 +103,14 @@ export interface IEmpresa extends Document {
   nif: string;
   email: string;
   telefono?: string;
+  movil?: string;
+  fax?: string;
   web?: string;
   logo?: string; // URL del logo
   direccion?: {
     calle: string;
+    numero?: string;
+    piso?: string;
     ciudad: string;
     provincia: string;
     codigoPostal: string;
@@ -39,6 +119,39 @@ export interface IEmpresa extends Document {
   tipoNegocio: 'retail' | 'restauracion' | 'taller' | 'informatica' | 'servicios' | 'otro';
   estado: 'activa' | 'suspendida' | 'cancelada';
   fechaAlta: Date;
+
+  // Datos de registro mercantil
+  datosRegistro?: IDatosRegistro;
+
+  // Cuentas bancarias de la empresa
+  cuentasBancarias?: ICuentaBancariaEmpresa[];
+
+  // Textos legales configurables
+  textosLegales?: ITextosLegales;
+
+  // Series de documentos
+  seriesDocumentos?: {
+    presupuestos?: string;
+    pedidos?: string;
+    albaranes?: string;
+    facturas?: string;
+    facturasRectificativas?: string;
+  };
+
+  // Configuración de numeración
+  numeracion?: {
+    presupuestoActual?: number;
+    pedidoActual?: number;
+    albaranActual?: number;
+    facturaActual?: number;
+    facturaRectificativaActual?: number;
+    reiniciarAnualmente?: boolean;
+  };
+
+  // Moneda y formato
+  moneda?: string;
+  formatoFecha?: string;
+  formatoNumero?: string;
 
   // Configuración de base de datos dedicada
   databaseConfig: IDatabaseConfig;
@@ -69,10 +182,46 @@ const EmailConfigSchema = new Schema<IEmailConfig>({
   port: { type: Number, required: true, default: 587 },
   secure: { type: Boolean, default: false },
   user: { type: String, required: true, trim: true },
-  password: { type: String, required: true, select: false }, // No se devuelve por defecto
+  password: { type: String, required: true, select: false }, // No se devuelve por defecto, almacenado encriptado
   fromName: { type: String, trim: true },
   fromEmail: { type: String, trim: true, lowercase: true },
   replyTo: { type: String, trim: true, lowercase: true },
+}, { _id: false });
+
+const CuentaBancariaEmpresaSchema = new Schema<ICuentaBancariaEmpresa>({
+  alias: { type: String, trim: true },
+  titular: { type: String, required: true, trim: true },
+  iban: { type: String, required: true, trim: true, uppercase: true },
+  swift: { type: String, trim: true, uppercase: true },
+  banco: { type: String, trim: true },
+  sucursal: { type: String, trim: true },
+  predeterminada: { type: Boolean, default: false },
+  activa: { type: Boolean, default: true },
+});
+
+const TextosLegalesSchema = new Schema<ITextosLegales>({
+  presupuestoIntroduccion: { type: String },
+  presupuestoPiePagina: { type: String },
+  presupuestoCondiciones: { type: String },
+  facturaIntroduccion: { type: String },
+  facturaPiePagina: { type: String },
+  facturaCondiciones: { type: String },
+  emailFirma: { type: String },
+  emailDisclaimer: { type: String },
+  textoLOPD: { type: String },
+  textoRGPD: { type: String },
+  politicaPrivacidad: { type: String },
+  condicionesVenta: { type: String },
+}, { _id: false });
+
+const DatosRegistroSchema = new Schema<IDatosRegistro>({
+  registroMercantil: { type: String, trim: true },
+  tomo: { type: String, trim: true },
+  libro: { type: String, trim: true },
+  folio: { type: String, trim: true },
+  seccion: { type: String, trim: true },
+  hoja: { type: String, trim: true },
+  inscripcion: { type: String, trim: true },
 }, { _id: false });
 
 const EmpresaSchema = new Schema<IEmpresa>(
@@ -113,6 +262,14 @@ const EmpresaSchema = new Schema<IEmpresa>(
       type: String,
       trim: true,
     },
+    movil: {
+      type: String,
+      trim: true,
+    },
+    fax: {
+      type: String,
+      trim: true,
+    },
     web: {
       type: String,
       trim: true,
@@ -123,6 +280,8 @@ const EmpresaSchema = new Schema<IEmpresa>(
     },
     direccion: {
       calle: String,
+      numero: String,
+      piso: String,
       ciudad: String,
       provincia: String,
       codigoPostal: String,
@@ -142,6 +301,46 @@ const EmpresaSchema = new Schema<IEmpresa>(
       type: Date,
       default: Date.now,
     },
+
+    // Datos de registro mercantil
+    datosRegistro: {
+      type: DatosRegistroSchema,
+    },
+
+    // Cuentas bancarias de la empresa
+    cuentasBancarias: {
+      type: [CuentaBancariaEmpresaSchema],
+      default: [],
+    },
+
+    // Textos legales configurables
+    textosLegales: {
+      type: TextosLegalesSchema,
+    },
+
+    // Series de documentos
+    seriesDocumentos: {
+      presupuestos: { type: String, default: 'P' },
+      pedidos: { type: String, default: 'PED' },
+      albaranes: { type: String, default: 'ALB' },
+      facturas: { type: String, default: 'F' },
+      facturasRectificativas: { type: String, default: 'FR' },
+    },
+
+    // Configuración de numeración
+    numeracion: {
+      presupuestoActual: { type: Number, default: 0 },
+      pedidoActual: { type: Number, default: 0 },
+      albaranActual: { type: Number, default: 0 },
+      facturaActual: { type: Number, default: 0 },
+      facturaRectificativaActual: { type: Number, default: 0 },
+      reiniciarAnualmente: { type: Boolean, default: true },
+    },
+
+    // Moneda y formato
+    moneda: { type: String, default: 'EUR' },
+    formatoFecha: { type: String, default: 'DD/MM/YYYY' },
+    formatoNumero: { type: String, default: 'es-ES' },
 
     // Configuración de base de datos dedicada para esta empresa
     databaseConfig: {

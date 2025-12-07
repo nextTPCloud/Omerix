@@ -63,6 +63,11 @@ class FormasPagoService {
     )
     return response.data.data
   }
+
+  async duplicar(id: string): Promise<FormaPagoResponse> {
+    const response = await api.post<FormaPagoResponse>(`${this.BASE_URL}/${id}/duplicar`)
+    return response.data
+  }
 }
 
 export const formasPagoService = new FormasPagoService()

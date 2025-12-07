@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef  } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useReactToPrint } from 'react-to-print'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -12,6 +13,11 @@ import {
   EstadoPresupuesto,
   getEstadoConfig,
 } from '@/types/presupuesto.types'
+import { PresupuestoPrintView, PrintOptions, defaultPrintOptions } from '@/components/presupuestos/PresupuestoPrintView'
+import { empresaService, EmpresaInfo } from '@/services/empresa.service'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -66,6 +72,8 @@ import {
   XCircle,
   Clock,
   Send,
+  Printer,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -186,6 +194,15 @@ export default function PresupuestosPage() {
     presupuestoIds: [],
     presupuestoCodigos: [],
   })
+
+  // Estados para impresión masiva
+  const [empresa, setEmpresa] = useState<EmpresaInfo | undefined>(undefined)
+  const [showBulkPrintDialog, setShowBulkPrintDialog] = useState(false)
+  const [showBulkPrintView, setShowBulkPrintView] = useState(false)
+  const [bulkPrintOptions, setBulkPrintOptions] = useState<PrintOptions>(defaultPrintOptions)
+  const [presupuestosToImprimir, setPresupuestosToImprimir] = useState<IPresupuesto[]>([])
+  const [isLoadingPresupuestosCompletos, setIsLoadingPresupuestosCompletos] = useState(false)
+  const bulkPrintRef = useRef<HTMLDivElement>(null)
 
   // Columnas disponibles
   const [columnasDisponibles] = useState([
@@ -607,6 +624,79 @@ const {
   }
 
   // ============================================
+  // IMPRESIÓN MASIVA
+  // ============================================
+
+  // Cargar empresa al inicio
+  useEffect(() => {
+    const loadEmpresa = async () => {
+      try {
+        const empresaData = await empresaService.getInfo()
+        setEmpresa(empresaData)
+      } catch (error) {
+        console.error('Error cargando empresa:', error)
+      }
+    }
+    loadEmpresa()
+  }, [])
+
+  // Hook para imprimir masivo
+  const handleBulkPrintDocument = useReactToPrint({
+    contentRef: bulkPrintRef,
+    documentTitle: `Presupuestos-${new Date().toISOString().split('T')[0]}`,
+    onAfterPrint: () => {
+      setShowBulkPrintView(false)
+      setPresupuestosToImprimir([])
+    },
+  })
+
+  // Iniciar impresión masiva
+  const handleBulkPrint = () => {
+    if (selectedPresupuestos.length === 0) {
+      toast.error('Selecciona al menos un presupuesto para imprimir')
+      return
+    }
+    setShowBulkPrintDialog(true)
+  }
+
+  // Confirmar impresión masiva - cargar presupuestos completos
+  const handleConfirmBulkPrint = async () => {
+    setShowBulkPrintDialog(false)
+    setIsLoadingPresupuestosCompletos(true)
+
+    try {
+      // Cargar cada presupuesto completo (con líneas y totales)
+      const presupuestosCompletos: IPresupuesto[] = []
+
+      for (const id of selectedPresupuestos) {
+        const response = await presupuestosService.getById(id)
+        if (response.success && response.data) {
+          presupuestosCompletos.push(response.data)
+        }
+      }
+
+      if (presupuestosCompletos.length === 0) {
+        toast.error('No se pudieron cargar los presupuestos')
+        return
+      }
+
+      setPresupuestosToImprimir(presupuestosCompletos)
+      setShowBulkPrintView(true)
+
+      // Esperar a que se renderice y luego imprimir
+      setTimeout(() => {
+        handleBulkPrintDocument()
+      }, 500)
+
+    } catch (error) {
+      console.error('Error cargando presupuestos:', error)
+      toast.error('Error al cargar los presupuestos para imprimir')
+    } finally {
+      setIsLoadingPresupuestosCompletos(false)
+    }
+  }
+
+  // ============================================
   // ACCIONES POR PRESUPUESTO
   // ============================================
 
@@ -1016,6 +1106,10 @@ const {
                 {selectedPresupuestos.length} {selectedPresupuestos.length === 1 ? 'presupuesto seleccionado' : 'presupuestos seleccionados'}
               </span>
               <div className="flex-1" />
+              <Button variant="outline" size="sm" onClick={handleBulkPrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir
+              </Button>
               <Button variant="outline" size="sm" onClick={() => handleBulkAction('export')}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Exportar
@@ -1579,6 +1673,172 @@ const {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* DIALOG DE OPCIONES DE IMPRESIÓN MASIVA */}
+        <Dialog open={showBulkPrintDialog} onOpenChange={setShowBulkPrintDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Printer className="h-5 w-5" />
+                Imprimir {selectedPresupuestos.length} Presupuesto{selectedPresupuestos.length > 1 ? 's' : ''}
+              </DialogTitle>
+              <DialogDescription>
+                Personaliza cómo se imprimirán los presupuestos seleccionados
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {/* Lista de presupuestos a imprimir */}
+              <div className="max-h-32 overflow-y-auto bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground mb-2">Presupuestos seleccionados:</p>
+                <ul className="space-y-1">
+                  {presupuestos
+                    .filter(p => selectedPresupuestos.includes(p._id))
+                    .map(p => (
+                      <li key={p._id} className="text-sm">
+                        <span className="font-mono font-medium">{p.codigo}</span>
+                        <span className="text-muted-foreground"> - {getClienteNombre(p.clienteId, p.clienteNombre)}</span>
+                      </li>
+                    ))
+                  }
+                </ul>
+              </div>
+
+              <Separator />
+
+              {/* Descripción de productos */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Descripción de productos</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    variant={bulkPrintOptions.mostrarDescripcion === 'ninguna' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setBulkPrintOptions(prev => ({ ...prev, mostrarDescripcion: 'ninguna' }))}
+                    className="w-full"
+                  >
+                    Ninguna
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={bulkPrintOptions.mostrarDescripcion === 'corta' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setBulkPrintOptions(prev => ({ ...prev, mostrarDescripcion: 'corta' }))}
+                    className="w-full"
+                  >
+                    Corta
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={bulkPrintOptions.mostrarDescripcion === 'larga' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setBulkPrintOptions(prev => ({ ...prev, mostrarDescripcion: 'larga' }))}
+                    className="w-full"
+                  >
+                    Completa
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {bulkPrintOptions.mostrarDescripcion === 'ninguna' && 'Solo se mostrará el nombre del producto'}
+                  {bulkPrintOptions.mostrarDescripcion === 'corta' && 'Descripción truncada a 100 caracteres'}
+                  {bulkPrintOptions.mostrarDescripcion === 'larga' && 'Descripción completa del producto'}
+                </p>
+              </div>
+
+              <Separator />
+
+              {/* Otras opciones */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="bulkMostrarReferencias" className="cursor-pointer">
+                    Mostrar referencias (SKU)
+                  </Label>
+                  <Switch
+                    id="bulkMostrarReferencias"
+                    checked={bulkPrintOptions.mostrarReferencias}
+                    onCheckedChange={(checked) => setBulkPrintOptions(prev => ({ ...prev, mostrarReferencias: checked }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="bulkMostrarCondiciones" className="cursor-pointer">
+                    Mostrar condiciones comerciales
+                  </Label>
+                  <Switch
+                    id="bulkMostrarCondiciones"
+                    checked={bulkPrintOptions.mostrarCondiciones}
+                    onCheckedChange={(checked) => setBulkPrintOptions(prev => ({ ...prev, mostrarCondiciones: checked }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="bulkMostrarFirmas" className="cursor-pointer">
+                    Mostrar espacio para firmas
+                  </Label>
+                  <Switch
+                    id="bulkMostrarFirmas"
+                    checked={bulkPrintOptions.mostrarFirmas}
+                    onCheckedChange={(checked) => setBulkPrintOptions(prev => ({ ...prev, mostrarFirmas: checked }))}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setShowBulkPrintDialog(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleConfirmBulkPrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* LOADING MIENTRAS CARGA PRESUPUESTOS COMPLETOS */}
+        {isLoadingPresupuestosCompletos && (
+          <div className="fixed inset-0 bg-black/50 z-[9998] flex items-center justify-center">
+            <Card className="p-6 flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm font-medium">Cargando presupuestos para imprimir...</p>
+              <p className="text-xs text-muted-foreground">
+                {selectedPresupuestos.length} presupuesto{selectedPresupuestos.length > 1 ? 's' : ''}
+              </p>
+            </Card>
+          </div>
+        )}
+
+        {/* VISTA DE IMPRESIÓN MASIVA */}
+        {showBulkPrintView && presupuestosToImprimir.length > 0 && (
+          <div className="fixed inset-0 bg-white z-[9999] overflow-auto print:relative print:inset-auto print:z-auto">
+            <div className="no-print absolute top-4 right-4 z-10">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowBulkPrintView(false)
+                  setPresupuestosToImprimir([])
+                }}
+              >
+                Cerrar vista previa
+              </Button>
+            </div>
+            <div ref={bulkPrintRef}>
+              {presupuestosToImprimir.map((presupuesto, index) => (
+                <div key={presupuesto._id}>
+                  <PresupuestoPrintView
+                    presupuesto={presupuesto}
+                    empresa={empresa}
+                    options={bulkPrintOptions}
+                  />
+                  {/* Salto de página entre presupuestos */}
+                  {index < presupuestosToImprimir.length - 1 && (
+                    <div className="page-break" style={{ pageBreakAfter: 'always', height: 0 }} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   )

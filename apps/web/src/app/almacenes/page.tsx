@@ -58,6 +58,7 @@ import {
   Star,
   CheckCircle,
   XCircle,
+  Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -626,6 +627,20 @@ export default function AlmacenesPage() {
         break
       case 'edit':
         router.push(`/almacenes/${almacenId}/editar`)
+        break
+      case 'duplicate':
+        try {
+          toast.loading('Duplicando almacén...')
+          const response = await almacenesService.duplicar(almacenId)
+          toast.dismiss()
+          if (response.success) {
+            toast.success('Almacén duplicado correctamente')
+            router.push(`/almacenes/${response.data._id}/editar`)
+          }
+        } catch (error: any) {
+          toast.dismiss()
+          toast.error(error.response?.data?.message || 'Error al duplicar el almacén')
+        }
         break
       case 'delete':
         const almacen = almacenes.find(a => a._id === almacenId)
@@ -1275,6 +1290,10 @@ export default function AlmacenesPage() {
                             <DropdownMenuItem onClick={() => handleAlmacenAction(almacen._id, 'edit')}>
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAlmacenAction(almacen._id, 'duplicate')}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicar
                             </DropdownMenuItem>
 
                             {!almacen.esPrincipal && (
