@@ -41,11 +41,28 @@ export interface IDatabaseConfig {
 }
 
 export interface IEmailConfig {
-  host: string;
-  port: number;
-  secure: boolean; // true para 465, false para otros puertos
-  user: string;
-  password: string; // Almacenado encriptado
+  // Tipo de autenticación: oauth2 (Gmail/Microsoft) o smtp (manual)
+  authType: 'oauth2' | 'smtp';
+
+  // Proveedor OAuth2 (solo si authType === 'oauth2')
+  provider?: 'google' | 'microsoft';
+
+  // Tokens OAuth2 (solo si authType === 'oauth2')
+  oauth2?: {
+    accessToken: string; // Almacenado encriptado
+    refreshToken: string; // Almacenado encriptado
+    expiresAt: Date;
+    scope?: string;
+  };
+
+  // Configuración SMTP manual (solo si authType === 'smtp')
+  host?: string;
+  port?: number;
+  secure?: boolean; // true para 465, false para otros puertos
+  password?: string; // Almacenado encriptado
+
+  // Común para ambos tipos
+  user: string; // Email del usuario
   fromName?: string; // Nombre que aparece como remitente
   fromEmail?: string; // Email del remitente (si es diferente al user)
   replyTo?: string; // Email de respuesta
@@ -177,12 +194,29 @@ const DatabaseConfigSchema = new Schema<IDatabaseConfig>({
   uri: { type: String, select: false }, // URI completa, tampoco se devuelve por defecto
 }, { _id: false });
 
+const OAuth2Schema = new Schema({
+  accessToken: { type: String, select: false }, // Encriptado
+  refreshToken: { type: String, select: false }, // Encriptado
+  expiresAt: { type: Date },
+  scope: { type: String },
+}, { _id: false });
+
 const EmailConfigSchema = new Schema<IEmailConfig>({
-  host: { type: String, required: true, trim: true },
-  port: { type: Number, required: true, default: 587 },
+  // Tipo de autenticación
+  authType: { type: String, enum: ['oauth2', 'smtp'], required: true, default: 'smtp' },
+
+  // OAuth2
+  provider: { type: String, enum: ['google', 'microsoft'] },
+  oauth2: { type: OAuth2Schema },
+
+  // SMTP manual
+  host: { type: String, trim: true },
+  port: { type: Number, default: 587 },
   secure: { type: Boolean, default: false },
+  password: { type: String, select: false }, // Encriptado
+
+  // Común
   user: { type: String, required: true, trim: true },
-  password: { type: String, required: true, select: false }, // No se devuelve por defecto, almacenado encriptado
   fromName: { type: String, trim: true },
   fromEmail: { type: String, trim: true, lowercase: true },
   replyTo: { type: String, trim: true, lowercase: true },

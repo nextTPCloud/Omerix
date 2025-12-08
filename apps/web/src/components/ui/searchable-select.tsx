@@ -15,7 +15,7 @@ export interface SearchableSelectOption {
 
 // Hook para calcular posición del dropdown
 function useDropdownPosition(
-  triggerRef: React.RefObject<HTMLElement>,
+  triggerRef: React.RefObject<HTMLElement | null>,
   isOpen: boolean
 ) {
   const [position, setPosition] = React.useState({ top: 0, left: 0, width: 0 })

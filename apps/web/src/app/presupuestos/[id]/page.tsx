@@ -15,6 +15,11 @@ import { presupuestosService } from '@/services/presupuestos.service'
 import { empresaService, EmpresaInfo } from '@/services/empresa.service'
 import { IPresupuesto, getEstadoConfig, getTipoLineaLabel, ESTADOS_PRESUPUESTO, EstadoPresupuesto } from '@/types/presupuesto.types'
 import { PresupuestoPrintView, PrintOptions, defaultPrintOptions } from '@/components/presupuestos/PresupuestoPrintView'
+import { PresupuestoHistorial } from '@/components/presupuestos/PresupuestoHistorial'
+import { GuardarPlantillaDialog } from '@/components/presupuestos/PlantillasPresupuesto'
+import { HistorialRecordatorios } from '@/components/presupuestos/RecordatoriosPresupuestos'
+import { ImportarLineasDialog } from '@/components/presupuestos/ImportarLineasDialog'
+import { EnlacePortalPresupuesto } from '@/components/presupuestos/EnlacePortalPresupuesto'
 import {
   Dialog,
   DialogContent,
@@ -58,6 +63,8 @@ import {
   Timer,
   Shield,
   Banknote,
+  Files,
+  Import,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -91,6 +98,9 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showPrintView, setShowPrintView] = useState(false)
   const [showPrintOptionsDialog, setShowPrintOptionsDialog] = useState(false)
+  const [showImportarLineas, setShowImportarLineas] = useState(false)
+  const [printOptionsMode, setPrintOptionsMode] = useState<'print' | 'email'>('print')
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [mostrarCostes, setMostrarCostes] = useState(true)
   const [printOptions, setPrintOptions] = useState<PrintOptions>(defaultPrintOptions)
   const printRef = useRef<HTMLDivElement>(null)
@@ -180,12 +190,14 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
   const handlePrint = () => {
     if (!presupuesto) return
     // Abrir diálogo de opciones antes de imprimir
+    setPrintOptionsMode('print')
     setShowPrintOptionsDialog(true)
   }
 
   const handleExportPDF = () => {
     if (!presupuesto) return
-    // Abrir diálogo de opciones antes de imprimir
+    // Abrir diálogo de opciones antes de exportar
+    setPrintOptionsMode('print')
     setShowPrintOptionsDialog(true)
   }
 
@@ -198,7 +210,8 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
     }, 100)
   }
 
-  const handleEnviarEmail = async () => {
+  // Abrir diálogo de opciones antes de enviar email
+  const handleEnviarEmail = () => {
     if (!presupuesto) return
 
     const email = presupuesto.clienteEmail
@@ -207,98 +220,53 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
       return
     }
 
+    // Abrir diálogo de opciones antes de enviar email
+    setPrintOptionsMode('email')
+    setShowPrintOptionsDialog(true)
+  }
+
+  // Confirmar envío de email con las opciones seleccionadas
+  const handleConfirmEnviarEmail = async () => {
+    if (!presupuesto) return
+
+    setIsSendingEmail(true)
+    setShowPrintOptionsDialog(false)
+
     try {
-      toast.loading('Enviando email...', { id: 'sending-email' })
+      toast.loading('Enviando email con PDF adjunto...', { id: 'sending-email' })
 
-      // Generar HTML del email
-      const htmlContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-          <h2 style="color: #1a1a1a; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">
-            Presupuesto ${presupuesto.codigo}
-          </h2>
-
-          <p>Estimado/a ${clienteNombre},</p>
-
-          <p>Adjunto le enviamos el presupuesto solicitado con los siguientes detalles:</p>
-
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-            <tr style="background-color: #f5f5f5;">
-              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Código</strong></td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${presupuesto.codigo}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Fecha</strong></td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${formatDate(presupuesto.fecha)}</td>
-            </tr>
-            <tr style="background-color: #f5f5f5;">
-              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Válido hasta</strong></td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${formatDate(presupuesto.fechaValidez)}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Importe Total</strong></td>
-              <td style="padding: 10px; border: 1px solid #ddd; font-size: 18px; font-weight: bold; color: #0066cc;">
-                ${formatCurrency(presupuesto.totales?.totalPresupuesto || 0)}
-              </td>
-            </tr>
-          </table>
-
-          ${presupuesto.titulo ? `<p><strong>Concepto:</strong> ${presupuesto.titulo}</p>` : ''}
-
-          <p>Quedamos a su disposición para cualquier consulta o aclaración.</p>
-
-          <p style="margin-top: 30px;">Saludos cordiales,</p>
-          <p><strong>${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}</strong></p>
-
-          <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-          <p style="font-size: 12px; color: #666;">
-            Este email ha sido enviado automáticamente desde Omerix.
-          </p>
-        </div>
-      `
-
-      const textContent = `
-Presupuesto ${presupuesto.codigo}
-
-Estimado/a ${clienteNombre},
-
-Adjunto le enviamos el presupuesto solicitado:
-
-- Código: ${presupuesto.codigo}
-- Fecha: ${formatDate(presupuesto.fecha)}
-- Válido hasta: ${formatDate(presupuesto.fechaValidez)}
-- Importe Total: ${formatCurrency(presupuesto.totales?.totalPresupuesto || 0)}
-
-${presupuesto.titulo ? `Concepto: ${presupuesto.titulo}` : ''}
-
-Quedamos a su disposición para cualquier consulta.
-
-Saludos cordiales,
-${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}
-      `
-
-      const response = await empresaService.sendEmail({
-        to: email,
-        subject: `Presupuesto ${presupuesto.codigo}`,
-        html: htmlContent,
-        text: textContent,
+      // Usar el nuevo endpoint que envía el PDF adjunto
+      const response = await presupuestosService.enviarPorEmail(presupuesto._id, {
+        pdfOptions: {
+          mostrarDescripcion: printOptions.mostrarDescripcion,
+          mostrarReferencias: printOptions.mostrarReferencias,
+          mostrarCondiciones: printOptions.mostrarCondiciones,
+          mostrarFirmas: printOptions.mostrarFirmas,
+          mostrarCuentaBancaria: printOptions.mostrarCuentaBancaria,
+          mostrarLOPD: printOptions.mostrarLOPD,
+          mostrarRegistroMercantil: printOptions.mostrarRegistroMercantil,
+        },
       })
 
       toast.dismiss('sending-email')
 
       if (response.success) {
-        toast.success('Email enviado correctamente')
+        toast.success('Email con PDF enviado correctamente')
+        // Recargar presupuesto para actualizar estado
+        loadPresupuesto()
       } else {
         toast.error(response.message || 'Error al enviar email')
       }
     } catch (error: any) {
       toast.dismiss('sending-email')
 
-      // Si falla el envío por backend, mostrar opción de mailto
       if (error.response?.status === 400 && error.response?.data?.message?.includes('configuración')) {
-        toast.error('No hay configuración de email. Configúrala en Ajustes > Email SMTP')
+        toast.error('No hay configuración de email. Configúrala en Ajustes > Email')
       } else {
         toast.error(error.response?.data?.message || 'Error al enviar email')
       }
+    } finally {
+      setIsSendingEmail(false)
     }
   }
 
@@ -550,6 +518,21 @@ ${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}
                         <Copy className="mr-2 h-4 w-4" />
                         Duplicar
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setShowImportarLineas(true)}>
+                        <Import className="mr-2 h-4 w-4" />
+                        Importar líneas
+                      </DropdownMenuItem>
+                      <GuardarPlantillaDialog
+                        presupuestoId={presupuesto._id}
+                        codigoPresupuesto={presupuesto.codigo}
+                        trigger={
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <Files className="mr-2 h-4 w-4" />
+                            Guardar como plantilla
+                          </DropdownMenuItem>
+                        }
+                        onSuccess={() => toast.success('Plantilla guardada correctamente')}
+                      />
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
@@ -717,6 +700,53 @@ ${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}
                 </CardContent>
               </Card>
             )}
+
+            {/* Historial y Seguimiento */}
+            <PresupuestoHistorial
+              historial={presupuesto.historial || []}
+              notasSeguimiento={presupuesto.notasSeguimiento || []}
+              contadorEnvios={presupuesto.contadorEnvios}
+              fechaEnvio={presupuesto.fechaEnvio}
+              fechaRespuesta={presupuesto.fechaRespuesta}
+              fechaCreacion={presupuesto.fechaCreacion}
+              onAddNota={async (nota) => {
+                try {
+                  const notaData = {
+                    ...nota,
+                    fechaProximaAccion: nota.fechaProximaAccion
+                      ? (nota.fechaProximaAccion instanceof Date
+                          ? nota.fechaProximaAccion.toISOString()
+                          : nota.fechaProximaAccion)
+                      : undefined
+                  }
+                  const response = await presupuestosService.addNotaSeguimiento(presupuesto._id, notaData)
+                  if (response.success && response.data) {
+                    loadPresupuesto()
+                    toast.success('Nota de seguimiento añadida')
+                  }
+                } catch (error) {
+                  toast.error('Error al añadir nota')
+                  throw error
+                }
+              }}
+            />
+
+            {/* Historial de Recordatorios */}
+            <Card>
+              <CardContent className="pt-6">
+                <HistorialRecordatorios presupuestoId={presupuesto._id} />
+              </CardContent>
+            </Card>
+
+            {/* Portal de Cliente */}
+            <EnlacePortalPresupuesto
+              presupuestoId={presupuesto._id}
+              urlPortal={presupuesto.urlPortal}
+              tokenExpirado={presupuesto.tokenExpirado}
+              respuestaCliente={presupuesto.respuestaCliente}
+              clienteEmail={presupuesto.clienteEmail}
+              onEnlaceGenerado={loadPresupuesto}
+            />
           </div>
 
           {/* Columna lateral - Info */}
@@ -1048,16 +1078,27 @@ ${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}
         </div>
       </div>
 
-      {/* Diálogo de opciones de impresión */}
+      {/* Diálogo de opciones de impresión / email */}
       <Dialog open={showPrintOptionsDialog} onOpenChange={setShowPrintOptionsDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Printer className="h-5 w-5" />
-              Opciones de Impresión
+              {printOptionsMode === 'email' ? (
+                <>
+                  <Mail className="h-5 w-5" />
+                  Opciones del PDF para Email
+                </>
+              ) : (
+                <>
+                  <Printer className="h-5 w-5" />
+                  Opciones de Impresión
+                </>
+              )}
             </DialogTitle>
             <DialogDescription>
-              Personaliza cómo se imprimirá el presupuesto
+              {printOptionsMode === 'email'
+                ? 'Personaliza qué información se incluirá en el PDF adjunto'
+                : 'Personaliza cómo se imprimirá el presupuesto'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1177,10 +1218,17 @@ ${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}
             <Button variant="outline" onClick={() => setShowPrintOptionsDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleConfirmPrint}>
-              <Printer className="mr-2 h-4 w-4" />
-              Imprimir
-            </Button>
+            {printOptionsMode === 'email' ? (
+              <Button onClick={handleConfirmEnviarEmail} disabled={isSendingEmail}>
+                <Mail className="mr-2 h-4 w-4" />
+                {isSendingEmail ? 'Enviando...' : 'Enviar Email'}
+              </Button>
+            ) : (
+              <Button onClick={handleConfirmPrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1227,6 +1275,14 @@ ${empresa?.nombreComercial || empresa?.nombre || 'Omerix'}
           />
         </div>
       )}
+
+      {/* Diálogo de importar líneas */}
+      <ImportarLineasDialog
+        open={showImportarLineas}
+        onOpenChange={setShowImportarLineas}
+        presupuestoId={presupuesto._id}
+        onImportado={loadPresupuesto}
+      />
     </DashboardLayout>
   )
 }

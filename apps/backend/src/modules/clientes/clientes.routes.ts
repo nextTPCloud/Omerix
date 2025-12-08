@@ -627,4 +627,102 @@ router.post(
   clientesController.duplicar.bind(clientesController)
 );
 
+/**
+ * @swagger
+ * /clientes/{id}/descuentos:
+ *   get:
+ *     summary: Obtener descuentos configurados para un cliente
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del cliente
+ *     responses:
+ *       200:
+ *         description: Descuentos obtenidos exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     descuentoGeneral:
+ *                       type: number
+ *                     aplicarDescuentoAutomatico:
+ *                       type: boolean
+ *                     descuentosPorFamilia:
+ *                       type: array
+ *       404:
+ *         description: Cliente no encontrado
+ *       401:
+ *         description: No autenticado
+ */
+router.get(
+  '/:id/descuentos',
+  clientesController.getDescuentos.bind(clientesController)
+);
+
+/**
+ * @swagger
+ * /clientes/{id}/descuentos:
+ *   put:
+ *     summary: Actualizar descuentos de un cliente
+ *     tags: [Clientes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del cliente
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               descuentoGeneral:
+ *                 type: number
+ *                 description: Descuento general del cliente (0-100)
+ *               aplicarDescuentoAutomatico:
+ *                 type: boolean
+ *                 description: Si se aplican descuentos automáticos en presupuestos
+ *               descuentosPorFamilia:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     familiaId:
+ *                       type: string
+ *                     nombreFamilia:
+ *                       type: string
+ *                     descuento:
+ *                       type: number
+ *     responses:
+ *       200:
+ *         description: Descuentos actualizados exitosamente
+ *       400:
+ *         description: Datos inválidos
+ *       404:
+ *         description: Cliente no encontrado
+ *       401:
+ *         description: No autenticado
+ */
+router.put(
+  '/:id/descuentos',
+  clientesController.actualizarDescuentos.bind(clientesController)
+);
+
 export default router;

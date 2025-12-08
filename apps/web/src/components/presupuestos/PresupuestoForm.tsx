@@ -64,6 +64,7 @@ import {
   GripVertical,
   Layers,
   Check,
+  AlignLeft,
 } from 'lucide-react'
 
 // Components
@@ -130,6 +131,9 @@ export function PresupuestoForm({
   const [showCreateCliente, setShowCreateCliente] = useState(false)
   const [showCreateAgente, setShowCreateAgente] = useState(false)
   const [showCreateProyecto, setShowCreateProyecto] = useState(false)
+  const [showDescripcionDialog, setShowDescripcionDialog] = useState(false)
+  const [descripcionEditIndex, setDescripcionEditIndex] = useState<number | null>(null)
+  const [descripcionEdit, setDescripcionEdit] = useState({ corta: '', larga: '' })
   const [margenConfig, setMargenConfig] = useState({
     tipo: 'porcentaje' as 'porcentaje' | 'importe',
     valor: 0,
@@ -657,6 +661,34 @@ export function PresupuestoForm({
         lineas: [...lineas, lineaDuplicada],
       }
     })
+  }
+
+  // Handler para abrir el diálogo de edición de descripciones
+  const handleOpenDescripcionDialog = (index: number) => {
+    const linea = formData.lineas?.[index]
+    if (linea) {
+      // Buscar el producto original para obtener las descripciones
+      const producto = productos.find(p => p._id === linea.productoId)
+      setDescripcionEdit({
+        corta: linea.descripcion || producto?.descripcionCorta || '',
+        larga: linea.descripcionLarga || producto?.descripcion || '',
+      })
+      setDescripcionEditIndex(index)
+      setShowDescripcionDialog(true)
+    }
+  }
+
+  // Handler para guardar las descripciones editadas
+  const handleSaveDescripcion = () => {
+    if (descripcionEditIndex !== null) {
+      handleUpdateLinea(descripcionEditIndex, {
+        descripcion: descripcionEdit.corta,
+        descripcionLarga: descripcionEdit.larga,
+      })
+      setShowDescripcionDialog(false)
+      setDescripcionEditIndex(null)
+      toast.success('Descripciones actualizadas')
+    }
   }
 
   const handleAplicarMargen = () => {
@@ -1230,6 +1262,17 @@ export function PresupuestoForm({
                                     else productoRefs.current.delete(index)
                                   }}
                                 />
+                                {/* Botón editar descripciones */}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 flex-shrink-0"
+                                  onClick={() => handleOpenDescripcionDialog(index)}
+                                  title="Editar descripciones"
+                                >
+                                  <AlignLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
                                 {/* Indicador de kit */}
                                 {linea.tipo === TipoLinea.KIT && (
                                   <Badge variant="secondary" className="flex-shrink-0 gap-1">
@@ -2081,6 +2124,62 @@ export function PresupuestoForm({
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowImportDialog(false)}>
               Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================ */}
+      {/* DIÁLOGO: EDITAR DESCRIPCIONES */}
+      {/* ============================================ */}
+      <Dialog open={showDescripcionDialog} onOpenChange={setShowDescripcionDialog}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlignLeft className="h-5 w-5" />
+              Editar Descripciones
+            </DialogTitle>
+            <DialogDescription>
+              {descripcionEditIndex !== null && formData.lineas?.[descripcionEditIndex] && (
+                <span className="font-medium">{formData.lineas[descripcionEditIndex].nombre}</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="descripcionCorta">Descripción Corta</Label>
+              <Textarea
+                id="descripcionCorta"
+                value={descripcionEdit.corta}
+                onChange={(e) => setDescripcionEdit(prev => ({ ...prev, corta: e.target.value }))}
+                rows={2}
+                placeholder="Descripción breve del producto (aparece en documentos con descripción corta)"
+              />
+              <p className="text-xs text-muted-foreground">
+                {descripcionEdit.corta.length} caracteres
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="descripcionLarga">Descripción Completa</Label>
+              <Textarea
+                id="descripcionLarga"
+                value={descripcionEdit.larga}
+                onChange={(e) => setDescripcionEdit(prev => ({ ...prev, larga: e.target.value }))}
+                rows={5}
+                placeholder="Descripción detallada del producto (aparece en documentos con descripción completa)"
+              />
+              <p className="text-xs text-muted-foreground">
+                {descripcionEdit.larga.length} caracteres
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowDescripcionDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveDescripcion}>
+              <Save className="mr-2 h-4 w-4" />
+              Guardar
             </Button>
           </DialogFooter>
         </DialogContent>

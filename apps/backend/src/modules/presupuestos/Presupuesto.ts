@@ -62,6 +62,7 @@ export interface ILineaPresupuesto {
   codigo?: string;
   nombre: string;
   descripcion?: string;
+  descripcionLarga?: string;
   sku?: string;
 
   // Variante (si aplica)
@@ -180,6 +181,39 @@ export interface IHistorialPresupuesto {
   datosAnteriores?: any;
 }
 
+// Notas de seguimiento
+export interface INotaSeguimiento {
+  _id?: mongoose.Types.ObjectId;
+  fecha: Date;
+  usuarioId: mongoose.Types.ObjectId;
+  tipo: 'llamada' | 'email' | 'reunion' | 'nota' | 'recordatorio';
+  contenido: string;
+  resultado?: string;
+  proximaAccion?: string;
+  fechaProximaAccion?: Date;
+}
+
+// Recordatorio enviado
+export interface IRecordatorioEnviado {
+  _id?: mongoose.Types.ObjectId;
+  fecha: Date;
+  tipo: 'expiracion' | 'seguimiento' | 'sin_respuesta';
+  destinatario: string; // Email
+  enviado: boolean;
+  error?: string;
+  messageId?: string;
+}
+
+// Respuesta del cliente a través del portal
+export interface IRespuestaCliente {
+  fecha: Date;
+  aceptado: boolean;
+  comentarios?: string;
+  nombreFirmante?: string;
+  ipCliente?: string;
+  userAgent?: string;
+}
+
 // ============================================
 // INTERFACE PRINCIPAL
 // ============================================
@@ -202,6 +236,7 @@ export interface IPresupuesto extends Document {
   fechaValidez: Date;
   fechaEnvio?: Date;
   fechaRespuesta?: Date;
+  contadorEnvios: number;
 
   // Cliente
   clienteId: mongoose.Types.ObjectId;
@@ -253,6 +288,27 @@ export interface IPresupuesto extends Document {
 
   // Historial
   historial: IHistorialPresupuesto[];
+
+  // Notas de seguimiento
+  notasSeguimiento: INotaSeguimiento[];
+
+  // Recordatorios enviados
+  recordatoriosEnviados: IRecordatorioEnviado[];
+
+  // Configuración de recordatorios
+  recordatoriosConfig?: {
+    activo: boolean;
+    diasAntesExpiracion: number; // Días antes de expirar para enviar recordatorio
+    enviarAlCliente: boolean;
+    enviarAlAgente: boolean;
+    maxRecordatorios: number; // Máximo de recordatorios a enviar
+  };
+
+  // Portal de cliente (acceso público)
+  tokenAccesoPortal?: string; // Token único para acceso sin login
+  tokenExpirado?: boolean;
+  urlPortal?: string; // URL completa generada
+  respuestaCliente?: IRespuestaCliente;
 
   // Conversión
   convertidoA?: {
@@ -339,6 +395,7 @@ const LineaPresupuestoSchema = new Schema<ILineaPresupuesto>({
   codigo: { type: String, trim: true },
   nombre: { type: String, required: true, trim: true },
   descripcion: { type: String, trim: true },
+  descripcionLarga: { type: String, trim: true },
   sku: { type: String, trim: true },
 
   // Variante
@@ -449,6 +506,33 @@ const HistorialPresupuestoSchema = new Schema<IHistorialPresupuesto>({
   datosAnteriores: { type: Schema.Types.Mixed },
 }, { _id: true });
 
+const NotaSeguimientoSchema = new Schema<INotaSeguimiento>({
+  fecha: { type: Date, default: Date.now },
+  usuarioId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  tipo: {
+    type: String,
+    enum: ['llamada', 'email', 'reunion', 'nota', 'recordatorio'],
+    default: 'nota',
+  },
+  contenido: { type: String, required: true },
+  resultado: { type: String },
+  proximaAccion: { type: String },
+  fechaProximaAccion: { type: Date },
+}, { _id: true });
+
+const RecordatorioEnviadoSchema = new Schema<IRecordatorioEnviado>({
+  fecha: { type: Date, default: Date.now },
+  tipo: {
+    type: String,
+    enum: ['expiracion', 'seguimiento', 'sin_respuesta'],
+    required: true,
+  },
+  destinatario: { type: String, required: true },
+  enviado: { type: Boolean, default: false },
+  error: { type: String },
+  messageId: { type: String },
+}, { _id: true });
+
 // ============================================
 // SCHEMA PRINCIPAL
 // ============================================
@@ -508,6 +592,7 @@ const PresupuestoSchema = new Schema<IPresupuesto, IPresupuestoModel>({
   },
   fechaEnvio: { type: Date },
   fechaRespuesta: { type: Date },
+  contadorEnvios: { type: Number, default: 0 },
 
   // Cliente
   clienteId: {
@@ -605,6 +690,47 @@ const PresupuestoSchema = new Schema<IPresupuesto, IPresupuestoModel>({
     default: [],
   },
 
+  // Notas de seguimiento
+  notasSeguimiento: {
+    type: [NotaSeguimientoSchema],
+    default: [],
+  },
+
+  // Recordatorios enviados
+  recordatoriosEnviados: {
+    type: [RecordatorioEnviadoSchema],
+    default: [],
+  },
+
+  // Configuración de recordatorios
+  recordatoriosConfig: {
+    activo: { type: Boolean, default: true },
+    diasAntesExpiracion: { type: Number, default: 7 },
+    enviarAlCliente: { type: Boolean, default: true },
+    enviarAlAgente: { type: Boolean, default: true },
+    maxRecordatorios: { type: Number, default: 3 },
+  },
+
+  // Portal de cliente
+  tokenAccesoPortal: {
+    type: String,
+    unique: true,
+    sparse: true, // Permite múltiples nulls
+  },
+  tokenExpirado: {
+    type: Boolean,
+    default: false,
+  },
+  urlPortal: { type: String },
+  respuestaCliente: {
+    fecha: { type: Date },
+    aceptado: { type: Boolean },
+    comentarios: { type: String },
+    nombreFirmante: { type: String },
+    ipCliente: { type: String },
+    userAgent: { type: String },
+  },
+
   // Conversión
   convertidoA: {
     tipo: { type: String, enum: ['pedido', 'factura', 'albaran'] },
@@ -684,6 +810,7 @@ PresupuestoSchema.index({ fechaValidez: 1 });
 PresupuestoSchema.index({ activo: 1 });
 PresupuestoSchema.index({ tags: 1 });
 PresupuestoSchema.index({ 'totales.totalPresupuesto': 1 });
+PresupuestoSchema.index({ tokenAccesoPortal: 1 });
 
 // ============================================
 // VIRTUALS

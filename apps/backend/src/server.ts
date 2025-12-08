@@ -46,6 +46,17 @@ import personalRoutes from './modules/personal/personal.routes';
 // Importar rutas de proyectos y presupuestos
 import proyectosRoutes from './modules/proyectos/proyectos.routes';
 import presupuestosRoutes from './modules/presupuestos/presupuestos.routes';
+import plantillasPresupuestoRoutes from './modules/presupuestos/plantillas-presupuesto.routes';
+import portalClienteRoutes from './modules/presupuestos/portal-cliente.routes';
+
+// Importar rutas de pedidos
+import pedidosRoutes from './modules/pedidos/pedidos.routes';
+
+// Importar rutas de albaranes
+import albaranesRoutes from './modules/albaranes/albaranes.routes';
+
+// Importar rutas de series de documentos
+import seriesDocumentosRoutes from './modules/series-documentos/series-documentos.routes';
 
 // Importar rutas de empresa
 import empresaRoutes from './modules/empresa/empresa.routes';
@@ -215,6 +226,13 @@ app.post('/api/test', async (req: Request, res: Response) => {
 });
 
 // ============================================
+// RUTAS PÚBLICAS (SIN AUTENTICACIÓN)
+// ============================================
+
+// Portal de cliente - acceso público mediante token
+app.use('/api/portal', portalClienteRoutes);
+
+// ============================================
 // RUTAS DE LA API
 // ============================================
 
@@ -255,6 +273,16 @@ app.use('/api/personal', personalRoutes);
 // Rutas de proyectos y presupuestos
 app.use('/api/proyectos', proyectosRoutes);
 app.use('/api/presupuestos', presupuestosRoutes);
+app.use('/api/plantillas-presupuesto', plantillasPresupuestoRoutes);
+
+// Rutas de pedidos
+app.use('/api/pedidos', pedidosRoutes);
+
+// Rutas de albaranes
+app.use('/api/albaranes', albaranesRoutes);
+
+// Rutas de series de documentos
+app.use('/api/series-documentos', seriesDocumentosRoutes);
 
 // Rutas de empresa (configuración, email, etc.)
 app.use('/api/empresa', empresaRoutes);

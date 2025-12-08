@@ -90,32 +90,32 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
         title: 'Presupuestos',
         icon: FileText,
         children: [
-          { title: 'Listado', href: '/presupuestos' },
-          { title: 'Nuevo', href: '/presupuestos/nuevo' },
+          { title: 'Listado presupuestos', href: '/presupuestos' },
+          { title: 'Nuevo presupuesto', href: '/presupuestos/nuevo' },
         ],
       },
       {
         title: 'Pedidos',
         icon: ShoppingCart,
         children: [
-          { title: 'Listado', href: '/pedidos' },
-          { title: 'Nuevo', href: '/pedidos/nuevo' },
+          { title: 'Listado pedidos', href: '/pedidos' },
+          { title: 'Nuevo pedido', href: '/pedidos/nuevo' },
         ],
       },
       {
         title: 'Albaranes',
         icon: Truck,
         children: [
-          { title: 'Listado', href: '/albaranes' },
-          { title: 'Nuevo', href: '/albaranes/nuevo' },
+          { title: 'Listado albaranes', href: '/albaranes' },
+          { title: 'Nuevo albarán', href: '/albaranes/nuevo' },
         ],
       },
       {
         title: 'Facturas',
         icon: Receipt,
         children: [
-          { title: 'Listado', href: '/facturas' },
-          { title: 'Nueva', href: '/facturas/nuevo' },
+          { title: 'Listado facturas', href: '/facturas' },
+          { title: 'Nueva factura', href: '/facturas/nuevo' },
         ],
       },
     ],
@@ -133,32 +133,32 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
         title: 'Presupuestos',
         icon: FileText,
         children: [
-          { title: 'Listado', href: '/compras/presupuestos' },
-          { title: 'Nuevo', href: '/compras/presupuestos/nuevo' },
+          { title: 'Listado presupuestos compra', href: '/compras/presupuestos' },
+          { title: 'Nuevo presupuesto compra', href: '/compras/presupuestos/nuevo' },
         ],
       },
       {
         title: 'Pedidos',
         icon: ShoppingCart,
         children: [
-          { title: 'Listado', href: '/compras/pedidos' },
-          { title: 'Nuevo', href: '/compras/pedidos/nuevo' },
+          { title: 'Listado pedidos compra', href: '/compras/pedidos' },
+          { title: 'Nuevo pedido compra', href: '/compras/pedidos/nuevo' },
         ],
       },
       {
         title: 'Albaranes',
         icon: Truck,
         children: [
-          { title: 'Listado', href: '/compras/albaranes' },
-          { title: 'Nuevo', href: '/compras/albaranes/nuevo' },
+          { title: 'Listado albaranes compra', href: '/compras/albaranes' },
+          { title: 'Nuevo albarán compra', href: '/compras/albaranes/nuevo' },
         ],
       },
       {
         title: 'Facturas',
         icon: Receipt,
         children: [
-          { title: 'Listado', href: '/compras/facturas' },
-          { title: 'Nueva', href: '/compras/facturas/nuevo' },
+          { title: 'Listado facturas compra', href: '/compras/facturas' },
+          { title: 'Nueva factura compra', href: '/compras/facturas/nuevo' },
         ],
       },
     ],
@@ -171,16 +171,16 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
         title: 'Proyectos',
         icon: FolderKanban,
         children: [
-          { title: 'Listado', href: '/proyectos' },
-          { title: 'Nuevo', href: '/proyectos/nuevo' },
+          { title: 'Listado proyectos', href: '/proyectos' },
+          { title: 'Nuevo proyecto', href: '/proyectos/nuevo' },
         ],
       },
       {
         title: 'Partes de Trabajo',
         icon: Wrench,
         children: [
-          { title: 'Listado', href: '/partes' },
-          { title: 'Nuevo', href: '/partes/nuevo' },
+          { title: 'Listado partes', href: '/partes' },
+          { title: 'Nuevo parte', href: '/partes/nuevo' },
         ],
       },
     ],

@@ -1,6 +1,8 @@
 import Empresa, { IEmpresa, IEmailConfig, ICuentaBancariaEmpresa, ITextosLegales, IDatosRegistro, encrypt, decrypt } from '../../models/Empresa';
 import nodemailer from 'nodemailer';
+import { google } from 'googleapis';
 import { Types } from 'mongoose';
+import { emailOAuthService } from './email-oauth.service';
 
 // Roles permitidos para gestionar configuración de empresa
 export const ROLES_GESTION_EMPRESA = ['superadmin', 'admin', 'gerente'];
@@ -54,11 +56,14 @@ export interface UpdateEmpresaDTO {
 }
 
 export interface UpdateEmailConfigDTO {
-  host: string;
-  port: number;
-  secure: boolean;
+  authType: 'oauth2' | 'smtp';
+  // SMTP
+  host?: string;
+  port?: number;
+  secure?: boolean;
   user: string;
-  password?: string; // Solo se envía si se quiere cambiar
+  password?: string;
+  // Común
   fromName?: string;
   fromEmail?: string;
   replyTo?: string;
@@ -75,6 +80,7 @@ class EmpresaService {
       delete (empresa as any).databaseConfig;
       if ((empresa as any).emailConfig) {
         delete (empresa as any).emailConfig.password;
+        delete (empresa as any).emailConfig.oauth2;
       }
     }
     return empresa as IEmpresa | null;
@@ -86,11 +92,12 @@ class EmpresaService {
   async getEmpresaCompleta(empresaId: string): Promise<IEmpresa | null> {
     const empresa = await Empresa.findById(empresaId).lean();
     if (empresa) {
-      // Eliminar solo las contraseñas
+      // Eliminar solo las contraseñas y tokens
       delete (empresa as any).databaseConfig?.password;
       delete (empresa as any).databaseConfig?.uri;
       if ((empresa as any).emailConfig) {
         delete (empresa as any).emailConfig.password;
+        delete (empresa as any).emailConfig.oauth2;
       }
     }
     return empresa as IEmpresa | null;
@@ -129,7 +136,7 @@ class EmpresaService {
   }
 
   /**
-   * Actualizar configuración de email SMTP
+   * Actualizar configuración de email SMTP manual
    * La contraseña se almacena encriptada
    */
   async updateEmailConfig(empresaId: string, config: UpdateEmailConfigDTO): Promise<IEmpresa | null> {
@@ -142,18 +149,19 @@ class EmpresaService {
     // Si no se envía password, mantener la existente (ya está encriptada)
     const currentEncryptedPassword = (empresaActual.emailConfig as any)?.password || '';
 
-    let passwordToStore: string;
+    let passwordToStore: string | undefined;
     if (config.password) {
       // Nueva contraseña: encriptar antes de guardar
       passwordToStore = encrypt(config.password);
     } else if (currentEncryptedPassword) {
       // Mantener la contraseña existente (ya encriptada)
       passwordToStore = currentEncryptedPassword;
-    } else {
-      throw new Error('La contraseña es obligatoria');
+    } else if (config.authType === 'smtp') {
+      throw new Error('La contraseña es obligatoria para configuración SMTP');
     }
 
-    const emailConfig: IEmailConfig = {
+    const emailConfig: Partial<IEmailConfig> = {
+      authType: 'smtp',
       host: config.host,
       port: config.port,
       secure: config.secure,
@@ -175,51 +183,53 @@ class EmpresaService {
   }
 
   /**
-   * Obtener configuración de email (sin password)
+   * Obtener configuración de email (sin datos sensibles)
    */
-  async getEmailConfig(empresaId: string): Promise<Partial<IEmailConfig> | null> {
+  async getEmailConfig(empresaId: string): Promise<Partial<IEmailConfig> & { hasPassword?: boolean; isConnected?: boolean } | null> {
     const empresa = await Empresa.findById(empresaId).lean();
 
     if (!empresa?.emailConfig) return null;
 
-    // Devolver sin password
     const emailConfig = empresa.emailConfig as IEmailConfig;
-    return {
-      host: emailConfig.host,
-      port: emailConfig.port,
-      secure: emailConfig.secure,
+
+    // Respuesta base común
+    const response: any = {
+      authType: emailConfig.authType || 'smtp',
       user: emailConfig.user,
       fromName: emailConfig.fromName,
       fromEmail: emailConfig.fromEmail,
       replyTo: emailConfig.replyTo,
-      password: emailConfig.password ? '••••••••' : undefined, // Indicar que hay password sin revelarla
     };
+
+    if (emailConfig.authType === 'oauth2') {
+      // OAuth2 - indicar proveedor y estado de conexión
+      response.provider = emailConfig.provider;
+      response.isConnected = !!(emailConfig.oauth2?.refreshToken);
+    } else {
+      // SMTP manual
+      response.host = emailConfig.host;
+      response.port = emailConfig.port;
+      response.secure = emailConfig.secure;
+      response.hasPassword = !!emailConfig.password;
+    }
+
+    return response;
   }
 
   /**
    * Probar configuración de email enviando un correo de prueba
    */
   async testEmailConfig(empresaId: string, testEmail: string): Promise<{ success: boolean; message: string }> {
-    // Necesitamos el password para enviar
     const empresa = await Empresa.findById(empresaId)
-      .select('+emailConfig.password')
+      .select('+emailConfig.password +emailConfig.oauth2.accessToken +emailConfig.oauth2.refreshToken')
       .lean();
 
     if (!empresa?.emailConfig) {
       return { success: false, message: 'No hay configuración de email' };
     }
 
-    if (!(empresa.emailConfig as any).password) {
-      return { success: false, message: 'No hay contraseña configurada' };
-    }
-
     try {
-      // Desencriptar la contraseña antes de usarla
-      const configWithDecryptedPassword = {
-        ...empresa.emailConfig,
-        password: decrypt((empresa.emailConfig as any).password),
-      };
-      const transporter = this.createTransporter(configWithDecryptedPassword);
+      const transporter = await this.createTransporter(empresaId, empresa.emailConfig as IEmailConfig);
 
       await transporter.sendMail({
         from: `"${empresa.emailConfig.fromName || empresa.nombre}" <${empresa.emailConfig.fromEmail || empresa.emailConfig.user}>`,
@@ -230,6 +240,7 @@ class EmpresaService {
             <h2 style="color: #333;">Prueba de configuración exitosa</h2>
             <p>Este es un correo de prueba enviado desde Omerix.</p>
             <p>Si estás viendo este mensaje, la configuración de email está funcionando correctamente.</p>
+            <p><strong>Método de autenticación:</strong> ${empresa.emailConfig.authType === 'oauth2' ? `OAuth2 (${empresa.emailConfig.provider})` : 'SMTP Manual'}</p>
             <hr style="border: 1px solid #eee; margin: 20px 0;">
             <p style="color: #666; font-size: 12px;">
               Enviado desde: ${empresa.nombre}<br>
@@ -237,7 +248,7 @@ class EmpresaService {
             </p>
           </div>
         `,
-        text: `Prueba de configuración exitosa\n\nEste es un correo de prueba enviado desde Omerix.\nSi estás viendo este mensaje, la configuración de email está funcionando correctamente.`,
+        text: `Prueba de configuración exitosa\n\nEste es un correo de prueba enviado desde Omerix.\nSi estás viendo este mensaje, la configuración de email está funcionando correctamente.\n\nMétodo: ${empresa.emailConfig.authType === 'oauth2' ? `OAuth2 (${empresa.emailConfig.provider})` : 'SMTP Manual'}`,
       });
 
       return { success: true, message: 'Email de prueba enviado correctamente' };
@@ -254,26 +265,16 @@ class EmpresaService {
    * Enviar email usando la configuración de la empresa
    */
   async sendEmail(empresaId: string, options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    // Necesitamos el password para enviar
     const empresa = await Empresa.findById(empresaId)
-      .select('+emailConfig.password')
+      .select('+emailConfig.password +emailConfig.oauth2.accessToken +emailConfig.oauth2.refreshToken')
       .lean();
 
     if (!empresa?.emailConfig) {
       return { success: false, error: 'No hay configuración de email para esta empresa' };
     }
 
-    if (!(empresa.emailConfig as any).password) {
-      return { success: false, error: 'No hay contraseña de email configurada' };
-    }
-
     try {
-      // Desencriptar la contraseña antes de usarla
-      const configWithDecryptedPassword = {
-        ...empresa.emailConfig,
-        password: decrypt((empresa.emailConfig as any).password),
-      };
-      const transporter = this.createTransporter(configWithDecryptedPassword);
+      const transporter = await this.createTransporter(empresaId, empresa.emailConfig as IEmailConfig);
 
       const mailOptions = {
         from: `"${empresa.emailConfig.fromName || empresa.nombre}" <${empresa.emailConfig.fromEmail || empresa.emailConfig.user}>`,
@@ -297,21 +298,66 @@ class EmpresaService {
   }
 
   /**
-   * Crear transporter de nodemailer
+   * Crear transporter de nodemailer según el tipo de autenticación
    */
-  private createTransporter(config: IEmailConfig) {
+  private async createTransporter(empresaId: string, config: IEmailConfig) {
+    if (config.authType === 'oauth2' && config.provider === 'google') {
+      // OAuth2 con Google
+      const { accessToken, email } = await emailOAuthService.getValidAccessToken(empresaId);
+
+      return nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          type: 'OAuth2',
+          user: email,
+          accessToken,
+        },
+      });
+    }
+
+    if (config.authType === 'oauth2' && config.provider === 'microsoft') {
+      // OAuth2 con Microsoft
+      const { accessToken, email } = await emailOAuthService.getValidAccessToken(empresaId);
+
+      return nodemailer.createTransport({
+        host: 'smtp.office365.com',
+        port: 587,
+        secure: false,
+        auth: {
+          type: 'OAuth2',
+          user: email,
+          accessToken,
+        },
+      });
+    }
+
+    // SMTP manual
+    if (!config.password) {
+      throw new Error('No hay contraseña configurada para SMTP');
+    }
+
     return nodemailer.createTransport({
       host: config.host,
       port: config.port,
       secure: config.secure,
       auth: {
         user: config.user,
-        pass: config.password,
+        pass: decrypt(config.password),
       },
       tls: {
-        rejectUnauthorized: false, // Para servidores con certificados auto-firmados
+        rejectUnauthorized: false,
       },
     });
+  }
+
+  /**
+   * Desconectar configuración de email
+   */
+  async disconnectEmail(empresaId: string): Promise<void> {
+    await Empresa.updateOne(
+      { _id: empresaId },
+      { $unset: { emailConfig: 1 } }
+    );
   }
 }
 

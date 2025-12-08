@@ -53,7 +53,9 @@ import {
   ExternalLink,
   Star,
   Copy,
+  Percent,
 } from 'lucide-react'
+import { DescuentosClienteCard } from '@/components/clientes/DescuentosClienteCard'
 import { TIPOS_DIRECCION, TIPOS_MANDATO_SEPA } from '@/types/cliente.types'
 import {
   DropdownMenu,
@@ -745,6 +747,13 @@ export default function ClienteDetailPage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Descuentos Automáticos */}
+              <DescuentosClienteCard
+                clienteId={cliente._id}
+                descuentoGeneralInicial={cliente.descuentoGeneral}
+                onUpdate={loadCliente}
+              />
 
               {/* Cuentas Bancarias */}
               <Card className="md:col-span-2">

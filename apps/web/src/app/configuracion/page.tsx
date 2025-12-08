@@ -28,7 +28,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { empresaService, EmpresaInfo, EmailConfig, CuentaBancariaEmpresa, TextosLegales, DatosRegistro } from '@/services/empresa.service'
+import { empresaService, EmpresaInfo, EmailConfig, CuentaBancariaEmpresa, TextosLegales, DatosRegistro, OAuth2ProvidersStatus } from '@/services/empresa.service'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from 'sonner'
 import {
@@ -54,6 +54,9 @@ import {
   ScrollText,
   Settings,
   Hash,
+  Link2,
+  Unlink,
+  ExternalLink,
 } from 'lucide-react'
 
 // Roles permitidos para acceder a esta página
@@ -105,6 +108,7 @@ export default function ConfiguracionEmpresaPage() {
 
   // Estado de la configuración de email
   const [emailConfig, setEmailConfig] = useState<Partial<EmailConfig>>({
+    authType: 'smtp',
     host: '',
     port: 587,
     secure: false,
@@ -115,6 +119,9 @@ export default function ConfiguracionEmpresaPage() {
     replyTo: '',
   })
   const [emailConfigExists, setEmailConfigExists] = useState(false)
+  const [emailAuthMethod, setEmailAuthMethod] = useState<'oauth2' | 'smtp'>('oauth2')
+  const [oauth2Providers, setOauth2Providers] = useState<OAuth2ProvidersStatus | null>(null)
+  const [isConnectingOAuth, setIsConnectingOAuth] = useState(false)
 
   // Estado para diálogos
   const [showCuentaDialog, setShowCuentaDialog] = useState(false)
@@ -157,16 +164,56 @@ export default function ConfiguracionEmpresaPage() {
         setEmpresa(empresaRes.data)
       }
 
+      // Cargar estado de proveedores OAuth2
+      try {
+        const providersRes = await empresaService.getOAuth2Providers()
+        if (providersRes.success && providersRes.data) {
+          setOauth2Providers(providersRes.data)
+        }
+      } catch (error) {
+        console.log('No se pudieron cargar los proveedores OAuth2')
+      }
+
       // Cargar configuración de email
       try {
         const emailRes = await empresaService.getEmailConfig()
         if (emailRes.success && emailRes.data) {
           setEmailConfig(emailRes.data)
-          setEmailConfigExists(!!emailRes.data.host)
+          setEmailConfigExists(!!(emailRes.data.authType === 'oauth2' ? emailRes.data.isConnected : emailRes.data.hasPassword))
+          setEmailAuthMethod(emailRes.data.authType || 'smtp')
         }
       } catch (error) {
         // Si falla, es que no hay configuración o no tiene permisos
         console.log('No hay configuración de email o sin permisos')
+      }
+
+      // Verificar parámetros de la URL para OAuth callbacks
+      const urlParams = new URLSearchParams(window.location.search)
+      const oauthSuccess = urlParams.get('oauth_success')
+      const oauthError = urlParams.get('oauth_error')
+
+      if (oauthSuccess) {
+        toast.success(`Cuenta de ${oauthSuccess === 'google' ? 'Google' : 'Microsoft'} conectada correctamente`)
+        // Limpiar parámetros de la URL
+        window.history.replaceState({}, '', '/configuracion?tab=email')
+        // Recargar configuración de email
+        const emailRes = await empresaService.getEmailConfig()
+        if (emailRes.success && emailRes.data) {
+          setEmailConfig(emailRes.data)
+          setEmailConfigExists(true)
+          setEmailAuthMethod('oauth2')
+        }
+      }
+
+      if (oauthError) {
+        toast.error(`Error al conectar: ${decodeURIComponent(oauthError)}`)
+        window.history.replaceState({}, '', '/configuracion?tab=email')
+      }
+
+      // Verificar si hay tab en la URL
+      const tab = urlParams.get('tab')
+      if (tab) {
+        setActiveTab(tab)
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error al cargar configuración')
@@ -187,6 +234,68 @@ export default function ConfiguracionEmpresaPage() {
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error al guardar')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Conectar con Google OAuth2
+  const handleConnectGoogle = async () => {
+    try {
+      setIsConnectingOAuth(true)
+      const response = await empresaService.getGoogleAuthUrl()
+      if (response.success && response.data?.authUrl) {
+        // Abrir ventana de autorización
+        window.location.href = response.data.authUrl
+      } else {
+        toast.error('No se pudo obtener la URL de autorización')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al conectar con Google')
+    } finally {
+      setIsConnectingOAuth(false)
+    }
+  }
+
+  // Conectar con Microsoft OAuth2
+  const handleConnectMicrosoft = async () => {
+    try {
+      setIsConnectingOAuth(true)
+      const response = await empresaService.getMicrosoftAuthUrl()
+      if (response.success && response.data?.authUrl) {
+        window.location.href = response.data.authUrl
+      } else {
+        toast.error('No se pudo obtener la URL de autorización')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al conectar con Microsoft')
+    } finally {
+      setIsConnectingOAuth(false)
+    }
+  }
+
+  // Desconectar cuenta de email
+  const handleDisconnectEmail = async () => {
+    try {
+      setIsSaving(true)
+      const response = await empresaService.disconnectEmail()
+      if (response.success) {
+        toast.success('Cuenta desconectada correctamente')
+        setEmailConfig({
+          authType: 'smtp',
+          host: '',
+          port: 587,
+          secure: false,
+          user: '',
+          password: '',
+          fromName: '',
+          fromEmail: '',
+          replyTo: '',
+        })
+        setEmailConfigExists(false)
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al desconectar')
     } finally {
       setIsSaving(false)
     }
@@ -1189,227 +1298,375 @@ export default function ConfiguracionEmpresaPage() {
           </TabsContent>
 
           {/* ============================================ */}
-          {/* TAB: CONFIGURACIÓN DE EMAIL SMTP */}
+          {/* TAB: CONFIGURACIÓN DE EMAIL */}
           {/* ============================================ */}
           <TabsContent value="email" className="space-y-6 mt-6">
+            {/* Estado de la configuración */}
+            <div className={`flex items-center justify-between p-4 rounded-lg ${emailConfigExists ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+              <div className="flex items-center gap-3">
+                {emailConfigExists ? (
+                  <>
+                    <CheckCircle className="h-6 w-6 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">Configuración de email activa</p>
+                      <p className="text-sm text-green-600">
+                        {emailConfig.authType === 'oauth2'
+                          ? `Conectado con ${emailConfig.provider === 'google' ? 'Google' : 'Microsoft'} (${emailConfig.user})`
+                          : `SMTP: ${emailConfig.host}:${emailConfig.port} (${emailConfig.user})`
+                        }
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-6 w-6 text-amber-600" />
+                    <div>
+                      <p className="font-medium text-amber-800">No hay configuración de email</p>
+                      <p className="text-sm text-amber-600">Conecta tu cuenta o configura SMTP para enviar emails.</p>
+                    </div>
+                  </>
+                )}
+              </div>
+              {emailConfigExists && (
+                <Button variant="outline" size="sm" onClick={handleDisconnectEmail} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                  <Unlink className="mr-2 h-4 w-4" />
+                  Desconectar
+                </Button>
+              )}
+            </div>
+
+            {/* Selector de método */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Server className="h-5 w-5" />
-                  Configuración del Servidor de Email (SMTP)
+                  <Mail className="h-5 w-5" />
+                  Método de Autenticación
                 </CardTitle>
                 <CardDescription>
-                  Configura el servidor de correo para enviar emails desde Omerix (presupuestos, facturas, notificaciones...)
+                  Elige cómo conectar tu email para enviar desde Omerix
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Estado de la configuración */}
-                <div className={`flex items-center gap-2 p-3 rounded-lg ${emailConfigExists ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
-                  {emailConfigExists ? (
-                    <>
-                      <CheckCircle className="h-5 w-5" />
-                      <span>Configuración de email activa</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="h-5 w-5" />
-                      <span>No hay configuración de email. Configura tu servidor SMTP para enviar emails.</span>
-                    </>
-                  )}
+              <CardContent>
+                <div className="flex gap-4 mb-6">
+                  <Button
+                    variant={emailAuthMethod === 'oauth2' ? 'default' : 'outline'}
+                    onClick={() => setEmailAuthMethod('oauth2')}
+                    className="flex-1"
+                  >
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Conectar con Google/Microsoft
+                  </Button>
+                  <Button
+                    variant={emailAuthMethod === 'smtp' ? 'default' : 'outline'}
+                    onClick={() => setEmailAuthMethod('smtp')}
+                    className="flex-1"
+                  >
+                    <Server className="mr-2 h-4 w-4" />
+                    Configuración SMTP Manual
+                  </Button>
                 </div>
 
-                {/* Servidor SMTP */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="smtpHost">Servidor SMTP *</Label>
-                    <Input
-                      id="smtpHost"
-                      value={emailConfig.host || ''}
-                      onChange={(e) => setEmailConfig({ ...emailConfig, host: e.target.value })}
-                      placeholder="smtp.gmail.com, smtp.office365.com, etc."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="smtpPort">Puerto *</Label>
-                    <Input
-                      id="smtpPort"
-                      type="number"
-                      value={emailConfig.port || 587}
-                      onChange={(e) => setEmailConfig({ ...emailConfig, port: parseInt(e.target.value) || 587 })}
-                      placeholder="587"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id="smtpSecure"
-                      checked={emailConfig.secure || false}
-                      onCheckedChange={(checked) => setEmailConfig({ ...emailConfig, secure: checked })}
-                    />
-                    <Label htmlFor="smtpSecure">Conexión segura (SSL/TLS)</Label>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Activa para puerto 465, desactiva para 587 con STARTTLS
-                  </p>
-                </div>
-
-                <Separator />
-
-                {/* Credenciales */}
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Credenciales</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="smtpUser">Usuario / Email *</Label>
-                      <Input
-                        id="smtpUser"
-                        value={emailConfig.user || ''}
-                        onChange={(e) => setEmailConfig({ ...emailConfig, user: e.target.value })}
-                        placeholder="usuario@empresa.com"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="smtpPassword">Contraseña {emailConfigExists ? '' : '*'}</Label>
-                      <div className="relative">
-                        <Input
-                          id="smtpPassword"
-                          type={showPassword ? 'text' : 'password'}
-                          value={emailConfig.password || ''}
-                          onChange={(e) => setEmailConfig({ ...emailConfig, password: e.target.value })}
-                          placeholder={emailConfigExists ? 'Dejar vacío para mantener la actual' : 'Contraseña del email'}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-0 top-0 h-full"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
+                {/* OAuth2 */}
+                {emailAuthMethod === 'oauth2' && (
+                  <div className="space-y-6">
+                    {/* Aviso si OAuth2 no está configurado en el servidor */}
+                    {oauth2Providers && !oauth2Providers.google.configured && !oauth2Providers.microsoft.configured && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2 text-amber-800 mb-2">
+                          <AlertCircle className="h-5 w-5" />
+                          <h4 className="font-medium">OAuth2 no está configurado en el servidor</h4>
+                        </div>
+                        <p className="text-sm text-amber-700 mb-2">
+                          Para habilitar la conexión con Google o Microsoft, el administrador del sistema debe configurar las credenciales OAuth2 en el servidor.
+                        </p>
+                        <p className="text-sm text-amber-600">
+                          Mientras tanto, puedes usar la <strong>Configuración SMTP Manual</strong> para enviar emails.
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Para Gmail/Google Workspace: usa una "Contraseña de aplicación"
+                    )}
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-medium text-blue-800 mb-2">Conectar con tu cuenta de correo</h4>
+                      <p className="text-sm text-blue-600 mb-4">
+                        La forma más fácil y segura. No necesitas configurar servidores ni crear contraseñas de aplicación.
                       </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Google */}
+                        <div className="p-4 border rounded-lg bg-white">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-red-100">
+                              <svg className="w-6 h-6" viewBox="0 0 24 24">
+                                <path fill="#EA4335" d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <h5 className="font-medium">Google / Gmail</h5>
+                              <p className="text-xs text-muted-foreground">Gmail o Google Workspace</p>
+                            </div>
+                          </div>
+                          {emailConfig.authType === 'oauth2' && emailConfig.provider === 'google' && emailConfig.isConnected ? (
+                            <div className="flex items-center gap-2 text-green-600 text-sm">
+                              <CheckCircle className="h-4 w-4" />
+                              Conectado
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={handleConnectGoogle}
+                              disabled={isConnectingOAuth || !oauth2Providers?.google.configured}
+                            >
+                              {isConnectingOAuth ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                              )}
+                              {oauth2Providers?.google.configured ? 'Conectar con Google' : 'No configurado en servidor'}
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Microsoft */}
+                        <div className="p-4 border rounded-lg bg-white">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-blue-100">
+                              <svg className="w-6 h-6" viewBox="0 0 23 23">
+                                <path fill="#f25022" d="M1 1h10v10H1z"/>
+                                <path fill="#00a4ef" d="M1 12h10v10H1z"/>
+                                <path fill="#7fba00" d="M12 1h10v10H12z"/>
+                                <path fill="#ffb900" d="M12 12h10v10H12z"/>
+                              </svg>
+                            </div>
+                            <div>
+                              <h5 className="font-medium">Microsoft</h5>
+                              <p className="text-xs text-muted-foreground">Outlook, Office 365, Hotmail</p>
+                            </div>
+                          </div>
+                          {emailConfig.authType === 'oauth2' && emailConfig.provider === 'microsoft' && emailConfig.isConnected ? (
+                            <div className="flex items-center gap-2 text-green-600 text-sm">
+                              <CheckCircle className="h-4 w-4" />
+                              Conectado
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={handleConnectMicrosoft}
+                              disabled={isConnectingOAuth || !oauth2Providers?.microsoft.configured}
+                            >
+                              {isConnectingOAuth ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                              )}
+                              {oauth2Providers?.microsoft.configured ? 'Conectar con Microsoft' : 'No configurado en servidor'}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                <Separator />
+                {/* SMTP Manual */}
+                {emailAuthMethod === 'smtp' && (
+                  <div className="space-y-6">
+                    {/* Servidor SMTP */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-2 space-y-2">
+                        <Label htmlFor="smtpHost">Servidor SMTP *</Label>
+                        <Input
+                          id="smtpHost"
+                          value={emailConfig.host || ''}
+                          onChange={(e) => setEmailConfig({ ...emailConfig, host: e.target.value })}
+                          placeholder="smtp.gmail.com, smtp.office365.com, etc."
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="smtpPort">Puerto *</Label>
+                        <Input
+                          id="smtpPort"
+                          type="number"
+                          value={emailConfig.port || 587}
+                          onChange={(e) => setEmailConfig({ ...emailConfig, port: parseInt(e.target.value) || 587 })}
+                          placeholder="587"
+                        />
+                      </div>
+                    </div>
 
-                {/* Configuración del remitente */}
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Configuración del Remitente</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="fromName">Nombre del Remitente</Label>
-                      <Input
-                        id="fromName"
-                        value={emailConfig.fromName || ''}
-                        onChange={(e) => setEmailConfig({ ...emailConfig, fromName: e.target.value })}
-                        placeholder={empresa.nombre || 'Mi Empresa'}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Si está vacío, se usará el nombre de la empresa
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="smtpSecure"
+                          checked={emailConfig.secure || false}
+                          onCheckedChange={(checked) => setEmailConfig({ ...emailConfig, secure: checked })}
+                        />
+                        <Label htmlFor="smtpSecure">Conexión segura (SSL/TLS)</Label>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Activa para puerto 465, desactiva para 587 con STARTTLS
                       </p>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="fromEmail">Email del Remitente</Label>
-                      <Input
-                        id="fromEmail"
-                        type="email"
-                        value={emailConfig.fromEmail || ''}
-                        onChange={(e) => setEmailConfig({ ...emailConfig, fromEmail: e.target.value })}
-                        placeholder={emailConfig.user || 'noreply@empresa.com'}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Si está vacío, se usará el usuario SMTP
-                      </p>
+
+                    <Separator />
+
+                    {/* Credenciales */}
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Credenciales</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="smtpUser">Usuario / Email *</Label>
+                          <Input
+                            id="smtpUser"
+                            value={emailConfig.user || ''}
+                            onChange={(e) => setEmailConfig({ ...emailConfig, user: e.target.value })}
+                            placeholder="usuario@empresa.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="smtpPassword">Contraseña {emailConfig.hasPassword ? '' : '*'}</Label>
+                          <div className="relative">
+                            <Input
+                              id="smtpPassword"
+                              type={showPassword ? 'text' : 'password'}
+                              value={emailConfig.password || ''}
+                              onChange={(e) => setEmailConfig({ ...emailConfig, password: e.target.value })}
+                              placeholder={emailConfig.hasPassword ? 'Dejar vacío para mantener la actual' : 'Contraseña del email'}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-full"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Para Gmail: usa una "Contraseña de aplicación" (Configuración de cuenta Google &gt; Seguridad)
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="replyTo">Responder a</Label>
-                      <Input
-                        id="replyTo"
-                        type="email"
-                        value={emailConfig.replyTo || ''}
-                        onChange={(e) => setEmailConfig({ ...emailConfig, replyTo: e.target.value })}
-                        placeholder="contacto@empresa.com"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Email donde recibirás las respuestas
-                      </p>
+
+                    <Separator />
+
+                    {/* Configuración del remitente */}
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Configuración del Remitente</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="fromName">Nombre del Remitente</Label>
+                          <Input
+                            id="fromName"
+                            value={emailConfig.fromName || ''}
+                            onChange={(e) => setEmailConfig({ ...emailConfig, fromName: e.target.value })}
+                            placeholder={empresa.nombre || 'Mi Empresa'}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Si está vacío, se usará el nombre de la empresa
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="fromEmail">Email del Remitente</Label>
+                          <Input
+                            id="fromEmail"
+                            type="email"
+                            value={emailConfig.fromEmail || ''}
+                            onChange={(e) => setEmailConfig({ ...emailConfig, fromEmail: e.target.value })}
+                            placeholder={emailConfig.user || 'noreply@empresa.com'}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Si está vacío, se usará el usuario SMTP
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="replyTo">Responder a</Label>
+                          <Input
+                            id="replyTo"
+                            type="email"
+                            value={emailConfig.replyTo || ''}
+                            onChange={(e) => setEmailConfig({ ...emailConfig, replyTo: e.target.value })}
+                            placeholder="contacto@empresa.com"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Email donde recibirás las respuestas
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-4 border-t">
+                      <Button onClick={handleSaveEmailConfig} disabled={isSaving}>
+                        {isSaving ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="mr-2 h-4 w-4" />
+                        )}
+                        Guardar Configuración SMTP
+                      </Button>
                     </div>
                   </div>
-                </div>
+                )}
+              </CardContent>
+            </Card>
 
-                <div className="flex justify-between items-center pt-4 border-t">
-                  {/* Probar configuración */}
-                  <div className="flex items-center gap-2">
+            {/* Probar configuración */}
+            {emailConfigExists && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Probar Envío de Email</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
                     <Input
                       type="email"
                       value={testEmail}
                       onChange={(e) => setTestEmail(e.target.value)}
                       placeholder="Email para prueba"
-                      className="w-64"
+                      className="max-w-sm"
                     />
                     <Button
                       variant="outline"
                       onClick={handleTestEmail}
-                      disabled={isTesting || !emailConfigExists}
+                      disabled={isTesting}
                     >
                       {isTesting ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
                         <Send className="mr-2 h-4 w-4" />
                       )}
-                      Enviar Prueba
+                      Enviar Email de Prueba
                     </Button>
                   </div>
-
-                  <Button onClick={handleSaveEmailConfig} disabled={isSaving}>
-                    {isSaving ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-2 h-4 w-4" />
-                    )}
-                    Guardar Configuración
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Ayuda */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Configuraciones comunes</CardTitle>
+                <CardTitle className="text-base">Ayuda de Configuración</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div className="p-3 bg-muted rounded-lg">
-                    <h4 className="font-medium mb-2">Gmail / Google Workspace</h4>
-                    <ul className="space-y-1 text-muted-foreground">
-                      <li>Host: smtp.gmail.com</li>
-                      <li>Puerto: 587</li>
-                      <li>Seguro: No (usa STARTTLS)</li>
-                      <li>Requiere: Contraseña de aplicación</li>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <h4 className="font-medium text-blue-800 mb-2">Recomendado: Conectar con Google/Microsoft</h4>
+                    <ul className="space-y-1 text-blue-700">
+                      <li>• No requiere configuración técnica</li>
+                      <li>• Más seguro (sin contraseñas)</li>
+                      <li>• Se renueva automáticamente</li>
+                      <li>• Mejor entregabilidad de emails</li>
                     </ul>
                   </div>
-                  <div className="p-3 bg-muted rounded-lg">
-                    <h4 className="font-medium mb-2">Microsoft 365 / Outlook</h4>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <h4 className="font-medium mb-2">SMTP Manual</h4>
+                    <p className="text-muted-foreground mb-2">Úsalo si:</p>
                     <ul className="space-y-1 text-muted-foreground">
-                      <li>Host: smtp.office365.com</li>
-                      <li>Puerto: 587</li>
-                      <li>Seguro: No (usa STARTTLS)</li>
-                    </ul>
-                  </div>
-                  <div className="p-3 bg-muted rounded-lg">
-                    <h4 className="font-medium mb-2">Servidor propio / OVH</h4>
-                    <ul className="space-y-1 text-muted-foreground">
-                      <li>Host: ssl0.ovh.net (o tu servidor)</li>
-                      <li>Puerto: 465 o 587</li>
-                      <li>Seguro: Sí para 465</li>
+                      <li>• Tienes tu propio servidor de correo</li>
+                      <li>• Usas un servicio como SendGrid, Mailgun...</li>
+                      <li>• Tu proveedor no soporta OAuth2</li>
                     </ul>
                   </div>
                 </div>

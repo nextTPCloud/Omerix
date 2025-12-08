@@ -55,6 +55,7 @@ export interface ILineaPresupuesto {
   codigo?: string;
   nombre: string;
   descripcion?: string;
+  descripcionLarga?: string;
   sku?: string;
   variante?: IVarianteSeleccionada;
   cantidad: number;
@@ -127,6 +128,28 @@ export interface ITotalesPresupuesto {
   margenPorcentaje: number;
 }
 
+// Historial de cambios del presupuesto
+export interface IHistorialPresupuesto {
+  _id?: string;
+  fecha: string | Date;
+  usuarioId: string | { _id: string; nombre: string; email: string };
+  accion: string;
+  descripcion?: string;
+  datosAnteriores?: any;
+}
+
+// Notas de seguimiento (llamadas, contactos, etc.)
+export interface INotaSeguimiento {
+  _id?: string;
+  fecha: string | Date;
+  usuarioId: string | { _id: string; nombre: string; email: string };
+  tipo: 'llamada' | 'email' | 'reunion' | 'nota' | 'recordatorio';
+  contenido: string;
+  resultado?: string;
+  proximaAccion?: string;
+  fechaProximaAccion?: string | Date;
+}
+
 export interface IPresupuesto {
   _id: string;
   codigo: string;
@@ -139,6 +162,7 @@ export interface IPresupuesto {
   fechaValidez: string | Date;
   fechaEnvio?: string | Date;
   fechaRespuesta?: string | Date;
+  contadorEnvios?: number;
   clienteId: string | { _id: string; codigo: string; nombre: string; nombreComercial?: string };
   clienteNombre: string;
   clienteNif: string;
@@ -173,6 +197,19 @@ export interface IPresupuesto {
   modificadoPor?: string | { _id: string; nombre: string; email: string };
   fechaCreacion: string | Date;
   fechaModificacion?: string | Date;
+  // Historial y seguimiento
+  historial?: IHistorialPresupuesto[];
+  notasSeguimiento?: INotaSeguimiento[];
+  // Portal de cliente
+  tokenAccesoPortal?: string;
+  tokenExpirado?: boolean;
+  urlPortal?: string;
+  respuestaCliente?: {
+    fecha: string;
+    aceptado: boolean;
+    comentarios?: string;
+    nombreFirmante?: string;
+  };
   // Virtuals
   diasParaCaducar?: number | null;
   estaVigente?: boolean;

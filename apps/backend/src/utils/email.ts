@@ -132,4 +132,200 @@ export const emailTemplates = {
     </body>
     </html>
   `,
+
+  // Recordatorios de presupuestos
+  presupuestoExpiracion: (params: {
+    clienteNombre: string;
+    codigoPresupuesto: string;
+    tituloPresupuesto?: string;
+    fechaValidez: string;
+    diasRestantes: number;
+    totalPresupuesto: string;
+    empresaNombre: string;
+    contactoEmail?: string;
+    contactoTelefono?: string;
+  }) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #F59E0B; }
+        .highlight { font-size: 24px; font-weight: bold; color: #F59E0B; }
+        .cta-button { display: inline-block; padding: 14px 30px; background: #3B82F6; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .contact-info { background: #E5E7EB; padding: 15px; border-radius: 6px; margin-top: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>⏰ Recordatorio de Presupuesto</h1>
+        </div>
+        <div class="content">
+          <p>Estimado/a <strong>${params.clienteNombre}</strong>,</p>
+          <p>Le recordamos que el presupuesto que le enviamos está próximo a expirar:</p>
+
+          <div class="info-box">
+            <p><strong>Presupuesto:</strong> ${params.codigoPresupuesto}</p>
+            ${params.tituloPresupuesto ? `<p><strong>Concepto:</strong> ${params.tituloPresupuesto}</p>` : ''}
+            <p><strong>Importe total:</strong> <span class="highlight">${params.totalPresupuesto}</span></p>
+            <p><strong>Válido hasta:</strong> ${params.fechaValidez}</p>
+            <p><strong>Días restantes:</strong> <span style="color: ${params.diasRestantes <= 3 ? '#EF4444' : '#F59E0B'}; font-weight: bold;">${params.diasRestantes} ${params.diasRestantes === 1 ? 'día' : 'días'}</span></p>
+          </div>
+
+          <p>Si tiene alguna duda o desea aceptar el presupuesto, no dude en ponerse en contacto con nosotros.</p>
+
+          ${params.contactoEmail || params.contactoTelefono ? `
+          <div class="contact-info">
+            <p><strong>Contacto:</strong></p>
+            ${params.contactoEmail ? `<p>📧 ${params.contactoEmail}</p>` : ''}
+            ${params.contactoTelefono ? `<p>📞 ${params.contactoTelefono}</p>` : ''}
+          </div>
+          ` : ''}
+
+          <p>Saludos cordiales,<br><strong>${params.empresaNombre}</strong></p>
+        </div>
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} ${params.empresaNombre}. Todos los derechos reservados.</p>
+          <p style="font-size: 11px; color: #999;">Este es un recordatorio automático. Si ya ha respondido a este presupuesto, por favor ignore este mensaje.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
+
+  presupuestoSinRespuesta: (params: {
+    clienteNombre: string;
+    codigoPresupuesto: string;
+    tituloPresupuesto?: string;
+    fechaEnvio: string;
+    diasSinRespuesta: number;
+    totalPresupuesto: string;
+    empresaNombre: string;
+    contactoEmail?: string;
+    contactoTelefono?: string;
+  }) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #6366F1; }
+        .highlight { font-size: 24px; font-weight: bold; color: #6366F1; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .contact-info { background: #E5E7EB; padding: 15px; border-radius: 6px; margin-top: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>📋 Seguimiento de Presupuesto</h1>
+        </div>
+        <div class="content">
+          <p>Estimado/a <strong>${params.clienteNombre}</strong>,</p>
+          <p>Hace ${params.diasSinRespuesta} días le enviamos un presupuesto y aún no hemos recibido respuesta. Nos gustaría saber si tiene alguna duda o si podemos ayudarle de alguna manera.</p>
+
+          <div class="info-box">
+            <p><strong>Presupuesto:</strong> ${params.codigoPresupuesto}</p>
+            ${params.tituloPresupuesto ? `<p><strong>Concepto:</strong> ${params.tituloPresupuesto}</p>` : ''}
+            <p><strong>Importe total:</strong> <span class="highlight">${params.totalPresupuesto}</span></p>
+            <p><strong>Fecha de envío:</strong> ${params.fechaEnvio}</p>
+          </div>
+
+          <p>Entendemos que puede estar evaluando diferentes opciones. Si desea que modifiquemos algo del presupuesto o tiene alguna consulta, estamos a su disposición.</p>
+
+          ${params.contactoEmail || params.contactoTelefono ? `
+          <div class="contact-info">
+            <p><strong>Contacto:</strong></p>
+            ${params.contactoEmail ? `<p>📧 ${params.contactoEmail}</p>` : ''}
+            ${params.contactoTelefono ? `<p>📞 ${params.contactoTelefono}</p>` : ''}
+          </div>
+          ` : ''}
+
+          <p>Saludos cordiales,<br><strong>${params.empresaNombre}</strong></p>
+        </div>
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} ${params.empresaNombre}. Todos los derechos reservados.</p>
+          <p style="font-size: 11px; color: #999;">Este es un recordatorio automático. Si ya ha respondido a este presupuesto, por favor ignore este mensaje.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
+
+  // Notificación al agente comercial
+  recordatorioAgente: (params: {
+    agenteNombre: string;
+    tipoRecordatorio: 'expiracion' | 'sin_respuesta';
+    presupuestos: Array<{
+      codigo: string;
+      clienteNombre: string;
+      total: string;
+      diasRestantes?: number;
+      diasSinRespuesta?: number;
+    }>;
+    empresaNombre: string;
+  }) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .presupuesto-item { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #EF4444; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .badge-warning { background: #FEF3C7; color: #92400E; }
+        .badge-danger { background: #FEE2E2; color: #991B1B; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🔔 Alerta de Presupuestos</h1>
+        </div>
+        <div class="content">
+          <p>Hola <strong>${params.agenteNombre}</strong>,</p>
+          <p>Tienes presupuestos que requieren tu atención:</p>
+
+          ${params.presupuestos.map(p => `
+          <div class="presupuesto-item">
+            <p><strong>${p.codigo}</strong> - ${p.clienteNombre}</p>
+            <p>Importe: <strong>${p.total}</strong></p>
+            ${p.diasRestantes !== undefined ? `
+              <p><span class="badge ${p.diasRestantes <= 3 ? 'badge-danger' : 'badge-warning'}">
+                ${p.diasRestantes <= 0 ? 'EXPIRADO' : `Expira en ${p.diasRestantes} días`}
+              </span></p>
+            ` : ''}
+            ${p.diasSinRespuesta !== undefined ? `
+              <p><span class="badge badge-warning">
+                ${p.diasSinRespuesta} días sin respuesta
+              </span></p>
+            ` : ''}
+          </div>
+          `).join('')}
+
+          <p>Te recomendamos hacer seguimiento a estos presupuestos lo antes posible.</p>
+
+          <p>Saludos,<br>Sistema de ${params.empresaNombre}</p>
+        </div>
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} ${params.empresaNombre}. Todos los derechos reservados.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
 };

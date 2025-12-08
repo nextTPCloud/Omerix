@@ -115,6 +115,13 @@ export interface IArchivo {
   subidoPor: mongoose.Types.ObjectId;
 }
 
+// Descuento por familia de productos
+export interface IDescuentoFamilia {
+  familiaId: mongoose.Types.ObjectId;
+  nombreFamilia?: string; // Snapshot del nombre para fácil referencia
+  descuento: number; // Porcentaje de descuento
+}
+
 export interface ICliente extends Document {
   _id: mongoose.Types.ObjectId;
   empresaId?: mongoose.Types.ObjectId; // OPCIONAL: Multi-DB (cada empresa tiene su propia BD)
@@ -161,6 +168,8 @@ export interface ICliente extends Document {
   diasPago?: number;
 
   descuentoGeneral?: number;
+  descuentosPorFamilia?: IDescuentoFamilia[];
+  aplicarDescuentoAutomatico?: boolean; // Si aplicar automáticamente el descuento en presupuestos
   tarifaId?: mongoose.Types.ObjectId;
 
   // ============================================
@@ -436,6 +445,15 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
     type: Number,
     min: 0,
     max: 100,
+  },
+  descuentosPorFamilia: [{
+    familiaId: { type: Schema.Types.ObjectId, ref: 'Familia', required: true },
+    nombreFamilia: { type: String },
+    descuento: { type: Number, required: true, min: 0, max: 100 },
+  }],
+  aplicarDescuentoAutomatico: {
+    type: Boolean,
+    default: true,
   },
   tarifaId: {
     type: Schema.Types.ObjectId,

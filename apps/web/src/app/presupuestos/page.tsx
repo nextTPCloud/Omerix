@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { presupuestosService } from '@/services/presupuestos.service'
+import { api } from '@/services/api'
 import vistasService from '@/services/vistas-guardadas.service'
 import {
   IPresupuesto,
@@ -74,6 +75,8 @@ import {
   Send,
   Printer,
   Loader2,
+  Mail,
+  MessageCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -85,6 +88,9 @@ import { SettingsMenu } from '@/components/ui/SettingsMenu'
 import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
 import { PrintButton } from '@/components/ui/PrintButton'
+import { PresupuestosAlertas, PresupuestosAlertasBadge } from '@/components/presupuestos/PresupuestosAlertas'
+import PresupuestosDashboard from '@/components/presupuestos/PresupuestosDashboard'
+import { RecordatoriosWidget } from '@/components/presupuestos/RecordatoriosPresupuestos'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -203,6 +209,31 @@ export default function PresupuestosPage() {
   const [presupuestosToImprimir, setPresupuestosToImprimir] = useState<IPresupuesto[]>([])
   const [isLoadingPresupuestosCompletos, setIsLoadingPresupuestosCompletos] = useState(false)
   const bulkPrintRef = useRef<HTMLDivElement>(null)
+
+  // Estados para envío masivo de emails y WhatsApp
+  const [showBulkEmailDialog, setShowBulkEmailDialog] = useState(false)
+  const [showBulkWhatsAppDialog, setShowBulkWhatsAppDialog] = useState(false)
+  const [bulkEmailOptions, setBulkEmailOptions] = useState({
+    asunto: '',
+    mensaje: '',
+    pdfOptions: defaultPrintOptions,
+  })
+  const [isSendingBulkEmail, setIsSendingBulkEmail] = useState(false)
+  const [bulkEmailResults, setBulkEmailResults] = useState<{
+    total: number;
+    enviados: number;
+    fallidos: number;
+    resultados: Array<{ id: string; codigo: string; success: boolean; message: string }>;
+  } | null>(null)
+  const [whatsAppUrls, setWhatsAppUrls] = useState<Array<{
+    id: string;
+    codigo: string;
+    url?: string;
+    telefono?: string;
+    clienteNombre?: string;
+    error?: string;
+  }>>([])
+  const [isLoadingWhatsApp, setIsLoadingWhatsApp] = useState(false)
 
   // Columnas disponibles
   const [columnasDisponibles] = useState([
@@ -596,9 +627,71 @@ const {
     }
   }
 
-  const handleExportSelected = () => {
-    const selectedData = presupuestos.filter(p => selectedPresupuestos.includes(p._id))
-    toast.success('Presupuestos exportados correctamente')
+  const handleExportSelected = async () => {
+    try {
+      const selectedData = presupuestos.filter(p => selectedPresupuestos.includes(p._id))
+
+      if (selectedData.length === 0) {
+        toast.error('No hay presupuestos seleccionados')
+        return
+      }
+
+      // Transformar datos para exportación (aplanar campos anidados)
+      const exportData = selectedData.map(p => ({
+        codigo: p.codigo,
+        clienteNombre: p.clienteNombre || '-',
+        titulo: p.titulo || '-',
+        estado: getEstadoConfig(p.estado)?.label || p.estado,
+        fecha: p.fecha ? new Date(p.fecha).toLocaleDateString('es-ES') : '-',
+        fechaValidez: p.fechaValidez ? new Date(p.fechaValidez).toLocaleDateString('es-ES') : '-',
+        totalPresupuesto: (p.totales?.totalPresupuesto || 0).toLocaleString('es-ES', {
+          style: 'currency',
+          currency: 'EUR',
+        }),
+        diasParaCaducar: p.diasParaCaducar?.toString() || '-',
+        agenteComercial: getAgenteNombre(p.agenteComercialId) || '-',
+      }))
+
+      // Columnas para exportación
+      const columns = columnasDisponibles
+        .filter((col) => columnasVisibles.includes(col.key))
+        .map((col) => ({
+          key: col.key,
+          label: col.label,
+          width: 20,
+        }))
+
+      // Llamar al endpoint de exportación
+      const response = await api.post('/export/excel', {
+        filename: `presupuestos_seleccionados_${new Date().toISOString().split('T')[0]}`,
+        title: 'Presupuestos Seleccionados',
+        subtitle: `Exportados el ${new Date().toLocaleDateString('es-ES')} - ${selectedData.length} registros`,
+        columns,
+        data: exportData,
+        stats: [
+          { label: 'Total Seleccionados', value: selectedData.length },
+        ],
+        includeStats: true,
+      }, {
+        responseType: 'blob',
+      })
+
+      // Descargar el archivo
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `presupuestos_seleccionados_${new Date().toISOString().split('T')[0]}.xlsx`
+      link.click()
+      window.URL.revokeObjectURL(url)
+
+      toast.success(`${selectedData.length} presupuesto(s) exportado(s) correctamente`)
+    } catch (error: any) {
+      console.error('Error al exportar presupuestos:', error)
+      toast.error(error.response?.data?.message || 'Error al exportar presupuestos')
+    }
   }
 
   // ============================================
@@ -694,6 +787,91 @@ const {
     } finally {
       setIsLoadingPresupuestosCompletos(false)
     }
+  }
+
+  // ============================================
+  // ENVÍO MASIVO POR EMAIL
+  // ============================================
+
+  const handleBulkEmail = () => {
+    if (selectedPresupuestos.length === 0) {
+      toast.error('Selecciona al menos un presupuesto para enviar por email')
+      return
+    }
+    setBulkEmailOptions({
+      asunto: '',
+      mensaje: '',
+      pdfOptions: defaultPrintOptions,
+    })
+    setBulkEmailResults(null)
+    setShowBulkEmailDialog(true)
+  }
+
+  const handleConfirmBulkEmail = async () => {
+    setIsSendingBulkEmail(true)
+    try {
+      const result = await presupuestosService.enviarMasivoPorEmail(selectedPresupuestos, {
+        asunto: bulkEmailOptions.asunto || undefined,
+        mensaje: bulkEmailOptions.mensaje || undefined,
+        pdfOptions: {
+          mostrarDescripcion: bulkEmailOptions.pdfOptions.mostrarDescripcion,
+          mostrarReferencias: bulkEmailOptions.pdfOptions.mostrarReferencias,
+          mostrarCondiciones: bulkEmailOptions.pdfOptions.mostrarCondiciones,
+          mostrarFirmas: bulkEmailOptions.pdfOptions.mostrarFirmas,
+          mostrarCuentaBancaria: bulkEmailOptions.pdfOptions.mostrarCuentaBancaria,
+          mostrarLOPD: bulkEmailOptions.pdfOptions.mostrarLOPD,
+          mostrarRegistroMercantil: bulkEmailOptions.pdfOptions.mostrarRegistroMercantil,
+        },
+      })
+
+      if (result.success && result.data) {
+        setBulkEmailResults(result.data)
+        if (result.data.enviados === result.data.total) {
+          toast.success(`${result.data.enviados} emails enviados correctamente`)
+        } else {
+          toast.warning(`${result.data.enviados} de ${result.data.total} emails enviados`)
+        }
+        cargarPresupuestos()
+      } else {
+        toast.error(result.message || 'Error al enviar emails')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al enviar emails')
+    } finally {
+      setIsSendingBulkEmail(false)
+    }
+  }
+
+  // ============================================
+  // ENVÍO MASIVO POR WHATSAPP
+  // ============================================
+
+  const handleBulkWhatsApp = async () => {
+    if (selectedPresupuestos.length === 0) {
+      toast.error('Selecciona al menos un presupuesto para enviar por WhatsApp')
+      return
+    }
+
+    setIsLoadingWhatsApp(true)
+    setWhatsAppUrls([])
+    setShowBulkWhatsAppDialog(true)
+
+    try {
+      const result = await presupuestosService.getWhatsAppURLsMasivo(selectedPresupuestos)
+      if (result.success && result.data) {
+        setWhatsAppUrls(result.data)
+      } else {
+        toast.error('Error al generar URLs de WhatsApp')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al generar URLs de WhatsApp')
+    } finally {
+      setIsLoadingWhatsApp(false)
+    }
+  }
+
+  const handleOpenWhatsApp = (url: string) => {
+    window.open(url, '_blank')
   }
 
   // ============================================
@@ -926,77 +1104,19 @@ const {
           </div>
         </div>
 
-        {/* ESTADÍSTICAS */}
-        {showStats && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <Card className="p-3 border-l-4 border-l-blue-500">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                  <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Total</p>
-                  <p className="text-xl font-bold">{stats.total}</p>
-                </div>
-              </div>
-            </Card>
-            <Card className="p-3 border-l-4 border-l-gray-500">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 dark:bg-gray-900/20 rounded-lg">
-                  <Edit className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Borradores</p>
-                  <p className="text-xl font-bold">{stats.borradores}</p>
-                </div>
-              </div>
-            </Card>
-            <Card className="p-3 border-l-4 border-l-yellow-500">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
-                  <Send className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Enviados</p>
-                  <p className="text-xl font-bold">{stats.enviados}</p>
-                </div>
-              </div>
-            </Card>
-            <Card className="p-3 border-l-4 border-l-green-500">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Aceptados</p>
-                  <p className="text-xl font-bold">{stats.aceptados}</p>
-                </div>
-              </div>
-            </Card>
-            <Card className="p-3 border-l-4 border-l-purple-500">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                  <FileSpreadsheet className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Importe Total</p>
-                  <p className="text-xl font-bold">{formatCurrency(stats.totalImporte)}</p>
-                </div>
-              </div>
-            </Card>
-            <Card className="p-3 border-l-4 border-l-indigo-500">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg">
-                  <AlertCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Conversión</p>
-                  <p className="text-xl font-bold">{stats.tasaConversion.toFixed(1)}%</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
+        {/* DASHBOARD DE KPIS */}
+        {showStats && <PresupuestosDashboard />}
+
+        {/* ALERTAS Y RECORDATORIOS */}
+        <div className="grid gap-4 md:grid-cols-[1fr,300px]">
+          <PresupuestosAlertas
+            diasAlerta={7}
+            onRefresh={cargarPresupuestos}
+            collapsible={true}
+            defaultCollapsed={false}
+          />
+          <RecordatoriosWidget />
+        </div>
 
         {/* BARRA DE HERRAMIENTAS */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
@@ -1106,6 +1226,14 @@ const {
                 {selectedPresupuestos.length} {selectedPresupuestos.length === 1 ? 'presupuesto seleccionado' : 'presupuestos seleccionados'}
               </span>
               <div className="flex-1" />
+              <Button variant="outline" size="sm" onClick={handleBulkEmail}>
+                <Mail className="mr-2 h-4 w-4" />
+                Enviar Email
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleBulkWhatsApp} className="text-green-600 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-950">
+                <MessageCircle className="mr-2 h-4 w-4" />
+                WhatsApp
+              </Button>
               <Button variant="outline" size="sm" onClick={handleBulkPrint}>
                 <Printer className="mr-2 h-4 w-4" />
                 Imprimir
@@ -1780,6 +1908,41 @@ const {
                     onCheckedChange={(checked) => setBulkPrintOptions(prev => ({ ...prev, mostrarFirmas: checked }))}
                   />
                 </div>
+
+                <Separator className="my-2" />
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="bulkMostrarCuentaBancaria" className="cursor-pointer">
+                    Mostrar datos bancarios
+                  </Label>
+                  <Switch
+                    id="bulkMostrarCuentaBancaria"
+                    checked={bulkPrintOptions.mostrarCuentaBancaria}
+                    onCheckedChange={(checked) => setBulkPrintOptions(prev => ({ ...prev, mostrarCuentaBancaria: checked }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="bulkMostrarLOPD" className="cursor-pointer">
+                    Mostrar texto LOPD/RGPD
+                  </Label>
+                  <Switch
+                    id="bulkMostrarLOPD"
+                    checked={bulkPrintOptions.mostrarLOPD}
+                    onCheckedChange={(checked) => setBulkPrintOptions(prev => ({ ...prev, mostrarLOPD: checked }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="bulkMostrarRegistroMercantil" className="cursor-pointer">
+                    Mostrar registro mercantil
+                  </Label>
+                  <Switch
+                    id="bulkMostrarRegistroMercantil"
+                    checked={bulkPrintOptions.mostrarRegistroMercantil}
+                    onCheckedChange={(checked) => setBulkPrintOptions(prev => ({ ...prev, mostrarRegistroMercantil: checked }))}
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
@@ -1839,6 +2002,341 @@ const {
             </div>
           </div>
         )}
+
+        {/* DIALOG DE ENVÍO MASIVO POR EMAIL */}
+        <Dialog open={showBulkEmailDialog} onOpenChange={setShowBulkEmailDialog}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Enviar {selectedPresupuestos.length} Presupuesto{selectedPresupuestos.length > 1 ? 's' : ''} por Email
+              </DialogTitle>
+              <DialogDescription>
+                Cada presupuesto se enviará al email del cliente correspondiente con el PDF adjunto
+              </DialogDescription>
+            </DialogHeader>
+
+            {bulkEmailResults ? (
+              // Mostrar resultados del envío
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <Card className="p-3 text-center border-l-4 border-l-blue-500">
+                    <p className="text-2xl font-bold">{bulkEmailResults.total}</p>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                  </Card>
+                  <Card className="p-3 text-center border-l-4 border-l-green-500">
+                    <p className="text-2xl font-bold text-green-600">{bulkEmailResults.enviados}</p>
+                    <p className="text-xs text-muted-foreground">Enviados</p>
+                  </Card>
+                  <Card className="p-3 text-center border-l-4 border-l-red-500">
+                    <p className="text-2xl font-bold text-red-600">{bulkEmailResults.fallidos}</p>
+                    <p className="text-xs text-muted-foreground">Fallidos</p>
+                  </Card>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-2 font-medium">Detalle del envío:</p>
+                  <ul className="space-y-2">
+                    {bulkEmailResults.resultados.map((r, idx) => (
+                      <li key={idx} className={`text-sm flex items-start gap-2 p-2 rounded ${r.success ? 'bg-green-50 dark:bg-green-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
+                        {r.success ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                        )}
+                        <div>
+                          <span className="font-mono font-medium">{r.codigo}</span>
+                          <span className="text-muted-foreground block text-xs">{r.message}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              // Formulario de configuración
+              <div className="space-y-4 py-4">
+                {/* Lista de presupuestos */}
+                <div className="max-h-32 overflow-y-auto bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground mb-2">Presupuestos seleccionados:</p>
+                  <ul className="space-y-1">
+                    {presupuestos
+                      .filter(p => selectedPresupuestos.includes(p._id))
+                      .map(p => (
+                        <li key={p._id} className="text-sm flex items-center gap-2">
+                          <span className="font-mono font-medium">{p.codigo}</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="text-muted-foreground truncate">{p.clienteEmail || 'Sin email'}</span>
+                        </li>
+                      ))
+                    }
+                  </ul>
+                </div>
+
+                <Separator />
+
+                {/* Asunto personalizado */}
+                <div className="space-y-2">
+                  <Label htmlFor="bulkEmailAsunto">Asunto (opcional)</Label>
+                  <Input
+                    id="bulkEmailAsunto"
+                    placeholder="Dejar vacío para usar el asunto por defecto"
+                    value={bulkEmailOptions.asunto}
+                    onChange={(e) => setBulkEmailOptions(prev => ({ ...prev, asunto: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Por defecto: "Presupuesto [CÓDIGO]"
+                  </p>
+                </div>
+
+                {/* Mensaje personalizado */}
+                <div className="space-y-2">
+                  <Label htmlFor="bulkEmailMensaje">Mensaje personalizado (opcional)</Label>
+                  <textarea
+                    id="bulkEmailMensaje"
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="Añadir un mensaje personalizado al cuerpo del email..."
+                    value={bulkEmailOptions.mensaje}
+                    onChange={(e) => setBulkEmailOptions(prev => ({ ...prev, mensaje: e.target.value }))}
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Opciones del PDF */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Opciones del PDF adjunto</Label>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      type="button"
+                      variant={bulkEmailOptions.pdfOptions.mostrarDescripcion === 'ninguna' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setBulkEmailOptions(prev => ({
+                        ...prev,
+                        pdfOptions: { ...prev.pdfOptions, mostrarDescripcion: 'ninguna' }
+                      }))}
+                    >
+                      Sin descripción
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={bulkEmailOptions.pdfOptions.mostrarDescripcion === 'corta' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setBulkEmailOptions(prev => ({
+                        ...prev,
+                        pdfOptions: { ...prev.pdfOptions, mostrarDescripcion: 'corta' }
+                      }))}
+                    >
+                      Corta
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={bulkEmailOptions.pdfOptions.mostrarDescripcion === 'larga' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setBulkEmailOptions(prev => ({
+                        ...prev,
+                        pdfOptions: { ...prev.pdfOptions, mostrarDescripcion: 'larga' }
+                      }))}
+                    >
+                      Completa
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="bulkEmailReferencias" className="cursor-pointer text-sm">
+                      Mostrar referencias (SKU)
+                    </Label>
+                    <Switch
+                      id="bulkEmailReferencias"
+                      checked={bulkEmailOptions.pdfOptions.mostrarReferencias}
+                      onCheckedChange={(checked) => setBulkEmailOptions(prev => ({
+                        ...prev,
+                        pdfOptions: { ...prev.pdfOptions, mostrarReferencias: checked }
+                      }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="bulkEmailCondiciones" className="cursor-pointer text-sm">
+                      Mostrar condiciones
+                    </Label>
+                    <Switch
+                      id="bulkEmailCondiciones"
+                      checked={bulkEmailOptions.pdfOptions.mostrarCondiciones}
+                      onCheckedChange={(checked) => setBulkEmailOptions(prev => ({
+                        ...prev,
+                        pdfOptions: { ...prev.pdfOptions, mostrarCondiciones: checked }
+                      }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="bulkEmailFirmas" className="cursor-pointer text-sm">
+                      Espacio para firmas
+                    </Label>
+                    <Switch
+                      id="bulkEmailFirmas"
+                      checked={bulkEmailOptions.pdfOptions.mostrarFirmas}
+                      onCheckedChange={(checked) => setBulkEmailOptions(prev => ({
+                        ...prev,
+                        pdfOptions: { ...prev.pdfOptions, mostrarFirmas: checked }
+                      }))}
+                    />
+                  </div>
+
+                  <Separator className="my-2" />
+
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="bulkEmailCuentaBancaria" className="cursor-pointer text-sm">
+                      Mostrar datos bancarios
+                    </Label>
+                    <Switch
+                      id="bulkEmailCuentaBancaria"
+                      checked={bulkEmailOptions.pdfOptions.mostrarCuentaBancaria}
+                      onCheckedChange={(checked) => setBulkEmailOptions(prev => ({
+                        ...prev,
+                        pdfOptions: { ...prev.pdfOptions, mostrarCuentaBancaria: checked }
+                      }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="bulkEmailLOPD" className="cursor-pointer text-sm">
+                      Mostrar texto LOPD/RGPD
+                    </Label>
+                    <Switch
+                      id="bulkEmailLOPD"
+                      checked={bulkEmailOptions.pdfOptions.mostrarLOPD}
+                      onCheckedChange={(checked) => setBulkEmailOptions(prev => ({
+                        ...prev,
+                        pdfOptions: { ...prev.pdfOptions, mostrarLOPD: checked }
+                      }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="bulkEmailRegistroMercantil" className="cursor-pointer text-sm">
+                      Mostrar registro mercantil
+                    </Label>
+                    <Switch
+                      id="bulkEmailRegistroMercantil"
+                      checked={bulkEmailOptions.pdfOptions.mostrarRegistroMercantil}
+                      onCheckedChange={(checked) => setBulkEmailOptions(prev => ({
+                        ...prev,
+                        pdfOptions: { ...prev.pdfOptions, mostrarRegistroMercantil: checked }
+                      }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setShowBulkEmailDialog(false)}
+              >
+                {bulkEmailResults ? 'Cerrar' : 'Cancelar'}
+              </Button>
+              {!bulkEmailResults && (
+                <Button onClick={handleConfirmBulkEmail} disabled={isSendingBulkEmail}>
+                  {isSendingBulkEmail ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Enviar Emails
+                    </>
+                  )}
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* DIALOG DE ENVÍO MASIVO POR WHATSAPP */}
+        <Dialog open={showBulkWhatsAppDialog} onOpenChange={setShowBulkWhatsAppDialog}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5 text-green-600" />
+                Enviar por WhatsApp
+              </DialogTitle>
+              <DialogDescription>
+                Haz clic en cada botón para abrir WhatsApp con el mensaje predefinido
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4">
+              {isLoadingWhatsApp ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-3" />
+                  <p className="text-sm text-muted-foreground">Generando enlaces de WhatsApp...</p>
+                </div>
+              ) : (
+                <div className="max-h-[400px] overflow-y-auto space-y-2">
+                  {whatsAppUrls.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-lg border ${item.url ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20' : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono font-medium text-sm">{item.codigo}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {item.clienteNombre || 'Cliente'}
+                          </p>
+                          {item.telefono && (
+                            <p className="text-xs text-muted-foreground">
+                              Tel: {item.telefono}
+                            </p>
+                          )}
+                          {item.error && (
+                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                              {item.error}
+                            </p>
+                          )}
+                        </div>
+                        {item.url ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenWhatsApp(item.url!)}
+                            className="bg-green-600 hover:bg-green-700 text-white shrink-0"
+                          >
+                            <MessageCircle className="h-4 w-4 mr-1" />
+                            Abrir
+                          </Button>
+                        ) : (
+                          <Badge variant="destructive" className="shrink-0">
+                            Sin teléfono
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!isLoadingWhatsApp && whatsAppUrls.length > 0 && (
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-green-600">{whatsAppUrls.filter(u => u.url).length}</span> de {whatsAppUrls.length} presupuestos tienen teléfono válido para WhatsApp
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowBulkWhatsAppDialog(false)}>
+                Cerrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   )

@@ -23,6 +23,8 @@ import { Personal, IPersonal } from '../modules/personal/Personal';
 import { AgenteComercial, IAgenteComercial } from '../modules/agentes-comerciales/AgenteComercial';
 import { Proyecto, IProyecto } from '../modules/proyectos/Proyecto';
 import { Presupuesto, IPresupuesto } from '../modules/presupuestos/Presupuesto';
+import { Pedido, IPedido } from '../modules/pedidos/Pedido';
+import { Albaran, IAlbaran } from '../modules/albaranes/Albaran';
 import Usuario, { IUsuario } from '../models/Usuario';
 
 /**
@@ -383,6 +385,56 @@ export const getPresupuestoModel = async (
 };
 
 /**
+ * Obtener modelo de Pedido para una empresa específica
+ */
+export const getPedidoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IPedido>> => {
+  const PedidoSchema = Pedido.schema;
+  return databaseManager.getModel<IPedido>(
+    empresaId,
+    dbConfig,
+    'Pedido',
+    PedidoSchema
+  );
+};
+
+/**
+ * Obtener modelo de Albaran para una empresa específica
+ */
+export const getAlbaranModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IAlbaran>> => {
+  const AlbaranSchema = Albaran.schema;
+  return databaseManager.getModel<IAlbaran>(
+    empresaId,
+    dbConfig,
+    'Albaran',
+    AlbaranSchema
+  );
+};
+
+/**
+ * Obtener modelo de PlantillaPresupuesto para una empresa específica
+ */
+import PlantillaPresupuesto, { IPlantillaPresupuesto } from '@/modules/presupuestos/PlantillaPresupuesto';
+
+export const getPlantillaPresupuestoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IPlantillaPresupuesto>> => {
+  const PlantillaPresupuestoSchema = PlantillaPresupuesto.schema;
+  return databaseManager.getModel<IPlantillaPresupuesto>(
+    empresaId,
+    dbConfig,
+    'PlantillaPresupuesto',
+    PlantillaPresupuestoSchema
+  );
+};
+
+/**
  * Obtener modelo de Usuario para una empresa específica
  * Nota: Se registra como 'User' para compatibilidad con referencias en otros modelos
  */
@@ -426,6 +478,8 @@ export const EmpresaModels = {
   AgenteComercial: getAgenteComercialModel,
   Proyecto: getProyectoModel,
   Presupuesto: getPresupuestoModel,
+  Pedido: getPedidoModel,
+  Albaran: getAlbaranModel,
   User: getUserModel,
 };
 

@@ -721,6 +721,144 @@ export class ClientesController {
   }
 
   // ============================================
+  // OBTENER DESCUENTOS POR FAMILIA
+  // ============================================
+
+  async getDescuentos(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const cliente = await clientesService.findById(
+        req.params.id,
+        empresaId,
+        req.empresaDbConfig
+      );
+
+      if (!cliente) {
+        return res.status(404).json({
+          success: false,
+          message: 'Cliente no encontrado',
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          descuentoGeneral: cliente.descuentoGeneral || 0,
+          aplicarDescuentoAutomatico: cliente.aplicarDescuentoAutomatico ?? true,
+          descuentosPorFamilia: cliente.descuentosPorFamilia || [],
+        },
+      });
+    } catch (error: any) {
+      console.error('Error al obtener descuentos:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al obtener los descuentos',
+      });
+    }
+  }
+
+  // ============================================
+  // ACTUALIZAR DESCUENTOS POR FAMILIA
+  // ============================================
+
+  async actualizarDescuentos(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const usuarioId = new mongoose.Types.ObjectId(req.userId);
+      const { descuentoGeneral, aplicarDescuentoAutomatico, descuentosPorFamilia } = req.body;
+
+      // Validar descuentos
+      if (descuentosPorFamilia) {
+        for (const desc of descuentosPorFamilia) {
+          if (!desc.familiaId || typeof desc.descuento !== 'number') {
+            return res.status(400).json({
+              success: false,
+              message: 'Cada descuento debe tener familiaId y descuento',
+            });
+          }
+          if (desc.descuento < 0 || desc.descuento > 100) {
+            return res.status(400).json({
+              success: false,
+              message: 'El descuento debe estar entre 0 y 100',
+            });
+          }
+        }
+      }
+
+      if (descuentoGeneral !== undefined && (descuentoGeneral < 0 || descuentoGeneral > 100)) {
+        return res.status(400).json({
+          success: false,
+          message: 'El descuento general debe estar entre 0 y 100',
+        });
+      }
+
+      const updateData: any = {};
+      if (descuentoGeneral !== undefined) updateData.descuentoGeneral = descuentoGeneral;
+      if (aplicarDescuentoAutomatico !== undefined) updateData.aplicarDescuentoAutomatico = aplicarDescuentoAutomatico;
+      if (descuentosPorFamilia !== undefined) updateData.descuentosPorFamilia = descuentosPorFamilia;
+
+      const cliente = await clientesService.actualizar(
+        req.params.id,
+        updateData,
+        empresaId,
+        usuarioId,
+        req.empresaDbConfig
+      );
+
+      if (!cliente) {
+        return res.status(404).json({
+          success: false,
+          message: 'Cliente no encontrado',
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          descuentoGeneral: cliente.descuentoGeneral || 0,
+          aplicarDescuentoAutomatico: cliente.aplicarDescuentoAutomatico ?? true,
+          descuentosPorFamilia: cliente.descuentosPorFamilia || [],
+        },
+        message: 'Descuentos actualizados exitosamente',
+      });
+    } catch (error: any) {
+      console.error('Error al actualizar descuentos:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al actualizar los descuentos',
+      });
+    }
+  }
+
+  // ============================================
   // DUPLICAR CLIENTE
   // ============================================
 

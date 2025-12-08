@@ -1,10 +1,113 @@
 import { Router } from 'express';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import empresaController from './empresa.controller';
+import { emailOAuthController } from './email-oauth.controller';
 
 const router = Router();
 
-// Todas las rutas requieren autenticación
+// ====================================
+// RUTAS OAUTH2 (algunas sin auth porque son callbacks)
+// ====================================
+
+/**
+ * @swagger
+ * /api/empresa/email/oauth2/providers:
+ *   get:
+ *     summary: Obtener estado de proveedores OAuth2 disponibles
+ *     tags: [Email OAuth2]
+ *     responses:
+ *       200:
+ *         description: Estado de los proveedores
+ */
+router.get('/email/oauth2/providers', emailOAuthController.getProviders.bind(emailOAuthController));
+
+/**
+ * @swagger
+ * /api/empresa/email/oauth2/google/auth:
+ *   get:
+ *     summary: Iniciar flujo OAuth2 con Google
+ *     tags: [Email OAuth2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: URL de autorización
+ */
+router.get('/email/oauth2/google/auth', authMiddleware, emailOAuthController.startGoogleAuth.bind(emailOAuthController));
+
+/**
+ * @swagger
+ * /api/empresa/email/oauth2/google/callback:
+ *   get:
+ *     summary: Callback de Google OAuth2
+ *     tags: [Email OAuth2]
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: state
+ *         schema:
+ *           type: string
+ *     responses:
+ *       302:
+ *         description: Redirección al frontend
+ */
+router.get('/email/oauth2/google/callback', emailOAuthController.googleCallback.bind(emailOAuthController));
+
+/**
+ * @swagger
+ * /api/empresa/email/oauth2/microsoft/auth:
+ *   get:
+ *     summary: Iniciar flujo OAuth2 con Microsoft
+ *     tags: [Email OAuth2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: URL de autorización
+ */
+router.get('/email/oauth2/microsoft/auth', authMiddleware, emailOAuthController.startMicrosoftAuth.bind(emailOAuthController));
+
+/**
+ * @swagger
+ * /api/empresa/email/oauth2/microsoft/callback:
+ *   get:
+ *     summary: Callback de Microsoft OAuth2
+ *     tags: [Email OAuth2]
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: state
+ *         schema:
+ *           type: string
+ *     responses:
+ *       302:
+ *         description: Redirección al frontend
+ */
+router.get('/email/oauth2/microsoft/callback', emailOAuthController.microsoftCallback.bind(emailOAuthController));
+
+/**
+ * @swagger
+ * /api/empresa/email/oauth2/disconnect:
+ *   post:
+ *     summary: Desconectar cuenta OAuth2
+ *     tags: [Email OAuth2]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Cuenta desconectada
+ */
+router.post('/email/oauth2/disconnect', authMiddleware, emailOAuthController.disconnect.bind(emailOAuthController));
+
+// ====================================
+// RUTAS QUE REQUIEREN AUTENTICACIÓN
+// ====================================
 router.use(authMiddleware);
 
 /**

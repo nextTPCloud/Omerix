@@ -100,15 +100,35 @@ export interface EmpresaInfo {
   formatoNumero?: string;
 }
 
+// Configuración de email (actualizada para soportar OAuth2)
 export interface EmailConfig {
-  host: string;
-  port: number;
-  secure: boolean;
+  authType: 'oauth2' | 'smtp';
+  // OAuth2
+  provider?: 'google' | 'microsoft';
+  isConnected?: boolean;
+  // SMTP
+  host?: string;
+  port?: number;
+  secure?: boolean;
+  hasPassword?: boolean;
+  password?: string; // Solo se envía para actualizar
+  // Común
   user: string;
-  password?: string; // Solo se muestra como ******** o vacío
   fromName?: string;
   fromEmail?: string;
   replyTo?: string;
+}
+
+// Estado de los proveedores OAuth2
+export interface OAuth2ProvidersStatus {
+  google: {
+    configured: boolean;
+    clientId?: string;
+  };
+  microsoft: {
+    configured: boolean;
+    clientId?: string;
+  };
 }
 
 export interface SendEmailParams {
@@ -206,10 +226,13 @@ export const empresaService = {
   },
 
   /**
-   * Actualizar configuración de email (solo admin/gerente)
+   * Actualizar configuración de email SMTP manual (solo admin/gerente)
    */
   updateEmailConfig: async (config: Partial<EmailConfig>): Promise<ApiResponse<EmpresaInfo>> => {
-    const response = await api.put('/empresa/email-config', config);
+    const response = await api.put('/empresa/email-config', {
+      ...config,
+      authType: 'smtp',
+    });
     return response.data;
   },
 
@@ -218,6 +241,42 @@ export const empresaService = {
    */
   testEmailConfig: async (testEmail: string): Promise<ApiResponse<void>> => {
     const response = await api.post('/empresa/email-config/test', { email: testEmail });
+    return response.data;
+  },
+
+  /**
+   * Desconectar configuración de email
+   */
+  disconnectEmail: async (): Promise<ApiResponse<void>> => {
+    const response = await api.post('/empresa/email/oauth2/disconnect');
+    return response.data;
+  },
+
+  // ============================================
+  // OAUTH2 PARA EMAIL
+  // ============================================
+
+  /**
+   * Obtener estado de los proveedores OAuth2
+   */
+  getOAuth2Providers: async (): Promise<ApiResponse<OAuth2ProvidersStatus>> => {
+    const response = await api.get('/empresa/email/oauth2/providers');
+    return response.data;
+  },
+
+  /**
+   * Obtener URL de autorización de Google
+   */
+  getGoogleAuthUrl: async (): Promise<ApiResponse<{ authUrl: string }>> => {
+    const response = await api.get('/empresa/email/oauth2/google/auth');
+    return response.data;
+  },
+
+  /**
+   * Obtener URL de autorización de Microsoft
+   */
+  getMicrosoftAuthUrl: async (): Promise<ApiResponse<{ authUrl: string }>> => {
+    const response = await api.get('/empresa/email/oauth2/microsoft/auth');
     return response.data;
   },
 

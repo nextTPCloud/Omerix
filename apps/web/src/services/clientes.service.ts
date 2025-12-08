@@ -303,6 +303,55 @@ export const clientesService = {
     const response = await api.post(`/clientes/${id}/duplicar`)
     return response.data
   },
+
+  // ============================================
+  // OBTENER DESCUENTOS POR FAMILIA
+  // ============================================
+
+  getDescuentos: async (id: string): Promise<{
+    success: boolean
+    data: {
+      descuentoGeneral: number
+      aplicarDescuentoAutomatico: boolean
+      descuentosPorFamilia: Array<{
+        familiaId: string
+        nombreFamilia?: string
+        descuento: number
+      }>
+    }
+  }> => {
+    const response = await api.get(`/clientes/${id}/descuentos`)
+    return response.data
+  },
+
+  // ============================================
+  // ACTUALIZAR DESCUENTOS
+  // ============================================
+
+  actualizarDescuentos: async (id: string, data: {
+    descuentoGeneral?: number
+    aplicarDescuentoAutomatico?: boolean
+    descuentosPorFamilia?: Array<{
+      familiaId: string
+      nombreFamilia?: string
+      descuento: number
+    }>
+  }): Promise<{
+    success: boolean
+    data: {
+      descuentoGeneral: number
+      aplicarDescuentoAutomatico: boolean
+      descuentosPorFamilia: Array<{
+        familiaId: string
+        nombreFamilia?: string
+        descuento: number
+      }>
+    }
+    message?: string
+  }> => {
+    const response = await api.put(`/clientes/${id}/descuentos`, data)
+    return response.data
+  },
 }
 
 // Exportar también como default para compatibilidad
