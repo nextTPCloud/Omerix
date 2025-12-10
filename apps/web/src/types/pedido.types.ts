@@ -221,6 +221,7 @@ export interface IPedido {
 export interface CreatePedidoDTO {
   codigo?: string;
   serie?: string;
+  serieId?: string;
   estado?: EstadoPedido;
   prioridad?: Prioridad;
   fecha?: string | Date;

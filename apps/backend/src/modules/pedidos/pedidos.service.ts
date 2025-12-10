@@ -359,10 +359,18 @@ export class PedidosService {
     // Copiar notas de seguimiento si se solicita
     let notasSeguimiento: any[] = [];
     if (opciones.copiarNotas && presupuesto.notasSeguimiento?.length) {
-      notasSeguimiento = presupuesto.notasSeguimiento.map((nota: any) => ({
-        ...nota,
-        _id: new mongoose.Types.ObjectId(),
-      }));
+      notasSeguimiento = presupuesto.notasSeguimiento
+        .filter((nota: any) => nota.usuarioId) // Solo copiar notas con usuarioId válido
+        .map((nota: any) => ({
+          _id: new mongoose.Types.ObjectId(),
+          fecha: nota.fecha || new Date(),
+          usuarioId: nota.usuarioId,
+          tipo: nota.tipo || 'nota',
+          contenido: nota.contenido || '',
+          resultado: nota.resultado,
+          proximaAccion: nota.proximaAccion,
+          fechaProximaAccion: nota.fechaProximaAccion,
+        }));
     }
 
     const pedidoData = {
@@ -635,6 +643,17 @@ export class PedidosService {
     ocultarCostes: boolean = false
   ): Promise<IPedido | null> {
     const PedidoModel = await this.getModeloPedido(String(empresaId), dbConfig);
+
+    // Registrar modelos necesarios para los populate
+    await Promise.all([
+      getClienteModel(String(empresaId), dbConfig),
+      getProyectoModel(String(empresaId), dbConfig),
+      getAgenteComercialModel(String(empresaId), dbConfig),
+      getPresupuestoModel(String(empresaId), dbConfig),
+      getFormaPagoModel(String(empresaId), dbConfig),
+      getTerminoPagoModel(String(empresaId), dbConfig),
+      getUserModel(String(empresaId), dbConfig),
+    ]);
 
     const pedido = await PedidoModel.findById(id)
       .populate('clienteId', 'codigo nombre nombreComercial nif email telefono direcciones cuentasBancarias')
@@ -1398,6 +1417,10 @@ ${empresa.telefono ? `Tel: ${empresa.telefono}` : ''}
     dbConfig: IDatabaseConfig
   ): Promise<IPedido> {
     const PedidoModel = await this.getModeloPedido(String(empresaId), dbConfig);
+
+    // Registrar modelos necesarios para los populate
+    await getUserModel(String(empresaId), dbConfig);
+
     const pedido = await PedidoModel.findByIdAndUpdate(
       id,
       {
@@ -1440,6 +1463,10 @@ ${empresa.telefono ? `Tel: ${empresa.telefono}` : ''}
     dbConfig: IDatabaseConfig
   ): Promise<IPedido> {
     const PedidoModel = await this.getModeloPedido(String(empresaId), dbConfig);
+
+    // Registrar modelos necesarios para los populate
+    await getUserModel(String(empresaId), dbConfig);
+
     const pedido = await PedidoModel.findByIdAndUpdate(
       id,
       {

@@ -181,7 +181,7 @@ const HitoSchema = new Schema<IHito>({
 }, { _id: true });
 
 const ParticipanteSchema = new Schema<IParticipante>({
-  usuarioId: { type: Schema.Types.ObjectId, ref: 'User' },
+  usuarioId: { type: Schema.Types.ObjectId, ref: 'Usuario' },
   personalId: { type: Schema.Types.ObjectId, ref: 'Personal' },
   rol: { type: String, required: true, trim: true },
   horasAsignadas: { type: Number, min: 0 },
@@ -195,7 +195,7 @@ const DocumentoProyectoSchema = new Schema<IDocumentoProyecto>({
   tipo: { type: String, required: true },
   tamaño: { type: Number, required: true },
   fechaSubida: { type: Date, default: Date.now },
-  subidoPor: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  subidoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
   categoria: { type: String, trim: true },
 }, { _id: true });
 
@@ -351,12 +351,12 @@ const ProyectoSchema = new Schema<IProyecto, IProyectoModel>({
   // Auditoría
   creadoPor: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Usuario',
     required: true,
   },
   modificadoPor: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Usuario',
   },
   fechaCreacion: {
     type: Date,

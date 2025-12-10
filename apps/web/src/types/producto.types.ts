@@ -31,16 +31,68 @@ export interface Atributo {
   obligatorio: boolean
 }
 
+// Precios específicos de una variante
+export interface PrecioVariante {
+  compra: number           // Precio de compra
+  venta: number            // Precio de venta (sin IVA)
+  pvp: number              // Precio venta al público
+  margen?: number          // Porcentaje de margen calculado
+  usarPrecioBase?: boolean // Si es true, usa los precios del producto padre
+}
+
+// Stock de variante por almacén
+export interface StockVarianteAlmacen {
+  almacenId: string
+  almacen?: {
+    _id: string
+    nombre: string
+    codigo: string
+  }
+  cantidad: number
+  minimo: number
+  maximo: number
+  ubicacion?: string
+  ultimaActualizacion?: string
+}
+
+// Dimensiones de la variante
+export interface DimensionesVariante {
+  largo: number  // cm
+  ancho: number  // cm
+  alto: number   // cm
+}
+
 export interface Variante {
   _id?: string
   sku: string
   codigoBarras?: string
+  codigosBarrasAlternativos?: string[]     // Códigos de barras alternativos
   combinacion: Record<string, string>
-  stock?: Stock
-  precioExtra: number
+
+  // Precios específicos de la variante
+  precios: PrecioVariante
+
+  // Stock multi-almacén
+  stockPorAlmacen: StockVarianteAlmacen[]
+
+  // Imágenes específicas de esta variante
   imagenes?: string[]
-  activo: boolean
+
+  // Características físicas (si difieren del producto base)
   peso?: number
+  dimensiones?: DimensionesVariante
+
+  // Estado
+  activo: boolean
+
+  // Referencia del proveedor para esta variante específica
+  referenciaProveedor?: string
+
+  // Notas internas
+  notas?: string
+
+  // Virtual calculado - stock total de todos los almacenes
+  stockTotal?: number
 }
 
 export interface NumeroSerie {
@@ -261,6 +313,13 @@ export interface Producto {
 
   // Virtuals
   stockTotal?: number
+  stockPorVariante?: {
+    varianteId: string
+    sku: string
+    combinacion: Record<string, string>
+    stockTotal: number
+    stockPorAlmacen: StockVarianteAlmacen[]
+  }[]
 
   // Auditoría
   creadoPor?: string

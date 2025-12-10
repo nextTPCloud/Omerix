@@ -443,13 +443,13 @@ const DocumentoPedidoSchema = new Schema<IDocumentoPedido>({
   tipo: { type: String, required: true },
   tamaño: { type: Number, required: true },
   fechaSubida: { type: Date, default: Date.now },
-  subidoPor: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  subidoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
   visibleCliente: { type: Boolean, default: true },
 }, { _id: true });
 
 const HistorialPedidoSchema = new Schema<IHistorialPedido>({
   fecha: { type: Date, default: Date.now },
-  usuarioId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  usuarioId: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
   accion: { type: String, required: true },
   descripcion: { type: String },
   datosAnteriores: { type: Schema.Types.Mixed },
@@ -457,7 +457,7 @@ const HistorialPedidoSchema = new Schema<IHistorialPedido>({
 
 const NotaSeguimientoSchema = new Schema<INotaSeguimiento>({
   fecha: { type: Date, default: Date.now },
-  usuarioId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  usuarioId: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
   tipo: {
     type: String,
     enum: ['llamada', 'email', 'reunion', 'nota', 'recordatorio'],
@@ -671,12 +671,12 @@ const PedidoSchema = new Schema<IPedido, IPedidoModel>({
   // Auditoría
   creadoPor: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Usuario',
     required: true,
   },
   modificadoPor: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Usuario',
   },
   fechaCreacion: {
     type: Date,

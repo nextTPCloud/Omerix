@@ -75,8 +75,23 @@ export class PedidosController {
       }
 
       const { presupuestoId } = req.params;
-      const empresaId = req.empresaId!;
-      const usuarioId = req.userId!;
+      const empresaId = req.empresaId;
+      const usuarioId = req.userId;
+
+      // Validar que empresaId y usuarioId estén presentes
+      if (!empresaId) {
+        return res.status(401).json({
+          success: false,
+          message: 'empresaId is required',
+        });
+      }
+
+      if (!usuarioId) {
+        return res.status(401).json({
+          success: false,
+          message: 'userId is required',
+        });
+      }
 
       if (!mongoose.Types.ObjectId.isValid(presupuestoId)) {
         return res.status(400).json({
@@ -101,8 +116,8 @@ export class PedidosController {
       const pedido = await pedidosService.crearDesdePresupuesto(
         presupuestoId,
         validacion.data,
-        empresaId,
-        usuarioId,
+        new mongoose.Types.ObjectId(empresaId),
+        new mongoose.Types.ObjectId(usuarioId),
         req.empresaDbConfig
       );
 

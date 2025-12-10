@@ -113,6 +113,24 @@ export interface IDatosRegistro {
   inscripcion?: string;
 }
 
+// Configuración de VeriFactu / Facturación Electrónica
+export interface IVerifactuConfig {
+  // Entorno activo: test para pruebas, production para producción real
+  entorno: 'test' | 'production';
+  // ID del certificado digital activo para firmar facturas
+  certificadoId?: string;
+  // Sistema fiscal a usar por defecto
+  sistemaFiscal?: 'verifactu' | 'ticketbai' | 'sii';
+  // Territorio para TicketBAI (si aplica)
+  territorioTicketBAI?: 'araba' | 'bizkaia' | 'gipuzkoa';
+  // Activar envío automático al emitir factura
+  envioAutomatico: boolean;
+  // Generar QR automáticamente
+  generarQR: boolean;
+  // Incluir firma digital
+  firmaDigital: boolean;
+}
+
 export interface IEmpresa extends Document {
   _id: Types.ObjectId;
   nombre: string;
@@ -175,6 +193,9 @@ export interface IEmpresa extends Document {
 
   // Configuración de email SMTP
   emailConfig?: IEmailConfig;
+
+  // Configuración de VeriFactu / Facturación Electrónica
+  verifactuConfig?: IVerifactuConfig;
 
   // IDs de pasarelas de pago
   stripeCustomerId?: string;
@@ -256,6 +277,16 @@ const DatosRegistroSchema = new Schema<IDatosRegistro>({
   seccion: { type: String, trim: true },
   hoja: { type: String, trim: true },
   inscripcion: { type: String, trim: true },
+}, { _id: false });
+
+const VerifactuConfigSchema = new Schema<IVerifactuConfig>({
+  entorno: { type: String, enum: ['test', 'production'], default: 'test' },
+  certificadoId: { type: String },
+  sistemaFiscal: { type: String, enum: ['verifactu', 'ticketbai', 'sii'], default: 'verifactu' },
+  territorioTicketBAI: { type: String, enum: ['araba', 'bizkaia', 'gipuzkoa'] },
+  envioAutomatico: { type: Boolean, default: true },
+  generarQR: { type: Boolean, default: true },
+  firmaDigital: { type: Boolean, default: true },
 }, { _id: false });
 
 const EmpresaSchema = new Schema<IEmpresa>(
@@ -385,6 +416,18 @@ const EmpresaSchema = new Schema<IEmpresa>(
     // Configuración de email SMTP
     emailConfig: {
       type: EmailConfigSchema,
+    },
+
+    // Configuración de VeriFactu / Facturación Electrónica
+    verifactuConfig: {
+      type: VerifactuConfigSchema,
+      default: {
+        entorno: 'test',
+        sistemaFiscal: 'verifactu',
+        envioAutomatico: true,
+        generarQR: true,
+        firmaDigital: true,
+      },
     },
 
     // IDs de pasarelas de pago

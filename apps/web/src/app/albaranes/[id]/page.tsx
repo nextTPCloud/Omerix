@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { albaranesService } from '@/services/albaranes.service'
+import { facturasService } from '@/services/facturas.service'
 import {
   IAlbaran,
   EstadoAlbaran,
@@ -51,6 +52,8 @@ import {
   Building2,
   Phone,
   Mail,
+  Receipt,
+  Zap,
 } from 'lucide-react'
 
 interface PageProps {
@@ -64,6 +67,9 @@ export default function AlbaranDetallePage({ params }: PageProps) {
   const [albaran, setAlbaran] = useState<IAlbaran | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [facturaDialogOpen, setFacturaDialogOpen] = useState(false)
+  const [facturaDirectaDialogOpen, setFacturaDirectaDialogOpen] = useState(false)
+  const [creandoFactura, setCreandoFactura] = useState(false)
 
   const loadAlbaran = async () => {
     try {
@@ -125,6 +131,48 @@ export default function AlbaranDetallePage({ params }: PageProps) {
       }
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Error al cambiar estado')
+    }
+  }
+
+  // Crear factura borrador desde albarán
+  const handleCrearFactura = async () => {
+    if (!albaran) return
+
+    setCreandoFactura(true)
+    try {
+      const response = await facturasService.crearDesdeAlbaranes({
+        albaranesIds: [albaran._id],
+      })
+      if (response.success && response.data && response.data.length > 0) {
+        toast.success('Factura creada correctamente')
+        router.push(`/facturas/${response.data[0]._id}`)
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Error al crear factura')
+    } finally {
+      setCreandoFactura(false)
+      setFacturaDialogOpen(false)
+    }
+  }
+
+  // Crear factura directa (emitida, no borrador)
+  const handleCrearFacturaDirecta = async () => {
+    if (!albaran) return
+
+    setCreandoFactura(true)
+    try {
+      const response = await facturasService.crearFacturaDirecta({
+        albaranesIds: [albaran._id],
+      })
+      if (response.success && response.data && response.data.length > 0) {
+        toast.success('Factura creada y emitida correctamente')
+        router.push(`/facturas/${response.data[0]._id}`)
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Error al crear factura directa')
+    } finally {
+      setCreandoFactura(false)
+      setFacturaDirectaDialogOpen(false)
     }
   }
 
@@ -226,6 +274,26 @@ export default function AlbaranDetallePage({ params }: PageProps) {
                 Editar
               </Button>
             </Link>
+
+            {/* Botones de facturación */}
+            {!albaran.facturado && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setFacturaDialogOpen(true)}
+                >
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Facturar
+                </Button>
+                <Button
+                  onClick={() => setFacturaDirectaDialogOpen(true)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Zap className="h-4 w-4 mr-2" />
+                  Factura directa
+                </Button>
+              </>
+            )}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -510,6 +578,93 @@ export default function AlbaranDetallePage({ params }: PageProps) {
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
               Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de crear factura borrador */}
+      <Dialog open={facturaDialogOpen} onOpenChange={setFacturaDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" />
+              Crear factura
+            </DialogTitle>
+            <DialogDescription>
+              Se creará una factura en estado <strong>borrador</strong> a partir de este albarán.
+              Podrás revisarla y editarla antes de emitirla.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg bg-muted p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cliente:</span>
+                <span className="font-medium">{albaran.clienteNombre}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Albarán:</span>
+                <span className="font-medium">{albaran.codigo}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Importe:</span>
+                <span className="font-medium">{formatCurrency(albaran.totales?.totalAlbaran || 0)}</span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFacturaDialogOpen(false)} disabled={creandoFactura}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCrearFactura} disabled={creandoFactura}>
+              {creandoFactura ? 'Creando...' : 'Crear factura borrador'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de factura directa (emitida) */}
+      <Dialog open={facturaDirectaDialogOpen} onOpenChange={setFacturaDirectaDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-green-600" />
+              Factura directa
+            </DialogTitle>
+            <DialogDescription>
+              Se creará una factura <strong>emitida</strong> directamente (no borrador).
+              La factura quedará inmutable y se enviará a la AEAT según la configuración de VeriFactu.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg bg-green-50 border border-green-200 p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cliente:</span>
+                <span className="font-medium">{albaran.clienteNombre}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Albarán:</span>
+                <span className="font-medium">{albaran.codigo}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Importe:</span>
+                <span className="font-medium">{formatCurrency(albaran.totales?.totalAlbaran || 0)}</span>
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              <strong>Nota:</strong> Una vez creada, la factura no podrá modificarse (cumplimiento ley anti-fraude).
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFacturaDirectaDialogOpen(false)} disabled={creandoFactura}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCrearFacturaDirecta}
+              disabled={creandoFactura}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {creandoFactura ? 'Creando...' : 'Crear y emitir factura'}
             </Button>
           </DialogFooter>
         </DialogContent>

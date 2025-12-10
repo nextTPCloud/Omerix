@@ -22,7 +22,7 @@ export const seriesDocumentosController = {
    */
   async crear(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
@@ -31,11 +31,12 @@ export const seriesDocumentosController = {
 
       const usuarioId = req.userId!;
       const data: CreateSerieDocumentoDTO = req.body;
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
 
       const serie = await seriesDocumentosService.crear(
         data,
         new mongoose.Types.ObjectId(usuarioId),
-        req.empresaDbConfig
+        dbConfig
       );
 
       return res.status(201).json({
@@ -57,13 +58,14 @@ export const seriesDocumentosController = {
    */
   async buscar(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
         });
       }
 
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
       const params: SearchSeriesDocumentosDTO = {
         q: req.query.q as string,
         tipoDocumento: req.query.tipoDocumento as TipoDocumentoSerie,
@@ -77,7 +79,7 @@ export const seriesDocumentosController = {
 
       const resultado = await seriesDocumentosService.buscar(
         params,
-        req.empresaDbConfig
+        dbConfig
       );
 
       return res.json({
@@ -98,7 +100,7 @@ export const seriesDocumentosController = {
    */
   async obtenerPorId(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
@@ -106,10 +108,11 @@ export const seriesDocumentosController = {
       }
 
       const { id } = req.params;
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
 
       const serie = await seriesDocumentosService.obtenerPorId(
         id,
-        req.empresaDbConfig
+        dbConfig
       );
 
       if (!serie) {
@@ -137,7 +140,7 @@ export const seriesDocumentosController = {
    */
   async actualizar(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
@@ -147,12 +150,13 @@ export const seriesDocumentosController = {
       const { id } = req.params;
       const usuarioId = req.userId!;
       const data: UpdateSerieDocumentoDTO = req.body;
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
 
       const serie = await seriesDocumentosService.actualizar(
         id,
         data,
         new mongoose.Types.ObjectId(usuarioId),
-        req.empresaDbConfig
+        dbConfig
       );
 
       if (!serie) {
@@ -181,7 +185,7 @@ export const seriesDocumentosController = {
    */
   async eliminar(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
@@ -189,10 +193,11 @@ export const seriesDocumentosController = {
       }
 
       const { id } = req.params;
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
 
       const eliminado = await seriesDocumentosService.eliminar(
         id,
-        req.empresaDbConfig
+        dbConfig
       );
 
       if (!eliminado) {
@@ -224,7 +229,7 @@ export const seriesDocumentosController = {
    */
   async obtenerPorTipoDocumento(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
@@ -233,11 +238,12 @@ export const seriesDocumentosController = {
 
       const { tipoDocumento } = req.params;
       const soloActivas = req.query.soloActivas !== 'false';
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
 
       const series = await seriesDocumentosService.obtenerPorTipoDocumento(
         tipoDocumento as TipoDocumentoSerie,
         soloActivas,
-        req.empresaDbConfig
+        dbConfig
       );
 
       return res.json({
@@ -258,7 +264,7 @@ export const seriesDocumentosController = {
    */
   async establecerPredeterminada(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
@@ -267,11 +273,12 @@ export const seriesDocumentosController = {
 
       const { id } = req.params;
       const usuarioId = req.userId!;
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
 
       const serie = await seriesDocumentosService.establecerPredeterminada(
         id,
         new mongoose.Types.ObjectId(usuarioId),
-        req.empresaDbConfig
+        dbConfig
       );
 
       if (!serie) {
@@ -300,7 +307,7 @@ export const seriesDocumentosController = {
    */
   async sugerirCodigo(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
@@ -309,6 +316,7 @@ export const seriesDocumentosController = {
 
       const tipoDocumento = req.query.tipoDocumento as TipoDocumentoSerie;
       const serieId = req.query.serieId as string || null;
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
 
       if (!tipoDocumento) {
         return res.status(400).json({
@@ -320,7 +328,7 @@ export const seriesDocumentosController = {
       const resultado = await seriesDocumentosService.sugerirCodigo(
         tipoDocumento,
         serieId,
-        req.empresaDbConfig
+        dbConfig
       );
 
       return res.json({
@@ -341,7 +349,7 @@ export const seriesDocumentosController = {
    */
   async generarCodigo(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
@@ -350,6 +358,7 @@ export const seriesDocumentosController = {
 
       const tipoDocumento = req.body.tipoDocumento as TipoDocumentoSerie;
       const serieId = req.body.serieId as string || null;
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
 
       if (!tipoDocumento) {
         return res.status(400).json({
@@ -361,7 +370,7 @@ export const seriesDocumentosController = {
       const resultado = await seriesDocumentosService.generarCodigoParaTipo(
         tipoDocumento,
         serieId,
-        req.empresaDbConfig
+        dbConfig
       );
 
       return res.json({
@@ -382,7 +391,7 @@ export const seriesDocumentosController = {
    */
   async duplicar(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
@@ -391,11 +400,12 @@ export const seriesDocumentosController = {
 
       const { id } = req.params;
       const usuarioId = req.userId!;
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
 
       const serie = await seriesDocumentosService.duplicar(
         id,
         new mongoose.Types.ObjectId(usuarioId),
-        req.empresaDbConfig
+        dbConfig
       );
 
       return res.status(201).json({
@@ -417,7 +427,7 @@ export const seriesDocumentosController = {
    */
   async crearSeriesPorDefecto(req: Request, res: Response) {
     try {
-      if (!req.empresaDbConfig) {
+      if (!req.empresaDbConfig || !req.empresaId) {
         return res.status(500).json({
           success: false,
           error: 'Configuración de base de datos no disponible',
@@ -425,10 +435,11 @@ export const seriesDocumentosController = {
       }
 
       const usuarioId = req.userId!;
+      const dbConfig = { ...req.empresaDbConfig, empresaId: req.empresaId };
 
       await seriesDocumentosService.crearSeriesPorDefecto(
         new mongoose.Types.ObjectId(usuarioId),
-        req.empresaDbConfig
+        dbConfig
       );
 
       return res.json({

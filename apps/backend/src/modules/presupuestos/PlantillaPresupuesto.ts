@@ -124,8 +124,8 @@ const PlantillaPresupuestoSchema = new Schema<IPlantillaPresupuesto>({
   vecesUsada: { type: Number, default: 0 },
   ultimoUso: { type: Date },
 
-  creadoPor: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  modificadoPor: { type: Schema.Types.ObjectId, ref: 'User' },
+  creadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
+  modificadoPor: { type: Schema.Types.ObjectId, ref: 'Usuario' },
   fechaCreacion: { type: Date, default: Date.now },
   fechaModificacion: { type: Date },
 }, {

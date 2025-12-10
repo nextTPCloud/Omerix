@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { productosService } from '@/services/productos.service'
 import { Producto } from '@/types/producto.types'
@@ -44,11 +44,15 @@ import { TabRestauracion } from '@/components/productos/TabRestauracion'
 export default function ProductoDetallePage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const productoId = params.id as string
+
+  // Activar modo edición si viene con ?edit=true
+  const editMode = searchParams.get('edit') === 'true'
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(editMode)
   const [activeTab, setActiveTab] = useState('general')
   const [formData, setFormData] = useState<Producto | null>(null)
 
@@ -94,6 +98,10 @@ export default function ProductoDetallePage() {
       await productosService.update(productoId, cleanedData)
       toast.success('Producto actualizado correctamente')
       setIsEditing(false)
+      // Limpiar parámetro edit de la URL
+      if (editMode) {
+        router.replace(`/productos/${productoId}`)
+      }
       fetchProducto()
     } catch (error: any) {
       console.error('Error al actualizar producto:', error)
@@ -148,6 +156,10 @@ export default function ProductoDetallePage() {
                   variant="outline"
                   onClick={() => {
                     setIsEditing(false)
+                    // Limpiar parámetro edit de la URL
+                    if (editMode) {
+                      router.replace(`/productos/${productoId}`)
+                    }
                     fetchProducto()
                   }}
                 >

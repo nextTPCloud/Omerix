@@ -951,7 +951,7 @@ export default function ProductosPage() {
                               <Eye className="h-4 w-4 mr-2" />
                               Ver
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push(`/productos/${producto._id}/editar`)}>
+                            <DropdownMenuItem onClick={() => router.push(`/productos/${producto._id}?edit=true`)}>
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
                             </DropdownMenuItem>

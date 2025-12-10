@@ -33,15 +33,53 @@ const AtributoSchema = z.object({
   obligatorio: z.boolean().default(true),
 });
 
+// Precios específicos de variante
+const PrecioVarianteSchema = z.object({
+  compra: z.number().min(0).default(0),
+  venta: z.number().min(0).default(0),
+  pvp: z.number().min(0).default(0),
+  margen: z.number().default(0),
+  usarPrecioBase: z.boolean().default(true),
+});
+
+// Stock de variante por almacén
+const StockVarianteAlmacenSchema = z.object({
+  almacenId: z.string().min(1, 'ID del almacén requerido'),
+  cantidad: z.number().default(0),
+  minimo: z.number().min(0).default(0),
+  maximo: z.number().min(0).default(0),
+  ubicacion: z.string().optional(),
+  ultimaActualizacion: z.date().optional(),
+});
+
+// Dimensiones de variante
+const DimensionesVarianteSchema = z.object({
+  largo: z.number().min(0).optional(),
+  ancho: z.number().min(0).optional(),
+  alto: z.number().min(0).optional(),
+});
+
 const VarianteSchema = z.object({
   sku: z.string().min(1, 'SKU de variante requerido'),
   codigoBarras: z.string().optional(),
+  codigosBarrasAlternativos: z.array(z.string()).optional(),
   combinacion: z.record(z.string(), z.string()), // { talla: "M", color: "Rojo" }
-  stock: StockSchema.optional(),
-  precioExtra: z.number().default(0),
+  // Precios propios de la variante
+  precios: PrecioVarianteSchema.default({
+    compra: 0,
+    venta: 0,
+    pvp: 0,
+    margen: 0,
+    usarPrecioBase: true,
+  }),
+  // Stock multi-almacén
+  stockPorAlmacen: z.array(StockVarianteAlmacenSchema).default([]),
   imagenes: z.array(z.string()).optional(),
-  activo: z.boolean().default(true),
   peso: z.number().min(0).optional(),
+  dimensiones: DimensionesVarianteSchema.optional(),
+  activo: z.boolean().default(true),
+  referenciaProveedor: z.string().optional(),
+  notas: z.string().optional(),
 });
 
 const DimensionesSchema = z.object({
@@ -149,6 +187,8 @@ export const UpdateStockSchema = z.object({
   tipo: z.enum(['entrada', 'salida', 'ajuste']),
   motivo: z.string().optional(),
   varianteId: z.string().optional(), // Para actualizar stock de variante específica
+  almacenId: z.string().optional(),  // Almacén específico (para multi-almacén)
+  ubicacion: z.string().optional(),   // Ubicación dentro del almacén
 });
 
 // Generar variantes automáticamente
@@ -172,3 +212,6 @@ export type AtributoDTO = z.infer<typeof AtributoSchema>;
 export type VarianteDTO = z.infer<typeof VarianteSchema>;
 export type ValorAtributoDTO = z.infer<typeof ValorAtributoSchema>;
 export type ComponenteKitDTO = z.infer<typeof ComponenteKitSchema>;
+export type PrecioVarianteDTO = z.infer<typeof PrecioVarianteSchema>;
+export type StockVarianteAlmacenDTO = z.infer<typeof StockVarianteAlmacenSchema>;
+export type DimensionesVarianteDTO = z.infer<typeof DimensionesVarianteSchema>;

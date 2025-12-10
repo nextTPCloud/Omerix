@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { presupuestosService } from '@/services/presupuestos.service'
+import { pedidosService } from '@/services/pedidos.service'
 import { api } from '@/services/api'
 import vistasService from '@/services/vistas-guardadas.service'
 import {
@@ -77,6 +78,7 @@ import {
   Loader2,
   Mail,
   MessageCircle,
+  ClipboardList,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -937,6 +939,22 @@ const {
           toast.error('Error al rechazar presupuesto')
         }
         break
+      case 'convertir_pedido':
+        try {
+          toast.loading('Convirtiendo a pedido...')
+          const response = await pedidosService.crearDesdePresupuesto(presupuestoId, {
+            copiarNotas: true,
+          })
+          toast.dismiss()
+          if (response.success && response.data) {
+            toast.success('Presupuesto convertido a pedido correctamente')
+            router.push(`/pedidos/${response.data._id}`)
+          }
+        } catch (error: any) {
+          toast.dismiss()
+          toast.error(error.response?.data?.message || 'Error al convertir a pedido')
+        }
+        break
       default:
         toast.info(`Acción "${action}" en desarrollo`)
     }
@@ -1631,6 +1649,19 @@ const {
                                 <DropdownMenuItem onClick={() => handlePresupuestoAction(presupuesto._id, 'rechazar')}>
                                   <XCircle className="mr-2 h-4 w-4 text-red-600" />
                                   Rechazar
+                                </DropdownMenuItem>
+                              </>
+                            )}
+
+                            {/* Convertir a Pedido - solo si aceptado o enviado y no ya convertido */}
+                            {presupuesto.estado !== EstadoPresupuesto.CONVERTIDO &&
+                             presupuesto.estado !== EstadoPresupuesto.RECHAZADO &&
+                             presupuesto.estado !== EstadoPresupuesto.BORRADOR && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handlePresupuestoAction(presupuesto._id, 'convertir_pedido')}>
+                                  <ClipboardList className="mr-2 h-4 w-4 text-blue-600" />
+                                  Convertir a Pedido
                                 </DropdownMenuItem>
                               </>
                             )}

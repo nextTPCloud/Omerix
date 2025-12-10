@@ -57,7 +57,11 @@ import {
   Link2,
   Unlink,
   ExternalLink,
+  FileKey,
+  FileCheck,
 } from 'lucide-react'
+import { CertificadoConfig } from '@/components/configuracion/CertificadoConfig'
+import { VerifactuConfig } from '@/components/configuracion/VerifactuConfig'
 
 // Roles permitidos para acceder a esta página
 const ROLES_PERMITIDOS = ['superadmin', 'admin', 'gerente']
@@ -549,6 +553,14 @@ export default function ConfiguracionEmpresaPage() {
             <TabsTrigger value="email" className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
               Email SMTP
+            </TabsTrigger>
+            <TabsTrigger value="certificados" className="flex items-center gap-2">
+              <FileKey className="h-4 w-4" />
+              Certificados
+            </TabsTrigger>
+            <TabsTrigger value="verifactu" className="flex items-center gap-2">
+              <FileCheck className="h-4 w-4" />
+              VeriFactu
             </TabsTrigger>
           </TabsList>
 
@@ -1672,6 +1684,20 @@ export default function ConfiguracionEmpresaPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ============================================ */}
+          {/* TAB: CERTIFICADOS ELECTRÓNICOS */}
+          {/* ============================================ */}
+          <TabsContent value="certificados" className="space-y-6 mt-6">
+            <CertificadoConfig />
+          </TabsContent>
+
+          {/* ============================================ */}
+          {/* TAB: VERIFACTU / FACTURACIÓN ELECTRÓNICA */}
+          {/* ============================================ */}
+          <TabsContent value="verifactu" className="space-y-6 mt-6">
+            <VerifactuConfig />
           </TabsContent>
         </Tabs>
 

@@ -25,6 +25,7 @@ import { Proyecto, IProyecto } from '../modules/proyectos/Proyecto';
 import { Presupuesto, IPresupuesto } from '../modules/presupuestos/Presupuesto';
 import { Pedido, IPedido } from '../modules/pedidos/Pedido';
 import { Albaran, IAlbaran } from '../modules/albaranes/Albaran';
+import { Factura, IFactura } from '../modules/facturas/Factura';
 import Usuario, { IUsuario } from '../models/Usuario';
 
 /**
@@ -417,9 +418,26 @@ export const getAlbaranModel = async (
 };
 
 /**
+ * Obtener modelo de Factura para una empresa específica
+ */
+export const getFacturaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IFactura>> => {
+  const FacturaSchema = Factura.schema;
+  return databaseManager.getModel<IFactura>(
+    empresaId,
+    dbConfig,
+    'Factura',
+    FacturaSchema
+  );
+};
+
+/**
  * Obtener modelo de PlantillaPresupuesto para una empresa específica
  */
 import PlantillaPresupuesto, { IPlantillaPresupuesto } from '@/modules/presupuestos/PlantillaPresupuesto';
+import { SerieDocumento, ISerieDocumento } from '@/modules/series-documentos/SerieDocumento';
 
 export const getPlantillaPresupuestoModel = async (
   empresaId: string,
@@ -435,8 +453,23 @@ export const getPlantillaPresupuestoModel = async (
 };
 
 /**
+ * Obtener modelo de SerieDocumento para una empresa específica
+ */
+export const getSerieDocumentoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ISerieDocumento>> => {
+  const SerieDocumentoSchema = SerieDocumento.schema;
+  return databaseManager.getModel<ISerieDocumento>(
+    empresaId,
+    dbConfig,
+    'SerieDocumento',
+    SerieDocumentoSchema
+  );
+};
+
+/**
  * Obtener modelo de Usuario para una empresa específica
- * Nota: Se registra como 'User' para compatibilidad con referencias en otros modelos
  */
 export const getUserModel = async (
   empresaId: string,
@@ -446,7 +479,7 @@ export const getUserModel = async (
   return databaseManager.getModel<IUsuario>(
     empresaId,
     dbConfig,
-    'User',
+    'Usuario',
     UsuarioSchema
   );
 };
@@ -480,7 +513,9 @@ export const EmpresaModels = {
   Presupuesto: getPresupuestoModel,
   Pedido: getPedidoModel,
   Albaran: getAlbaranModel,
-  User: getUserModel,
+  Factura: getFacturaModel,
+  SerieDocumento: getSerieDocumentoModel,
+  Usuario: getUserModel,
 };
 
 /**

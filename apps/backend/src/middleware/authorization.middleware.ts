@@ -271,6 +271,43 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
   next();
 };
 
+/**
+ * Middleware simplificado para verificar roles permitidos
+ * @param allowedRoles - Array de roles permitidos
+ */
+export const roleMiddleware = (allowedRoles: Role[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userRole = req.userRole as Role;
+
+      if (!userRole) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      if (!allowedRoles.includes(userRole)) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permisos para realizar esta acción',
+          requiredRoles: allowedRoles,
+          yourRole: userRole,
+        });
+      }
+
+      next();
+    } catch (error: any) {
+      console.error('Error en roleMiddleware:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error verificando rol',
+        error: error.message,
+      });
+    }
+  };
+};
+
 // Extender el tipo Request para incluir el recurso
 declare global {
   namespace Express {

@@ -278,6 +278,7 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
         title: 'Ficheros',
         icon: FileStack,
         children: [
+          { title: 'Series de Documentos', href: '/series-documentos' },
           { title: 'Tipos de Impuesto', href: '/tipos-impuesto' },
           { title: 'Formas de Pago', href: '/formas-pago' },
           { title: 'Términos de Pago', href: '/terminos-pago' },

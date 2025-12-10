@@ -55,11 +55,20 @@ import pedidosRoutes from './modules/pedidos/pedidos.routes';
 // Importar rutas de albaranes
 import albaranesRoutes from './modules/albaranes/albaranes.routes';
 
+// Importar rutas de facturas
+import facturasRoutes from './modules/facturas/facturas.routes';
+
 // Importar rutas de series de documentos
 import seriesDocumentosRoutes from './modules/series-documentos/series-documentos.routes';
 
 // Importar rutas de empresa
 import empresaRoutes from './modules/empresa/empresa.routes';
+
+// Importar rutas de certificados electrónicos
+import certificadosRoutes from './modules/certificados/certificados.routes';
+
+// Importar rutas de VeriFactu (AEAT)
+import verifactuRoutes from './modules/verifactu/verifactu.routes';
 
 // Importar rutas de IA
 import aiRoutes from './modules/ai/ai.routes';
@@ -281,11 +290,20 @@ app.use('/api/pedidos', pedidosRoutes);
 // Rutas de albaranes
 app.use('/api/albaranes', albaranesRoutes);
 
+// Rutas de facturas
+app.use('/api/facturas', facturasRoutes);
+
 // Rutas de series de documentos
 app.use('/api/series-documentos', seriesDocumentosRoutes);
 
 // Rutas de empresa (configuración, email, etc.)
 app.use('/api/empresa', empresaRoutes);
+
+// Rutas de certificados electrónicos
+app.use('/api/certificados', certificadosRoutes);
+
+// Rutas de VeriFactu (comunicación con AEAT)
+app.use('/api/verifactu', verifactuRoutes);
 
 // Rutas de IA
 app.use('/api/ai', aiRoutes);

@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { presupuestosService } from '@/services/presupuestos.service'
+import { pedidosService } from '@/services/pedidos.service'
 import { empresaService, EmpresaInfo } from '@/services/empresa.service'
 import { IPresupuesto, getEstadoConfig, getTipoLineaLabel, ESTADOS_PRESUPUESTO, EstadoPresupuesto } from '@/types/presupuesto.types'
 import { PresupuestoPrintView, PrintOptions, defaultPrintOptions } from '@/components/presupuestos/PresupuestoPrintView'
@@ -65,6 +66,7 @@ import {
   Banknote,
   Files,
   Import,
+  ClipboardList,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -99,6 +101,8 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
   const [showPrintView, setShowPrintView] = useState(false)
   const [showPrintOptionsDialog, setShowPrintOptionsDialog] = useState(false)
   const [showImportarLineas, setShowImportarLineas] = useState(false)
+  const [showConvertirPedidoDialog, setShowConvertirPedidoDialog] = useState(false)
+  const [isConvirtiendoPedido, setIsConvirtiendoPedido] = useState(false)
   const [printOptionsMode, setPrintOptionsMode] = useState<'print' | 'email'>('print')
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [mostrarCostes, setMostrarCostes] = useState(true)
@@ -202,12 +206,25 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
   }
 
   const handleConfirmPrint = () => {
+    if (!presupuesto) return
     setShowPrintOptionsDialog(false)
-    setShowPrintView(true)
-    // Esperar a que se renderice la vista y luego imprimir
-    setTimeout(() => {
-      handlePrintDocument()
-    }, 100)
+
+    // Construir URL con opciones de impresión
+    const params = new URLSearchParams()
+    params.set('desc', printOptions.mostrarDescripcion)
+    if (!printOptions.mostrarReferencias) params.set('ref', 'false')
+    if (!printOptions.mostrarCondiciones) params.set('cond', 'false')
+    if (!printOptions.mostrarFirmas) params.set('firmas', 'false')
+    if (!printOptions.mostrarLOPD) params.set('lopd', 'false')
+    if (!printOptions.mostrarRegistroMercantil) params.set('reg', 'false')
+    if (!printOptions.mostrarCuentaBancaria) params.set('banco', 'false')
+
+    // Abrir en nueva ventana para permitir zoom nativo del navegador
+    window.open(
+      `/presupuestos/${resolvedParams.id}/imprimir?${params.toString()}`,
+      '_blank',
+      'width=900,height=700,menubar=yes,toolbar=yes,scrollbars=yes,resizable=yes'
+    )
   }
 
   // Abrir diálogo de opciones antes de enviar email
@@ -293,6 +310,29 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
     )
 
     window.open(`https://wa.me/${telefonoWA}?text=${mensaje}`, '_blank')
+  }
+
+  const handleConvertirAPedido = async () => {
+    if (!presupuesto) return
+
+    setIsConvirtiendoPedido(true)
+    try {
+      const response = await pedidosService.crearDesdePresupuesto(presupuesto._id, {
+        copiarNotas: true,
+      })
+
+      if (response.success && response.data) {
+        toast.success('Presupuesto convertido a pedido correctamente')
+        router.push(`/pedidos/${response.data._id}`)
+      } else {
+        toast.error(response.message || 'Error al convertir a pedido')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al convertir a pedido')
+    } finally {
+      setIsConvirtiendoPedido(false)
+      setShowConvertirPedidoDialog(false)
+    }
   }
 
   const formatCurrency = (value: number) => {
@@ -514,6 +554,13 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuLabel>Más acciones</DropdownMenuLabel>
                       <DropdownMenuSeparator />
+                      {/* Convertir a Pedido - solo si no está convertido */}
+                      {presupuesto.estado !== EstadoPresupuesto.CONVERTIDO && presupuesto.estado !== EstadoPresupuesto.RECHAZADO && (
+                        <DropdownMenuItem onClick={() => setShowConvertirPedidoDialog(true)}>
+                          <ClipboardList className="mr-2 h-4 w-4" />
+                          Convertir a Pedido
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={handleDuplicar}>
                         <Copy className="mr-2 h-4 w-4" />
                         Duplicar
@@ -1229,6 +1276,54 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
                 Imprimir
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de convertir a Pedido */}
+      <Dialog open={showConvertirPedidoDialog} onOpenChange={setShowConvertirPedidoDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              Convertir a Pedido
+            </DialogTitle>
+            <DialogDescription>
+              Se creará un nuevo pedido a partir de este presupuesto. El presupuesto quedará marcado como &quot;Convertido&quot;.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg bg-muted p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Presupuesto:</span>
+                <span className="font-medium">{presupuesto.codigo}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cliente:</span>
+                <span className="font-medium">{clienteNombre}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Importe:</span>
+                <span className="font-medium">{formatCurrency(presupuesto.totales?.totalPresupuesto || 0)}</span>
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>Se copiarán:</p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>Todas las líneas con sus precios</li>
+                <li>Condiciones comerciales</li>
+                <li>Dirección de entrega</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowConvertirPedidoDialog(false)} disabled={isConvirtiendoPedido}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConvertirAPedido} disabled={isConvirtiendoPedido}>
+              <ClipboardList className="mr-2 h-4 w-4" />
+              {isConvirtiendoPedido ? 'Convirtiendo...' : 'Crear Pedido'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

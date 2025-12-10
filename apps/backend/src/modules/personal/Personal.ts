@@ -367,7 +367,7 @@ const DocumentoPersonalSchema = new Schema<IDocumentoPersonal>({
   tipo: { type: String, required: true, trim: true },
   url: { type: String, required: true },
   fechaSubida: { type: Date, default: Date.now },
-  subidoPor: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  subidoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
   confidencial: { type: Boolean, default: false }
 }, { _id: true });
 
@@ -488,7 +488,7 @@ const PersonalSchema = new Schema<IPersonal, IPersonalModel>({
   // Usuario del sistema
   usuarioId: {
     type: Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'Usuario'
   },
 
   // Observaciones
@@ -498,7 +498,7 @@ const PersonalSchema = new Schema<IPersonal, IPersonalModel>({
   // Auditoría
   creadoPor: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Usuario',
     required: true
   },
   fechaCreacion: {
@@ -508,7 +508,7 @@ const PersonalSchema = new Schema<IPersonal, IPersonalModel>({
   },
   modificadoPor: {
     type: Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'Usuario'
   },
   fechaModificacion: {
     type: Date

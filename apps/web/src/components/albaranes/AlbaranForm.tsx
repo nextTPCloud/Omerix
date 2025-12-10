@@ -6,6 +6,7 @@ import {
   CreateAlbaranDTO,
   UpdateAlbaranDTO,
   ILineaAlbaran,
+  IComponenteKit,
   IDireccionEntrega,
   IDatosTransporte,
   IDatosEntrega,
@@ -65,6 +66,7 @@ import {
   AlignLeft,
   Truck,
   PackageCheck,
+  Layers,
 } from 'lucide-react'
 
 // Components
@@ -78,14 +80,19 @@ import { agentesService } from '@/services/agentes-comerciales.service'
 import { proyectosService } from '@/services/proyectos.service'
 import { productosService } from '@/services/productos.service'
 import { almacenesService } from '@/services/almacenes.service'
+import { seriesDocumentosService } from '@/services/series-documentos.service'
+import { ISerieDocumento } from '@/types/serie-documento.types'
 
 // Types
 import { Cliente, DireccionExtendida } from '@/types/cliente.types'
 import { AgenteComercial } from '@/types/agente-comercial.types'
 import { IProyecto } from '@/types/proyecto.types'
-import { Producto } from '@/types/producto.types'
+import { Producto, Variante } from '@/types/producto.types'
 import { Almacen } from '@/types/almacen.types'
 import { toast } from 'sonner'
+
+// Componente de selección de variantes
+import { VarianteSelector } from '@/components/productos/VarianteSelector'
 
 interface AlbaranFormProps {
   initialData?: IAlbaran
@@ -108,6 +115,7 @@ export function AlbaranForm({
   const [proyectos, setProyectos] = useState<IProyecto[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
   const [almacenes, setAlmacenes] = useState<Almacen[]>([])
+  const [seriesDocumentos, setSeriesDocumentos] = useState<ISerieDocumento[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
 
   // Direcciones del cliente seleccionado
@@ -128,6 +136,11 @@ export function AlbaranForm({
   const [showDescripcionDialog, setShowDescripcionDialog] = useState(false)
   const [descripcionEditIndex, setDescripcionEditIndex] = useState<number | null>(null)
   const [descripcionEdit, setDescripcionEdit] = useState({ corta: '', larga: '' })
+
+  // Estado para selector de variantes
+  const [varianteSelectorOpen, setVarianteSelectorOpen] = useState(false)
+  const [productoConVariantes, setProductoConVariantes] = useState<Producto | null>(null)
+  const [lineaIndexParaVariante, setLineaIndexParaVariante] = useState<number | null>(null)
   const [margenConfig, setMargenConfig] = useState({
     tipo: 'porcentaje' as 'porcentaje' | 'importe',
     valor: 0,
@@ -170,12 +183,13 @@ export function AlbaranForm({
     const loadOptions = async () => {
       try {
         setLoadingOptions(true)
-        const [clientesRes, agentesRes, proyectosRes, productosRes, almacenesRes] = await Promise.all([
+        const [clientesRes, agentesRes, proyectosRes, productosRes, almacenesRes, seriesRes] = await Promise.all([
           clientesService.getAll({ activo: true, limit: 100 }),
           agentesService.getAll({ activo: true, limit: 100 }),
           proyectosService.getAll({ activo: 'true', limit: 100 }),
           productosService.getAll({ activo: true, limit: 100 }),
           almacenesService.getAll({ activo: 'true', limit: 100 }).catch(() => ({ success: true, data: [] })),
+          seriesDocumentosService.getByTipoDocumento('albaran', true).catch(() => ({ success: true, data: [] })),
         ])
 
         if (clientesRes.success) setClientes(clientesRes.data || [])
@@ -183,6 +197,28 @@ export function AlbaranForm({
         if (proyectosRes.success) setProyectos(proyectosRes.data || [])
         if (productosRes.success) setProductos(productosRes.data || [])
         if (almacenesRes.success) setAlmacenes(almacenesRes.data || [])
+        if (seriesRes.success) {
+          setSeriesDocumentos(seriesRes.data || [])
+          // Si hay una serie predeterminada y es modo creación, seleccionarla automáticamente
+          if (mode === 'create') {
+            const seriePredeterminada = seriesRes.data?.find((s: ISerieDocumento) => s.predeterminada)
+            if (seriePredeterminada) {
+              try {
+                const codigoRes = await seriesDocumentosService.sugerirCodigo('albaran', seriePredeterminada._id)
+                if (codigoRes.success && codigoRes.data?.codigo) {
+                  setFormData(prev => ({
+                    ...prev,
+                    serieId: seriePredeterminada._id,
+                    serie: seriePredeterminada.codigo,
+                    codigo: codigoRes.data!.codigo,
+                  }))
+                }
+              } catch (error) {
+                console.error('Error al sugerir código:', error)
+              }
+            }
+          }
+        }
       } catch (error) {
         console.error('Error cargando opciones:', error)
         toast.error('Error al cargar las opciones')
@@ -350,6 +386,45 @@ export function AlbaranForm({
     }))
   }, [almacenes])
 
+  const seriesOptions = React.useMemo(() => {
+    return seriesDocumentos.map((serie) => ({
+      value: serie._id,
+      label: serie.codigo,
+      description: `${serie.nombre}${serie.predeterminada ? ' (Predeterminada)' : ''}`,
+    }))
+  }, [seriesDocumentos])
+
+  // Handler para cambio de serie
+  const handleSerieChange = async (serieId: string) => {
+    const serie = seriesDocumentos.find(s => s._id === serieId)
+    if (serie) {
+      try {
+        const codigoRes = await seriesDocumentosService.sugerirCodigo('albaran', serieId)
+        if (codigoRes.success && codigoRes.data?.codigo) {
+          setFormData(prev => ({
+            ...prev,
+            serieId: serieId,
+            serie: serie.codigo,
+            codigo: codigoRes.data!.codigo,
+          }))
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            serieId: serieId,
+            serie: serie.codigo,
+          }))
+        }
+      } catch (error) {
+        console.error('Error al sugerir código:', error)
+        setFormData(prev => ({
+          ...prev,
+          serieId: serieId,
+          serie: serie.codigo,
+        }))
+      }
+    }
+  }
+
   // Handlers para cuando se crea un nuevo elemento
   const handleClienteCreated = (newCliente: { _id: string; codigo: string; nombre: string; nif: string }) => {
     setClientes(prev => [...prev, { ...newCliente, activo: true } as Cliente])
@@ -393,20 +468,99 @@ export function AlbaranForm({
   const handleProductoSelect = (index: number, productoId: string) => {
     const producto = productos.find(p => p._id === productoId)
     if (producto) {
-      const esKit = producto.tipo === 'compuesto' || (producto.componentesKit && producto.componentesKit.length > 0)
+      // Verificar si tiene variantes activas
+      const variantesActivas = producto.variantes?.filter((v: Variante) => v.activo) || []
+      if (variantesActivas.length > 0) {
+        // Abrir selector de variantes
+        setProductoConVariantes(producto)
+        setLineaIndexParaVariante(index)
+        setVarianteSelectorOpen(true)
+        return
+      }
 
-      handleUpdateLinea(index, {
-        productoId: producto._id,
-        codigo: producto.sku || '',
-        nombre: producto.nombre,
-        descripcion: producto.descripcionCorta || producto.descripcion || '',
-        precioUnitario: producto.precios?.venta || 0,
-        costeUnitario: producto.precios?.compra || 0,
-        iva: producto.iva || 21,
-        unidad: 'ud',
-        tipo: esKit ? TipoLinea.KIT : TipoLinea.PRODUCTO,
+      // Sin variantes, aplicar producto directamente
+      aplicarProductoALinea(index, producto)
+    }
+  }
+
+  // Función para aplicar producto a una línea (con o sin variante)
+  const aplicarProductoALinea = (
+    index: number,
+    producto: Producto,
+    variante?: { varianteId: string; sku: string; combinacion: Record<string, string>; precioUnitario: number; costeUnitario: number }
+  ) => {
+    const esKit = producto.tipo === 'compuesto' || (producto.componentesKit && producto.componentesKit.length > 0)
+
+    // Construir los componentes del kit si aplica
+    let componentesKit: IComponenteKit[] | undefined = undefined
+    if (esKit && producto.componentesKit && producto.componentesKit.length > 0) {
+      componentesKit = producto.componentesKit.map(comp => {
+        const productoComponente = productos.find(p => p._id === comp.productoId)
+        return {
+          productoId: comp.productoId,
+          nombre: comp.producto?.nombre || productoComponente?.nombre || 'Componente',
+          sku: comp.producto?.sku || productoComponente?.sku,
+          cantidad: comp.cantidad,
+          cantidadEntregada: 0,
+          precioUnitario: productoComponente?.precios?.venta || 0,
+          costeUnitario: productoComponente?.precios?.compra || 0,
+          descuento: 0,
+          iva: productoComponente?.iva || 21,
+          subtotal: (productoComponente?.precios?.venta || 0) * comp.cantidad,
+          opcional: comp.opcional,
+          seleccionado: !comp.opcional,
+        }
       })
     }
+
+    const datosLinea: Partial<ILineaAlbaran> = {
+      productoId: producto._id,
+      codigo: variante?.sku || producto.sku || '',
+      nombre: variante
+        ? `${producto.nombre} - ${Object.values(variante.combinacion).join(' / ')}`
+        : producto.nombre,
+      descripcion: producto.descripcionCorta || producto.descripcion || '',
+      precioUnitario: variante?.precioUnitario ?? producto.precios?.venta ?? 0,
+      costeUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? 0,
+      iva: producto.iva || 21,
+      unidad: 'ud',
+      tipo: esKit ? TipoLinea.KIT : TipoLinea.PRODUCTO,
+      componentesKit,
+      mostrarComponentes: esKit,
+    }
+
+    // Si hay variante, agregar la información
+    if (variante) {
+      (datosLinea as ILineaAlbaran & { variante?: { varianteId: string; sku: string; combinacion: Record<string, string>; precioAdicional: number; costeAdicional: number } }).variante = {
+        varianteId: variante.varianteId,
+        sku: variante.sku,
+        combinacion: variante.combinacion,
+        precioAdicional: 0,
+        costeAdicional: 0,
+      }
+    }
+
+    handleUpdateLinea(index, datosLinea)
+  }
+
+  // Handler cuando se selecciona una variante desde el selector
+  const handleVarianteSelect = (variante: { varianteId: string; sku: string; combinacion: Record<string, string>; precioUnitario: number; costeUnitario: number; stockTotal: number }) => {
+    if (lineaIndexParaVariante !== null && productoConVariantes) {
+      aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, variante)
+    }
+    setVarianteSelectorOpen(false)
+    setProductoConVariantes(null)
+    setLineaIndexParaVariante(null)
+  }
+
+  // Handler para usar el producto base (sin variante)
+  const handleUsarProductoBase = () => {
+    if (lineaIndexParaVariante !== null && productoConVariantes) {
+      aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes)
+    }
+    setVarianteSelectorOpen(false)
+    setProductoConVariantes(null)
+    setLineaIndexParaVariante(null)
   }
 
   // Handler para cambiar el nombre/descripción de la línea
@@ -767,13 +921,29 @@ export function AlbaranForm({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="serie">Serie</Label>
-                    <Input
-                      id="serie"
-                      value={formData.serie || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, serie: e.target.value }))}
-                      placeholder="Ej: ALB"
+                    <SearchableSelect
+                      options={seriesOptions}
+                      value={formData.serieId || ''}
+                      onValueChange={handleSerieChange}
+                      placeholder="Seleccionar serie..."
+                      searchPlaceholder="Buscar serie..."
+                      emptyMessage="No hay series configuradas"
+                      disabled={mode === 'edit'}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="codigo">Código</Label>
+                    <Input
+                      id="codigo"
+                      value={formData.codigo || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, codigo: e.target.value }))}
+                      placeholder="Auto-generado"
+                      disabled={mode === 'edit'}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="tipo">Tipo *</Label>
                     <select
@@ -1012,38 +1182,10 @@ export function AlbaranForm({
                   {numLineas} línea{numLineas !== 1 ? 's' : ''} • Base: {formatCurrency(totales.subtotalNeto)} • Total: {formatCurrency(totales.totalAlbaran)}
                 </CardDescription>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Añadir
-                    <ChevronDown className="h-4 w-4 ml-2" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.PRODUCTO)}>
-                    <Package className="h-4 w-4 mr-2" />
-                    Producto
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.SERVICIO)}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    Servicio
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.TEXTO)}>
-                    <AlignLeft className="h-4 w-4 mr-2" />
-                    Línea de texto
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.SUBTOTAL)}>
-                    <Calculator className="h-4 w-4 mr-2" />
-                    Subtotal
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleAddLinea(TipoLinea.DESCUENTO)}>
-                    <Percent className="h-4 w-4 mr-2" />
-                    Descuento
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button type="button" size="sm" onClick={() => handleAddLinea(TipoLinea.PRODUCTO)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Añadir Línea
+              </Button>
             </CardHeader>
             <CardContent>
               {numLineas === 0 ? (
@@ -1056,7 +1198,8 @@ export function AlbaranForm({
                 <div className="space-y-2">
                   {/* Cabecera de la tabla */}
                   <div className="hidden md:grid grid-cols-12 gap-2 px-2 py-1 text-xs font-medium text-muted-foreground bg-muted/50 rounded">
-                    <div className="col-span-3">Producto / Servicio</div>
+                    <div className="col-span-1">Tipo</div>
+                    <div className="col-span-2">Producto / Servicio</div>
                     <div className="col-span-1 text-right">Solicitada</div>
                     <div className="col-span-1 text-right">Entregada</div>
                     <div className="col-span-1 text-right">Precio</div>
@@ -1074,8 +1217,21 @@ export function AlbaranForm({
                       key={`linea-${linea.orden || index}`}
                       className="grid grid-cols-1 md:grid-cols-12 gap-2 p-2 border rounded hover:bg-muted/30 transition-colors"
                     >
+                      {/* Tipo */}
+                      <div className="col-span-12 md:col-span-1">
+                        <select
+                          value={linea.tipo}
+                          onChange={(e) => handleUpdateLinea(index, { tipo: e.target.value as TipoLinea })}
+                          className="h-9 w-full text-xs rounded-md border border-input bg-background px-2"
+                        >
+                          {TIPOS_LINEA.map(tipo => (
+                            <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
                       {/* Producto */}
-                      <div className="col-span-12 md:col-span-3">
+                      <div className="col-span-12 md:col-span-2">
                         {linea.tipo === TipoLinea.TEXTO ? (
                           <Input
                             value={linea.nombre || ''}
@@ -1096,22 +1252,68 @@ export function AlbaranForm({
                           </div>
                         ) : (
                           <div className="space-y-1">
-                            <EditableSearchableSelect
-                              inputRef={(el: HTMLInputElement | null) => {
-                                if (el) productoRefs.current.set(index, el)
-                              }}
-                              options={productosOptions}
-                              value={linea.productoId || ''}
-                              displayValue={linea.nombre || ''}
-                              onValueChange={(value: string) => handleProductoSelect(index, value)}
-                              onDisplayValueChange={(value: string) => handleNombreChange(index, value)}
-                              placeholder="Buscar o escribir producto..."
-                              emptyMessage="Sin resultados"
-                              loading={loadingOptions}
-                              onEnterPress={() => handleProductEnterPress(index)}
-                            />
+                            <div className="flex items-center gap-1">
+                              <EditableSearchableSelect
+                                inputRef={(el: HTMLInputElement | null) => {
+                                  if (el) productoRefs.current.set(index, el)
+                                }}
+                                options={productosOptions}
+                                value={linea.productoId || ''}
+                                displayValue={linea.nombre || ''}
+                                onValueChange={(value: string) => handleProductoSelect(index, value)}
+                                onDisplayValueChange={(value: string) => handleNombreChange(index, value)}
+                                placeholder="Buscar o escribir producto..."
+                                emptyMessage="Sin resultados"
+                                loading={loadingOptions}
+                                onEnterPress={() => handleProductEnterPress(index)}
+                                className="flex-1"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 flex-shrink-0"
+                                onClick={() => handleOpenDescripcionDialog(index)}
+                                title="Editar descripciones"
+                              >
+                                <AlignLeft className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            </div>
                             {linea.descripcion && (
                               <p className="text-xs text-muted-foreground truncate pl-1">{linea.descripcion}</p>
+                            )}
+                            {/* Indicador de kit */}
+                            {linea.tipo === TipoLinea.KIT && (
+                              <Badge variant="secondary" className="flex-shrink-0 gap-1 mt-1 w-fit">
+                                <Layers className="h-3 w-3" />
+                                Kit
+                              </Badge>
+                            )}
+                            {/* Componentes del kit expandidos */}
+                            {linea.tipo === TipoLinea.KIT && linea.mostrarComponentes && linea.componentesKit && linea.componentesKit.length > 0 && (
+                              <div className="ml-2 mt-2 space-y-1 border-l-2 border-primary/20 pl-3">
+                                <div className="text-xs font-medium text-muted-foreground mb-1">
+                                  Componentes del kit ({linea.componentesKit.length}):
+                                </div>
+                                {linea.componentesKit.map((comp, compIndex) => (
+                                  <div
+                                    key={compIndex}
+                                    className={`flex items-center gap-2 text-xs py-1 px-2 rounded ${
+                                      comp.opcional ? 'bg-amber-50 border border-amber-200' : 'bg-muted/50'
+                                    }`}
+                                  >
+                                    <Package className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                    <span className="flex-1 truncate">{comp.nombre}</span>
+                                    <span className="text-muted-foreground">x{comp.cantidad}</span>
+                                    {comp.opcional && (
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                        Opcional
+                                      </Badge>
+                                    )}
+                                    <span className="font-medium">{formatCurrency(comp.subtotal)}</span>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
                         )}
@@ -1247,42 +1449,60 @@ export function AlbaranForm({
                       )}
 
                       {/* Acciones */}
-                      <div className="col-span-12 md:col-span-1 flex items-center justify-end gap-1">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <ChevronDown className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEntregarTodo(index)}>
-                              <PackageCheck className="h-4 w-4 mr-2" />
-                              Entregar todo
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenDescripcionDialog(index)}>
-                              <AlignLeft className="h-4 w-4 mr-2" />
-                              Editar descripción
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDuplicateLinea(index)}>
-                              <Copy className="h-4 w-4 mr-2" />
-                              Duplicar
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleMoveLinea(index, 'up')} disabled={index === 0}>
-                              <ArrowUp className="h-4 w-4 mr-2" />
-                              Subir
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleMoveLinea(index, 'down')} disabled={index === (formData.lineas?.length || 0) - 1}>
-                              <ArrowDown className="h-4 w-4 mr-2" />
-                              Bajar
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleRemoveLinea(index)} className="text-destructive">
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      <div className="col-span-12 md:col-span-1 flex items-center justify-end gap-0.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleEntregarTodo(index)}
+                          title="Entregar todo"
+                          disabled={linea.tipo === TipoLinea.TEXTO || linea.tipo === TipoLinea.SUBTOTAL}
+                        >
+                          <PackageCheck className="h-3.5 w-3.5 text-green-600" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleMoveLinea(index, 'up')}
+                          disabled={index === 0}
+                          title="Subir"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleMoveLinea(index, 'down')}
+                          disabled={index === (formData.lineas?.length || 0) - 1}
+                          title="Bajar"
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleDuplicateLinea(index)}
+                          title="Duplicar"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => handleRemoveLinea(index)}
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -2013,6 +2233,15 @@ export function AlbaranForm({
         open={showCreateProyecto}
         onOpenChange={setShowCreateProyecto}
         onCreated={handleProyectoCreated}
+      />
+
+      {/* Selector de variantes */}
+      <VarianteSelector
+        open={varianteSelectorOpen}
+        onOpenChange={setVarianteSelectorOpen}
+        producto={productoConVariantes}
+        onSelect={handleVarianteSelect}
+        onSelectBase={handleUsarProductoBase}
       />
     </form>
   )

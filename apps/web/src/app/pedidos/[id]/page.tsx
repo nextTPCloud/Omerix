@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { pedidosService } from '@/services/pedidos.service'
+import { albaranesService } from '@/services/albaranes.service'
 import { empresaService, EmpresaInfo } from '@/services/empresa.service'
 import {
   IPedido,
@@ -66,6 +67,7 @@ import {
   CheckCircle2,
   XCircle,
   ExternalLink,
+  PackageCheck,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -97,6 +99,8 @@ export default function PedidoDetailPage({ params }: PageProps) {
   const [empresa, setEmpresa] = useState<EmpresaInfo | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(true)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showCrearAlbaranDialog, setShowCrearAlbaranDialog] = useState(false)
+  const [isCreandoAlbaran, setIsCreandoAlbaran] = useState(false)
   const [mostrarCostes, setMostrarCostes] = useState(true)
 
   useEffect(() => {
@@ -215,6 +219,29 @@ export default function PedidoDetailPage({ params }: PageProps) {
     }
   }
 
+  const handleCrearAlbaran = async () => {
+    if (!pedido) return
+
+    setIsCreandoAlbaran(true)
+    try {
+      const response = await albaranesService.crearDesdePedido(pedido._id, {
+        entregarTodo: true,
+      })
+
+      if (response.success && response.data) {
+        toast.success('Albarán creado correctamente')
+        router.push(`/albaranes/${response.data._id}`)
+      } else {
+        toast.error(response.message || 'Error al crear albarán')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al crear albarán')
+    } finally {
+      setIsCreandoAlbaran(false)
+      setShowCrearAlbaranDialog(false)
+    }
+  }
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
@@ -302,6 +329,7 @@ export default function PedidoDetailPage({ params }: PageProps) {
   const puedeServir = [EstadoPedido.CONFIRMADO, EstadoPedido.EN_PROCESO, EstadoPedido.PARCIALMENTE_SERVIDO].includes(pedido.estado as EstadoPedido)
   const puedeFacturar = pedido.estado === EstadoPedido.SERVIDO
   const puedeCancelar = ![EstadoPedido.CANCELADO, EstadoPedido.FACTURADO].includes(pedido.estado as EstadoPedido)
+  const puedeCrearAlbaran = [EstadoPedido.CONFIRMADO, EstadoPedido.EN_PROCESO, EstadoPedido.PARCIALMENTE_SERVIDO].includes(pedido.estado as EstadoPedido)
 
   return (
     <DashboardLayout>
@@ -377,6 +405,18 @@ export default function PedidoDetailPage({ params }: PageProps) {
                     <Pencil className="mr-2 h-4 w-4" />
                     Editar
                   </Button>
+
+                  {/* Crear Albarán (Entregar pedido) */}
+                  {puedeCrearAlbaran && (
+                    <Button
+                      size="sm"
+                      onClick={() => setShowCrearAlbaranDialog(true)}
+                      className="bg-cyan-600 hover:bg-cyan-700"
+                    >
+                      <PackageCheck className="mr-2 h-4 w-4" />
+                      Crear Albarán
+                    </Button>
+                  )}
 
                   {/* Cambiar estado - Dropdown con estados disponibles */}
                   <DropdownMenu>
@@ -1030,6 +1070,58 @@ export default function PedidoDetailPage({ params }: PageProps) {
           </div>
         </div>
       </div>
+
+      {/* Diálogo de crear albarán */}
+      <Dialog open={showCrearAlbaranDialog} onOpenChange={setShowCrearAlbaranDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PackageCheck className="h-5 w-5 text-cyan-600" />
+              Crear Albarán de Entrega
+            </DialogTitle>
+            <DialogDescription>
+              Se creará un albarán de entrega para este pedido con todas las líneas pendientes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg bg-cyan-50 border border-cyan-200 p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Pedido:</span>
+                <span className="font-medium">{pedido.codigo}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cliente:</span>
+                <span className="font-medium">{clienteNombre}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Líneas:</span>
+                <span className="font-medium">{pedido.lineas?.length || 0} productos</span>
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>El albarán incluirá:</p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>Todas las líneas del pedido pendientes de entregar</li>
+                <li>Dirección de entrega del pedido</li>
+                <li>Datos del transportista (si están configurados)</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowCrearAlbaranDialog(false)} disabled={isCreandoAlbaran}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCrearAlbaran}
+              disabled={isCreandoAlbaran}
+              className="bg-cyan-600 hover:bg-cyan-700"
+            >
+              <PackageCheck className="mr-2 h-4 w-4" />
+              {isCreandoAlbaran ? 'Creando...' : 'Crear Albarán'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo de confirmación para eliminar */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

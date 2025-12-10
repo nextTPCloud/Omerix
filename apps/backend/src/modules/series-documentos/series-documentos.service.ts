@@ -1,11 +1,11 @@
-import mongoose, { Types } from 'mongoose';
+import mongoose, { Types, Model } from 'mongoose';
 import { SerieDocumento, ISerieDocumento, TipoDocumentoSerie } from './SerieDocumento';
 import {
   CreateSerieDocumentoDTO,
   UpdateSerieDocumentoDTO,
   SearchSeriesDocumentosDTO,
 } from './series-documentos.dto';
-import { getDynamicModel } from '@/utils/dynamic-models.helper';
+import { getSerieDocumentoModel } from '@/utils/dynamic-models.helper';
 
 // ============================================
 // SERVICIO DE SERIES DE DOCUMENTOS
@@ -15,8 +15,8 @@ class SeriesDocumentosService {
   // ============================================
   // OBTENER MODELO DINÁMICO
   // ============================================
-  private getModel(dbConfig: any) {
-    return getDynamicModel<ISerieDocumento>('SerieDocumento', SerieDocumento.schema, dbConfig);
+  private async getModel(dbConfig: any): Promise<Model<ISerieDocumento>> {
+    return getSerieDocumentoModel(dbConfig.empresaId, dbConfig);
   }
 
   // ============================================
@@ -31,7 +31,7 @@ class SeriesDocumentosService {
     usuarioId: Types.ObjectId,
     dbConfig: any
   ): Promise<ISerieDocumento> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     // Verificar código único para el tipo de documento
     const existente = await Model.findOne({
@@ -67,7 +67,7 @@ class SeriesDocumentosService {
     limit: number;
     pages: number;
   }> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     const {
       q,
@@ -141,7 +141,7 @@ class SeriesDocumentosService {
     id: string,
     dbConfig: any
   ): Promise<ISerieDocumento | null> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     const serie = await Model.findById(id).lean();
     if (!serie) return null;
@@ -161,7 +161,7 @@ class SeriesDocumentosService {
     usuarioId: Types.ObjectId,
     dbConfig: any
   ): Promise<ISerieDocumento | null> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     const serie = await Model.findById(id);
     if (!serie) return null;
@@ -207,7 +207,7 @@ class SeriesDocumentosService {
     id: string,
     dbConfig: any
   ): Promise<boolean> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     const serie = await Model.findById(id);
     if (!serie) return false;
@@ -233,7 +233,7 @@ class SeriesDocumentosService {
     soloActivas: boolean = true,
     dbConfig: any
   ): Promise<ISerieDocumento[]> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     const query: any = { tipoDocumento };
     if (soloActivas) {
@@ -257,7 +257,7 @@ class SeriesDocumentosService {
     tipoDocumento: TipoDocumentoSerie,
     dbConfig: any
   ): Promise<ISerieDocumento | null> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     const serie = await Model.findOne({
       tipoDocumento,
@@ -281,7 +281,7 @@ class SeriesDocumentosService {
     usuarioId: Types.ObjectId,
     dbConfig: any
   ): Promise<ISerieDocumento | null> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     const serie = await Model.findById(id);
     if (!serie) return null;
@@ -304,7 +304,7 @@ class SeriesDocumentosService {
     id: string,
     dbConfig: any
   ): Promise<{ codigo: string; siguienteNumero: number }> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     const serie = await Model.findById(id);
     if (!serie) {
@@ -341,7 +341,7 @@ class SeriesDocumentosService {
     serieId: string | null,
     dbConfig: any
   ): Promise<{ codigo: string; serieId: string; siguienteNumero: number }> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     let serie: ISerieDocumento | null = null;
 
@@ -392,7 +392,7 @@ class SeriesDocumentosService {
     serieId: string | null,
     dbConfig: any
   ): Promise<{ codigo: string; serieId: string; siguienteNumero: number }> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     let serie: ISerieDocumento | null = null;
 
@@ -434,7 +434,7 @@ class SeriesDocumentosService {
     usuarioId: Types.ObjectId,
     dbConfig: any
   ): Promise<ISerieDocumento> {
-    const Model = this.getModel(dbConfig);
+    const Model = await this.getModel(dbConfig);
 
     const serieOriginal = await Model.findById(id);
     if (!serieOriginal) {

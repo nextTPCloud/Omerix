@@ -31,16 +31,61 @@ export interface IAtributo {
   obligatorio: boolean; // Si es obligatorio seleccionar
 }
 
-// Variante es una combinación específica de atributos
+// Precios específicos de una variante
+export interface IPrecioVariante {
+  compra: number;         // Precio de compra
+  venta: number;          // Precio de venta (sin IVA)
+  pvp: number;            // Precio venta al público
+  margen?: number;        // Porcentaje de margen calculado
+  usarPrecioBase?: boolean; // Si es true, usa los precios del producto padre
+}
+
+// Stock de variante por almacén
+export interface IStockVarianteAlmacen {
+  almacenId: Types.ObjectId;
+  cantidad: number;
+  minimo: number;
+  maximo: number;
+  ubicacion?: string;     // Pasillo, estantería, etc.
+  ultimaActualizacion?: Date;
+}
+
+// Dimensiones de la variante (si difieren del producto base)
+export interface IDimensionesVariante {
+  largo: number;  // cm
+  ancho: number;  // cm
+  alto: number;   // cm
+}
+
+// Variante es una combinación específica de atributos con precios y stock propios
 export interface IVariante {
-  sku: string; // SKU único de la variante
-  codigoBarras?: string;
-  combinacion: Record<string, string>; // Ej: { talla: "M", color: "Rojo" }
-  stock?: IStock;
-  precioExtra: number; // Precio adicional sobre el precio base
-  imagenes?: string[]; // Imágenes específicas de esta variante
+  _id?: Types.ObjectId;
+  sku: string;                              // SKU único de la variante
+  codigoBarras?: string;                    // Código de barras principal
+  codigosBarrasAlternativos?: string[];     // Códigos de barras alternativos
+  combinacion: Record<string, string>;      // Ej: { talla: "M", color: "Rojo" }
+
+  // Precios específicos de la variante
+  precios: IPrecioVariante;
+
+  // Stock multi-almacén
+  stockPorAlmacen: IStockVarianteAlmacen[];
+
+  // Imágenes específicas de esta variante
+  imagenes?: string[];
+
+  // Características físicas (si difieren del producto base)
+  peso?: number;
+  dimensiones?: IDimensionesVariante;
+
+  // Estado
   activo: boolean;
-  peso?: number; // Peso específico si difiere
+
+  // Referencia del proveedor para esta variante específica
+  referenciaProveedor?: string;
+
+  // Notas internas
+  notas?: string;
 }
 
 // Trazabilidad para números de serie
@@ -310,18 +355,62 @@ const AtributoSchema = new Schema({
   obligatorio: { type: Boolean, default: true },
 }, { _id: false });
 
+// Schema para precios de variante
+const PrecioVarianteSchema = new Schema({
+  compra: { type: Number, default: 0, min: 0 },
+  venta: { type: Number, default: 0, min: 0 },
+  pvp: { type: Number, default: 0, min: 0 },
+  margen: { type: Number, default: 0 },
+  usarPrecioBase: { type: Boolean, default: false },
+}, { _id: false });
+
+// Schema para stock de variante por almacén
+const StockVarianteAlmacenSchema = new Schema({
+  almacenId: { type: Schema.Types.ObjectId, ref: 'Almacen', required: true },
+  cantidad: { type: Number, default: 0 },
+  minimo: { type: Number, default: 0, min: 0 },
+  maximo: { type: Number, default: 0, min: 0 },
+  ubicacion: String,
+  ultimaActualizacion: { type: Date, default: Date.now },
+}, { _id: false });
+
+// Schema para dimensiones de variante
+const DimensionesVarianteSchema = new Schema({
+  largo: { type: Number, min: 0 },
+  ancho: { type: Number, min: 0 },
+  alto: { type: Number, min: 0 },
+}, { _id: false });
+
 const VarianteSchema = new Schema({
   sku: { type: String, required: true },
   codigoBarras: String,
+  codigosBarrasAlternativos: [String],
   combinacion: {
     type: Schema.Types.Mixed,
     required: true,
   },
-  stock: StockSchema,
-  precioExtra: { type: Number, default: 0 },
+  // Precios propios de la variante
+  precios: {
+    type: PrecioVarianteSchema,
+    default: () => ({
+      compra: 0,
+      venta: 0,
+      pvp: 0,
+      margen: 0,
+      usarPrecioBase: true,
+    }),
+  },
+  // Stock multi-almacén
+  stockPorAlmacen: {
+    type: [StockVarianteAlmacenSchema],
+    default: [],
+  },
   imagenes: [String],
-  activo: { type: Boolean, default: true },
   peso: Number,
+  dimensiones: DimensionesVarianteSchema,
+  activo: { type: Boolean, default: true },
+  referenciaProveedor: String,
+  notas: String,
 }, { _id: true });
 
 const ProductoSchema = new Schema<IProducto>(
@@ -640,15 +729,36 @@ ProductoSchema.pre('save', function (next) {
   next();
 });
 
-// Virtual para stock total (incluyendo variantes)
+// Virtual para stock total (incluyendo variantes y multi-almacén)
 ProductoSchema.virtual('stockTotal').get(function () {
   if (!this.tieneVariantes) {
+    // Para productos simples, sumar stock de todos los almacenes
+    if (this.stockPorAlmacen && this.stockPorAlmacen.length > 0) {
+      return this.stockPorAlmacen.reduce((total, almacen) => total + almacen.cantidad, 0);
+    }
     return this.stock.cantidad;
   }
 
+  // Para productos con variantes, sumar el stock de cada variante en cada almacén
   return this.variantes.reduce((total, variante) => {
-    return total + (variante.stock?.cantidad || 0);
+    if (variante.stockPorAlmacen && variante.stockPorAlmacen.length > 0) {
+      return total + variante.stockPorAlmacen.reduce((sum, almacen) => sum + almacen.cantidad, 0);
+    }
+    return total;
   }, 0);
+});
+
+// Virtual para obtener stock de una variante específica
+ProductoSchema.virtual('stockPorVariante').get(function () {
+  if (!this.tieneVariantes) return null;
+
+  return this.variantes.map(variante => ({
+    varianteId: variante._id,
+    sku: variante.sku,
+    combinacion: variante.combinacion,
+    stockTotal: variante.stockPorAlmacen?.reduce((sum, a) => sum + a.cantidad, 0) || 0,
+    stockPorAlmacen: variante.stockPorAlmacen || [],
+  }));
 });
 
 // Virtual para obtener familia

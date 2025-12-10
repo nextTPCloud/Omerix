@@ -501,13 +501,13 @@ const DocumentoAlbaranSchema = new Schema<IDocumentoAlbaran>({
   tipo: { type: String, required: true },
   tamaño: { type: Number, required: true },
   fechaSubida: { type: Date, default: Date.now },
-  subidoPor: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  subidoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
   visibleCliente: { type: Boolean, default: true },
 }, { _id: true });
 
 const HistorialAlbaranSchema = new Schema<IHistorialAlbaran>({
   fecha: { type: Date, default: Date.now },
-  usuarioId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  usuarioId: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
   accion: { type: String, required: true },
   descripcion: { type: String },
   datosAnteriores: { type: Schema.Types.Mixed },
@@ -716,12 +716,12 @@ const AlbaranSchema = new Schema<IAlbaran, IAlbaranModel>({
   // Auditoría
   creadoPor: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Usuario',
     required: true,
   },
   modificadoPor: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Usuario',
   },
   fechaCreacion: {
     type: Date,

@@ -301,7 +301,7 @@ const AgenteComercialSchema = new Schema<IAgenteComercial, IAgenteComercialModel
   // Auditoría
   creadoPor: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Usuario',
     required: true
   },
   fechaCreacion: {
@@ -311,7 +311,7 @@ const AgenteComercialSchema = new Schema<IAgenteComercial, IAgenteComercialModel
   },
   modificadoPor: {
     type: Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'Usuario'
   },
   fechaModificacion: {
     type: Date

@@ -237,7 +237,9 @@ export interface IAlbaran {
 // ============================================
 
 export interface CreateAlbaranDTO {
+  codigo?: string;
   serie?: string;
+  serieId?: string;
   tipo?: TipoAlbaran;
   pedidoOrigenId?: string;
   presupuestoOrigenId?: string;
@@ -402,8 +404,8 @@ export const crearLineaVacia = (orden: number): Omit<ILineaAlbaran, '_id'> => ({
   tipo: TipoLinea.PRODUCTO,
   nombre: '',
   cantidadSolicitada: 1,
-  cantidadEntregada: 0,
-  cantidadPendiente: 1,
+  cantidadEntregada: 1,
+  cantidadPendiente: 0,
   unidad: 'ud',
   precioUnitario: 0,
   costeUnitario: 0,

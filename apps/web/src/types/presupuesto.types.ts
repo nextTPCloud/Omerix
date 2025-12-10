@@ -223,6 +223,7 @@ export interface IPresupuesto {
 export interface CreatePresupuestoDTO {
   codigo?: string;
   serie?: string;
+  serieId?: string;
   estado?: EstadoPresupuesto;
   fecha?: string | Date;
   fechaValidez?: string | Date;

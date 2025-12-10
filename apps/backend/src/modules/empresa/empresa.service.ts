@@ -186,7 +186,10 @@ class EmpresaService {
    * Obtener configuración de email (sin datos sensibles)
    */
   async getEmailConfig(empresaId: string): Promise<Partial<IEmailConfig> & { hasPassword?: boolean; isConnected?: boolean } | null> {
-    const empresa = await Empresa.findById(empresaId).lean();
+    // Incluir password y oauth2.refreshToken para verificar si existen (no se devuelven al frontend)
+    const empresa = await Empresa.findById(empresaId)
+      .select('+emailConfig.password +emailConfig.oauth2.refreshToken')
+      .lean();
 
     if (!empresa?.emailConfig) return null;
 
