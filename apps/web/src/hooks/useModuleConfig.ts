@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { configuracionService, ModuleConfig, ColumnaConfig, SortConfig, ColumnFilters } from '@/services/configuracion.service';
+import { configuracionService, ModuleConfig, ColumnaConfig, SortConfig, ColumnFilters, SavedAdvancedFilter } from '@/services/configuracion.service';
 import { toast } from 'sonner';
 
 /**
@@ -56,8 +56,10 @@ export function useModuleConfig(
           columnas: defaultConfig.columnas || [],
           sortConfig: defaultConfig.sortConfig,
           columnFilters: defaultConfig.columnFilters || {},
+          advancedFilters: defaultConfig.advancedFilters || [],
           paginacion: defaultConfig.paginacion || { limit: 25 },
           filtrosAdicionales: defaultConfig.filtrosAdicionales || {},
+          densidad: defaultConfig.densidad,
         });
       }
 
@@ -72,8 +74,10 @@ export function useModuleConfig(
           columnas: defaultConfig.columnas || [],
           sortConfig: defaultConfig.sortConfig,
           columnFilters: defaultConfig.columnFilters || {},
+          advancedFilters: defaultConfig.advancedFilters || [],
           paginacion: defaultConfig.paginacion || { limit: 25 },
           filtrosAdicionales: defaultConfig.filtrosAdicionales || {},
+          densidad: defaultConfig.densidad,
         });
       }
     } finally {
@@ -190,6 +194,16 @@ export function useModuleConfig(
   );
 
   /**
+   * Actualizar filtros avanzados
+   */
+  const updateAdvancedFilters = useCallback(
+    (advancedFilters: SavedAdvancedFilter[]) => {
+      updateConfig({ advancedFilters });
+    },
+    [updateConfig]
+  );
+
+  /**
    * Actualizar límite de paginación
    */
   const updatePaginationLimit = useCallback(
@@ -213,8 +227,10 @@ export function useModuleConfig(
           columnas: defaultConfig.columnas || [],
           sortConfig: defaultConfig.sortConfig,
           columnFilters: defaultConfig.columnFilters || {},
+          advancedFilters: defaultConfig.advancedFilters || [],
           paginacion: defaultConfig.paginacion || { limit: 25 },
           filtrosAdicionales: defaultConfig.filtrosAdicionales || {},
+          densidad: defaultConfig.densidad,
         });
       } else {
         setConfig(null);
@@ -274,6 +290,7 @@ export function useModuleConfig(
     updateColumnas,
     updateSortConfig,
     updateColumnFilters,
+    updateAdvancedFilters,
     updatePaginationLimit,
     updateDensidad,
 

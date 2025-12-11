@@ -26,7 +26,12 @@ import { Presupuesto, IPresupuesto } from '../modules/presupuestos/Presupuesto';
 import { Pedido, IPedido } from '../modules/pedidos/Pedido';
 import { Albaran, IAlbaran } from '../modules/albaranes/Albaran';
 import { Factura, IFactura } from '../modules/facturas/Factura';
+import { Proveedor, IProveedor } from '../modules/proveedores/Proveedor';
 import Usuario, { IUsuario } from '../models/Usuario';
+import { MovimientoStock, IMovimientoStock } from '../models/MovimientoStock';
+import { PedidoCompra, IPedidoCompra } from '../modules/pedidos-compra/PedidoCompra';
+import { AlbaranCompra, IAlbaranCompra } from '../modules/albaranes-compra/AlbaranCompra';
+import { FacturaCompra, IFacturaCompra } from '../modules/facturas-compra/FacturaCompra';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -485,6 +490,86 @@ export const getUserModel = async (
 };
 
 /**
+ * Obtener modelo de Proveedor para una empresa específica
+ */
+export const getProveedorModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IProveedor>> => {
+  const ProveedorSchema = Proveedor.schema;
+  return databaseManager.getModel<IProveedor>(
+    empresaId,
+    dbConfig,
+    'Proveedor',
+    ProveedorSchema
+  );
+};
+
+/**
+ * Obtener modelo de MovimientoStock para una empresa específica
+ */
+export const getMovimientoStockModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IMovimientoStock>> => {
+  const MovimientoStockSchema = MovimientoStock.schema;
+  return databaseManager.getModel<IMovimientoStock>(
+    empresaId,
+    dbConfig,
+    'MovimientoStock',
+    MovimientoStockSchema
+  );
+};
+
+/**
+ * Obtener modelo de PedidoCompra para una empresa específica
+ */
+export const getPedidoCompraModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IPedidoCompra>> => {
+  const PedidoCompraSchema = PedidoCompra.schema;
+  return databaseManager.getModel<IPedidoCompra>(
+    empresaId,
+    dbConfig,
+    'PedidoCompra',
+    PedidoCompraSchema
+  );
+};
+
+/**
+ * Obtener modelo de AlbaranCompra para una empresa específica
+ */
+export const getAlbaranCompraModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IAlbaranCompra>> => {
+  const AlbaranCompraSchema = AlbaranCompra.schema;
+  return databaseManager.getModel<IAlbaranCompra>(
+    empresaId,
+    dbConfig,
+    'AlbaranCompra',
+    AlbaranCompraSchema
+  );
+};
+
+/**
+ * Obtener modelo de FacturaCompra para una empresa específica
+ */
+export const getFacturaCompraModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IFacturaCompra>> => {
+  const FacturaCompraSchema = FacturaCompra.schema;
+  return databaseManager.getModel<IFacturaCompra>(
+    empresaId,
+    dbConfig,
+    'FacturaCompra',
+    FacturaCompraSchema
+  );
+};
+
+/**
  * Objeto con todos los modelos por empresa
  * Se puede extender con más modelos según sea necesario
  */
@@ -516,6 +601,11 @@ export const EmpresaModels = {
   Factura: getFacturaModel,
   SerieDocumento: getSerieDocumentoModel,
   Usuario: getUserModel,
+  Proveedor: getProveedorModel,
+  MovimientoStock: getMovimientoStockModel,
+  PedidoCompra: getPedidoCompraModel,
+  AlbaranCompra: getAlbaranCompraModel,
+  FacturaCompra: getFacturaCompraModel,
 };
 
 /**

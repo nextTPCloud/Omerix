@@ -25,16 +25,25 @@ export interface IColumnFilters {
   [key: string]: string | boolean | number;
 }
 
+// Filtro avanzado guardado
+export interface ISavedAdvancedFilter {
+  field: string;
+  operator: string;
+  value: string | number | boolean | string[];
+  valueTo?: string | number;
+}
+
 // Configuración de un módulo específico
 export interface IModuleConfig {
   columnas: IColumnaConfig[];
   sortConfig?: ISortConfig;
   columnFilters?: IColumnFilters;
+  advancedFilters?: ISavedAdvancedFilter[]; // Filtros avanzados guardados
   paginacion?: {
     limit: 10 | 25 | 50 | 100; // Límite de registros por página
   };
   filtrosAdicionales?: any; // Filtros específicos del módulo (ej: activo: true)
-  densidad?: 'compact' | 'normal' | 'comfortable'; // 🆕 Densidad de la tabla
+  densidad?: 'compact' | 'normal' | 'comfortable'; // Densidad de la tabla
 }
 
 // Favorito del menú
@@ -132,6 +141,10 @@ const ModuleConfigSchema = new Schema<IModuleConfig>(
     columnFilters: {
       type: Schema.Types.Mixed,
       default: {},
+    },
+    advancedFilters: {
+      type: Schema.Types.Mixed,
+      default: [],
     },
     paginacion: {
       limit: {

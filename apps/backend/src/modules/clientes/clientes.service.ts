@@ -3,6 +3,7 @@ import { CreateClienteDto, UpdateClienteDto, GetClientesQueryDto } from './clien
 import { Cliente, ICliente } from '@/modules/clientes/Cliente';
 import { IDatabaseConfig } from '@/models/Empresa';
 import { getClienteModel } from '@/utils/dynamic-models.helper';
+import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -127,6 +128,16 @@ export class ClientesService {
       filter.tags = { $in: tags };
     }
 
+    // FILTROS AVANZADOS - Procesar operadores como _ne, _gt, _lt, etc.
+    const allowedAdvancedFields = [
+      'codigo', 'nombre', 'nombreComercial', 'nif', 'email', 'telefono',
+      'tipoCliente', 'riesgoActual', 'limiteCredito', 'activo', 'createdAt',
+    ];
+    const advancedFilters = parseAdvancedFilters(query as any, allowedAdvancedFields);
+
+    // Combinar filtros existentes con filtros avanzados
+    const finalFilter = mergeFilters(filter, advancedFilters);
+
     // Ordenamiento
     const sort: any = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
@@ -136,14 +147,14 @@ export class ClientesService {
 
     // Ejecutar consulta
     const [clientes, total] = await Promise.all([
-      ClienteModel.find(filter)
+      ClienteModel.find(finalFilter)
         .sort(sort)
         .skip(skip)
         .limit(limit)
         .populate('vendedorId', 'nombre email')
         .populate('categoriaId', 'nombre')
         .lean(),
-      ClienteModel.countDocuments(filter),
+      ClienteModel.countDocuments(finalFilter),
     ]);
 
     return {

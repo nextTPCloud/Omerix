@@ -13,6 +13,8 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { presupuestosService } from '@/services/presupuestos.service'
 import { pedidosService } from '@/services/pedidos.service'
+import { albaranesService } from '@/services/albaranes.service'
+import { facturasService } from '@/services/facturas.service'
 import { empresaService, EmpresaInfo } from '@/services/empresa.service'
 import { IPresupuesto, getEstadoConfig, getTipoLineaLabel, ESTADOS_PRESUPUESTO, EstadoPresupuesto } from '@/types/presupuesto.types'
 import { PresupuestoPrintView, PrintOptions, defaultPrintOptions } from '@/components/presupuestos/PresupuestoPrintView'
@@ -67,6 +69,10 @@ import {
   Files,
   Import,
   ClipboardList,
+  FileBox,
+  Receipt,
+  ExternalLink,
+  ArrowRight,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -102,7 +108,11 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
   const [showPrintOptionsDialog, setShowPrintOptionsDialog] = useState(false)
   const [showImportarLineas, setShowImportarLineas] = useState(false)
   const [showConvertirPedidoDialog, setShowConvertirPedidoDialog] = useState(false)
+  const [showConvertirAlbaranDialog, setShowConvertirAlbaranDialog] = useState(false)
+  const [showConvertirFacturaDialog, setShowConvertirFacturaDialog] = useState(false)
   const [isConvirtiendoPedido, setIsConvirtiendoPedido] = useState(false)
+  const [isConvirtiendoAlbaran, setIsConvirtiendoAlbaran] = useState(false)
+  const [isConvirtiendoFactura, setIsConvirtiendoFactura] = useState(false)
   const [printOptionsMode, setPrintOptionsMode] = useState<'print' | 'email'>('print')
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [mostrarCostes, setMostrarCostes] = useState(true)
@@ -335,6 +345,53 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
     }
   }
 
+  const handleConvertirAAlbaran = async () => {
+    if (!presupuesto) return
+
+    setIsConvirtiendoAlbaran(true)
+    try {
+      const response = await albaranesService.crearDesdePresupuesto(presupuesto._id, {
+        copiarNotas: true,
+      })
+
+      if (response.success && response.data) {
+        toast.success('Albarán creado correctamente desde presupuesto')
+        router.push(`/albaranes/${response.data._id}`)
+      } else {
+        toast.error(response.message || 'Error al crear albarán')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al crear albarán desde presupuesto')
+    } finally {
+      setIsConvirtiendoAlbaran(false)
+      setShowConvertirAlbaranDialog(false)
+    }
+  }
+
+  const handleConvertirAFactura = async () => {
+    if (!presupuesto) return
+
+    setIsConvirtiendoFactura(true)
+    try {
+      const response = await facturasService.crearDesdePresupuesto(presupuesto._id, {
+        copiarNotas: true,
+        emitirDirectamente: false,
+      })
+
+      if (response.success && response.data) {
+        toast.success('Factura creada correctamente desde presupuesto')
+        router.push(`/facturas/${response.data._id}`)
+      } else {
+        toast.error(response.message || 'Error al crear factura')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al crear factura desde presupuesto')
+    } finally {
+      setIsConvirtiendoFactura(false)
+      setShowConvertirFacturaDialog(false)
+    }
+  }
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
@@ -554,8 +611,32 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
                     <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuLabel>Más acciones</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {/* Convertir a Pedido - solo si no está convertido */}
-                      {presupuesto.estado !== EstadoPresupuesto.CONVERTIDO && presupuesto.estado !== EstadoPresupuesto.RECHAZADO && (
+                      {/* Opciones de conversión - solo si está aceptado o convertido */}
+                      {(presupuesto.estado === EstadoPresupuesto.ACEPTADO || presupuesto.estado === EstadoPresupuesto.CONVERTIDO) && (
+                        <>
+                          {!presupuesto.tienePedido && (
+                            <DropdownMenuItem onClick={() => setShowConvertirPedidoDialog(true)}>
+                              <ClipboardList className="mr-2 h-4 w-4" />
+                              Crear Pedido
+                            </DropdownMenuItem>
+                          )}
+                          {!presupuesto.tieneAlbaran && (
+                            <DropdownMenuItem onClick={() => setShowConvertirAlbaranDialog(true)}>
+                              <FileBox className="mr-2 h-4 w-4" />
+                              Crear Albarán
+                            </DropdownMenuItem>
+                          )}
+                          {!presupuesto.tieneFactura && (
+                            <DropdownMenuItem onClick={() => setShowConvertirFacturaDialog(true)}>
+                              <Receipt className="mr-2 h-4 w-4" />
+                              Crear Factura
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
+                      {/* Convertir a Pedido - también disponible si no está rechazado */}
+                      {presupuesto.estado !== EstadoPresupuesto.ACEPTADO && presupuesto.estado !== EstadoPresupuesto.CONVERTIDO && presupuesto.estado !== EstadoPresupuesto.RECHAZADO && (
                         <DropdownMenuItem onClick={() => setShowConvertirPedidoDialog(true)}>
                           <ClipboardList className="mr-2 h-4 w-4" />
                           Convertir a Pedido
@@ -824,6 +905,102 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Documentos Relacionados */}
+            {(presupuesto.documentosGenerados && presupuesto.documentosGenerados.length > 0) || presupuesto.convertidoA?.documentoId ? (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Files className="h-5 w-5" />
+                    Documentos Generados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {/* Documentos del nuevo array */}
+                  {presupuesto.documentosGenerados?.map((doc, index) => (
+                    <Link
+                      key={index}
+                      href={`/${doc.tipo === 'pedido' ? 'pedidos' : doc.tipo === 'albaran' ? 'albaranes' : 'facturas'}/${doc.documentoId}`}
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                    >
+                      <div className="flex items-center gap-2">
+                        {doc.tipo === 'pedido' && <ClipboardList className="h-4 w-4 text-blue-500" />}
+                        {doc.tipo === 'albaran' && <FileBox className="h-4 w-4 text-orange-500" />}
+                        {doc.tipo === 'factura' && <Receipt className="h-4 w-4 text-green-500" />}
+                        <div>
+                          <p className="text-sm font-medium">{doc.codigo}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{doc.tipo}</p>
+                        </div>
+                      </div>
+                      <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Link>
+                  ))}
+                  {/* Documento legacy (convertidoA) */}
+                  {presupuesto.convertidoA?.documentoId && !presupuesto.documentosGenerados?.some(d => d.documentoId === presupuesto.convertidoA?.documentoId.toString()) && (
+                    <Link
+                      href={`/${presupuesto.convertidoA.tipo === 'pedido' ? 'pedidos' : presupuesto.convertidoA.tipo === 'albaran' ? 'albaranes' : 'facturas'}/${presupuesto.convertidoA.documentoId}`}
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors group"
+                    >
+                      <div className="flex items-center gap-2">
+                        {presupuesto.convertidoA.tipo === 'pedido' && <ClipboardList className="h-4 w-4 text-blue-500" />}
+                        {presupuesto.convertidoA.tipo === 'albaran' && <FileBox className="h-4 w-4 text-orange-500" />}
+                        {presupuesto.convertidoA.tipo === 'factura' && <Receipt className="h-4 w-4 text-green-500" />}
+                        <div>
+                          <p className="text-sm font-medium capitalize">{presupuesto.convertidoA.tipo}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(presupuesto.convertidoA.fecha).toLocaleDateString('es-ES')}
+                          </p>
+                        </div>
+                      </div>
+                      <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (presupuesto.estado === EstadoPresupuesto.ACEPTADO || presupuesto.estado === EstadoPresupuesto.CONVERTIDO) && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <ArrowRight className="h-5 w-5" />
+                    Generar Documento
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Este presupuesto está aceptado. Puedes generar:
+                  </p>
+                  <div className="grid gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="justify-start"
+                      onClick={() => setShowConvertirPedidoDialog(true)}
+                    >
+                      <ClipboardList className="mr-2 h-4 w-4 text-blue-500" />
+                      Crear Pedido
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="justify-start"
+                      onClick={() => setShowConvertirAlbaranDialog(true)}
+                    >
+                      <FileBox className="mr-2 h-4 w-4 text-orange-500" />
+                      Crear Albarán
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="justify-start"
+                      onClick={() => setShowConvertirFacturaDialog(true)}
+                    >
+                      <Receipt className="mr-2 h-4 w-4 text-green-500" />
+                      Crear Factura
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Cliente */}
             <Card>
@@ -1323,6 +1500,105 @@ export default function PresupuestoDetailPage({ params }: PageProps) {
             <Button onClick={handleConvertirAPedido} disabled={isConvirtiendoPedido}>
               <ClipboardList className="mr-2 h-4 w-4" />
               {isConvirtiendoPedido ? 'Convirtiendo...' : 'Crear Pedido'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de convertir a Albarán */}
+      <Dialog open={showConvertirAlbaranDialog} onOpenChange={setShowConvertirAlbaranDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileBox className="h-5 w-5" />
+              Crear Albarán
+            </DialogTitle>
+            <DialogDescription>
+              Se creará un nuevo albarán directamente desde este presupuesto (sin necesidad de pedido previo).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg bg-muted p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Presupuesto:</span>
+                <span className="font-medium">{presupuesto.codigo}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cliente:</span>
+                <span className="font-medium">{clienteNombre}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Importe:</span>
+                <span className="font-medium">{formatCurrency(presupuesto.totales?.totalPresupuesto || 0)}</span>
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>Se copiarán:</p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>Todas las líneas con sus precios y cantidades</li>
+                <li>Dirección de entrega</li>
+                <li>Condiciones comerciales</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowConvertirAlbaranDialog(false)} disabled={isConvirtiendoAlbaran}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConvertirAAlbaran} disabled={isConvirtiendoAlbaran}>
+              <FileBox className="mr-2 h-4 w-4" />
+              {isConvirtiendoAlbaran ? 'Creando...' : 'Crear Albarán'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de convertir a Factura */}
+      <Dialog open={showConvertirFacturaDialog} onOpenChange={setShowConvertirFacturaDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" />
+              Crear Factura
+            </DialogTitle>
+            <DialogDescription>
+              Se creará una factura directamente desde este presupuesto (ideal para servicios que no requieren albarán).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg bg-muted p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Presupuesto:</span>
+                <span className="font-medium">{presupuesto.codigo}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cliente:</span>
+                <span className="font-medium">{clienteNombre}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Importe:</span>
+                <span className="font-medium">{formatCurrency(presupuesto.totales?.totalPresupuesto || 0)}</span>
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>Se copiarán:</p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>Todas las líneas con sus precios</li>
+                <li>Datos de facturación del cliente</li>
+                <li>Condiciones de pago</li>
+              </ul>
+              <p className="mt-2 text-amber-600 text-xs">
+                La factura se creará como borrador. Deberás emitirla para que sea válida fiscalmente.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowConvertirFacturaDialog(false)} disabled={isConvirtiendoFactura}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConvertirAFactura} disabled={isConvirtiendoFactura}>
+              <Receipt className="mr-2 h-4 w-4" />
+              {isConvirtiendoFactura ? 'Creando...' : 'Crear Factura'}
             </Button>
           </DialogFooter>
         </DialogContent>

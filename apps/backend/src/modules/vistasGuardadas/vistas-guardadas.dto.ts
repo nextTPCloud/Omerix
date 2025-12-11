@@ -18,16 +18,25 @@ export const SortConfigSchema = z.object({
   direction: z.enum(['asc', 'desc']),
 });
 
+// Schema para filtros avanzados guardados
+export const SavedAdvancedFilterSchema = z.object({
+  field: z.string().min(1),
+  operator: z.string().min(1),
+  value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+  valueTo: z.union([z.string(), z.number()]).optional(),
+});
+
 export const ModuleConfigSchema = z.object({
   columnas: z.array(ColumnaConfigSchema),
   sortConfig: SortConfigSchema.optional(),
   columnFilters: z.record(z.union([z.string(), z.boolean(), z.number()])).optional(),
+  advancedFilters: z.array(SavedAdvancedFilterSchema).optional(), // Filtros avanzados
   paginacion: z.object({
-limit: z.union([
-    z.literal(10),
-    z.literal(25),
-    z.literal(50),
-    z.literal(100),
+    limit: z.union([
+      z.literal(10),
+      z.literal(25),
+      z.literal(50),
+      z.literal(100),
     ])
   }).optional(),
   filtrosAdicionales: z.any().optional(),

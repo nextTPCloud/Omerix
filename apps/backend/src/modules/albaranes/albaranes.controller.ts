@@ -93,6 +93,45 @@ export const albaranesController = {
   },
 
   /**
+   * Crear albarán directamente desde presupuesto (sin pasar por pedido)
+   */
+  async crearDesdePresupuesto(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const usuarioId = req.userId!;
+      const { presupuestoId } = req.params;
+      const { copiarNotas } = req.body;
+
+      const albaran = await albaranesService.crearDesdePresupuesto(
+        presupuestoId,
+        { copiarNotas },
+        new mongoose.Types.ObjectId(empresaId),
+        new mongoose.Types.ObjectId(usuarioId),
+        req.empresaDbConfig
+      );
+
+      return res.status(201).json({
+        success: true,
+        data: albaran,
+        message: 'Albarán creado desde presupuesto correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al crear albarán desde presupuesto:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al crear el albarán desde presupuesto',
+      });
+    }
+  },
+
+  /**
    * Obtener todos los albaranes con filtros y paginación
    */
   async buscar(req: Request, res: Response) {
@@ -105,7 +144,10 @@ export const albaranesController = {
       }
 
       const empresaId = req.empresaId!;
-      const searchDto: SearchAlbaranesDTO = {
+
+      // Incluir todos los query params para soportar filtros avanzados (_ne, _gt, etc.)
+      const searchDto: SearchAlbaranesDTO & Record<string, any> = {
+        ...req.query, // Incluir todos los params para filtros avanzados
         search: req.query.search as string,
         clienteId: req.query.clienteId as string,
         proyectoId: req.query.proyectoId as string,

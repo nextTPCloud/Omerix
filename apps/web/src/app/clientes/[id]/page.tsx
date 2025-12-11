@@ -954,67 +954,69 @@ export default function ClienteDetailPage() {
           <TabsContent value="documentos" className="space-y-4 mt-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {/* Presupuestos */}
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-blue-500" onClick={() => toast.info('Endpoint de presupuestos en desarrollo')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <FileText className="h-8 w-8 text-blue-600" />
-                    <Badge variant="secondary">0</Badge>
+              <Card
+                className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-blue-500"
+                onClick={() => router.push(`/presupuestos?clienteId=${cliente._id}`)}
+              >
+                <CardContent className="p-6 flex items-center gap-4">
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                    <FileText className="h-6 w-6 text-blue-600" />
                   </div>
-                  <CardTitle className="text-lg">Presupuestos</CardTitle>
-                  <CardDescription>Ver todos los presupuestos</CardDescription>
-                </CardHeader>
+                  <div>
+                    <p className="font-medium">Presupuestos</p>
+                    <p className="text-sm text-muted-foreground">Ver presupuestos</p>
+                  </div>
+                </CardContent>
               </Card>
 
               {/* Pedidos */}
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-green-500" onClick={() => toast.info('Endpoint de pedidos en desarrollo')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <Package className="h-8 w-8 text-green-600" />
-                    <Badge variant="secondary">0</Badge>
+              <Card
+                className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-green-500"
+                onClick={() => router.push(`/pedidos?clienteId=${cliente._id}`)}
+              >
+                <CardContent className="p-6 flex items-center gap-4">
+                  <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                    <Package className="h-6 w-6 text-green-600" />
                   </div>
-                  <CardTitle className="text-lg">Pedidos</CardTitle>
-                  <CardDescription>Ver todos los pedidos</CardDescription>
-                </CardHeader>
+                  <div>
+                    <p className="font-medium">Pedidos</p>
+                    <p className="text-sm text-muted-foreground">Ver pedidos</p>
+                  </div>
+                </CardContent>
               </Card>
 
               {/* Albaranes */}
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-purple-500" onClick={() => toast.info('Endpoint de albaranes en desarrollo')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <Truck className="h-8 w-8 text-purple-600" />
-                    <Badge variant="secondary">0</Badge>
+              <Card
+                className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-purple-500"
+                onClick={() => router.push(`/albaranes?clienteId=${cliente._id}`)}
+              >
+                <CardContent className="p-6 flex items-center gap-4">
+                  <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                    <Truck className="h-6 w-6 text-purple-600" />
                   </div>
-                  <CardTitle className="text-lg">Albaranes</CardTitle>
-                  <CardDescription>Ver todos los albaranes</CardDescription>
-                </CardHeader>
+                  <div>
+                    <p className="font-medium">Albaranes</p>
+                    <p className="text-sm text-muted-foreground">Ver albaranes</p>
+                  </div>
+                </CardContent>
               </Card>
 
               {/* Facturas */}
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-orange-500" onClick={() => toast.info('Endpoint de facturas en desarrollo')}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <Receipt className="h-8 w-8 text-orange-600" />
-                    <Badge variant="secondary">0</Badge>
+              <Card
+                className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-orange-500"
+                onClick={() => router.push(`/facturas?clienteId=${cliente._id}`)}
+              >
+                <CardContent className="p-6 flex items-center gap-4">
+                  <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                    <Receipt className="h-6 w-6 text-orange-600" />
                   </div>
-                  <CardTitle className="text-lg">Facturas</CardTitle>
-                  <CardDescription>Ver todas las facturas</CardDescription>
-                </CardHeader>
+                  <div>
+                    <p className="font-medium">Facturas</p>
+                    <p className="text-sm text-muted-foreground">Ver facturas</p>
+                  </div>
+                </CardContent>
               </Card>
             </div>
-
-            {/* Placeholder cuando no hay documentos */}
-            <Card>
-              <CardContent className="pt-12 pb-12 text-center">
-                <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-20" />
-                <h3 className="text-lg font-semibold mb-2">Documentos en desarrollo</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Los endpoints de documentos están en desarrollo. Pronto podrás ver todos los documentos de este cliente.
-                </p>
-                <Button variant="outline" onClick={() => setActiveTab('general')}>
-                  Volver a información general
-                </Button>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* ========================================== */}

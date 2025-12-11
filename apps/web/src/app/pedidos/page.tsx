@@ -94,6 +94,10 @@ import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
 import { PrintButton } from '@/components/ui/PrintButton'
 
+// FILTROS AVANZADOS
+import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
+import { PEDIDOS_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
+
 // ============================================
 // HOOK PARA DEBOUNCE
 // ============================================
@@ -168,11 +172,15 @@ export default function PedidosPage() {
   const [selectedPedidos, setSelectedPedidos] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
 
-  // Filtros por columna
+  // Filtros por columna (legacy)
   const [columnFiltersInput, setColumnFiltersInput] = useState<ColumnFilters>({})
 
   // Aplicar debounce a los filtros de columna
   const debouncedColumnFilters = useDebounce(columnFiltersInput, 500)
+
+  // FILTROS AVANZADOS (nuevo sistema)
+  const [advancedFilters, setAdvancedFilters] = useState<ActiveFilter[]>([])
+  const debouncedAdvancedFilters = useDebounce(advancedFilters, 300)
 
   // Filtros generales
   const [filters, setFilters] = useState<any>({
@@ -229,6 +237,7 @@ export default function PedidosPage() {
     updateColumnas,
     updateSortConfig,
     updateColumnFilters,
+    updateAdvancedFilters,
     updateDensidad,
     resetConfig,
   } = useModuleConfig('pedidos', DEFAULT_CONFIG, {
@@ -353,7 +362,12 @@ export default function PedidosPage() {
       limit: currentLimit,
     }
 
-    // Campos de búsqueda por texto
+    // Búsqueda global desde searchTerm
+    if (searchTerm) {
+      combinedFilters.search = searchTerm
+    }
+
+    // Campos de búsqueda por texto (legacy)
     const searchableFields = ['codigo', 'clienteNombre', 'titulo', 'agenteComercial']
     const searchTerms: string[] = []
 
@@ -367,7 +381,7 @@ export default function PedidosPage() {
       combinedFilters.search = searchTerms.join(' ')
     }
 
-    // Filtros de select y fechas
+    // Filtros de select y fechas (legacy)
     Object.entries(debouncedColumnFilters).forEach(([key, value]) => {
       if (key === 'estado') {
         if (value !== 'all') {
@@ -396,9 +410,15 @@ export default function PedidosPage() {
       }
     })
 
+    // FILTROS AVANZADOS - Convertir a query params
+    if (debouncedAdvancedFilters.length > 0) {
+      const advancedParams = filtersToQueryParams(debouncedAdvancedFilters)
+      Object.assign(combinedFilters, advancedParams)
+    }
+
     setFilters(combinedFilters)
 
-  }, [debouncedColumnFilters, currentSortKey, currentSortDirection, currentLimit])
+  }, [debouncedColumnFilters, debouncedAdvancedFilters, searchTerm, currentSortKey, currentSortDirection, currentLimit])
 
   // ============================================
   // SINCRONIZAR CONFIGURACIÓN GUARDADA CON FILTROS (SOLO CARGA INICIAL)
@@ -412,9 +432,26 @@ export default function PedidosPage() {
       : { activo: 'true' }
 
     setColumnFiltersInput(initialFilters as any)
+
+    // Restaurar filtros avanzados guardados
+    if (moduleConfig?.advancedFilters && moduleConfig.advancedFilters.length > 0) {
+      const restored = savedToFilters(moduleConfig.advancedFilters as any, PEDIDOS_FILTERABLE_FIELDS)
+      setAdvancedFilters(restored)
+    }
+
     isInitialLoad.current = false
 
   }, [moduleConfig, isLoadingConfig])
+
+  // ============================================
+  // GUARDAR FILTROS AVANZADOS CUANDO CAMBIAN
+  // ============================================
+  useEffect(() => {
+    if (isInitialLoad.current || isLoadingConfig) return
+
+    const savedFilters = filtersToSaved(advancedFilters)
+    updateAdvancedFilters(savedFilters)
+  }, [advancedFilters, isLoadingConfig, updateAdvancedFilters])
 
   // ============================================
   // HANDLERS PARA VISTAS GUARDADAS
@@ -432,6 +469,14 @@ export default function PedidosPage() {
 
     if (configuracion.columnFilters) {
       setColumnFiltersInput(configuracion.columnFilters as any)
+    }
+
+    // Restaurar filtros avanzados de la vista
+    if (configuracion.advancedFilters && configuracion.advancedFilters.length > 0) {
+      const restored = savedToFilters(configuracion.advancedFilters, PEDIDOS_FILTERABLE_FIELDS)
+      setAdvancedFilters(restored)
+    } else {
+      setAdvancedFilters([])
     }
 
     if (configuracion.densidad) {
@@ -452,12 +497,20 @@ export default function PedidosPage() {
     vistaIdActualizar?: string
   ) => {
     try {
+      // Combinar moduleConfig con los filtros avanzados actuales (evita problemas de debounce)
+      const savedAdvancedFilters = filtersToSaved(advancedFilters)
+      const configToSave = {
+        ...moduleConfig,
+        advancedFilters: savedAdvancedFilters,
+        columnFilters: columnFiltersInput,
+      }
+
       if (vistaIdActualizar) {
         await vistasService.update(vistaIdActualizar, {
           modulo: 'pedidos',
           nombre,
           descripcion,
-          configuracion: moduleConfig,
+          configuracion: configToSave,
           esDefault: esDefault || false,
         })
         toast.success(`Vista "${nombre}" actualizada correctamente`)
@@ -466,7 +519,7 @@ export default function PedidosPage() {
           modulo: 'pedidos',
           nombre,
           descripcion,
-          configuracion: moduleConfig,
+          configuracion: configToSave,
           esDefault: esDefault || false,
         })
         toast.success(`Vista "${nombre}" guardada correctamente`)
@@ -476,7 +529,7 @@ export default function PedidosPage() {
       toast.error('Error al guardar la vista')
       throw error
     }
-  }, [moduleConfig])
+  }, [moduleConfig, advancedFilters, columnFiltersInput])
 
   // Cargar y aplicar vista por defecto al iniciar
   useEffect(() => {
@@ -1093,18 +1146,18 @@ export default function PedidosPage() {
           </div>
         )}
 
+        {/* BARRA DE FILTROS AVANZADOS */}
+        <AdvancedFilters
+          fields={PEDIDOS_FILTERABLE_FIELDS}
+          filters={advancedFilters}
+          onFiltersChange={setAdvancedFilters}
+          searchValue={searchTerm}
+          onSearchChange={handleSearch}
+          searchPlaceholder="Buscar por código, cliente, título..."
+        />
+
         {/* BARRA DE HERRAMIENTAS */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <div className="relative flex-1 w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por código, cliente, título..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
           <div className="flex gap-2 flex-wrap w-full sm:w-auto">
             {/* MENÚ DE CONFIGURACIÓN */}
             <SettingsMenu

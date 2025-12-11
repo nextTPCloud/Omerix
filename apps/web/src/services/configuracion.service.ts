@@ -22,10 +22,19 @@ export interface ColumnFilters {
   [key: string]: string | boolean | number;
 }
 
+// Tipos para filtros avanzados (sincronizado con advanced-filters/types.ts)
+export interface SavedAdvancedFilter {
+  field: string;
+  operator: string;
+  value: string | number | boolean | string[];
+  valueTo?: string | number;
+}
+
 export interface ModuleConfig {
   columnas: ColumnaConfig[];
   sortConfig?: SortConfig;
   columnFilters?: ColumnFilters;
+  advancedFilters?: SavedAdvancedFilter[]; // Filtros avanzados guardados
   paginacion?: {
     limit: 10 | 25 | 50 | 100;
   };

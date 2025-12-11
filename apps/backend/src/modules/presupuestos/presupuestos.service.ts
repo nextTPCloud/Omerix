@@ -13,6 +13,7 @@ import { getPresupuestoModel, getProductoModel, getClienteModel, getProyectoMode
 import { presupuestosPDFService } from './presupuestos-pdf.service';
 import { empresaService } from '../empresa/empresa.service';
 import Empresa from '@/models/Empresa';
+import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -440,6 +441,16 @@ export class PresupuestosService {
       filter.tags = { $in: tagsArray };
     }
 
+    // FILTROS AVANZADOS - Procesar operadores como _ne, _gt, _lt, etc.
+    const allowedAdvancedFields = [
+      'estado', 'codigo', 'clienteNombre', 'titulo', 'serie',
+      'activo', 'agenteComercial', 'proyecto',
+    ];
+    const advancedFilters = parseAdvancedFilters(query, allowedAdvancedFields);
+
+    // Combinar filtros existentes con filtros avanzados
+    const finalFilter = mergeFilters(filter, advancedFilters);
+
     // Ordenamiento
     const sort: any = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
@@ -449,7 +460,7 @@ export class PresupuestosService {
 
     // Ejecutar consulta
     const [presupuestos, total] = await Promise.all([
-      PresupuestoModel.find(filter)
+      PresupuestoModel.find(finalFilter)
         .sort(sort)
         .skip(skip)
         .limit(limitNum)
@@ -457,7 +468,7 @@ export class PresupuestosService {
         .populate('proyectoId', 'codigo nombre')
         .populate('agenteComercialId', 'codigo nombre apellidos')
         .lean(),
-      PresupuestoModel.countDocuments(filter),
+      PresupuestoModel.countDocuments(finalFilter),
     ]);
 
     return {

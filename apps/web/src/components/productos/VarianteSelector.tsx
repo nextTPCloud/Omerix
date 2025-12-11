@@ -12,17 +12,20 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Producto, Variante as IVariante } from '@/types/producto.types'
-import { Package, Check, AlertCircle, Warehouse } from 'lucide-react'
+import { Package, Check, AlertCircle, Warehouse, Plus, Minus, ShoppingCart } from 'lucide-react'
 
-interface VarianteSeleccion {
+export interface VarianteSeleccion {
   varianteId: string
   sku: string
   combinacion: Record<string, string>
   precioUnitario: number
   costeUnitario: number
   stockTotal: number
+  cantidad: number
 }
 
 interface VarianteSelectorProps {
@@ -30,7 +33,9 @@ interface VarianteSelectorProps {
   onOpenChange: (open: boolean) => void
   producto: Producto | null
   onSelect: (variante: VarianteSeleccion) => void
-  onSelectBase?: () => void // Si permite seleccionar el producto sin variante
+  onSelectMultiple?: (variantes: VarianteSeleccion[]) => void
+  onSelectBase?: () => void
+  multiSelect?: boolean
 }
 
 export function VarianteSelector({
@@ -38,9 +43,12 @@ export function VarianteSelector({
   onOpenChange,
   producto,
   onSelect,
+  onSelectMultiple,
   onSelectBase,
+  multiSelect = true,
 }: VarianteSelectorProps) {
-  const [selectedVarianteId, setSelectedVarianteId] = useState<string | null>(null)
+  // Estado para selección múltiple con cantidades
+  const [selecciones, setSelecciones] = useState<Record<string, number>>({})
 
   // Agrupar variantes por atributo para visualización
   const atributosUnicos = useMemo(() => {
@@ -87,24 +95,90 @@ export function VarianteSelector({
     return variante.precios?.[tipo] || 0
   }
 
-  // Manejar selección de variante
-  const handleSelect = () => {
-    if (!selectedVarianteId || !producto) return
+  // Contar total de variantes seleccionadas
+  const totalSeleccionadas = useMemo(() => {
+    return Object.values(selecciones).reduce((sum, cant) => sum + cant, 0)
+  }, [selecciones])
 
-    const variante = producto.variantes?.find((v: IVariante) => v._id === selectedVarianteId)
-    if (!variante) return
+  // Número de variantes diferentes seleccionadas
+  const numVariantesSeleccionadas = useMemo(() => {
+    return Object.values(selecciones).filter(cant => cant > 0).length
+  }, [selecciones])
 
-    onSelect({
-      varianteId: variante._id || selectedVarianteId,
-      sku: variante.sku,
-      combinacion: variante.combinacion,
-      precioUnitario: obtenerPrecio(variante, 'venta'),
-      costeUnitario: obtenerPrecio(variante, 'compra'),
-      stockTotal: calcularStock(variante),
+  // Actualizar cantidad de una variante
+  const actualizarCantidad = (varianteId: string, cantidad: number) => {
+    if (cantidad <= 0) {
+      const { [varianteId]: _, ...rest } = selecciones
+      setSelecciones(rest)
+    } else {
+      setSelecciones(prev => ({ ...prev, [varianteId]: cantidad }))
+    }
+  }
+
+  // Incrementar/decrementar cantidad
+  const incrementarCantidad = (varianteId: string) => {
+    const actual = selecciones[varianteId] || 0
+    actualizarCantidad(varianteId, actual + 1)
+  }
+
+  const decrementarCantidad = (varianteId: string) => {
+    const actual = selecciones[varianteId] || 0
+    if (actual > 0) {
+      actualizarCantidad(varianteId, actual - 1)
+    }
+  }
+
+  // Toggle selección (para checkbox)
+  const toggleSeleccion = (varianteId: string) => {
+    if (selecciones[varianteId]) {
+      const { [varianteId]: _, ...rest } = selecciones
+      setSelecciones(rest)
+    } else {
+      setSelecciones(prev => ({ ...prev, [varianteId]: 1 }))
+    }
+  }
+
+  // Manejar confirmación de selección
+  const handleConfirmar = () => {
+    if (!producto) return
+
+    const variantesSeleccionadas: VarianteSeleccion[] = []
+
+    Object.entries(selecciones).forEach(([varianteId, cantidad]) => {
+      if (cantidad > 0) {
+        const variante = producto.variantes?.find((v: IVariante) => v._id === varianteId)
+        if (variante) {
+          variantesSeleccionadas.push({
+            varianteId: variante._id || varianteId,
+            sku: variante.sku,
+            combinacion: variante.combinacion,
+            precioUnitario: obtenerPrecio(variante, 'venta'),
+            costeUnitario: obtenerPrecio(variante, 'compra'),
+            stockTotal: calcularStock(variante),
+            cantidad,
+          })
+        }
+      }
     })
 
+    if (variantesSeleccionadas.length === 0) return
+
+    // Si es selección múltiple y hay callback
+    if (multiSelect && onSelectMultiple && variantesSeleccionadas.length > 0) {
+      onSelectMultiple(variantesSeleccionadas)
+    } else if (variantesSeleccionadas.length === 1) {
+      // Selección única
+      onSelect(variantesSeleccionadas[0])
+    } else if (onSelectMultiple) {
+      // Múltiples pero sin callback específico, llamar onSelect por cada una
+      onSelectMultiple(variantesSeleccionadas)
+    } else {
+      // Fallback: llamar onSelect para cada variante
+      variantesSeleccionadas.forEach(v => onSelect(v))
+    }
+
     // Reset
-    setSelectedVarianteId(null)
+    setSelecciones({})
     setFiltroAtributos({})
     onOpenChange(false)
   }
@@ -123,25 +197,41 @@ export function VarianteSelector({
   // Reset cuando se cierra
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
-      setSelectedVarianteId(null)
+      setSelecciones({})
       setFiltroAtributos({})
     }
     onOpenChange(newOpen)
+  }
+
+  // Seleccionar todas las variantes filtradas
+  const seleccionarTodas = () => {
+    const nuevasSelecciones: Record<string, number> = { ...selecciones }
+    variantesFiltradas.forEach((v: IVariante) => {
+      if (!nuevasSelecciones[v._id || '']) {
+        nuevasSelecciones[v._id || ''] = 1
+      }
+    })
+    setSelecciones(nuevasSelecciones)
+  }
+
+  // Deseleccionar todas
+  const deseleccionarTodas = () => {
+    setSelecciones({})
   }
 
   if (!producto) return null
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Seleccionar Variante
+            Seleccionar Variantes
           </DialogTitle>
           <DialogDescription>
             El producto <strong>{producto.nombre}</strong> tiene múltiples variantes.
-            Selecciona la que deseas agregar.
+            {multiSelect && ' Puedes seleccionar varias y especificar la cantidad de cada una.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -173,43 +263,58 @@ export function VarianteSelector({
             </div>
           )}
 
-          {/* Lista de variantes */}
-          <div className="space-y-2 mt-4">
-            <Label className="text-sm font-medium">
-              {variantesFiltradas.length} variante{variantesFiltradas.length !== 1 ? 's' : ''} disponible{variantesFiltradas.length !== 1 ? 's' : ''}
-            </Label>
+          {/* Acciones de selección masiva */}
+          {multiSelect && variantesFiltradas.length > 0 && (
+            <div className="flex items-center justify-between border-b pb-2">
+              <Label className="text-sm font-medium">
+                {variantesFiltradas.length} variante{variantesFiltradas.length !== 1 ? 's' : ''} disponible{variantesFiltradas.length !== 1 ? 's' : ''}
+              </Label>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={seleccionarTodas}>
+                  Seleccionar todas
+                </Button>
+                {numVariantesSeleccionadas > 0 && (
+                  <Button type="button" variant="outline" size="sm" onClick={deseleccionarTodas}>
+                    Limpiar selección
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
 
+          {/* Lista de variantes */}
+          <div className="space-y-2">
             {variantesFiltradas.length === 0 ? (
               <div className="p-4 text-center text-muted-foreground border rounded-lg">
                 <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No hay variantes que coincidan con los filtros</p>
               </div>
             ) : (
-              <div className="grid gap-2 max-h-[300px] overflow-y-auto pr-2">
+              <div className="grid gap-2 max-h-[350px] overflow-y-auto pr-2">
                 {variantesFiltradas.map((variante: IVariante) => {
                   const stock = calcularStock(variante)
                   const precioVenta = obtenerPrecio(variante, 'venta')
-                  const isSelected = selectedVarianteId === variante._id
+                  const cantidad = selecciones[variante._id || ''] || 0
+                  const isSelected = cantidad > 0
 
                   return (
                     <Card
                       key={variante._id}
-                      className={`p-3 cursor-pointer transition-all ${
+                      className={`p-3 transition-all ${
                         isSelected
                           ? 'ring-2 ring-primary bg-primary/5'
                           : 'hover:bg-muted/50'
                       }`}
-                      onClick={() => setSelectedVarianteId(variante._id || '')}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            isSelected ? 'border-primary bg-primary' : 'border-muted-foreground/30'
-                          }`}>
-                            {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
-                          </div>
-                          <div>
-                            <div className="font-mono text-sm font-medium">{variante.sku}</div>
+                      <div className="flex items-center justify-between gap-4">
+                        {/* Checkbox y datos de variante */}
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSeleccion(variante._id || '')}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-mono text-sm font-medium truncate">{variante.sku}</div>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {Object.entries(variante.combinacion).map(([key, value]) => (
                                 <Badge key={key} variant="secondary" className="text-xs">
@@ -219,7 +324,9 @@ export function VarianteSelector({
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
+
+                        {/* Precio y stock */}
+                        <div className="text-right shrink-0">
                           <div className="font-semibold">
                             {precioVenta.toFixed(2)} €
                             {variante.precios?.usarPrecioBase !== false && (
@@ -233,6 +340,36 @@ export function VarianteSelector({
                             {stock} ud
                           </div>
                         </div>
+
+                        {/* Control de cantidad */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => decrementarCantidad(variante._id || '')}
+                            disabled={cantidad === 0}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={cantidad}
+                            onChange={(e) => actualizarCantidad(variante._id || '', parseInt(e.target.value) || 0)}
+                            className="w-16 h-8 text-center"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => incrementarCantidad(variante._id || '')}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     </Card>
                   )
@@ -240,9 +377,26 @@ export function VarianteSelector({
               </div>
             )}
           </div>
+
+          {/* Resumen de selección */}
+          {numVariantesSeleccionadas > 0 && (
+            <Card className="p-3 bg-primary/5 border-primary/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4 text-primary" />
+                  <span className="font-medium">
+                    {numVariantesSeleccionadas} variante{numVariantesSeleccionadas !== 1 ? 's' : ''} seleccionada{numVariantesSeleccionadas !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Total: <strong>{totalSeleccionadas}</strong> unidades
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 sm:gap-2">
           {onSelectBase && (
             <Button
               type="button"
@@ -264,10 +418,11 @@ export function VarianteSelector({
           </Button>
           <Button
             type="button"
-            onClick={handleSelect}
-            disabled={!selectedVarianteId}
+            onClick={handleConfirmar}
+            disabled={totalSeleccionadas === 0}
           >
-            Seleccionar
+            <Check className="h-4 w-4 mr-2" />
+            Agregar {totalSeleccionadas > 0 ? `(${totalSeleccionadas})` : ''}
           </Button>
         </DialogFooter>
       </DialogContent>

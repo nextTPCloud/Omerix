@@ -77,7 +77,7 @@ export class PresupuestosController {
 
       const empresaId = req.empresaId!;
 
-      // Validar query params
+      // Validar query params básicos (permitir campos adicionales para filtros avanzados)
       const validacion = SearchPresupuestosSchema.safeParse(req.query);
       if (!validacion.success) {
         return res.status(400).json({
@@ -87,10 +87,11 @@ export class PresupuestosController {
         });
       }
 
+      // Pasar req.query completo para incluir filtros avanzados (_ne, _gt, etc.)
       const result = await presupuestosService.findAll(
         empresaId,
         req.empresaDbConfig,
-        validacion.data
+        req.query as any
       );
 
       res.json({

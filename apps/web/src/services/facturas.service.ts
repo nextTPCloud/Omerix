@@ -238,6 +238,25 @@ class FacturasService {
     }
   }
 
+  /**
+   * Crea factura directamente desde un presupuesto (sin pasar por pedido/albarán)
+   */
+  async crearDesdePresupuesto(presupuestoId: string, params?: {
+    copiarNotas?: boolean;
+    emitirDirectamente?: boolean;
+  }): Promise<ApiResponse<IFactura>> {
+    try {
+      const response = await api.post<ApiResponse<IFactura>>(
+        `${this.baseUrl}/desde-presupuesto/${presupuestoId}`,
+        params || {}
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error al crear factura desde presupuesto:', error);
+      throw error;
+    }
+  }
+
   // ============================================
   // ESTADÍSTICAS
   // ============================================

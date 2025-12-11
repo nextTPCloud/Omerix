@@ -380,6 +380,44 @@ router.post('/:id/variantes', productosController.generarVariantes.bind(producto
 
 /**
  * @swagger
+ * /api/productos/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar un producto existente
+ *     tags: [Productos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del producto a duplicar
+ *     responses:
+ *       201:
+ *         description: Producto duplicado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                 message:
+ *                   type: string
+ *                   example: "Producto duplicado correctamente"
+ *       404:
+ *         description: Producto no encontrado
+ *       401:
+ *         description: No autorizado
+ */
+router.post('/:id/duplicar', productosController.duplicar.bind(productosController));
+
+/**
+ * @swagger
  * /api/productos/{id}:
  *   put:
  *     summary: Actualizar producto existente

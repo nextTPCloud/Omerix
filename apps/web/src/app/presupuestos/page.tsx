@@ -94,6 +94,10 @@ import { PresupuestosAlertas, PresupuestosAlertasBadge } from '@/components/pres
 import PresupuestosDashboard from '@/components/presupuestos/PresupuestosDashboard'
 import { RecordatoriosWidget } from '@/components/presupuestos/RecordatoriosPresupuestos'
 
+// FILTROS AVANZADOS
+import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
+import { PRESUPUESTOS_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
+
 // ============================================
 // HOOK PARA DEBOUNCE
 // ============================================
@@ -168,11 +172,15 @@ export default function PresupuestosPage() {
   const [selectedPresupuestos, setSelectedPresupuestos] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
 
-  // Filtros por columna
+  // Filtros por columna (legacy - mantener por compatibilidad)
   const [columnFiltersInput, setColumnFiltersInput] = useState<ColumnFilters>({})
 
   // Aplicar debounce a los filtros de columna
   const debouncedColumnFilters = useDebounce(columnFiltersInput, 500)
+
+  // FILTROS AVANZADOS (nuevo sistema)
+  const [advancedFilters, setAdvancedFilters] = useState<ActiveFilter[]>([])
+  const debouncedAdvancedFilters = useDebounce(advancedFilters, 300)
 
   // Filtros generales
   const [filters, setFilters] = useState<any>({
@@ -260,6 +268,7 @@ const {
   updateColumnas,
   updateSortConfig,
   updateColumnFilters,
+  updateAdvancedFilters,
   updateDensidad,
   resetConfig,
 } = useModuleConfig('presupuestos', DEFAULT_CONFIG, {
@@ -373,7 +382,7 @@ const {
   // ============================================
 
   useEffect(() => {
-    console.log('📊 Filtros debounced cambiaron:', debouncedColumnFilters)
+    console.log('📊 Filtros debounced cambiaron:', debouncedColumnFilters, debouncedAdvancedFilters)
 
     // Construir filtros combinados
     const combinedFilters: any = {
@@ -383,7 +392,12 @@ const {
       limit: currentLimit,
     }
 
-    // Campos de búsqueda por texto
+    // Búsqueda global desde searchTerm
+    if (searchTerm) {
+      combinedFilters.search = searchTerm
+    }
+
+    // Campos de búsqueda por texto (legacy)
     const searchableFields = ['codigo', 'clienteNombre', 'titulo', 'agenteComercial']
     const searchTerms: string[] = []
 
@@ -397,7 +411,7 @@ const {
       combinedFilters.search = searchTerms.join(' ')
     }
 
-    // Filtros de select y fechas
+    // Filtros de select y fechas (legacy)
     Object.entries(debouncedColumnFilters).forEach(([key, value]) => {
       if (key === 'estado') {
         if (value !== 'all') {
@@ -426,10 +440,16 @@ const {
       }
     })
 
+    // FILTROS AVANZADOS - Convertir a query params
+    if (debouncedAdvancedFilters.length > 0) {
+      const advancedParams = filtersToQueryParams(debouncedAdvancedFilters)
+      Object.assign(combinedFilters, advancedParams)
+    }
+
     console.log('🔄 Aplicando filtros:', combinedFilters)
     setFilters(combinedFilters)
 
-  }, [debouncedColumnFilters, currentSortKey, currentSortDirection, currentLimit])
+  }, [debouncedColumnFilters, debouncedAdvancedFilters, searchTerm, currentSortKey, currentSortDirection, currentLimit])
 
   // ============================================
   // SINCRONIZAR CONFIGURACIÓN GUARDADA CON FILTROS (SOLO CARGA INICIAL)
@@ -445,9 +465,28 @@ const {
       : { activo: 'true' }
 
     setColumnFiltersInput(initialFilters as any)
+
+    // Restaurar filtros avanzados guardados
+    if (moduleConfig?.advancedFilters && moduleConfig.advancedFilters.length > 0) {
+      const restored = savedToFilters(moduleConfig.advancedFilters as any, PRESUPUESTOS_FILTERABLE_FIELDS)
+      setAdvancedFilters(restored)
+      console.log('✅ Filtros avanzados restaurados:', restored)
+    }
+
     isInitialLoad.current = false
 
   }, [moduleConfig, isLoadingConfig])
+
+  // ============================================
+  // GUARDAR FILTROS AVANZADOS CUANDO CAMBIAN
+  // ============================================
+  useEffect(() => {
+    if (isInitialLoad.current || isLoadingConfig) return
+
+    // Guardar filtros avanzados en la configuración
+    const savedFilters = filtersToSaved(advancedFilters)
+    updateAdvancedFilters(savedFilters)
+  }, [advancedFilters, isLoadingConfig, updateAdvancedFilters])
 
   // ============================================
   // HANDLERS PARA VISTAS GUARDADAS
@@ -469,6 +508,15 @@ const {
       setColumnFiltersInput(configuracion.columnFilters as any)
     }
 
+    // Restaurar filtros avanzados de la vista
+    if (configuracion.advancedFilters && configuracion.advancedFilters.length > 0) {
+      const restored = savedToFilters(configuracion.advancedFilters, PRESUPUESTOS_FILTERABLE_FIELDS)
+      setAdvancedFilters(restored)
+    } else {
+      // Limpiar filtros avanzados si la vista no tiene
+      setAdvancedFilters([])
+    }
+
     if (configuracion.densidad) {
       updateDensidad(configuracion.densidad)
     }
@@ -487,7 +535,15 @@ const {
     vistaIdActualizar?: string
   ) => {
     try {
-      console.log('💾 Guardando vista:', { nombre, descripcion, esDefault, vistaIdActualizar, config: moduleConfig })
+      // Combinar moduleConfig con los filtros avanzados actuales (evita problemas de debounce)
+      const savedAdvancedFilters = filtersToSaved(advancedFilters)
+      const configToSave = {
+        ...moduleConfig,
+        advancedFilters: savedAdvancedFilters,
+        columnFilters: columnFiltersInput,
+      }
+
+      console.log('💾 Guardando vista:', { nombre, descripcion, esDefault, vistaIdActualizar, config: configToSave })
 
       if (vistaIdActualizar) {
         // Actualizar vista existente
@@ -495,7 +551,7 @@ const {
           modulo: 'presupuestos',
           nombre,
           descripcion,
-          configuracion: moduleConfig,
+          configuracion: configToSave,
           esDefault: esDefault || false,
         })
         toast.success(`Vista "${nombre}" actualizada correctamente`)
@@ -505,7 +561,7 @@ const {
           modulo: 'presupuestos',
           nombre,
           descripcion,
-          configuracion: moduleConfig,
+          configuracion: configToSave,
           esDefault: esDefault || false,
         })
         toast.success(`Vista "${nombre}" guardada correctamente`)
@@ -515,7 +571,7 @@ const {
       toast.error('Error al guardar la vista')
       throw error
     }
-  }, [moduleConfig])
+  }, [moduleConfig, advancedFilters, columnFiltersInput])
 
   // Cargar y aplicar vista por defecto al iniciar
   useEffect(() => {
@@ -1136,18 +1192,18 @@ const {
           <RecordatoriosWidget />
         </div>
 
+        {/* BARRA DE FILTROS AVANZADOS */}
+        <AdvancedFilters
+          fields={PRESUPUESTOS_FILTERABLE_FIELDS}
+          filters={advancedFilters}
+          onFiltersChange={setAdvancedFilters}
+          searchValue={searchTerm}
+          onSearchChange={handleSearch}
+          searchPlaceholder="Buscar por código, cliente, título..."
+        />
+
         {/* BARRA DE HERRAMIENTAS */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <div className="relative flex-1 w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por código, cliente, título..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
           <div className="flex gap-2 flex-wrap w-full sm:w-auto">
             {/* MENÚ DE CONFIGURACIÓN (Densidad + Vistas + Restablecer) */}
             <SettingsMenu
@@ -1391,7 +1447,7 @@ const {
                   </th>
                 </tr>
 
-                {/* FILTROS */}
+                {/* FILTROS POR COLUMNA */}
                 <tr className="border-b bg-background">
                   <th className="sticky left-0 z-30 bg-background backdrop-blur-sm px-3 py-1.5"></th>
 
@@ -1449,7 +1505,6 @@ const {
                         className="h-7 text-xs"
                         value={columnFiltersInput.fechaDesde || ''}
                         onChange={(e) => handleColumnFilterInput('fechaDesde', e.target.value)}
-                        title="Fecha desde"
                       />
                     </th>
                   )}
@@ -1461,7 +1516,6 @@ const {
                         className="h-7 text-xs"
                         value={columnFiltersInput.fechaHasta || ''}
                         onChange={(e) => handleColumnFilterInput('fechaHasta', e.target.value)}
-                        title="Válido hasta"
                       />
                     </th>
                   )}
@@ -1470,8 +1524,8 @@ const {
                     <th className="px-3 py-1.5">
                       <Input
                         placeholder="Min..."
-                        className="h-7 text-xs placeholder:text-muted-foreground"
                         type="number"
+                        className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.importeMinimo || ''}
                         onChange={(e) => handleColumnFilterInput('importeMinimo', e.target.value)}
                       />
@@ -1486,9 +1540,10 @@ const {
                         placeholder="Todos"
                         options={[
                           { value: 'all', label: 'Todos' },
-                          { value: 'caducados', label: 'Caducados' },
-                          { value: 'proximos', label: 'Próximos 7 días' },
-                          { value: 'vigentes', label: 'Vigentes' },
+                          { value: 'vencidos', label: 'Vencidos' },
+                          { value: '7', label: '< 7 días' },
+                          { value: '15', label: '< 15 días' },
+                          { value: '30', label: '< 30 días' },
                         ]}
                       />
                     </th>
@@ -1507,6 +1562,7 @@ const {
 
                   <th className="sticky right-0 z-30 bg-background backdrop-blur-sm px-3 py-1.5"></th>
                 </tr>
+
               </thead>
 
               <tbody className="divide-y">

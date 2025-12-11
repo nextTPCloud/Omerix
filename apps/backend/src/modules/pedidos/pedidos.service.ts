@@ -14,6 +14,7 @@ import { getPedidoModel, getPresupuestoModel, getProductoModel, getClienteModel,
 import Empresa from '@/models/Empresa';
 import { empresaService } from '../empresa/empresa.service';
 import { EstadoPresupuesto } from '../presupuestos/Presupuesto';
+import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -459,6 +460,13 @@ export class PedidosService {
       modificadoPor: usuarioId,
       fechaModificacion: new Date(),
       $push: {
+        // Añadir al nuevo array de documentos generados
+        documentosGenerados: {
+          tipo: 'pedido',
+          documentoId: pedido._id,
+          codigo: pedido.codigo,
+          fecha: new Date(),
+        },
         historial: {
           fecha: new Date(),
           usuarioId,
@@ -602,6 +610,16 @@ export class PedidosService {
       filter.tags = { $in: tagsArray };
     }
 
+    // FILTROS AVANZADOS - Procesar operadores como _ne, _gt, _lt, etc.
+    const allowedAdvancedFields = [
+      'estado', 'codigo', 'clienteNombre', 'titulo', 'serie',
+      'activo', 'prioridad', 'agenteComercial', 'proyecto',
+    ];
+    const advancedFilters = parseAdvancedFilters(query, allowedAdvancedFields);
+
+    // Combinar filtros existentes con filtros avanzados
+    const finalFilter = mergeFilters(filter, advancedFilters);
+
     // Ordenamiento
     const sort: any = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
@@ -611,7 +629,7 @@ export class PedidosService {
 
     // Ejecutar consulta
     const [pedidos, total] = await Promise.all([
-      PedidoModel.find(filter)
+      PedidoModel.find(finalFilter)
         .sort(sort)
         .skip(skip)
         .limit(limitNum)
@@ -620,7 +638,7 @@ export class PedidosService {
         .populate('agenteComercialId', 'codigo nombre apellidos')
         .populate('presupuestoOrigenId', 'codigo')
         .lean(),
-      PedidoModel.countDocuments(filter),
+      PedidoModel.countDocuments(finalFilter),
     ]);
 
     return {

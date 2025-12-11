@@ -310,7 +310,15 @@ export interface IPresupuesto extends Document {
   urlPortal?: string; // URL completa generada
   respuestaCliente?: IRespuestaCliente;
 
-  // Conversión
+  // Documentos generados (puede generar pedido, albarán y/o factura)
+  documentosGenerados: {
+    tipo: 'pedido' | 'factura' | 'albaran';
+    documentoId: mongoose.Types.ObjectId;
+    codigo: string;
+    fecha: Date;
+  }[];
+
+  // Mantener compatibilidad con campo anterior (deprecated)
   convertidoA?: {
     tipo: 'pedido' | 'factura' | 'albaran';
     documentoId: mongoose.Types.ObjectId;
@@ -342,6 +350,9 @@ export interface IPresupuesto extends Document {
   diasParaCaducar: number | null;
   estaVigente: boolean;
   puedeConvertirse: boolean;
+  tienePedido: boolean;
+  tieneAlbaran: boolean;
+  tieneFactura: boolean;
 }
 
 export interface IPresupuestoModel extends Model<IPresupuesto> {
@@ -731,7 +742,15 @@ const PresupuestoSchema = new Schema<IPresupuesto, IPresupuestoModel>({
     userAgent: { type: String },
   },
 
-  // Conversión
+  // Documentos generados (múltiples: pedido, albarán, factura)
+  documentosGenerados: [{
+    tipo: { type: String, enum: ['pedido', 'factura', 'albaran'], required: true },
+    documentoId: { type: Schema.Types.ObjectId, required: true },
+    codigo: { type: String, required: true },
+    fecha: { type: Date, default: Date.now },
+  }],
+
+  // Conversión (deprecated - mantener por compatibilidad)
   convertidoA: {
     tipo: { type: String, enum: ['pedido', 'factura', 'albaran'] },
     documentoId: { type: Schema.Types.ObjectId },
@@ -832,7 +851,21 @@ PresupuestoSchema.virtual('estaVigente').get(function(this: IPresupuesto) {
 });
 
 PresupuestoSchema.virtual('puedeConvertirse').get(function(this: IPresupuesto) {
-  return this.estado === EstadoPresupuesto.ACEPTADO && !this.convertidoA?.documentoId;
+  // Puede convertirse si está aceptado (permite múltiples conversiones: pedido, albarán, factura)
+  return this.estado === EstadoPresupuesto.ACEPTADO || this.estado === EstadoPresupuesto.CONVERTIDO;
+});
+
+// Virtuals para verificar qué documentos ya se han generado
+PresupuestoSchema.virtual('tienePedido').get(function(this: IPresupuesto) {
+  return this.documentosGenerados?.some(d => d.tipo === 'pedido') || this.convertidoA?.tipo === 'pedido';
+});
+
+PresupuestoSchema.virtual('tieneAlbaran').get(function(this: IPresupuesto) {
+  return this.documentosGenerados?.some(d => d.tipo === 'albaran') || this.convertidoA?.tipo === 'albaran';
+});
+
+PresupuestoSchema.virtual('tieneFactura').get(function(this: IPresupuesto) {
+  return this.documentosGenerados?.some(d => d.tipo === 'factura') || this.convertidoA?.tipo === 'factura';
 });
 
 // ============================================

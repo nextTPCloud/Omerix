@@ -95,6 +95,45 @@ export const facturasController = {
   },
 
   /**
+   * Crear factura directamente desde presupuesto (sin pasar por albarán)
+   */
+  async crearDesdePresupuesto(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const usuarioId = req.userId!;
+      const { presupuestoId } = req.params;
+      const { copiarNotas, emitirDirectamente } = req.body;
+
+      const factura = await facturasService.crearDesdePresupuesto(
+        presupuestoId,
+        { copiarNotas, emitirDirectamente },
+        new mongoose.Types.ObjectId(empresaId),
+        new mongoose.Types.ObjectId(usuarioId),
+        req.empresaDbConfig
+      );
+
+      return res.status(201).json({
+        success: true,
+        data: factura,
+        message: 'Factura creada desde presupuesto correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al crear factura desde presupuesto:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al crear la factura desde presupuesto',
+      });
+    }
+  },
+
+  /**
    * Crear factura directa desde albaranes (emitida, no borrador)
    * Útil para facturación rápida donde se quiere factura emitida inmediatamente
    */
@@ -185,7 +224,10 @@ export const facturasController = {
       }
 
       const empresaId = req.empresaId!;
-      const searchDto: SearchFacturasDTO = {
+
+      // Incluir todos los query params para soportar filtros avanzados (_ne, _gt, etc.)
+      const searchDto: SearchFacturasDTO & Record<string, any> = {
+        ...req.query, // Incluir todos los params para filtros avanzados
         search: req.query.search as string,
         clienteId: req.query.clienteId as string,
         proyectoId: req.query.proyectoId as string,

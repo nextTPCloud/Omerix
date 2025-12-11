@@ -421,6 +421,41 @@ export class ProductosController {
       });
     }
   }
+
+  // Duplicar producto
+  async duplicar(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const usuarioId = new mongoose.Types.ObjectId(req.userId);
+      const { id } = req.params;
+
+      const producto = await productosService.duplicarProducto(
+        id,
+        empresaId,
+        usuarioId,
+        req.empresaDbConfig
+      );
+
+      res.status(201).json({
+        success: true,
+        data: producto,
+        message: 'Producto duplicado correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al duplicar producto:', error);
+      res.status(error.message === 'Producto no encontrado' ? 404 : 500).json({
+        success: false,
+        message: error.message || 'Error al duplicar producto',
+      });
+    }
+  }
 }
 
 export const productosController = new ProductosController();

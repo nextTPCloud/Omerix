@@ -311,6 +311,14 @@ export interface Producto {
     ultimaCompra?: string
   }
 
+  // Costes calculados (actualizados automáticamente por el sistema de stock)
+  costes?: {
+    costeUltimo: number       // Precio de la última compra
+    costeMedio: number        // Coste medio ponderado
+    costeEstandar?: number    // Coste estándar (fijo, definido manualmente)
+    ultimaActualizacion?: string
+  }
+
   // Virtuals
   stockTotal?: number
   stockPorVariante?: {

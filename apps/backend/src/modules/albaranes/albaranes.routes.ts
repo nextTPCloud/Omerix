@@ -59,6 +59,37 @@ router.post('/desde-pedido/:pedidoId', albaranesController.crearDesdePedido);
 
 /**
  * @swagger
+ * /api/albaranes/desde-presupuesto/{presupuestoId}:
+ *   post:
+ *     summary: Crear albarán directamente desde un presupuesto (sin pasar por pedido)
+ *     tags: [Albaranes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: presupuestoId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del presupuesto origen
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               copiarNotas:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Albarán creado correctamente
+ *       404:
+ *         description: Presupuesto no encontrado
+ */
+router.post('/desde-presupuesto/:presupuestoId', albaranesController.crearDesdePresupuesto);
+
+/**
+ * @swagger
  * /api/albaranes/pedido/{pedidoId}:
  *   get:
  *     summary: Obtener albaranes de un pedido específico

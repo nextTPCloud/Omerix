@@ -59,6 +59,7 @@ import {
   CheckCircle,
   XCircle,
   TrendingDown,
+  Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -70,6 +71,10 @@ import { SettingsMenu } from '@/components/ui/SettingsMenu'
 import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
 import { PrintButton } from '@/components/ui/PrintButton'
+
+// Filtros avanzados
+import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
+import { PRODUCTOS_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -152,6 +157,10 @@ export default function ProductosPage() {
   // Aplicar debounce a los filtros de columna
   const debouncedColumnFilters = useDebounce(columnFiltersInput, 500)
 
+  // Filtros avanzados
+  const [advancedFilters, setAdvancedFilters] = useState<ActiveFilter[]>([])
+  const debouncedAdvancedFilters = useDebounce(advancedFilters, 300)
+
   // Paginación
   const [pagination, setPagination] = useState({
     page: 1,
@@ -192,6 +201,7 @@ export default function ProductosPage() {
     config: moduleConfig,
     updateColumnas,
     updateColumnFilters,
+    updateAdvancedFilters,
     updateSortConfig,
     updateDensidad,
     resetConfig,
@@ -285,6 +295,11 @@ export default function ProductosPage() {
         params.visible = columnFilters.visible === 'true'
       }
 
+      // Aplicar filtros avanzados
+      if (debouncedAdvancedFilters.length > 0) {
+        Object.assign(params, filtersToQueryParams(debouncedAdvancedFilters))
+      }
+
       const response = await productosService.getAll(params)
 
       setProductos(response.data)
@@ -303,7 +318,7 @@ export default function ProductosPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [pagination.page, pagination.limit, sortConfig, searchTerm, columnFilters])
+  }, [pagination.page, pagination.limit, sortConfig, searchTerm, columnFilters, debouncedAdvancedFilters])
 
   // Cargar familias para el filtro
   useEffect(() => {
@@ -341,6 +356,10 @@ export default function ProductosPage() {
           if (vistaDefault.configuracion.densidad) {
             updateDensidad(vistaDefault.configuracion.densidad)
           }
+          // Cargar filtros avanzados
+          if (vistaDefault.configuracion.advancedFilters?.length > 0) {
+            setAdvancedFilters(savedToFilters(vistaDefault.configuracion.advancedFilters, PRODUCTOS_FILTERABLE_FIELDS))
+          }
           console.log('✅ Vista por defecto aplicada:', vistaDefault.nombre)
         }
       } catch (error) {
@@ -350,6 +369,12 @@ export default function ProductosPage() {
 
     cargarVistaDefault()
   }, [])
+
+  // Guardar filtros avanzados cuando cambian
+  useEffect(() => {
+    if (isInitialLoad.current) return
+    updateAdvancedFilters(filtersToSaved(advancedFilters))
+  }, [advancedFilters, updateAdvancedFilters])
 
   useEffect(() => {
     if (isInitialLoad.current) {
@@ -401,6 +426,20 @@ export default function ProductosPage() {
       fetchProductos()
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error al eliminar productos')
+    }
+  }
+
+  const handleDuplicate = async (id: string) => {
+    try {
+      const response = await productosService.duplicar(id)
+      if (response.success) {
+        toast.success('Producto duplicado correctamente')
+        fetchProductos()
+        // Navegar al nuevo producto para editar
+        router.push(`/productos/${response.data._id}?edit=true`)
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al duplicar el producto')
     }
   }
 
@@ -511,22 +550,20 @@ export default function ProductosPage() {
           </div>
         )}
 
+        {/* Filtros avanzados */}
+        <AdvancedFilters
+          fields={PRODUCTOS_FILTERABLE_FIELDS}
+          filters={advancedFilters}
+          onFiltersChange={setAdvancedFilters}
+          searchValue={searchTerm}
+          onSearchChange={handleSearch}
+          searchPlaceholder="Buscar por nombre, SKU o código de barras..."
+        />
+
         {/* Barra de herramientas */}
         <Card className="p-4">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 flex-1">
-                <div className="relative flex-1 max-w-sm">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por nombre, SKU o código de barras..."
-                    value={searchTerm}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
               <div className="flex items-center gap-2 flex-wrap">
                 {/* MENÚ DE CONFIGURACIÓN (Densidad + Vistas + Restablecer) */}
                 <SettingsMenu
@@ -549,10 +586,25 @@ export default function ProductosPage() {
                     if (configuracion.columnFilters) updateColumnFilters(configuracion.columnFilters)
                     if (configuracion.paginacion) setPagination(prev => ({ ...prev, limit: configuracion.paginacion.limit }))
                     if (configuracion.densidad) updateDensidad(configuracion.densidad)
+                    // Aplicar filtros avanzados
+                    if (configuracion.advancedFilters?.length > 0) {
+                      setAdvancedFilters(savedToFilters(configuracion.advancedFilters, PRODUCTOS_FILTERABLE_FIELDS))
+                    } else {
+                      setAdvancedFilters([])
+                    }
                   }}
                   onGuardarVista={async (nombre, descripcion, esDefault, vistaId) => {
                     try {
                       console.log('💾 Guardando vista:', { nombre, descripcion, esDefault, vistaId })
+
+                      const configuracionGuardar = {
+                        columnas,
+                        sortConfig,
+                        columnFilters: columnFiltersInput,
+                        paginacion: { limit: pagination.limit },
+                        densidad,
+                        advancedFilters: filtersToSaved(advancedFilters),
+                      }
 
                       if (vistaId) {
                         // Actualizar vista existente
@@ -560,13 +612,7 @@ export default function ProductosPage() {
                           modulo: 'productos',
                           nombre,
                           descripcion,
-                          configuracion: {
-                            columnas,
-                            sortConfig,
-                            columnFilters,
-                            paginacion: { limit: pagination.limit },
-                            densidad,
-                          },
+                          configuracion: configuracionGuardar,
                           esDefault: esDefault || false,
                         })
                         toast.success(`Vista "${nombre}" actualizada correctamente`)
@@ -576,13 +622,7 @@ export default function ProductosPage() {
                           modulo: 'productos',
                           nombre,
                           descripcion,
-                          configuracion: {
-                            columnas,
-                            sortConfig,
-                            columnFilters,
-                            paginacion: { limit: pagination.limit },
-                            densidad,
-                          },
+                          configuracion: configuracionGuardar,
                           esDefault: esDefault || false,
                         })
                         toast.success(`Vista "${nombre}" guardada correctamente`)
@@ -946,14 +986,19 @@ export default function ProductosPage() {
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => router.push(`/productos/${producto._id}`)}>
                               <Eye className="h-4 w-4 mr-2" />
-                              Ver
+                              Ver detalle
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/productos/${producto._id}?edit=true`)}>
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicate(producto._id)}>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Duplicar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

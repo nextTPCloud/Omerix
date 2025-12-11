@@ -81,6 +81,10 @@ import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
 import { PrintButton } from '@/components/ui/PrintButton'
 
+// FILTROS AVANZADOS
+import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
+import { AGENTES_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
+
 // ============================================
 // HOOK PARA DEBOUNCE
 // ============================================
@@ -157,11 +161,15 @@ export default function AgentesPage() {
   const [selectedAgentes, setSelectedAgentes] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
 
-  // Filtros por columna
+  // Filtros por columna (legacy - mantener por compatibilidad)
   const [columnFiltersInput, setColumnFiltersInput] = useState<ColumnFilters>({})
 
   // Aplicar debounce a los filtros de columna
   const debouncedColumnFilters = useDebounce(columnFiltersInput, 500)
+
+  // FILTROS AVANZADOS (nuevo sistema)
+  const [advancedFilters, setAdvancedFilters] = useState<ActiveFilter[]>([])
+  const debouncedAdvancedFilters = useDebounce(advancedFilters, 300)
 
   // Filtros generales
   const [filters, setFilters] = useState<AgentesFilters>({
@@ -329,7 +337,7 @@ export default function AgentesPage() {
   // ============================================
 
   useEffect(() => {
-    console.log('📊 Filtros debounced cambiaron:', debouncedColumnFilters)
+    console.log('📊 Filtros debounced cambiaron:', debouncedColumnFilters, debouncedAdvancedFilters)
 
     // Construir filtros combinados
     const combinedFilters: any = {
@@ -382,10 +390,16 @@ export default function AgentesPage() {
       }
     })
 
+    // FILTROS AVANZADOS - Convertir a query params
+    if (debouncedAdvancedFilters.length > 0) {
+      const advancedParams = filtersToQueryParams(debouncedAdvancedFilters)
+      Object.assign(combinedFilters, advancedParams)
+    }
+
     console.log('🔄 Aplicando filtros:', combinedFilters)
     setFilters(combinedFilters)
 
-  }, [debouncedColumnFilters, currentSortKey, currentSortDirection, currentLimit])
+  }, [debouncedColumnFilters, debouncedAdvancedFilters, currentSortKey, currentSortDirection, currentLimit])
 
   // ============================================
   // SINCRONIZAR CONFIGURACIÓN GUARDADA CON FILTROS (SOLO CARGA INICIAL)
@@ -424,6 +438,14 @@ export default function AgentesPage() {
       setColumnFiltersInput(configuracion.columnFilters as any)
     }
 
+    // Restaurar filtros avanzados
+    if (configuracion.advancedFilters && Array.isArray(configuracion.advancedFilters)) {
+      const restoredFilters = savedToFilters(configuracion.advancedFilters, AGENTES_FILTERABLE_FIELDS)
+      setAdvancedFilters(restoredFilters)
+    } else {
+      setAdvancedFilters([])
+    }
+
     if (configuracion.densidad) {
       updateDensidad(configuracion.densidad)
     }
@@ -442,14 +464,21 @@ export default function AgentesPage() {
     vistaIdActualizar?: string
   ) => {
     try {
-      console.log('💾 Guardando vista:', { nombre, descripcion, esDefault, vistaIdActualizar, config: moduleConfig })
+      // Combinar moduleConfig con los filtros avanzados actuales (evita problemas de debounce)
+      const configToSave = {
+        ...moduleConfig,
+        advancedFilters: filtersToSaved(advancedFilters),
+        columnFilters: columnFiltersInput,
+      }
+
+      console.log('💾 Guardando vista:', { nombre, descripcion, esDefault, vistaIdActualizar, config: configToSave })
 
       if (vistaIdActualizar) {
         await vistasService.update(vistaIdActualizar, {
           modulo: 'agentes-comerciales',
           nombre,
           descripcion,
-          configuracion: moduleConfig,
+          configuracion: configToSave,
           esDefault: esDefault || false,
         })
         toast.success(`Vista "${nombre}" actualizada correctamente`)
@@ -458,7 +487,7 @@ export default function AgentesPage() {
           modulo: 'agentes-comerciales',
           nombre,
           descripcion,
-          configuracion: moduleConfig,
+          configuracion: configToSave,
           esDefault: esDefault || false,
         })
         toast.success(`Vista "${nombre}" guardada correctamente`)
@@ -468,7 +497,7 @@ export default function AgentesPage() {
       toast.error('Error al guardar la vista')
       throw error
     }
-  }, [moduleConfig])
+  }, [moduleConfig, advancedFilters, columnFiltersInput])
 
   // Cargar y aplicar vista por defecto al iniciar
   useEffect(() => {
@@ -864,17 +893,18 @@ export default function AgentesPage() {
           </div>
         )}
 
+        {/* BARRA DE FILTROS AVANZADOS */}
+        <AdvancedFilters
+          fields={AGENTES_FILTERABLE_FIELDS}
+          filters={advancedFilters}
+          onFiltersChange={setAdvancedFilters}
+          searchValue={searchTerm}
+          onSearchChange={handleSearch}
+          searchPlaceholder="Buscar por nombre, NIF, email..."
+        />
+
         {/* BARRA DE HERRAMIENTAS */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <div className="relative flex-1 w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre, NIF, email..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
 
           <div className="flex gap-2 flex-wrap w-full sm:w-auto">
             {/* MENÚ DE CONFIGURACIÓN */}

@@ -32,8 +32,10 @@ import {
   getAgenteComercialModel,
   getUserModel,
   getSerieDocumentoModel,
+  getPresupuestoModel,
 } from '@/utils/dynamic-models.helper';
 import { EstadoAlbaran } from '../albaranes/Albaran';
+import { EstadoPresupuesto } from '../presupuestos/Presupuesto';
 import fiscalLogService from '@/modules/logs/services/fiscal-log.service';
 import { DocumentType } from '@/modules/logs/interfaces/log.interface';
 import {
@@ -46,6 +48,7 @@ import QRCode from 'qrcode';
 import { logError, logInfo, logWarn } from '@/utils/logger/winston.config';
 import { verifactuService } from '@/modules/verifactu/verifactu.service';
 import Empresa from '@/models/Empresa';
+import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -648,12 +651,22 @@ export class FacturasService {
       query.tags = { $in: tags.split(',').map(t => t.trim().toLowerCase()) };
     }
 
+    // FILTROS AVANZADOS - Procesar operadores como _ne, _gt, _lt, etc.
+    const allowedAdvancedFields = [
+      'estado', 'codigo', 'clienteNombre', 'titulo', 'serie', 'tipo',
+      'activo', 'cobrada', 'vencida', 'agenteComercial', 'proyecto',
+    ];
+    const advancedFilters = parseAdvancedFilters(searchDto, allowedAdvancedFields);
+
+    // Combinar filtros existentes con filtros avanzados
+    const finalFilter = mergeFilters(query, advancedFilters);
+
     // Calcular skip
     const skip = (page - 1) * limit;
 
     // Ejecutar query
     const [facturas, total] = await Promise.all([
-      FacturaModel.find(query)
+      FacturaModel.find(finalFilter)
         .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
         .skip(skip)
         .limit(limit)
@@ -661,7 +674,7 @@ export class FacturasService {
         .populate('proyectoId', 'nombre codigo')
         .populate('agenteComercialId', 'nombre apellidos codigo')
         .lean(),
-      FacturaModel.countDocuments(query),
+      FacturaModel.countDocuments(finalFilter),
     ]);
 
     return {
@@ -1022,6 +1035,106 @@ export class FacturasService {
     factura.fechaModificacion = new Date();
 
     await factura.save();
+
+    return factura;
+  }
+
+  // ============================================
+  // CREAR DESDE PRESUPUESTO (directamente)
+  // ============================================
+
+  async crearDesdePresupuesto(
+    presupuestoId: string,
+    dto: { copiarNotas?: boolean; emitirDirectamente?: boolean },
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ): Promise<IFactura> {
+    const PresupuestoModel = await getPresupuestoModel(String(empresaId), dbConfig);
+    const presupuesto = await PresupuestoModel.findById(presupuestoId);
+
+    if (!presupuesto) {
+      throw new Error('Presupuesto no encontrado');
+    }
+
+    // Verificar que el presupuesto está aceptado
+    if (presupuesto.estado !== EstadoPresupuesto.ACEPTADO && presupuesto.estado !== EstadoPresupuesto.CONVERTIDO) {
+      throw new Error('El presupuesto debe estar en estado Aceptado para generar una factura');
+    }
+
+    // Convertir líneas de presupuesto a líneas de factura
+    const lineas = presupuesto.lineas.map((lineaPresupuesto: any, index: number) => {
+      return {
+        orden: index + 1,
+        tipo: lineaPresupuesto.tipo,
+        productoId: lineaPresupuesto.productoId,
+        codigo: lineaPresupuesto.codigo,
+        nombre: lineaPresupuesto.nombre,
+        descripcion: lineaPresupuesto.descripcion,
+        descripcionLarga: lineaPresupuesto.descripcionLarga,
+        sku: lineaPresupuesto.sku,
+        variante: lineaPresupuesto.variante,
+        cantidad: lineaPresupuesto.cantidad,
+        unidad: lineaPresupuesto.unidad,
+        precioUnitario: lineaPresupuesto.precioUnitario,
+        descuento: lineaPresupuesto.descuento,
+        iva: lineaPresupuesto.iva,
+        recargoEquivalencia: lineaPresupuesto.recargoEquivalencia || 0,
+        costeUnitario: lineaPresupuesto.costeUnitario,
+        componentesKit: lineaPresupuesto.componentesKit,
+        mostrarComponentes: lineaPresupuesto.mostrarComponentes,
+        esEditable: true,
+        incluidoEnTotal: lineaPresupuesto.incluidoEnTotal,
+        notasInternas: dto.copiarNotas ? lineaPresupuesto.notasInternas : undefined,
+      };
+    });
+
+    // Crear la factura
+    const factura = await this.crear({
+      tipo: TipoFactura.ORDINARIA,
+      presupuestoOrigenId: presupuestoId,
+      clienteId: presupuesto.clienteId.toString(),
+      clienteNombre: presupuesto.clienteNombre,
+      clienteNif: presupuesto.clienteNif,
+      clienteEmail: presupuesto.clienteEmail,
+      clienteTelefono: presupuesto.clienteTelefono,
+      direccionFacturacion: presupuesto.direccionFacturacion,
+      proyectoId: presupuesto.proyectoId?.toString(),
+      agenteComercialId: presupuesto.agenteComercialId?.toString(),
+      referenciaCliente: presupuesto.referenciaCliente,
+      titulo: presupuesto.titulo,
+      descripcion: presupuesto.descripcion,
+      lineas: lineas as any,
+      descuentoGlobalPorcentaje: presupuesto.descuentoGlobalPorcentaje,
+      observaciones: dto.copiarNotas ? presupuesto.observaciones : undefined,
+      mostrarCostes: presupuesto.mostrarCostes,
+      mostrarMargenes: presupuesto.mostrarMargenes,
+      mostrarComponentesKit: presupuesto.mostrarComponentesKit,
+    }, empresaId, usuarioId, dbConfig);
+
+    // Actualizar presupuesto: cambiar estado y añadir documento generado
+    presupuesto.estado = EstadoPresupuesto.CONVERTIDO;
+
+    // Añadir al array de documentos generados
+    if (!presupuesto.documentosGenerados) {
+      presupuesto.documentosGenerados = [];
+    }
+    presupuesto.documentosGenerados.push({
+      tipo: 'factura',
+      documentoId: factura._id,
+      codigo: factura.codigo,
+      fecha: new Date(),
+    });
+
+    // Registrar en historial del presupuesto
+    presupuesto.historial.push({
+      fecha: new Date(),
+      usuarioId,
+      accion: 'Factura generada',
+      descripcion: `Se ha generado la factura ${factura.codigo} directamente desde el presupuesto`,
+    });
+
+    await presupuesto.save();
 
     return factura;
   }

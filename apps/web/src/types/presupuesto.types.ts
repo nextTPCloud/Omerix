@@ -210,10 +210,26 @@ export interface IPresupuesto {
     comentarios?: string;
     nombreFirmante?: string;
   };
+  // Documentos generados desde este presupuesto
+  documentosGenerados?: {
+    tipo: 'pedido' | 'factura' | 'albaran';
+    documentoId: string;
+    codigo: string;
+    fecha: string;
+  }[];
+  // Compatibilidad (deprecated)
+  convertidoA?: {
+    tipo: 'pedido' | 'factura' | 'albaran';
+    documentoId: string;
+    fecha: string;
+  };
   // Virtuals
   diasParaCaducar?: number | null;
   estaVigente?: boolean;
   puedeConvertirse?: boolean;
+  tienePedido?: boolean;
+  tieneAlbaran?: boolean;
+  tieneFactura?: boolean;
 }
 
 // ============================================

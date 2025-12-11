@@ -264,6 +264,14 @@ export interface IProducto extends Document {
     ultimaCompra?: Date;
   };
 
+  // Costes calculados (actualizados automáticamente por el sistema de stock)
+  costes: {
+    costeUltimo: number;           // Precio de la última compra
+    costeMedio: number;            // Coste medio ponderado
+    costeEstandar?: number;        // Coste estándar (fijo, definido manualmente)
+    ultimaActualizacion?: Date;    // Fecha de última actualización de costes
+  };
+
   // Auditoría
   creadoPor?: Types.ObjectId; // Usuario que creó
   modificadoPor?: Types.ObjectId; // Último usuario que modificó
@@ -673,6 +681,14 @@ const ProductoSchema = new Schema<IProducto>(
       costoTotal: { type: Number, default: 0 },
       ultimaVenta: Date,
       ultimaCompra: Date,
+    },
+
+    // Costes calculados (actualizados automáticamente por el sistema de stock)
+    costes: {
+      costeUltimo: { type: Number, default: 0, min: 0 },      // Última compra
+      costeMedio: { type: Number, default: 0, min: 0 },       // Coste medio ponderado
+      costeEstandar: { type: Number, min: 0 },                // Coste estándar manual
+      ultimaActualizacion: Date,                               // Última actualización
     },
 
     // Auditoría

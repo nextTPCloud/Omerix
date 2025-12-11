@@ -150,7 +150,7 @@ export class PedidosController {
 
       const empresaId = req.empresaId!;
 
-      // Validar query params
+      // Validar query params básicos (permitir campos adicionales para filtros avanzados)
       const validacion = SearchPedidosSchema.safeParse(req.query);
       if (!validacion.success) {
         return res.status(400).json({
@@ -160,10 +160,11 @@ export class PedidosController {
         });
       }
 
+      // Pasar req.query completo para incluir filtros avanzados (_ne, _gt, etc.)
       const result = await pedidosService.findAll(
         empresaId,
         req.empresaDbConfig,
-        validacion.data
+        req.query as any
       );
 
       res.json({

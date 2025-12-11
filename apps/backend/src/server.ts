@@ -73,6 +73,14 @@ import verifactuRoutes from './modules/verifactu/verifactu.routes';
 // Importar rutas de IA
 import aiRoutes from './modules/ai/ai.routes';
 
+// Importar rutas de proveedores
+import proveedoresRoutes from './modules/proveedores/proveedores.routes';
+
+// Importar rutas de compras
+import pedidosCompraRoutes from './modules/pedidos-compra/pedidos-compra.routes';
+import albaranesCompraRoutes from './modules/albaranes-compra/albaranes-compra.routes';
+import facturasCompraRoutes from './modules/facturas-compra/facturas-compra.routes';
+
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
 import logger, { httpLoggerMiddleware, logStartup, logShutdown } from './utils/logger/winston.config'; // 🆕 NUEVO
@@ -292,6 +300,14 @@ app.use('/api/albaranes', albaranesRoutes);
 
 // Rutas de facturas
 app.use('/api/facturas', facturasRoutes);
+
+// Rutas de proveedores
+app.use('/api/proveedores', proveedoresRoutes);
+
+// Rutas de compras
+app.use('/api/pedidos-compra', pedidosCompraRoutes);
+app.use('/api/albaranes-compra', albaranesCompraRoutes);
+app.use('/api/facturas-compra', facturasCompraRoutes);
 
 // Rutas de series de documentos
 app.use('/api/series-documentos', seriesDocumentosRoutes);

@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { facturasService } from '@/services/facturas.service'
 import { empresaService, EmpresaInfo } from '@/services/empresa.service'
 import { verifactuService } from '@/services/verifactu.service'
@@ -641,27 +642,27 @@ export default function FacturaDetailPage({ params }: PageProps) {
                     </Button>
                   )}
 
-                  {/* Enviar a Hacienda - si está emitida y no se ha enviado aún */}
-                  {factura.inmutable && (!factura.verifactu?.estadoEnvio || factura.verifactu?.estadoEnvio === 'pendiente') && (
+                  {/* Enviar a Hacienda - si está emitida y no se ha enviado aún O si fue rechazado */}
+                  {factura.inmutable && (!factura.verifactu?.estadoEnvio || factura.verifactu?.estadoEnvio === 'pendiente' || factura.verifactu?.estadoEnvio === 'rechazado') && (
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant={factura.verifactu?.estadoEnvio === 'rechazado' ? 'destructive' : 'outline'}
                       onClick={() => setEnviarHaciendaDialogOpen(true)}
-                      className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                      className={factura.verifactu?.estadoEnvio === 'rechazado' ? '' : 'text-blue-600 border-blue-300 hover:bg-blue-50'}
                     >
                       <Landmark className="mr-2 h-4 w-4" />
-                      Enviar a Hacienda
+                      {factura.verifactu?.estadoEnvio === 'rechazado' ? 'Reintentar envío AEAT' : 'Enviar a Hacienda'}
                     </Button>
                   )}
 
                   {/* Badge de estado VeriFactu si ya fue enviado */}
-                  {factura.verifactu?.estadoEnvio && factura.verifactu.estadoEnvio !== 'pendiente' && (
+                  {factura.verifactu?.estadoEnvio && factura.verifactu.estadoEnvio !== 'pendiente' && factura.verifactu.estadoEnvio !== 'rechazado' && (
                     <Badge
                       variant={factura.verifactu.estadoEnvio === 'enviado' || factura.verifactu.estadoEnvio === 'aceptado' ? 'default' : 'destructive'}
                       className="flex items-center gap-1"
                     >
                       <Landmark className="h-3 w-3" />
-                      AEAT: {factura.verifactu.estadoEnvio}
+                      AEAT: {factura.verifactu.estadoEnvio === 'aceptado' ? 'Aceptado' : factura.verifactu.estadoEnvio}
                     </Badge>
                   )}
 
@@ -784,6 +785,25 @@ export default function FacturaDetailPage({ params }: PageProps) {
             </div>
           </div>
         </div>
+
+        {/* Alerta de rechazo AEAT */}
+        {factura.verifactu?.estadoEnvio === 'rechazado' && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>AEAT ha rechazado esta factura</AlertTitle>
+            <AlertDescription className="mt-2">
+              <p className="mb-2">
+                <strong>Error:</strong> {factura.verifactu.mensajeRespuesta || 'Error desconocido'}
+              </p>
+              {factura.verifactu.codigoRespuesta && (
+                <p className="text-xs opacity-80">Código: {factura.verifactu.codigoRespuesta}</p>
+              )}
+              <p className="mt-2 text-sm">
+                La factura está emitida pero el envío a la AEAT falló. Puedes reintentar el envío con el botón &quot;Reintentar envío AEAT&quot;.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Resumen en cards */}
         <div className="grid gap-4 md:grid-cols-4">
@@ -1182,11 +1202,16 @@ export default function FacturaDetailPage({ params }: PageProps) {
                     <p className="text-xs text-muted-foreground mb-1">ID VeriFactu</p>
                     <p className="text-xs font-mono break-all">{factura.verifactu.idFactura}</p>
                     <Badge
-                      variant={factura.verifactu.estadoEnvio === 'aceptado' ? 'default' : 'secondary'}
+                      variant={factura.verifactu.estadoEnvio === 'aceptado' ? 'default' : factura.verifactu.estadoEnvio === 'rechazado' ? 'destructive' : 'secondary'}
                       className="mt-1"
                     >
-                      {factura.verifactu.estadoEnvio}
+                      {factura.verifactu.estadoEnvio === 'aceptado' ? 'Aceptado por AEAT' :
+                       factura.verifactu.estadoEnvio === 'rechazado' ? 'Rechazado por AEAT' :
+                       factura.verifactu.estadoEnvio}
                     </Badge>
+                    {factura.verifactu.estadoEnvio === 'rechazado' && factura.verifactu.mensajeRespuesta && (
+                      <p className="text-xs text-destructive mt-1">{factura.verifactu.mensajeRespuesta}</p>
+                    )}
                   </div>
                 )}
                 {factura.ticketbai && (

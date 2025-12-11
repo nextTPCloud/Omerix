@@ -92,7 +92,7 @@ import { Almacen } from '@/types/almacen.types'
 import { toast } from 'sonner'
 
 // Componente de selección de variantes
-import { VarianteSelector } from '@/components/productos/VarianteSelector'
+import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
 
 interface AlbaranFormProps {
   initialData?: IAlbaran
@@ -544,10 +544,64 @@ export function AlbaranForm({
   }
 
   // Handler cuando se selecciona una variante desde el selector
-  const handleVarianteSelect = (variante: { varianteId: string; sku: string; combinacion: Record<string, string>; precioUnitario: number; costeUnitario: number; stockTotal: number }) => {
+  const handleVarianteSelect = (variante: VarianteSeleccion) => {
     if (lineaIndexParaVariante !== null && productoConVariantes) {
       aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, variante)
+      // Actualizar cantidad si se especificó
+      if (variante.cantidad && variante.cantidad !== 1) {
+        handleUpdateLinea(lineaIndexParaVariante, { cantidad: variante.cantidad })
+      }
     }
+    setVarianteSelectorOpen(false)
+    setProductoConVariantes(null)
+    setLineaIndexParaVariante(null)
+  }
+
+  // Handler para cuando se seleccionan múltiples variantes
+  const handleVariantesMultipleSelect = (variantes: VarianteSeleccion[]) => {
+    if (lineaIndexParaVariante === null || !productoConVariantes) return
+
+    // Para la primera variante, usar la línea existente
+    const primeraVariante = variantes[0]
+    aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, primeraVariante)
+    if (primeraVariante.cantidad) {
+      setTimeout(() => {
+        handleUpdateLinea(lineaIndexParaVariante, { cantidad: primeraVariante.cantidad })
+      }, 0)
+    }
+
+    // Para el resto de variantes, crear nuevas líneas
+    if (variantes.length > 1) {
+      const nuevasLineas = variantes.slice(1).map((variante, idx) => {
+        const numLinea = (formData.lineas?.length || 0) + idx + 1
+        return calcularLinea({
+          ...crearLineaVacia(numLinea),
+          productoId: productoConVariantes._id,
+          sku: variante.sku,
+          nombre: `${productoConVariantes.nombre} - ${Object.values(variante.combinacion).join(' / ')}`,
+          descripcion: productoConVariantes.descripcion || '',
+          cantidad: variante.cantidad || 1,
+          precioUnitario: variante.precioUnitario,
+          costeUnitario: variante.costeUnitario,
+          descuento: 0,
+          tipoDescuento: 'porcentaje' as const,
+          impuesto: productoConVariantes.impuesto || 21,
+          variante: {
+            varianteId: variante.varianteId,
+            sku: variante.sku,
+            combinacion: variante.combinacion,
+            precioAdicional: variante.precioUnitario - (productoConVariantes.precios?.venta || 0),
+            costeAdicional: variante.costeUnitario - (productoConVariantes.precios?.compra || 0),
+          },
+        })
+      })
+
+      setFormData(prev => ({
+        ...prev,
+        lineas: [...(prev.lineas || []), ...nuevasLineas] as ILineaAlbaran[],
+      }))
+    }
+
     setVarianteSelectorOpen(false)
     setProductoConVariantes(null)
     setLineaIndexParaVariante(null)
@@ -656,6 +710,10 @@ export function AlbaranForm({
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (activeTab !== 'lineas') return
+
+      // Ignorar si el foco está en un input (ya tienen sus propios handlers)
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
 
       if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 'n')) {
         e.preventDefault()
@@ -2241,7 +2299,9 @@ export function AlbaranForm({
         onOpenChange={setVarianteSelectorOpen}
         producto={productoConVariantes}
         onSelect={handleVarianteSelect}
+        onSelectMultiple={handleVariantesMultipleSelect}
         onSelectBase={handleUsarProductoBase}
+        multiSelect={true}
       />
     </form>
   )

@@ -19,6 +19,7 @@ import {
   getSituacionModel,
   getTiposImpuestoModel
 } from '../../utils/dynamic-models.helper';
+import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 
 export class ProductosService {
   /**
@@ -364,7 +365,7 @@ export class ProductosService {
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
     // Ejecutar query
-    const [productos, total] = await Promise.all([
+    const [productosRaw, total] = await Promise.all([
       ProductoModel.find(query)
         .populate('familiaId', 'nombre codigo')
         .populate('proveedorId', 'nombre')
@@ -374,6 +375,57 @@ export class ProductosService {
         .lean(),
       ProductoModel.countDocuments(query),
     ]);
+
+    // Transformar productos para calcular stock total desde stockPorAlmacen
+    const productos = productosRaw.map((producto: any) => {
+      // Calcular stock total desde stockPorAlmacen (sistema multi-almacén)
+      let stockCantidad = producto.stock?.cantidad || 0;
+      let stockMinimo = producto.stock?.minimo || 0;
+      let stockMaximo = producto.stock?.maximo || 0;
+
+      if (producto.stockPorAlmacen && producto.stockPorAlmacen.length > 0) {
+        stockCantidad = producto.stockPorAlmacen.reduce(
+          (sum: number, almacen: any) => sum + (almacen.cantidad || 0),
+          0
+        );
+        // Tomar el mínimo/máximo del primer almacén o sumarlos
+        stockMinimo = producto.stockPorAlmacen.reduce(
+          (sum: number, almacen: any) => sum + (almacen.minimo || 0),
+          0
+        );
+        stockMaximo = producto.stockPorAlmacen.reduce(
+          (sum: number, almacen: any) => sum + (almacen.maximo || 0),
+          0
+        );
+      }
+
+      // Para productos con variantes, calcular stock de todas las variantes
+      if (producto.variantes && producto.variantes.length > 0) {
+        let stockVariantes = 0;
+        for (const variante of producto.variantes) {
+          if (variante.stockPorAlmacen && variante.stockPorAlmacen.length > 0) {
+            stockVariantes += variante.stockPorAlmacen.reduce(
+              (sum: number, almacen: any) => sum + (almacen.cantidad || 0),
+              0
+            );
+          }
+        }
+        // Si el producto tiene variantes, usar el stock de las variantes
+        if (stockVariantes > 0 || producto.variantes.length > 0) {
+          stockCantidad = stockVariantes;
+        }
+      }
+
+      return {
+        ...producto,
+        stock: {
+          ...producto.stock,
+          cantidad: stockCantidad,
+          minimo: stockMinimo,
+          maximo: stockMaximo,
+        },
+      };
+    });
 
     return {
       productos,
@@ -643,6 +695,96 @@ export class ProductosService {
     ).lean();
 
     return productos.map(p => p.sku);
+  }
+
+  // ============================================
+  // DUPLICAR PRODUCTO
+  // ============================================
+
+  async duplicarProducto(
+    productoId: string,
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ) {
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+
+    // 1. Verificar límite de productos según licencia
+    await this.verificarLimiteProductos(empresaId.toString(), dbConfig);
+
+    // 2. Obtener el producto original
+    const productoOriginal = await ProductoModel.findOne({
+      _id: productoId,
+      empresaId,
+    }).lean();
+
+    if (!productoOriginal) {
+      throw new Error('Producto no encontrado');
+    }
+
+    // 3. Generar nuevo SKU único
+    let nuevoSku = `${productoOriginal.sku}-COPIA`;
+    let contador = 1;
+    let skuExiste = true;
+
+    while (skuExiste) {
+      const existente = await ProductoModel.findOne({
+        empresaId,
+        sku: nuevoSku,
+      });
+
+      if (!existente) {
+        skuExiste = false;
+      } else {
+        nuevoSku = `${productoOriginal.sku}-COPIA-${contador}`;
+        contador++;
+      }
+    }
+
+    // 4. Crear copia del producto
+    const datosProducto: any = {
+      ...productoOriginal,
+      _id: undefined,
+      sku: nuevoSku,
+      nombre: `${productoOriginal.nombre} (Copia)`,
+      codigoBarras: undefined, // No duplicar código de barras
+      createdAt: undefined,
+      updatedAt: undefined,
+      // Resetear stock si tiene variantes
+      variantes: productoOriginal.variantes?.map((v: any) => ({
+        ...v,
+        _id: undefined,
+        sku: `${v.sku}-COPIA`,
+        codigoBarras: undefined,
+        stockPorAlmacen: v.stockPorAlmacen?.map((s: any) => ({
+          ...s,
+          cantidad: 0,
+          ultimaActualizacion: new Date(),
+        })) || [],
+      })) || [],
+      // Resetear stock principal
+      stock: {
+        ...productoOriginal.stock,
+        cantidad: 0,
+      },
+    };
+
+    const nuevoProducto = await ProductoModel.create(datosProducto);
+
+    // 5. Incrementar contador en estadísticas de familia
+    if (nuevoProducto.familiaId) {
+      await FamiliaModel.findByIdAndUpdate(nuevoProducto.familiaId, {
+        $inc: { 'estadisticas.totalProductos': 1 },
+      });
+    }
+
+    // 6. Incrementar contador de uso en licencia
+    await this.incrementarContadorProductos(empresaId.toString());
+
+    console.log('✅ Producto duplicado:', nuevoProducto.nombre);
+
+    return nuevoProducto;
   }
 }
 

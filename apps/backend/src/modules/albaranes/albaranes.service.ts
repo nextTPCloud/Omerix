@@ -8,8 +8,12 @@ import {
   CrearDesdePedidoDTO,
 } from './albaranes.dto';
 import { IDatabaseConfig } from '@/models/Empresa';
-import { getAlbaranModel, getPedidoModel, getProductoModel, getClienteModel, getProyectoModel, getAgenteComercialModel, getAlmacenModel, getUserModel } from '@/utils/dynamic-models.helper';
+import { getAlbaranModel, getPedidoModel, getProductoModel, getClienteModel, getProyectoModel, getAgenteComercialModel, getAlmacenModel, getUserModel, getPresupuestoModel, getMovimientoStockModel } from '@/utils/dynamic-models.helper';
 import { EstadoPedido } from '../pedidos/Pedido';
+import { EstadoPresupuesto } from '../presupuestos/Presupuesto';
+import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
+import { stockService } from '@/services/stock.service';
+import { TipoMovimiento, OrigenMovimiento } from '@/models/MovimientoStock';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -297,6 +301,83 @@ export class AlbaranesService {
 
     await albaran.save();
 
+    // ============================================
+    // REGISTRAR MOVIMIENTOS DE STOCK AL CREAR
+    // ============================================
+    // Si es albarán de venta y tiene líneas con cantidad entregada, registrar stock
+    if (albaran.tipo === TipoAlbaran.VENTA) {
+      const AlmacenModel = await getAlmacenModel(String(empresaId), dbConfig);
+      const ProductoModel = await getProductoModel(String(empresaId), dbConfig);
+      const UserModel = await getUserModel(String(empresaId), dbConfig);
+
+      // Obtener almacén
+      let almacenInfo: any = null;
+      if (albaran.almacenId) {
+        almacenInfo = await AlmacenModel.findById(albaran.almacenId).lean();
+      }
+      if (!almacenInfo) {
+        almacenInfo = await AlmacenModel.findOne({ principal: true }).lean();
+      }
+
+      // Obtener nombre de usuario
+      const usuario = await UserModel.findById(usuarioId).lean();
+      const usuarioNombre = (usuario as any)?.nombre || (usuario as any)?.email || 'Sistema';
+
+      if (almacenInfo) {
+        console.log('📦 Registrando movimientos de stock para albarán:', albaran.codigo);
+        console.log('📦 Almacén:', almacenInfo.nombre);
+
+        for (const linea of albaran.lineas) {
+          console.log('📦 Línea:', linea.nombre, '- Tipo:', linea.tipo, '- Cantidad entregada:', linea.cantidadEntregada, '- ProductoId:', linea.productoId);
+
+          if (linea.productoId && linea.tipo === TipoLinea.PRODUCTO && linea.cantidadEntregada > 0) {
+            try {
+              const producto = await ProductoModel.findById(linea.productoId).lean();
+              console.log('📦 Producto encontrado:', (producto as any)?.nombre, '- GestionaStock:', (producto as any)?.gestionaStock);
+
+              if (producto && (producto as any).gestionaStock) {
+                console.log('✅ Registrando movimiento de stock para:', (producto as any).nombre, '- Cantidad:', linea.cantidadEntregada);
+                await stockService.registrarMovimiento({
+                  productoId: linea.productoId.toString(),
+                  productoCodigo: linea.codigo || (producto as any).sku || '',
+                  productoNombre: linea.nombre || (producto as any).nombre,
+                  productoSku: linea.sku || (producto as any).sku,
+                  varianteId: linea.variante?.varianteId?.toString(),
+                  varianteSku: linea.variante?.sku,
+                  varianteNombre: linea.variante?.combinacion ? Object.values(linea.variante.combinacion).join(' / ') : undefined,
+                  almacenId: almacenInfo._id.toString(),
+                  almacenNombre: almacenInfo.nombre,
+                  tipo: TipoMovimiento.SALIDA_VENTA,
+                  origen: OrigenMovimiento.ALBARAN_VENTA,
+                  documentoOrigenId: albaran._id.toString(),
+                  documentoOrigenCodigo: albaran.codigo,
+                  documentoOrigenTipo: 'albaran_venta',
+                  terceroId: albaran.clienteId?.toString(),
+                  terceroNombre: albaran.clienteNombre,
+                  terceroTipo: 'cliente',
+                  cantidad: linea.cantidadEntregada,
+                  precioUnitario: linea.precioUnitario,
+                  costeUnitario: linea.costeUnitario || 0,
+                  lote: linea.lote,
+                  numeroSerie: linea.numeroSerie,
+                  usuarioId: usuarioId.toString(),
+                  usuarioNombre,
+                  observaciones: `Creación de albarán ${albaran.codigo}`,
+                }, String(empresaId), dbConfig);
+                console.log('✅ Movimiento de stock registrado correctamente');
+              } else {
+                console.log('⚠️ Producto no tiene gestionaStock activado:', (producto as any)?.nombre);
+              }
+            } catch (error) {
+              console.error(`❌ Error registrando movimiento de stock para producto ${linea.productoId}:`, error);
+            }
+          }
+        }
+      } else {
+        console.log('⚠️ No hay almacén configurado, no se pueden registrar movimientos de stock');
+      }
+    }
+
     return albaran;
   }
 
@@ -396,6 +477,107 @@ export class AlbaranesService {
       descripcion: `Se ha generado el albarán ${albaran.codigo}`,
     });
     await pedido.save();
+
+    return albaran;
+  }
+
+  // ============================================
+  // CREAR DESDE PRESUPUESTO (directamente)
+  // ============================================
+
+  async crearDesdePresupuesto(
+    presupuestoId: string,
+    dto: { copiarNotas?: boolean },
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ): Promise<IAlbaran> {
+    const PresupuestoModel = await getPresupuestoModel(String(empresaId), dbConfig);
+    const presupuesto = await PresupuestoModel.findById(presupuestoId);
+
+    if (!presupuesto) {
+      throw new Error('Presupuesto no encontrado');
+    }
+
+    // Verificar que el presupuesto está aceptado
+    if (presupuesto.estado !== EstadoPresupuesto.ACEPTADO && presupuesto.estado !== EstadoPresupuesto.CONVERTIDO) {
+      throw new Error('El presupuesto debe estar en estado Aceptado para generar un albarán');
+    }
+
+    // Convertir líneas de presupuesto a líneas de albarán
+    const lineas = presupuesto.lineas.map((lineaPresupuesto: any, index: number) => {
+      return {
+        orden: index + 1,
+        tipo: lineaPresupuesto.tipo,
+        productoId: lineaPresupuesto.productoId,
+        codigo: lineaPresupuesto.codigo,
+        nombre: lineaPresupuesto.nombre,
+        descripcion: lineaPresupuesto.descripcion,
+        descripcionLarga: lineaPresupuesto.descripcionLarga,
+        sku: lineaPresupuesto.sku,
+        variante: lineaPresupuesto.variante,
+        cantidadSolicitada: lineaPresupuesto.cantidad,
+        cantidadEntregada: lineaPresupuesto.cantidad, // Entregar todo por defecto
+        unidad: lineaPresupuesto.unidad,
+        precioUnitario: lineaPresupuesto.precioUnitario,
+        descuento: lineaPresupuesto.descuento,
+        iva: lineaPresupuesto.iva,
+        costeUnitario: lineaPresupuesto.costeUnitario,
+        componentesKit: lineaPresupuesto.componentesKit,
+        mostrarComponentes: lineaPresupuesto.mostrarComponentes,
+        esEditable: true,
+        incluidoEnTotal: lineaPresupuesto.incluidoEnTotal,
+        notasInternas: dto.copiarNotas ? lineaPresupuesto.notasInternas : undefined,
+      };
+    });
+
+    // Crear el albarán
+    const albaran = await this.crear({
+      tipo: TipoAlbaran.VENTA,
+      presupuestoOrigenId: presupuestoId,
+      clienteId: presupuesto.clienteId.toString(),
+      clienteNombre: presupuesto.clienteNombre,
+      clienteNif: presupuesto.clienteNif,
+      clienteEmail: presupuesto.clienteEmail,
+      clienteTelefono: presupuesto.clienteTelefono,
+      direccionFacturacion: presupuesto.direccionFacturacion,
+      direccionEntrega: presupuesto.direccionEntrega,
+      proyectoId: presupuesto.proyectoId?.toString(),
+      agenteComercialId: presupuesto.agenteComercialId?.toString(),
+      referenciaCliente: presupuesto.referenciaCliente,
+      titulo: presupuesto.titulo,
+      descripcion: presupuesto.descripcion,
+      lineas: lineas as any,
+      descuentoGlobalPorcentaje: presupuesto.descuentoGlobalPorcentaje,
+      observaciones: dto.copiarNotas ? presupuesto.observaciones : undefined,
+      mostrarCostes: presupuesto.mostrarCostes,
+      mostrarMargenes: presupuesto.mostrarMargenes,
+      mostrarComponentesKit: presupuesto.mostrarComponentesKit,
+    }, empresaId, usuarioId, dbConfig);
+
+    // Actualizar presupuesto: cambiar estado y añadir documento generado
+    presupuesto.estado = EstadoPresupuesto.CONVERTIDO;
+
+    // Añadir al array de documentos generados
+    if (!presupuesto.documentosGenerados) {
+      presupuesto.documentosGenerados = [];
+    }
+    presupuesto.documentosGenerados.push({
+      tipo: 'albaran',
+      documentoId: albaran._id,
+      codigo: albaran.codigo,
+      fecha: new Date(),
+    });
+
+    // Registrar en historial del presupuesto
+    presupuesto.historial.push({
+      fecha: new Date(),
+      usuarioId,
+      accion: 'Albarán generado',
+      descripcion: `Se ha generado el albarán ${albaran.codigo} directamente desde el presupuesto`,
+    });
+
+    await presupuesto.save();
 
     return albaran;
   }
@@ -501,11 +683,24 @@ export class AlbaranesService {
     dbConfig: IDatabaseConfig
   ): Promise<IAlbaran | null> {
     const AlbaranModel = await this.getModeloAlbaran(String(empresaId), dbConfig);
+    const AlmacenModel = await getAlmacenModel(String(empresaId), dbConfig);
+    const ProductoModel = await getProductoModel(String(empresaId), dbConfig);
 
     const albaran = await AlbaranModel.findById(id);
     if (!albaran) {
       return null;
     }
+
+    // Obtener usuario para el nombre
+    const UserModel = await getUserModel(String(empresaId), dbConfig);
+    const usuario = await UserModel.findById(usuarioId).lean();
+    const usuarioNombre = usuario?.nombre || 'Sistema';
+
+    // Guardar cantidades anteriores para calcular los incrementos
+    const cantidadesAnteriores: Record<string, number> = {};
+    albaran.lineas.forEach(linea => {
+      cantidadesAnteriores[linea._id?.toString() || ''] = linea.cantidadEntregada || 0;
+    });
 
     // Actualizar datos de entrega
     albaran.datosEntrega = {
@@ -535,6 +730,75 @@ export class AlbaranesService {
       // Recalcular líneas y totales
       albaran.lineas = albaran.lineas.map(linea => this.calcularLinea(linea as any)) as any;
       albaran.totales = this.calcularTotales(albaran.lineas as any, albaran.descuentoGlobalPorcentaje) as any;
+    }
+
+    // ============================================
+    // REGISTRAR MOVIMIENTOS DE STOCK
+    // ============================================
+
+    // Obtener almacén por defecto o el especificado
+    const almacenId = albaran.almacenId?.toString();
+    let almacenInfo: any = null;
+
+    if (almacenId) {
+      almacenInfo = await AlmacenModel.findById(almacenId).lean();
+    }
+
+    if (!almacenInfo) {
+      // Buscar almacén principal
+      almacenInfo = await AlmacenModel.findOne({ principal: true }).lean();
+    }
+
+    if (almacenInfo && albaran.tipo === TipoAlbaran.VENTA) {
+      // Registrar movimientos de stock para las líneas que tienen productos
+      for (const linea of albaran.lineas) {
+        if (linea.productoId && linea.tipo === TipoLinea.PRODUCTO) {
+          const cantidadAnterior = cantidadesAnteriores[linea._id?.toString() || ''] || 0;
+          const cantidadNueva = linea.cantidadEntregada || 0;
+          const incremento = cantidadNueva - cantidadAnterior;
+
+          // Solo registrar si hay un incremento en la cantidad entregada
+          if (incremento > 0) {
+            try {
+              // Obtener datos del producto
+              const producto = await ProductoModel.findById(linea.productoId).lean();
+
+              if (producto && producto.gestionaStock) {
+                await stockService.registrarMovimiento({
+                  productoId: linea.productoId.toString(),
+                  productoCodigo: linea.codigo || producto.sku || '',
+                  productoNombre: linea.nombre || producto.nombre,
+                  productoSku: linea.sku || producto.sku,
+                  varianteId: linea.variante?.varianteId?.toString(),
+                  varianteSku: linea.variante?.sku,
+                  varianteNombre: linea.variante?.valores ? Object.values(linea.variante.valores).join(' / ') : undefined,
+                  almacenId: almacenInfo._id.toString(),
+                  almacenNombre: almacenInfo.nombre,
+                  tipo: TipoMovimiento.SALIDA_VENTA,
+                  origen: OrigenMovimiento.ALBARAN_VENTA,
+                  documentoOrigenId: albaran._id.toString(),
+                  documentoOrigenCodigo: albaran.codigo,
+                  documentoOrigenTipo: 'albaran_venta',
+                  terceroId: albaran.clienteId?.toString(),
+                  terceroNombre: albaran.clienteNombre,
+                  terceroTipo: 'cliente',
+                  cantidad: incremento,
+                  precioUnitario: linea.precioUnitario,
+                  costeUnitario: linea.costeUnitario || 0,
+                  lote: linea.lote,
+                  numeroSerie: linea.numeroSerie,
+                  usuarioId: usuarioId.toString(),
+                  usuarioNombre,
+                  observaciones: `Entrega desde albarán ${albaran.codigo}`,
+                }, String(empresaId), dbConfig);
+              }
+            } catch (error) {
+              console.error(`Error registrando movimiento de stock para producto ${linea.productoId}:`, error);
+              // Continuar con las demás líneas aunque falle una
+            }
+          }
+        }
+      }
     }
 
     // Determinar estado según entrega
@@ -697,12 +961,22 @@ export class AlbaranesService {
       filtros.tags = { $in: tagsArray };
     }
 
+    // FILTROS AVANZADOS - Procesar operadores como _ne, _gt, _lt, etc.
+    const allowedAdvancedFields = [
+      'estado', 'codigo', 'clienteNombre', 'titulo', 'serie', 'tipo',
+      'activo', 'facturado', 'agenteComercial', 'proyecto',
+    ];
+    const advancedFilters = parseAdvancedFilters(searchDto, allowedAdvancedFields);
+
+    // Combinar filtros existentes con filtros avanzados
+    const finalFilter = mergeFilters(filtros, advancedFilters);
+
     // Ejecutar consulta
     const skip = (page - 1) * limit;
     const sort: any = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
     const [albaranes, total] = await Promise.all([
-      AlbaranModel.find(filtros)
+      AlbaranModel.find(finalFilter)
         .populate('clienteId', 'codigo nombre nombreComercial')
         .populate('proyectoId', 'codigo nombre')
         .populate('agenteComercialId', 'codigo nombre apellidos')
@@ -713,7 +987,7 @@ export class AlbaranesService {
         .skip(skip)
         .limit(limit)
         .lean(),
-      AlbaranModel.countDocuments(filtros),
+      AlbaranModel.countDocuments(finalFilter),
     ]);
 
     return {

@@ -83,6 +83,10 @@ import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
 import { PrintButton } from '@/components/ui/PrintButton'
 
+// 🆕 FILTROS AVANZADOS
+import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
+import { CLIENTES_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
+
 // ============================================
 // HOOK PARA DEBOUNCE
 // ============================================
@@ -160,11 +164,15 @@ export default function ClientesPage() {
   const [selectedClientes, setSelectedClientes] = useState<string[]>([])
   const [selectAll, setSelectAll] = useState(false)
   
-  // Filtros por columna
+  // Filtros por columna (legacy)
   const [columnFiltersInput, setColumnFiltersInput] = useState<ColumnFilters>({})
-  
+
+  // 🆕 Filtros avanzados
+  const [advancedFilters, setAdvancedFilters] = useState<ActiveFilter[]>([])
+
   // Aplicar debounce a los filtros de columna
   const debouncedColumnFilters = useDebounce(columnFiltersInput, 500)
+  const debouncedAdvancedFilters = useDebounce(advancedFilters, 300)
   
   // Filtros generales
   const [filters, setFilters] = useState<ClientesFilters>({
@@ -221,6 +229,7 @@ const {
   updateColumnas,
   updateSortConfig,
   updateColumnFilters,
+  updateAdvancedFilters,
   updateDensidad,
   resetConfig,
 } = useModuleConfig('clientes', DEFAULT_CLIENTES_CONFIG, {
@@ -329,32 +338,32 @@ const {
   // ============================================
   // APLICAR FILTROS DEBOUNCED (SIN GUARDAR)
   // ============================================
-  
+
   useEffect(() => {
     console.log('📊 Filtros debounced cambiaron:', debouncedColumnFilters)
-    
+
     // Construir filtros combinados
-    const combinedFilters: any = { 
+    const combinedFilters: any = {
       page: 1,
       sortBy: currentSortKey,
       sortOrder: currentSortDirection,
       limit: currentLimit,
     }
-    
+
     // Campos de búsqueda por texto
     const searchableFields = ['codigo', 'nombre', 'nombreComercial', 'nif', 'email', 'telefono', 'direccion', 'riesgoActual', 'limiteCredito']
     const searchTerms: string[] = []
-    
+
     searchableFields.forEach(field => {
       if (debouncedColumnFilters[field]) {
         searchTerms.push(debouncedColumnFilters[field])
       }
     })
-    
+
     if (searchTerms.length > 0) {
       combinedFilters.search = searchTerms.join(' ')
     }
-    
+
     // Filtros de select
     Object.entries(debouncedColumnFilters).forEach(([key, value]) => {
       if (key === 'tipoCliente') {
@@ -371,11 +380,16 @@ const {
         }
       }
     })
-    
+
+    // 🆕 APLICAR FILTROS AVANZADOS
+    if (debouncedAdvancedFilters.length > 0) {
+      Object.assign(combinedFilters, filtersToQueryParams(debouncedAdvancedFilters))
+    }
+
     console.log('🔄 Aplicando filtros:', combinedFilters)
     setFilters(combinedFilters)
-    
-  }, [debouncedColumnFilters, currentSortKey, currentSortDirection, currentLimit])
+
+  }, [debouncedColumnFilters, debouncedAdvancedFilters, currentSortKey, currentSortDirection, currentLimit])
 
   // ============================================
   // SINCRONIZAR CONFIGURACIÓN GUARDADA CON FILTROS (SOLO CARGA INICIAL)
@@ -385,15 +399,27 @@ const {
     if (!isInitialLoad.current) return
 
     console.log('🔄 Carga inicial - Aplicando configuración guardada')
-    
+
     const initialFilters = (moduleConfig?.columnFilters && Object.keys(moduleConfig.columnFilters).length > 0)
       ? moduleConfig.columnFilters
       : { activo: 'true' }
-    
+
     setColumnFiltersInput(initialFilters as any)
+
+    // 🆕 Cargar filtros avanzados guardados
+    if (moduleConfig?.advancedFilters && moduleConfig.advancedFilters.length > 0) {
+      setAdvancedFilters(savedToFilters(moduleConfig.advancedFilters, CLIENTES_FILTERABLE_FIELDS))
+    }
+
     isInitialLoad.current = false
-    
+
   }, [moduleConfig, isLoadingConfig])
+
+  // 🆕 GUARDAR FILTROS AVANZADOS CUANDO CAMBIAN
+  useEffect(() => {
+    if (isInitialLoad.current || isLoadingConfig) return
+    updateAdvancedFilters(filtersToSaved(advancedFilters))
+  }, [advancedFilters, isLoadingConfig, updateAdvancedFilters])
 
   // ============================================
   // 🆕 HANDLERS PARA VISTAS GUARDADAS
@@ -401,29 +427,36 @@ const {
 
   const handleAplicarVista = useCallback((configuracion: any) => {
     console.log('📄 Aplicando vista guardada:', configuracion)
-    
+
     // Aplicar todas las propiedades de la configuración
     if (configuracion.columnas) {
       updateColumnas(configuracion.columnas)
     }
-    
+
     if (configuracion.sortConfig) {
       updateSortConfig(configuracion.sortConfig)
     }
-    
+
     if (configuracion.columnFilters) {
       setColumnFiltersInput(configuracion.columnFilters as any)
     }
-    
+
+    // 🆕 Aplicar filtros avanzados de la vista
+    if (configuracion.advancedFilters?.length > 0) {
+      setAdvancedFilters(savedToFilters(configuracion.advancedFilters, CLIENTES_FILTERABLE_FIELDS))
+    } else {
+      setAdvancedFilters([])
+    }
+
     if (configuracion.densidad) {
       updateDensidad(configuracion.densidad)
     }
-    
+
     if (configuracion.paginacion?.limit) {
       // Actualizar límite de paginación si es necesario
       setFilters(prev => ({ ...prev, limit: configuracion.paginacion.limit }))
     }
-    
+
     toast.success('Vista aplicada correctamente')
   }, [updateColumnas, updateSortConfig, updateDensidad])
 
@@ -434,7 +467,14 @@ const {
     vistaIdActualizar?: string
   ) => {
     try {
-      console.log('💾 Guardando vista:', { nombre, descripcion, esDefault, vistaIdActualizar, config: moduleConfig })
+      // Combinar moduleConfig con los filtros avanzados actuales (evita problemas de debounce)
+      const configToSave = {
+        ...moduleConfig,
+        advancedFilters: filtersToSaved(advancedFilters),
+        columnFilters: columnFiltersInput,
+      }
+
+      console.log('💾 Guardando vista:', { nombre, descripcion, esDefault, vistaIdActualizar, config: configToSave })
 
       if (vistaIdActualizar) {
         // Actualizar vista existente
@@ -442,7 +482,7 @@ const {
           modulo: 'clientes',
           nombre,
           descripcion,
-          configuracion: moduleConfig,
+          configuracion: configToSave,
           esDefault: esDefault || false,
         })
         toast.success(`Vista "${nombre}" actualizada correctamente`)
@@ -452,7 +492,7 @@ const {
           modulo: 'clientes',
           nombre,
           descripcion,
-          configuracion: moduleConfig,
+          configuracion: configToSave,
           esDefault: esDefault || false,
         })
         toast.success(`Vista "${nombre}" guardada correctamente`)
@@ -462,7 +502,7 @@ const {
       toast.error('Error al guardar la vista')
       throw error
     }
-  }, [moduleConfig])
+  }, [moduleConfig, advancedFilters, columnFiltersInput])
 
   // Cargar y aplicar vista por defecto al iniciar
   useEffect(() => {
@@ -913,18 +953,18 @@ const {
           </div>
         )}
 
+        {/* 🆕 FILTROS AVANZADOS */}
+        <AdvancedFilters
+          fields={CLIENTES_FILTERABLE_FIELDS}
+          filters={advancedFilters}
+          onFiltersChange={setAdvancedFilters}
+          searchValue={searchTerm}
+          onSearchChange={handleSearch}
+          searchPlaceholder="Buscar por nombre, NIF, email..."
+        />
+
         {/* BARRA DE HERRAMIENTAS */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <div className="relative flex-1 w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre, NIF, email..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
           <div className="flex gap-2 flex-wrap w-full sm:w-auto">
             {/* MENÚ DE CONFIGURACIÓN (Densidad + Vistas + Restablecer) */}
             <SettingsMenu

@@ -842,6 +842,21 @@ export function TabVariantes({ formData, setFormData, isEditing }: TabVariantesP
                                 </Label>
                                 {almacenes.length > 0 ? (
                                   <div className="space-y-2">
+                                    {/* Headers de las columnas */}
+                                    <div className="grid grid-cols-5 gap-2 items-center">
+                                      <div className="col-span-2">
+                                        <Label className="text-xs text-muted-foreground">Almacén</Label>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs text-muted-foreground">Cantidad</Label>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs text-muted-foreground">Mínimo</Label>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs text-muted-foreground">Máximo</Label>
+                                      </div>
+                                    </div>
                                     {almacenes.map((almacen) => {
                                       const stockAlmacen = (variante.stockPorAlmacen || []).find(s => s.almacenId === almacen._id)
                                       return (
@@ -857,7 +872,6 @@ export function TabVariantes({ formData, setFormData, isEditing }: TabVariantesP
                                               value={stockAlmacen?.cantidad || 0}
                                               onChange={(e) => updateVarianteStock(vIndex, almacen._id, { cantidad: parseInt(e.target.value) || 0 })}
                                               disabled={!isEditing}
-                                              placeholder="Cantidad"
                                               className="h-8"
                                             />
                                           </div>
@@ -868,7 +882,6 @@ export function TabVariantes({ formData, setFormData, isEditing }: TabVariantesP
                                               value={stockAlmacen?.minimo || 0}
                                               onChange={(e) => updateVarianteStock(vIndex, almacen._id, { minimo: parseInt(e.target.value) || 0 })}
                                               disabled={!isEditing}
-                                              placeholder="Mín"
                                               className="h-8"
                                             />
                                           </div>
@@ -879,16 +892,12 @@ export function TabVariantes({ formData, setFormData, isEditing }: TabVariantesP
                                               value={stockAlmacen?.maximo || 0}
                                               onChange={(e) => updateVarianteStock(vIndex, almacen._id, { maximo: parseInt(e.target.value) || 0 })}
                                               disabled={!isEditing}
-                                              placeholder="Máx"
                                               className="h-8"
                                             />
                                           </div>
                                         </div>
                                       )
                                     })}
-                                    <div className="text-xs text-muted-foreground mt-2">
-                                      Columnas: Almacén | Cantidad | Mínimo | Máximo
-                                    </div>
                                   </div>
                                 ) : (
                                   <div className="text-sm text-muted-foreground">

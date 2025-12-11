@@ -128,6 +128,22 @@ class AlbaranesService {
   }
 
   /**
+   * Crear albarán directamente desde un presupuesto (sin pasar por pedido)
+   */
+  async crearDesdePresupuesto(presupuestoId: string, params?: { copiarNotas?: boolean }): Promise<ApiResponse<IAlbaran>> {
+    try {
+      const response = await api.post<ApiResponse<IAlbaran>>(
+        `${this.baseUrl}/desde-presupuesto/${presupuestoId}`,
+        params || {}
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error al crear albarán desde presupuesto:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Registrar entrega del albarán
    */
   async registrarEntrega(id: string, params: RegistrarEntregaParams): Promise<ApiResponse<IAlbaran>> {

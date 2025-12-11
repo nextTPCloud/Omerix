@@ -93,7 +93,7 @@ import { TerminoPago } from '@/types/termino-pago.types'
 import { toast } from 'sonner'
 
 // Variantes
-import { VarianteSelector } from '@/components/productos/VarianteSelector'
+import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
 
 interface PresupuestoFormProps {
   initialData?: IPresupuesto
@@ -587,17 +587,70 @@ export function PresupuestoForm({
     })
   }
 
-  // Handler para cuando se selecciona una variante
-  const handleVarianteSelect = (varianteInfo: {
-    varianteId: string
-    sku: string
-    combinacion: Record<string, string>
-    precioUnitario: number
-    costeUnitario: number
-  }) => {
+  // Handler para cuando se selecciona una variante (compatibilidad)
+  const handleVarianteSelect = (varianteInfo: VarianteSeleccion) => {
     if (lineaIndexParaVariante !== null && productoConVariantes) {
-      aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, varianteInfo)
+      // Aplicar en la línea actual con la cantidad especificada
+      const lineaConCantidad = {
+        ...varianteInfo,
+      }
+      aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, lineaConCantidad)
+      // Actualizar cantidad si se especificó
+      if (varianteInfo.cantidad && varianteInfo.cantidad !== 1) {
+        handleUpdateLinea(lineaIndexParaVariante, { cantidad: varianteInfo.cantidad })
+      }
     }
+    setVarianteSelectorOpen(false)
+    setProductoConVariantes(null)
+    setLineaIndexParaVariante(null)
+  }
+
+  // Handler para cuando se seleccionan múltiples variantes
+  const handleVariantesMultipleSelect = (variantes: VarianteSeleccion[]) => {
+    if (lineaIndexParaVariante === null || !productoConVariantes) return
+
+    // Para la primera variante, usar la línea existente
+    const primeraVariante = variantes[0]
+    aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, primeraVariante)
+    // Actualizar cantidad de la primera línea
+    if (primeraVariante.cantidad) {
+      setTimeout(() => {
+        handleUpdateLinea(lineaIndexParaVariante, { cantidad: primeraVariante.cantidad })
+      }, 0)
+    }
+
+    // Para el resto de variantes, crear nuevas líneas
+    if (variantes.length > 1) {
+      const nuevasLineas = variantes.slice(1).map((variante, idx) => {
+        const numLinea = (formData.lineas?.length || 0) + idx + 1
+        return calcularLinea({
+          ...crearLineaVacia(numLinea),
+          productoId: productoConVariantes._id,
+          sku: variante.sku,
+          nombre: `${productoConVariantes.nombre} - ${Object.values(variante.combinacion).join(' / ')}`,
+          descripcion: productoConVariantes.descripcion || '',
+          cantidad: variante.cantidad || 1,
+          precioUnitario: variante.precioUnitario,
+          costeUnitario: variante.costeUnitario,
+          descuento: 0,
+          tipoDescuento: 'porcentaje' as const,
+          impuesto: productoConVariantes.impuesto || 21,
+          variante: {
+            varianteId: variante.varianteId,
+            sku: variante.sku,
+            combinacion: variante.combinacion,
+            precioAdicional: variante.precioUnitario - (productoConVariantes.precios?.venta || 0),
+            costeAdicional: variante.costeUnitario - (productoConVariantes.precios?.compra || 0),
+          },
+        })
+      })
+
+      setFormData(prev => ({
+        ...prev,
+        lineas: [...(prev.lineas || []), ...nuevasLineas] as ILineaPresupuesto[],
+      }))
+    }
+
     setVarianteSelectorOpen(false)
     setProductoConVariantes(null)
     setLineaIndexParaVariante(null)
@@ -693,7 +746,7 @@ export function PresupuestoForm({
   const handleCantidadKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      // Añadir nueva línea y enfocar su campo de producto
+      // Añadir nueva línea y enfocar su campo de producto (tanto Enter como Ctrl+Enter)
       handleAddLinea(TipoLinea.PRODUCTO)
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
@@ -719,6 +772,10 @@ export function PresupuestoForm({
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // Solo en la pestaña de líneas
       if (activeTab !== 'lineas') return
+
+      // Ignorar si el foco está en un input (ya tienen sus propios handlers)
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
 
       // Ctrl+Enter o Ctrl+N para añadir línea
       if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 'n')) {
@@ -1147,8 +1204,9 @@ export function PresupuestoForm({
                         <Input
                           id="pedidoCliente"
                           value={formData.pedidoCliente || ''}
-                          onChange={(e) => setFormData(prev => ({ ...prev, pedidoCliente: e.target.value }))}
-                          placeholder="Número de pedido del cliente"
+                          disabled
+                          placeholder="Se asigna al convertir en pedido"
+                          className="bg-muted"
                         />
                       </div>
                     </div>
@@ -2360,7 +2418,9 @@ export function PresupuestoForm({
         onOpenChange={setVarianteSelectorOpen}
         producto={productoConVariantes}
         onSelect={handleVarianteSelect}
+        onSelectMultiple={handleVariantesMultipleSelect}
         onSelectBase={handleUsarProductoBase}
+        multiSelect={true}
       />
     </form>
   )

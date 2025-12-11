@@ -6,11 +6,19 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { Plus, Trash2, Warehouse, AlertCircle, Package, RefreshCw } from 'lucide-react'
+import { Plus, Trash2, Warehouse, AlertCircle, Package, RefreshCw, Euro, TrendingUp, Calculator, Clock } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { almacenesService } from '@/services/almacenes.service'
 import { Almacen } from '@/types/almacen.types'
 import { toast } from 'sonner'
+
+// Formatear moneda
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(value)
+}
 
 interface TabStockProps {
   formData: any
@@ -160,8 +168,92 @@ export function TabStock({ formData, setFormData, isEditing }: TabStockProps) {
     return almacen ? almacen.nombre : 'Desconocido'
   }
 
+  // Calcular stock total
+  const calcularStockTotal = () => {
+    if (formData.tieneVariantes && formData.variantes?.length > 0) {
+      return stockVariantes?.stockTotal || 0
+    }
+
+    // Stock de almacenes
+    if (formData.stockPorAlmacen?.length > 0) {
+      return formData.stockPorAlmacen.reduce((total: number, s: any) => total + (s.cantidad || 0), 0)
+    }
+
+    return formData.stock?.cantidad || 0
+  }
+
+  // Calcular valor del inventario
+  const calcularValorInventario = () => {
+    const stockTotal = calcularStockTotal()
+    const coste = formData.costes?.costeMedio || formData.precios?.compra || 0
+    return stockTotal * coste
+  }
+
   return (
     <div className="space-y-4">
+      {/* Resumen de Stock y Costes */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Stock Total</p>
+              <p className="text-2xl font-bold">{calcularStockTotal()}</p>
+              <p className="text-xs text-muted-foreground mt-1">{formData.unidadMedida || 'unidades'}</p>
+            </div>
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+              <Package className="h-5 w-5 text-blue-600" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Coste Último</p>
+              <p className="text-2xl font-bold">{formatCurrency(formData.costes?.costeUltimo || formData.precios?.compra || 0)}</p>
+              <p className="text-xs text-muted-foreground mt-1">última compra</p>
+            </div>
+            <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+              <Euro className="h-5 w-5 text-green-600" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Coste Medio</p>
+              <p className="text-2xl font-bold">{formatCurrency(formData.costes?.costeMedio || formData.precios?.compra || 0)}</p>
+              <p className="text-xs text-muted-foreground mt-1">ponderado</p>
+            </div>
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+              <Calculator className="h-5 w-5 text-purple-600" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Valor Inventario</p>
+              <p className="text-2xl font-bold">{formatCurrency(calcularValorInventario())}</p>
+              <p className="text-xs text-muted-foreground mt-1">a coste medio</p>
+            </div>
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+              <TrendingUp className="h-5 w-5 text-orange-600" />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Información de última actualización de costes */}
+      {formData.costes?.ultimaActualizacion && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Clock className="h-4 w-4" />
+          <span>Costes actualizados: {new Date(formData.costes.ultimaActualizacion).toLocaleString('es-ES')}</span>
+        </div>
+      )}
+
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Gestión de Stock</h3>
 
@@ -370,14 +462,27 @@ export function TabStock({ formData, setFormData, isEditing }: TabStockProps) {
                   <TableHead>Mínimo</TableHead>
                   <TableHead>Máximo</TableHead>
                   <TableHead>Ubicación</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead>Estado</TableHead>
                   {isEditing && <TableHead className="w-[50px]"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {formData.stockPorAlmacen.map((stock: any, index: number) => {
                   const almacen = almacenes.find(a => a._id === stock.almacenId)
+                  const cantidad = stock.cantidad || 0
+                  const minimo = stock.minimo || 0
+                  const maximo = stock.maximo || 0
+                  const coste = formData.costes?.costeMedio || formData.precios?.compra || 0
+                  const valorAlmacen = cantidad * coste
+
+                  // Determinar estado del stock
+                  const esBajo = minimo > 0 && cantidad < minimo
+                  const esAlto = maximo > 0 && cantidad > maximo
+                  const esNormal = !esBajo && !esAlto
+
                   return (
-                    <TableRow key={index}>
+                    <TableRow key={index} className={esBajo ? 'bg-red-50 dark:bg-red-950/20' : esAlto ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''}>
                       <TableCell>
                         {stock.almacenId && almacen ? (
                           <div className="flex items-center gap-2">
@@ -415,7 +520,7 @@ export function TabStock({ formData, setFormData, isEditing }: TabStockProps) {
                             setFormData({ ...formData, stockPorAlmacen: newStock })
                           }}
                           disabled={!isEditing}
-                          className="w-24"
+                          className={`w-24 ${esBajo ? 'border-red-500' : esAlto ? 'border-yellow-500' : ''}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -458,6 +563,33 @@ export function TabStock({ formData, setFormData, isEditing }: TabStockProps) {
                           placeholder="Ubicación"
                           className="w-32"
                         />
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(valorAlmacen)}
+                      </TableCell>
+                      <TableCell>
+                        {esBajo && (
+                          <Badge variant="destructive" className="text-xs">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Bajo
+                          </Badge>
+                        )}
+                        {esAlto && (
+                          <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 border-yellow-300">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Exceso
+                          </Badge>
+                        )}
+                        {esNormal && cantidad > 0 && (
+                          <Badge variant="outline" className="text-xs bg-green-100 text-green-800 border-green-300">
+                            Normal
+                          </Badge>
+                        )}
+                        {cantidad === 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            Sin stock
+                          </Badge>
+                        )}
                       </TableCell>
                       {isEditing && (
                         <TableCell>

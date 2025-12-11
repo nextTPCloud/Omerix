@@ -49,7 +49,9 @@ const StockVarianteAlmacenSchema = z.object({
   minimo: z.number().min(0).default(0),
   maximo: z.number().min(0).default(0),
   ubicacion: z.string().optional(),
-  ultimaActualizacion: z.date().optional(),
+  ultimaActualizacion: z.union([z.date(), z.string()]).transform(val =>
+    typeof val === 'string' ? new Date(val) : val
+  ).optional(),
 });
 
 // Dimensiones de variante
