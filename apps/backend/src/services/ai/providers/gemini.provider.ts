@@ -8,6 +8,7 @@
 import {
   IAIProvider,
   AIMessage,
+  AIMessageWithImage,
   AIGenerationOptions,
   AIResponse,
   AIProvider,
@@ -50,12 +51,96 @@ export class GeminiProvider implements IAIProvider {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(`Gemini API error: ${error.error?.message || response.statusText}`);
+      const errorMessage = error.error?.message || response.statusText;
+
+      // Detectar error de cuota específicamente
+      if (errorMessage.includes('quota') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
+        throw new Error('QUOTA_EXCEEDED:Has superado el límite gratuito de la API de IA. Configura una API key de pago en los ajustes de la empresa.');
+      }
+
+      throw new Error(`Gemini API error: ${errorMessage}`);
     }
 
     const data = await response.json();
 
     // Extraer el texto de la respuesta
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    return {
+      content,
+      provider: this.name,
+      model: this.model,
+      usage: {
+        promptTokens: data.usageMetadata?.promptTokenCount || 0,
+        completionTokens: data.usageMetadata?.candidatesTokenCount || 0,
+        totalTokens: data.usageMetadata?.totalTokenCount || 0,
+      },
+    };
+  }
+
+  /**
+   * Completar con imágenes (visión)
+   * Gemini 2.0 Flash soporta imágenes y PDFs
+   */
+  async completeWithImage(
+    message: AIMessageWithImage,
+    systemPrompt?: string,
+    options?: AIGenerationOptions
+  ): Promise<AIResponse> {
+    // Construir las partes del mensaje
+    const parts: any[] = [];
+
+    // Añadir texto del sistema + prompt del usuario
+    const textContent = systemPrompt
+      ? `${systemPrompt}\n\n${message.content}`
+      : message.content;
+    parts.push({ text: textContent });
+
+    // Añadir imágenes en formato inline_data
+    for (const image of message.images) {
+      parts.push({
+        inline_data: {
+          mime_type: image.mimeType,
+          data: image.base64,
+        },
+      });
+    }
+
+    const response = await fetch(
+      `${this.baseUrl}/models/${this.model}:generateContent?key=${this.apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts,
+            },
+          ],
+          generationConfig: {
+            temperature: options?.temperature ?? 0.2,
+            maxOutputTokens: options?.maxTokens ?? 4096,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      const errorMessage = error.error?.message || response.statusText;
+
+      // Detectar error de cuota específicamente
+      if (errorMessage.includes('quota') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
+        throw new Error('QUOTA_EXCEEDED:Has superado el límite gratuito de la API de IA. Configura una API key de pago en los ajustes de la empresa.');
+      }
+
+      throw new Error(`Gemini Vision API error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     return {

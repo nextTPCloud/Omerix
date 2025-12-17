@@ -10,6 +10,9 @@ class DatabaseManagerService {
   // Cache de conexiones por empresaId
   private connections: Map<string, Connection> = new Map();
 
+  // Promesas pendientes de conexión (para evitar race conditions)
+  private pendingConnections: Map<string, Promise<Connection>> = new Map();
+
   // Conexión principal (usuarios, empresas, licencias, planes, pagos)
   private mainConnection: Connection | null = null;
 
@@ -33,6 +36,8 @@ class DatabaseManagerService {
 
   /**
    * Obtener o crear conexión para una empresa específica
+   * Usa un mecanismo de bloqueo para evitar race conditions cuando
+   * múltiples llamadas intentan crear la conexión simultáneamente
    */
   async getEmpresaConnection(empresaId: string, dbConfig: IDatabaseConfig): Promise<Connection> {
     // Si ya existe la conexión en cache, retornarla
@@ -49,11 +54,25 @@ class DatabaseManagerService {
       }
     }
 
-    // Crear nueva conexión
-    const connection = await this.createEmpresaConnection(empresaId, dbConfig);
-    this.connections.set(empresaId, connection);
+    // Si ya hay una conexión pendiente para esta empresa, esperar a que termine
+    // Esto evita que múltiples llamadas paralelas creen conexiones duplicadas
+    if (this.pendingConnections.has(empresaId)) {
+      logger.info(`⏳ Esperando conexión pendiente para empresa ${empresaId}`);
+      return this.pendingConnections.get(empresaId)!;
+    }
 
-    return connection;
+    // Crear promesa de conexión y guardarla para que otras llamadas la esperen
+    const connectionPromise = this.createEmpresaConnection(empresaId, dbConfig);
+    this.pendingConnections.set(empresaId, connectionPromise);
+
+    try {
+      const connection = await connectionPromise;
+      this.connections.set(empresaId, connection);
+      return connection;
+    } finally {
+      // Limpiar la promesa pendiente una vez resuelta (éxito o error)
+      this.pendingConnections.delete(empresaId);
+    }
   }
 
   /**

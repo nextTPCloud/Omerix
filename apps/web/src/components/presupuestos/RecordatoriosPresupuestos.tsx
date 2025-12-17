@@ -457,4 +457,182 @@ export function HistorialRecordatorios({ presupuestoId }: HistorialRecordatorios
   );
 }
 
+// Componente para configurar recordatorios de un presupuesto
+interface ConfigRecordatoriosProps {
+  presupuestoId: string;
+  config?: {
+    activo?: boolean;
+    diasAntesExpiracion?: number;
+    enviarAlCliente?: boolean;
+    enviarAlAgente?: boolean;
+    maxRecordatorios?: number;
+  };
+  onConfigChange?: () => void;
+}
+
+export function ConfigRecordatorios({ presupuestoId, config, onConfigChange }: ConfigRecordatoriosProps) {
+  const [loading, setLoading] = useState(false);
+  const [localConfig, setLocalConfig] = useState({
+    activo: config?.activo ?? true,
+    diasAntesExpiracion: config?.diasAntesExpiracion ?? 7,
+    enviarAlCliente: config?.enviarAlCliente ?? true,
+    enviarAlAgente: config?.enviarAlAgente ?? true,
+    maxRecordatorios: config?.maxRecordatorios ?? 3,
+  });
+
+  useEffect(() => {
+    setLocalConfig({
+      activo: config?.activo ?? true,
+      diasAntesExpiracion: config?.diasAntesExpiracion ?? 7,
+      enviarAlCliente: config?.enviarAlCliente ?? true,
+      enviarAlAgente: config?.enviarAlAgente ?? true,
+      maxRecordatorios: config?.maxRecordatorios ?? 3,
+    });
+  }, [config]);
+
+  const guardarConfig = async (newConfig: typeof localConfig) => {
+    try {
+      setLoading(true);
+      const response = await presupuestosService.actualizarConfigRecordatorios(presupuestoId, newConfig);
+
+      if (response.success) {
+        toast.success('Configuración guardada');
+        onConfigChange?.();
+      } else {
+        toast.error(response.message || 'Error al guardar configuración');
+      }
+    } catch (error) {
+      console.error('Error al guardar config:', error);
+      toast.error('Error al guardar configuración');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (key: keyof typeof localConfig, value: boolean | number) => {
+    const newConfig = { ...localConfig, [key]: value };
+    setLocalConfig(newConfig);
+    guardarConfig(newConfig);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-medium flex items-center gap-2">
+          <Bell className="h-4 w-4" />
+          Configuración de Recordatorios
+        </h4>
+        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+      </div>
+
+      <div className="space-y-3">
+        {/* Activar/Desactivar */}
+        <div className="flex items-center justify-between p-3 rounded-lg border">
+          <div>
+            <Label htmlFor="activo" className="font-medium">Recordatorios activos</Label>
+            <p className="text-xs text-muted-foreground">
+              Permitir el envío de recordatorios automáticos
+            </p>
+          </div>
+          <Switch
+            id="activo"
+            checked={localConfig.activo}
+            onCheckedChange={(checked) => handleChange('activo', checked)}
+            disabled={loading}
+          />
+        </div>
+
+        {localConfig.activo && (
+          <>
+            <Separator />
+
+            {/* Enviar al cliente */}
+            <div className="flex items-center justify-between p-3 rounded-lg border">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-blue-500" />
+                <div>
+                  <Label htmlFor="enviarAlCliente">Enviar al cliente</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Enviar email de recordatorio al cliente
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="enviarAlCliente"
+                checked={localConfig.enviarAlCliente}
+                onCheckedChange={(checked) => handleChange('enviarAlCliente', checked)}
+                disabled={loading}
+              />
+            </div>
+
+            {/* Notificar al agente */}
+            <div className="flex items-center justify-between p-3 rounded-lg border">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-purple-500" />
+                <div>
+                  <Label htmlFor="enviarAlAgente">Notificar al agente</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Enviar notificación al agente comercial
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="enviarAlAgente"
+                checked={localConfig.enviarAlAgente}
+                onCheckedChange={(checked) => handleChange('enviarAlAgente', checked)}
+                disabled={loading}
+              />
+            </div>
+
+            {/* Días antes de expiración */}
+            <div className="p-3 rounded-lg border space-y-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <Label>Días antes de expiración</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enviar recordatorio cuando falten estos días para que expire
+              </p>
+              <select
+                value={localConfig.diasAntesExpiracion}
+                onChange={(e) => handleChange('diasAntesExpiracion', Number(e.target.value))}
+                disabled={loading}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value={3}>3 días</option>
+                <option value={5}>5 días</option>
+                <option value={7}>7 días</option>
+                <option value={10}>10 días</option>
+                <option value={14}>14 días</option>
+              </select>
+            </div>
+
+            {/* Máximo de recordatorios */}
+            <div className="p-3 rounded-lg border space-y-2">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-green-500" />
+                <Label>Máximo de recordatorios</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Número máximo de recordatorios a enviar por tipo
+              </p>
+              <select
+                value={localConfig.maxRecordatorios}
+                onChange={(e) => handleChange('maxRecordatorios', Number(e.target.value))}
+                disabled={loading}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value={1}>1 recordatorio</option>
+                <option value={2}>2 recordatorios</option>
+                <option value={3}>3 recordatorios</option>
+                <option value={5}>5 recordatorios</option>
+              </select>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default RecordatoriosWidget;

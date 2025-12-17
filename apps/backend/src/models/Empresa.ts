@@ -113,6 +113,16 @@ export interface IDatosRegistro {
   inscripcion?: string;
 }
 
+// Configuración de IA
+export interface IAIConfig {
+  // Proveedor de IA: gemini es el único implementado actualmente
+  provider: 'gemini' | 'openai' | 'claude' | 'ollama';
+  // API Key encriptada (si no se proporciona, usa la global del .env)
+  apiKey?: string;
+  // Modelo a usar (por defecto gemini-2.0-flash)
+  model?: string;
+}
+
 // Configuración de VeriFactu / Facturación Electrónica
 export interface IVerifactuConfig {
   // Entorno activo: test para pruebas, production para producción real
@@ -196,6 +206,9 @@ export interface IEmpresa extends Document {
 
   // Configuración de VeriFactu / Facturación Electrónica
   verifactuConfig?: IVerifactuConfig;
+
+  // Configuración de IA (API keys propias de la empresa)
+  aiConfig?: IAIConfig;
 
   // IDs de pasarelas de pago
   stripeCustomerId?: string;
@@ -287,6 +300,12 @@ const VerifactuConfigSchema = new Schema<IVerifactuConfig>({
   envioAutomatico: { type: Boolean, default: true },
   generarQR: { type: Boolean, default: true },
   firmaDigital: { type: Boolean, default: true },
+}, { _id: false });
+
+const AIConfigSchema = new Schema<IAIConfig>({
+  provider: { type: String, enum: ['gemini', 'openai', 'claude', 'ollama'], default: 'gemini' },
+  apiKey: { type: String, select: false }, // Encriptado, no se devuelve por defecto
+  model: { type: String, default: 'gemini-2.0-flash' },
 }, { _id: false });
 
 const EmpresaSchema = new Schema<IEmpresa>(
@@ -427,6 +446,15 @@ const EmpresaSchema = new Schema<IEmpresa>(
         envioAutomatico: true,
         generarQR: true,
         firmaDigital: true,
+      },
+    },
+
+    // Configuración de IA (API keys propias de la empresa)
+    aiConfig: {
+      type: AIConfigSchema,
+      default: {
+        provider: 'gemini',
+        model: 'gemini-2.0-flash',
       },
     },
 

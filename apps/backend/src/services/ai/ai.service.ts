@@ -18,33 +18,39 @@ import {
   BarcodeProductInfo,
 } from './ai.types';
 import { GeminiProvider } from './providers/gemini.provider';
+import { ClaudeProvider } from './providers/claude.provider';
 import { lookupBarcodeInApis } from './barcode-lookup.service';
 
 export class AIService {
   private provider: IAIProvider;
   private providerName: AIProvider;
 
-  constructor(providerName?: AIProvider) {
+  constructor(providerName?: AIProvider, customApiKey?: string, customModel?: string) {
     this.providerName = providerName || (process.env.AI_PROVIDER as AIProvider) || 'gemini';
-    this.provider = this.createProvider(this.providerName);
+    this.provider = this.createProvider(this.providerName, customApiKey, customModel);
   }
 
-  private createProvider(name: AIProvider): IAIProvider {
+  private createProvider(name: AIProvider, customApiKey?: string, customModel?: string): IAIProvider {
     switch (name) {
       case 'gemini':
-        const geminiKey = process.env.GEMINI_API_KEY;
+        const geminiKey = customApiKey || process.env.GEMINI_API_KEY;
         if (!geminiKey) {
-          throw new Error('GEMINI_API_KEY no está configurada');
+          throw new Error('GEMINI_API_KEY no está configurada. Configura una API key en los ajustes de la empresa o en las variables de entorno.');
         }
-        return new GeminiProvider(geminiKey, process.env.GEMINI_MODEL || 'gemini-2.0-flash');
+        const model = customModel || process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+        return new GeminiProvider(geminiKey, model);
 
       case 'openai':
         // TODO: Implementar OpenAI provider
         throw new Error('OpenAI provider no implementado aún');
 
       case 'claude':
-        // TODO: Implementar Claude provider
-        throw new Error('Claude provider no implementado aún');
+        const claudeKey = customApiKey || process.env.ANTHROPIC_API_KEY;
+        if (!claudeKey) {
+          throw new Error('ANTHROPIC_API_KEY no está configurada. Configura una API key en los ajustes de la empresa o en las variables de entorno.');
+        }
+        const claudeModel = customModel || process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
+        return new ClaudeProvider(claudeKey, claudeModel);
 
       case 'ollama':
         // TODO: Implementar Ollama provider
@@ -495,4 +501,16 @@ export function getAIService(): AIService {
     aiServiceInstance = new AIService();
   }
   return aiServiceInstance;
+}
+
+/**
+ * Crear servicio de IA con configuración específica de empresa
+ * Útil cuando la empresa tiene su propia API key configurada
+ */
+export function createAIServiceWithConfig(
+  provider?: AIProvider,
+  apiKey?: string,
+  model?: string
+): AIService {
+  return new AIService(provider, apiKey, model);
 }

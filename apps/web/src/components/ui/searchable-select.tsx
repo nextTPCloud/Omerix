@@ -300,6 +300,7 @@ interface EditableSearchableSelectProps {
   inputClassName?: string
   loading?: boolean
   onEnterPress?: () => void // Callback cuando se presiona Enter
+  onCtrlEnterPress?: () => void // Callback cuando se presiona Ctrl+Enter
   onArrowDownPress?: () => void // Callback cuando se presiona flecha abajo sin dropdown
   inputRef?: (el: HTMLInputElement | null) => void // Ref callback para el input
 }
@@ -317,6 +318,7 @@ export function EditableSearchableSelect({
   inputClassName,
   loading = false,
   onEnterPress,
+  onCtrlEnterPress,
   onArrowDownPress,
   inputRef: externalInputRef,
 }: EditableSearchableSelectProps) {
@@ -436,6 +438,15 @@ export function EditableSearchableSelect({
       setOpen(false)
       setIsSearching(false)
       setHighlightedIndex(-1)
+    } else if (e.key === 'Enter' && e.ctrlKey) {
+      // Ctrl+Enter siempre añade nueva línea
+      e.preventDefault()
+      setOpen(false)
+      setIsSearching(false)
+      setHighlightedIndex(-1)
+      if (onCtrlEnterPress) {
+        onCtrlEnterPress()
+      }
     } else if (e.key === 'Enter') {
       e.preventDefault() // Evitar que el formulario se envíe
 

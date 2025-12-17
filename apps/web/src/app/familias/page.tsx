@@ -51,6 +51,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
+import { usePermissions } from '@/hooks/usePermissions'
 import { ColumnaConfig } from '@/services/configuracion.service'
 import { useDensityClasses } from '@/components/ui/DensitySelector'
 import { SettingsMenu } from '@/components/ui/SettingsMenu'
@@ -89,6 +90,7 @@ const DEFAULT_FAMILIAS_CONFIG = {
 
 export default function FamiliasPage() {
   const router = useRouter()
+  const { canCreate, canDelete } = usePermissions()
   const isInitialLoad = useRef(true)
   const [familias, setFamilias] = useState<Familia[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -310,10 +312,12 @@ export default function FamiliasPage() {
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
+{canCreate('familias') && (
             <Button size="sm" onClick={() => router.push('/familias/nuevo')}>
               <Plus className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Nueva Familia</span>
             </Button>
+)}
           </div>
         </div>
 
@@ -514,6 +518,7 @@ export default function FamiliasPage() {
             {selectedFamilias.length > 0 && (
               <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
                 <span className="text-sm font-medium">{selectedFamilias.length} seleccionado(s)</span>
+                {canDelete('familias') && (
                 <Button
                   variant="destructive"
                   size="sm"
@@ -529,6 +534,7 @@ export default function FamiliasPage() {
                   <Trash2 className="h-4 w-4 mr-2" />
                   Eliminar seleccionados
                 </Button>
+                )}
               </div>
             )}
           </div>
@@ -684,6 +690,8 @@ export default function FamiliasPage() {
                             <DropdownMenuItem onClick={() => handleDuplicar(familia._id)}>
                               <Copy className="h-4 w-4 mr-2" />Duplicar
                             </DropdownMenuItem>
+                            {canDelete('familias') && (
+                            <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => setDeleteDialog({
@@ -695,6 +703,8 @@ export default function FamiliasPage() {
                             >
                               <Trash2 className="h-4 w-4 mr-2" />Eliminar
                             </DropdownMenuItem>
+                            </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -737,12 +747,12 @@ export default function FamiliasPage() {
             <DialogTitle>Confirmar eliminación</DialogTitle>
             <DialogDescription>
               ¿Estás seguro de que deseas eliminar {deleteDialog.familiaIds.length === 1 ? 'esta familia' : 'estas familias'}?
-              {deleteDialog.familiaNombres.length > 0 && (
-                <ul className="mt-2 list-disc list-inside">
-                  {deleteDialog.familiaNombres.map((nombre, i) => <li key={i}>{nombre}</li>)}
-                </ul>
-              )}
             </DialogDescription>
+            {deleteDialog.familiaNombres.length > 0 && (
+              <ul className="mt-2 list-disc list-inside">
+                {deleteDialog.familiaNombres.map((nombre, i) => <li key={i}>{nombre}</li>)}
+              </ul>
+            )}
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog({ open: false, familiaIds: [], familiaNombres: [] })}>

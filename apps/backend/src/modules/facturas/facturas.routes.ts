@@ -293,6 +293,27 @@ router.get('/estadisticas', facturasController.estadisticas);
 
 /**
  * @swagger
+ * /api/facturas/alertas:
+ *   get:
+ *     summary: Obtener alertas de facturas (pendientes cobro, vencidas, próximas a vencer)
+ *     tags: [Facturas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: diasAlerta
+ *         schema:
+ *           type: integer
+ *           default: 7
+ *         description: Días para considerar próximas a vencer
+ *     responses:
+ *       200:
+ *         description: Alertas de facturas
+ */
+router.get('/alertas', facturasController.getAlertas);
+
+/**
+ * @swagger
  * /api/facturas/desde-albaranes:
  *   post:
  *     summary: Crear facturas desde albaranes pendientes

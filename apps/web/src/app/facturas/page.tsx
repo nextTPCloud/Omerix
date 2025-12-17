@@ -84,6 +84,8 @@ import {
   MessageCircle,
   Printer,
   ChevronDown,
+  Bell,
+  BellOff,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -99,6 +101,8 @@ import { PrintButton } from '@/components/ui/PrintButton'
 // FILTROS AVANZADOS
 import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
 import { FACTURAS_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
+import { FacturasAlertas } from '@/components/facturas/FacturasAlertas'
+import { usePermissions } from '@/hooks/usePermissions'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -165,6 +169,7 @@ const DEFAULT_CONFIG = {
 export default function FacturasPage() {
   const router = useRouter()
   const isInitialLoad = useRef(true)
+  const { canCreate, canDelete } = usePermissions()
 
   // Estados de datos
   const [facturas, setFacturas] = useState<IFactura[]>([])
@@ -204,6 +209,7 @@ export default function FacturasPage() {
 
   // UI States
   const [showStats, setShowStats] = useState(true)
+  const [showAlertas, setShowAlertas] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     facturaIds: string[]
@@ -1299,6 +1305,15 @@ export default function FacturasPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowAlertas(!showAlertas)}
+              title={showAlertas ? 'Ocultar alertas' : 'Mostrar alertas'}
+            >
+              {showAlertas ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+              <span className="ml-2 hidden sm:inline">Alertas</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowStats(!showStats)}
             >
               {showStats ? <Eye className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
@@ -1312,14 +1327,26 @@ export default function FacturasPage() {
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
-            <Button asChild size="sm">
-              <Link href="/facturas/nuevo">
-                <Plus className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Nueva Factura</span>
-              </Link>
-            </Button>
+            {canCreate('facturas') && (
+              <Button asChild size="sm">
+                <Link href="/facturas/nuevo">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Nueva Factura</span>
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
+
+        {/* ALERTAS DE FACTURAS */}
+        {showAlertas && (
+          <FacturasAlertas
+            diasAlerta={7}
+            onRefresh={cargarFacturas}
+            collapsible={true}
+            defaultCollapsed={false}
+          />
+        )}
 
         {/* DASHBOARD DE ESTADÍSTICAS */}
         {showStats && (
@@ -1542,10 +1569,12 @@ export default function FacturasPage() {
               </DropdownMenu>
 
               {/* Eliminar */}
-              <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </Button>
+              {canDelete('facturas') && (
+                <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -1996,7 +2025,7 @@ export default function FacturasPage() {
                               </DropdownMenuItem>
                             )}
 
-                            {factura.estado === EstadoFactura.BORRADOR && (
+                            {factura.estado === EstadoFactura.BORRADOR && canDelete('facturas') && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
@@ -2135,16 +2164,16 @@ export default function FacturasPage() {
                 ¿Estás seguro de que deseas eliminar {deleteDialog.facturaIds.length === 1
                   ? 'la siguiente factura'
                   : `las siguientes ${deleteDialog.facturaIds.length} facturas`}?
-                <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                  {deleteDialog.facturaCodigos.map((codigo, index) => (
-                    <li key={index} className="text-sm font-medium">• {codigo}</li>
-                  ))}
-                </ul>
-                <p className="mt-3 text-sm text-orange-600">
-                  Solo se pueden eliminar facturas en estado borrador.
-                </p>
               </DialogDescription>
             </DialogHeader>
+            <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
+              {deleteDialog.facturaCodigos.map((codigo, index) => (
+                <li key={index} className="text-sm font-medium">• {codigo}</li>
+              ))}
+            </ul>
+            <p className="mt-3 text-sm text-orange-600">
+              Solo se pueden eliminar facturas en estado borrador.
+            </p>
             <DialogFooter>
               <Button
                 variant="outline"

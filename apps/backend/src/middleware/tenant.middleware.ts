@@ -86,6 +86,7 @@ export const tenantMiddleware = async (
 
     // Adjuntar configuración de DB al request para que los servicios la usen
     req.empresaDbConfig = empresa.databaseConfig;
+    req.dbConfig = empresa.databaseConfig; // Alias para compatibilidad
 
     console.log(`🏢 Tenant: ${empresaId} | DB: ${empresa.databaseConfig.name}`);
     next();

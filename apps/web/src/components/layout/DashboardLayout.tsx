@@ -8,6 +8,7 @@ import { Sidebar } from './Sidebar'
 import { cn } from '@/lib/utils'
 import { isTokenExpired, getTokenTimeRemaining } from '@/utils/jwt.utils'
 import { FavoritosProvider } from '@/contexts/FavoritosContext'
+import { AIChat } from '@/components/ai/AIChat'
 
 // Intervalo de verificación del token (cada 60 segundos)
 const TOKEN_CHECK_INTERVAL = 60 * 1000
@@ -149,6 +150,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </main>
         </div>
+        {/* Chat de IA flotante */}
+        <AIChat />
       </div>
     </FavoritosProvider>
   )

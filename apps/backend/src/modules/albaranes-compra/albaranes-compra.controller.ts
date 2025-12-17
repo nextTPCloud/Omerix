@@ -11,6 +11,16 @@ import {
 import { EstadoAlbaranCompra } from './AlbaranCompra';
 import { AuthRequest } from '@/middleware/auth.middleware';
 
+// Import dinámico del servicio OCR para evitar que falle si no está disponible
+const getOCRService = async () => {
+  try {
+    return await import('@/services/ai/ocr-compras.service');
+  } catch (error) {
+    console.error('Error cargando servicio OCR:', error);
+    return null;
+  }
+};
+
 export class AlbaranesCompraController {
   // ============================================
   // LISTAR ALBARANES DE COMPRA
@@ -59,6 +69,7 @@ export class AlbaranesCompraController {
         },
       });
     } catch (error: any) {
+      console.error('Error en listar albaranes-compra:', error);
       res.status(500).json({
         success: false,
         message: 'Error listando albaranes de compra',
@@ -470,6 +481,225 @@ export class AlbaranesCompraController {
       res.status(500).json({
         success: false,
         message: 'Error obteniendo estadísticas',
+        error: error.message,
+      });
+    }
+  }
+
+  // ============================================
+  // ALERTAS
+  // ============================================
+
+  async getAlertas(req: AuthRequest, res: Response) {
+    try {
+      const diasAlerta = req.query.diasAlerta ? Number(req.query.diasAlerta) : 30;
+
+      const result = await albaranesCompraService.getAlertas(
+        req.empresaId!,
+        req.dbConfig!,
+        diasAlerta
+      );
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('Error en getAlertas albaranes-compra:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error obteniendo alertas de albaranes de compra',
+        error: error.message,
+      });
+    }
+  }
+
+  // ============================================
+  // OCR - PROCESAR DOCUMENTO
+  // ============================================
+
+  /**
+   * Procesar documento de compra con OCR
+   * Recibe un archivo (imagen o PDF) y extrae los datos
+   */
+  async procesarDocumentoOCR(req: AuthRequest, res: Response) {
+    try {
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No se ha proporcionado ningún archivo',
+        });
+      }
+
+      // Verificar tipo de archivo
+      const allowedMimes = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/pdf',
+      ];
+
+      if (!allowedMimes.includes(file.mimetype)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tipo de archivo no soportado. Use JPG, PNG, GIF, WebP o PDF.',
+        });
+      }
+
+      // Cargar servicio OCR dinámicamente
+      const ocrService = await getOCRService();
+      if (!ocrService) {
+        return res.status(500).json({
+          success: false,
+          message: 'Servicio OCR no disponible',
+        });
+      }
+
+      // Convertir archivo a base64
+      const base64 = file.buffer.toString('base64');
+      const mimeType = file.mimetype as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'application/pdf';
+
+      // Procesar documento con OCR
+      const resultado = await ocrService.procesarDocumentoCompra(
+        base64,
+        mimeType,
+        req.empresaId!,
+        req.dbConfig!
+      );
+
+      res.json({
+        success: resultado.success,
+        data: resultado,
+      });
+    } catch (error: any) {
+      console.error('Error procesando documento OCR:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error procesando documento',
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Buscar productos sugeridos por descripción
+   * Útil cuando el OCR no encuentra el producto por código
+   */
+  async buscarProductosSugeridos(req: AuthRequest, res: Response) {
+    try {
+      const { descripcion } = req.query;
+
+      if (!descripcion || typeof descripcion !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Se requiere el parámetro descripcion',
+        });
+      }
+
+      // Cargar servicio OCR dinámicamente
+      const ocrService = await getOCRService();
+      if (!ocrService) {
+        return res.status(500).json({
+          success: false,
+          message: 'Servicio OCR no disponible',
+        });
+      }
+
+      const productos = await ocrService.buscarProductosPorDescripcion(
+        descripcion,
+        req.empresaId!,
+        req.dbConfig!,
+        10
+      );
+
+      res.json({
+        success: true,
+        data: productos,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: 'Error buscando productos',
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Crear albarán de compra desde datos extraídos por OCR
+   */
+  async crearDesdeOCR(req: AuthRequest, res: Response) {
+    try {
+      const {
+        proveedorId,
+        almacenId,
+        numeroAlbaranProveedor,
+        fecha,
+        lineas,
+        observaciones,
+      } = req.body;
+
+      if (!proveedorId) {
+        return res.status(400).json({
+          success: false,
+          message: 'El proveedor es obligatorio',
+        });
+      }
+
+      if (!almacenId) {
+        return res.status(400).json({
+          success: false,
+          message: 'El almacén es obligatorio',
+        });
+      }
+
+      if (!lineas || !Array.isArray(lineas) || lineas.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Se requiere al menos una línea',
+        });
+      }
+
+      // Crear DTO para el albarán
+      const dto: CreateAlbaranCompraDTO = {
+        proveedorId,
+        almacenId,
+        numeroAlbaranProveedor,
+        fecha: fecha ? new Date(fecha) : new Date(),
+        observaciones: observaciones || 'Importado mediante OCR',
+        lineas: lineas.map((linea: any) => ({
+          productoId: linea.productoId,
+          nombre: linea.nombre || linea.descripcion,
+          descripcion: linea.descripcion,
+          cantidad: linea.cantidad,
+          cantidadRecibida: 0,
+          precioUnitario: linea.precioUnitario,
+          descuento: linea.descuento || 0,
+          iva: linea.iva || 21,
+          unidad: linea.unidad || 'ud',
+          referenciaProveedor: linea.codigoProveedor,
+        })),
+      };
+
+      const albaran = await albaranesCompraService.crear(
+        dto,
+        req.empresaId!,
+        req.userId!,
+        req.dbConfig!
+      );
+
+      res.status(201).json({
+        success: true,
+        message: 'Albarán de compra creado desde OCR',
+        data: albaran,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: 'Error creando albarán desde OCR',
         error: error.message,
       });
     }

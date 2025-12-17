@@ -498,6 +498,83 @@ class PedidosCompraController {
       });
     }
   }
+
+  // ============================================
+  // PREPARAR PARA RECEPCIÓN
+  // ============================================
+
+  async prepararParaRecepcion(req: AuthRequest, res: Response) {
+    try {
+      const dbConfig = req.dbConfig;
+      if (!dbConfig) {
+        return res.status(400).json({
+          success: false,
+          message: 'Configuracion de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+
+      const resultado = await pedidosCompraService.prepararParaRecepcion(
+        id,
+        req.user!.empresaId,
+        dbConfig
+      );
+
+      if (!resultado) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pedido de compra no encontrado',
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: resultado,
+      });
+    } catch (error: any) {
+      console.error('Error al preparar recepcion:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error al preparar la recepcion',
+      });
+    }
+  }
+
+  // ============================================
+  // ALERTAS
+  // ============================================
+
+  async getAlertas(req: AuthRequest, res: Response) {
+    try {
+      const dbConfig = req.dbConfig;
+      if (!dbConfig) {
+        return res.status(400).json({
+          success: false,
+          message: 'Configuracion de base de datos no disponible',
+        });
+      }
+
+      const diasAlerta = req.query.diasAlerta ? Number(req.query.diasAlerta) : 7;
+
+      const result = await pedidosCompraService.getAlertas(
+        req.user!.empresaId,
+        dbConfig,
+        diasAlerta
+      );
+
+      return res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('Error al obtener alertas de pedidos de compra:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error al obtener alertas de pedidos de compra',
+      });
+    }
+  }
 }
 
 export const pedidosCompraController = new PedidosCompraController();

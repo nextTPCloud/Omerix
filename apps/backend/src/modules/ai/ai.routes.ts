@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { aiController } from './ai.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
+import { tenantMiddleware } from '../../middleware/tenant.middleware';
 
 const router = Router();
 
@@ -190,8 +191,9 @@ const router = Router();
  *           description: Sugerencias de seguimiento
  */
 
-// Todas las rutas requieren autenticación
+// Todas las rutas requieren autenticación y tenant
 router.use(authMiddleware);
+router.use(tenantMiddleware);
 
 /**
  * @swagger
@@ -406,5 +408,189 @@ router.post('/lookup-barcode', aiController.lookupBarcode);
  *         description: Servicio de IA no disponible
  */
 router.post('/chat', aiController.chat);
+
+// ============================================
+// COMANDOS DE VOZ/CHAT
+// ============================================
+
+/**
+ * @swagger
+ * /api/ai/command:
+ *   post:
+ *     summary: Procesar comando de voz/texto para crear documentos
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Interpreta un comando en lenguaje natural y crea documentos comerciales.
+ *
+ *       Ejemplos de comandos:
+ *       - "Crea un albarán para cliente ACME con 10 tornillos M8"
+ *       - "Hazme un presupuesto para Industrias López con 5 motores"
+ *       - "Pide a Ferretería Central 100 tuercas M10"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - command
+ *             properties:
+ *               command:
+ *                 type: string
+ *                 description: Comando en lenguaje natural
+ *                 example: "Crea un albarán para ACME con 10 tornillos"
+ *               autoCreate:
+ *                 type: boolean
+ *                 description: Si es true, crea el documento sin pedir confirmación
+ *                 default: false
+ *     responses:
+ *       200:
+ *         description: Comando procesado
+ *       400:
+ *         description: Comando inválido
+ *       401:
+ *         description: No autorizado
+ */
+router.post('/command', aiController.processCommand);
+
+/**
+ * @swagger
+ * /api/ai/command/parse:
+ *   post:
+ *     summary: Parsear comando sin ejecutarlo
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Analiza un comando y extrae la intención y entidades sin crear ningún documento.
+ *       Útil para previsualizar qué haría el comando.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - command
+ *             properties:
+ *               command:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Comando parseado
+ */
+router.post('/command/parse', aiController.parseCommand);
+
+/**
+ * @swagger
+ * /api/ai/command/confirm:
+ *   post:
+ *     summary: Confirmar y crear documento
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Confirma la creación de un documento después de que el usuario haya
+ *       revisado y posiblemente corregido los datos extraídos del comando.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tipoDocumento
+ *               - terceroId
+ *               - productos
+ *             properties:
+ *               tipoDocumento:
+ *                 type: string
+ *                 enum: [presupuesto, pedido, albaran, factura, presupuesto_compra, pedido_compra, albaran_compra, factura_compra]
+ *               terceroId:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   nombre:
+ *                     type: string
+ *                   datos:
+ *                     type: object
+ *               productos:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     nombre:
+ *                       type: string
+ *                     cantidad:
+ *                       type: number
+ *                     precio:
+ *                       type: number
+ *               observaciones:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Documento creado
+ */
+router.post('/command/confirm', aiController.confirmCommand);
+
+/**
+ * @swagger
+ * /api/ai/smart-chat:
+ *   post:
+ *     summary: Chat inteligente con detección de comandos
+ *     tags: [AI]
+ *     security:
+ *       - bearerAuth: []
+ *     description: |
+ *       Chat que detecta automáticamente si el mensaje es un comando (para crear documentos)
+ *       o una pregunta normal, y actúa en consecuencia.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - message
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 description: Mensaje del usuario
+ *               history:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     role:
+ *                       type: string
+ *                       enum: [user, assistant, system]
+ *                     content:
+ *                       type: string
+ *     responses:
+ *       200:
+ *         description: Respuesta del chat
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     respuesta:
+ *                       type: string
+ *                     esComando:
+ *                       type: boolean
+ *                     resultado:
+ *                       type: object
+ */
+router.post('/smart-chat', aiController.smartChat);
 
 export default router;

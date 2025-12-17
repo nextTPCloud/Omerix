@@ -74,6 +74,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
+import { usePermissions } from '@/hooks/usePermissions'
 import { ColumnaConfig } from '@/services/configuracion.service'
 
 // 🆕 NUEVOS IMPORTS
@@ -152,6 +153,7 @@ const DEFAULT_CONFIG = {
 export default function ProyectosPage() {
   const router = useRouter()
   const isInitialLoad = useRef(true)
+  const { canCreate, canDelete } = usePermissions()
 
   // Estados de datos
   const [proyectos, setProyectos] = useState<IProyecto[]>([])
@@ -842,12 +844,14 @@ const {
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
-            <Button asChild size="sm">
-              <Link href="/proyectos/nuevo">
-                <Plus className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Nuevo Proyecto</span>
-              </Link>
-            </Button>
+            {canCreate('proyectos') && (
+              <Button asChild size="sm">
+                <Link href="/proyectos/nuevo">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Nuevo Proyecto</span>
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -1018,10 +1022,12 @@ const {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Exportar
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </Button>
+              {canDelete('proyectos') && (
+                <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -1452,14 +1458,18 @@ const {
                               Cambiar Estado
                             </DropdownMenuItem>
 
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => handleProyectoAction(proyecto._id, 'delete')}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Eliminar
-                            </DropdownMenuItem>
+                            {canDelete('proyectos') && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => handleProyectoAction(proyecto._id, 'delete')}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -1595,12 +1605,12 @@ const {
                 ¿Estás seguro de que deseas eliminar {deleteDialog.proyectoIds.length === 1
                   ? 'el siguiente proyecto'
                   : `los siguientes ${deleteDialog.proyectoIds.length} proyectos`}?
-                <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                  {deleteDialog.proyectoNombres.map((nombre, index) => (
-                    <li key={index} className="text-sm font-medium">• {nombre}</li>
-                  ))}
-                </ul>
               </DialogDescription>
+              <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                {deleteDialog.proyectoNombres.map((nombre, index) => (
+                  <li key={index} className="text-sm font-medium">• {nombre}</li>
+                ))}
+              </ul>
             </DialogHeader>
             <DialogFooter>
               <Button

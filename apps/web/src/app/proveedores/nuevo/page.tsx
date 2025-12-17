@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { ProveedorForm } from '@/components/proveedores/ProveedorForm'
 import { proveedoresService } from '@/services/proveedores.service'
-import { CreateProveedorDTO } from '@/types/proveedor.types'
+import { CreateProveedorDTO, UpdateProveedorDTO } from '@/types/proveedor.types'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ArrowLeft, Truck } from 'lucide-react'
@@ -16,10 +16,10 @@ export default function NuevoProveedorPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (data: CreateProveedorDTO) => {
+  const handleSubmit = async (data: CreateProveedorDTO | UpdateProveedorDTO) => {
     try {
       setIsLoading(true)
-      const response = await proveedoresService.create(data)
+      const response = await proveedoresService.create(data as CreateProveedorDTO)
 
       if (response.success) {
         toast.success('Proveedor creado correctamente')

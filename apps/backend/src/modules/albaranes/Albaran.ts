@@ -228,6 +228,11 @@ export interface IAlbaran extends Document {
   pedidoOrigenId?: mongoose.Types.ObjectId;
   presupuestoOrigenId?: mongoose.Types.ObjectId;
 
+  // Devolución/Rectificación (cuando tipo = DEVOLUCION)
+  albaranRectificadoId?: mongoose.Types.ObjectId;
+  albaranRectificadoCodigo?: string;
+  motivoDevolucion?: string;
+
   // Estado
   estado: EstadoAlbaran;
 
@@ -561,6 +566,20 @@ const AlbaranSchema = new Schema<IAlbaran, IAlbaranModel>({
     ref: 'Presupuesto',
   },
 
+  // Devolución/Rectificación (cuando tipo = DEVOLUCION)
+  albaranRectificadoId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Albaran',
+  },
+  albaranRectificadoCodigo: {
+    type: String,
+    trim: true,
+  },
+  motivoDevolucion: {
+    type: String,
+    trim: true,
+  },
+
   // Estado
   estado: {
     type: String,
@@ -755,6 +774,7 @@ AlbaranSchema.index({ tags: 1 });
 AlbaranSchema.index({ 'totales.totalAlbaran': 1 });
 AlbaranSchema.index({ pedidoOrigenId: 1 });
 AlbaranSchema.index({ facturaId: 1 });
+AlbaranSchema.index({ albaranRectificadoId: 1 });
 
 // ============================================
 // VIRTUALS

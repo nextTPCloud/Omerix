@@ -661,6 +661,40 @@ export const albaranesController = {
   },
 
   /**
+   * Obtener alertas de albaranes
+   */
+  async getAlertas(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const diasAlerta = req.query.diasAlerta ? Number(req.query.diasAlerta) : 30;
+
+      const result = await albaranesService.getAlertas(
+        new mongoose.Types.ObjectId(empresaId),
+        req.empresaDbConfig,
+        diasAlerta
+      );
+
+      return res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('Error al obtener alertas de albaranes:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al obtener alertas de albaranes',
+      });
+    }
+  },
+
+  /**
    * Generar URLs de WhatsApp para varios albaranes
    */
   async generarURLsWhatsApp(req: Request, res: Response) {

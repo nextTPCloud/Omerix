@@ -59,9 +59,14 @@ import {
   ExternalLink,
   FileKey,
   FileCheck,
+  Sparkles,
+  Cpu,
+  Users,
 } from 'lucide-react'
 import { CertificadoConfig } from '@/components/configuracion/CertificadoConfig'
 import { VerifactuConfig } from '@/components/configuracion/VerifactuConfig'
+import { RolesConfig } from '@/components/configuracion/RolesConfig'
+import { UsuariosConfig } from '@/components/configuracion/UsuariosConfig'
 
 // Roles permitidos para acceder a esta página
 const ROLES_PERMITIDOS = ['superadmin', 'admin', 'gerente']
@@ -127,6 +132,20 @@ export default function ConfiguracionEmpresaPage() {
   const [oauth2Providers, setOauth2Providers] = useState<OAuth2ProvidersStatus | null>(null)
   const [isConnectingOAuth, setIsConnectingOAuth] = useState(false)
 
+  // Estado de la configuración de IA
+  const [aiConfig, setAiConfig] = useState<{
+    provider: 'gemini' | 'openai' | 'claude' | 'ollama'
+    apiKey: string
+    model: string
+    hasApiKey?: boolean
+  }>({
+    provider: 'gemini',
+    apiKey: '',
+    model: 'gemini-2.0-flash',
+  })
+  const [showAiApiKey, setShowAiApiKey] = useState(false)
+  const [isSavingAi, setIsSavingAi] = useState(false)
+
   // Estado para diálogos
   const [showCuentaDialog, setShowCuentaDialog] = useState(false)
   const [editingCuenta, setEditingCuenta] = useState<CuentaBancariaEmpresa | null>(null)
@@ -166,6 +185,16 @@ export default function ConfiguracionEmpresaPage() {
       const empresaRes = await empresaService.getMiEmpresa()
       if (empresaRes.success && empresaRes.data) {
         setEmpresa(empresaRes.data)
+
+        // Cargar configuración de IA si existe
+        if ((empresaRes.data as any).aiConfig) {
+          setAiConfig({
+            provider: (empresaRes.data as any).aiConfig.provider || 'gemini',
+            apiKey: '',
+            model: (empresaRes.data as any).aiConfig.model || 'gemini-2.0-flash',
+            hasApiKey: !!(empresaRes.data as any).aiConfig.hasApiKey,
+          })
+        }
       }
 
       // Cargar estado de proveedores OAuth2
@@ -468,6 +497,67 @@ export default function ConfiguracionEmpresaPage() {
   }
 
   // ============================================
+  // CONFIGURACIÓN DE IA
+  // ============================================
+
+  const handleSaveAiConfig = async () => {
+    try {
+      setIsSavingAi(true)
+
+      const dataToSend: any = {
+        aiConfig: {
+          provider: aiConfig.provider,
+          model: aiConfig.model,
+        },
+      }
+
+      // Solo enviar apiKey si se ha introducido una nueva
+      if (aiConfig.apiKey && aiConfig.apiKey !== '••••••••••••••••') {
+        dataToSend.aiConfig.apiKey = aiConfig.apiKey
+      }
+
+      const response = await empresaService.updateInfo(dataToSend)
+      if (response.success) {
+        toast.success('Configuración de IA guardada')
+        setAiConfig(prev => ({
+          ...prev,
+          apiKey: '••••••••••••••••',
+          hasApiKey: true,
+        }))
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al guardar configuración de IA')
+    } finally {
+      setIsSavingAi(false)
+    }
+  }
+
+  const handleDeleteAiApiKey = async () => {
+    try {
+      setIsSavingAi(true)
+      const response = await empresaService.updateInfo({
+        aiConfig: {
+          provider: aiConfig.provider,
+          model: aiConfig.model,
+          apiKey: null, // Eliminar la API key
+        },
+      })
+      if (response.success) {
+        toast.success('API key eliminada')
+        setAiConfig(prev => ({
+          ...prev,
+          apiKey: '',
+          hasApiKey: false,
+        }))
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al eliminar API key')
+    } finally {
+      setIsSavingAi(false)
+    }
+  }
+
+  // ============================================
   // LOGO
   // ============================================
 
@@ -561,6 +651,18 @@ export default function ConfiguracionEmpresaPage() {
             <TabsTrigger value="verifactu" className="flex items-center gap-2">
               <FileCheck className="h-4 w-4" />
               VeriFactu
+            </TabsTrigger>
+            <TabsTrigger value="ia" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              IA
+            </TabsTrigger>
+            <TabsTrigger value="roles" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Roles
+            </TabsTrigger>
+            <TabsTrigger value="usuarios" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Usuarios
             </TabsTrigger>
           </TabsList>
 
@@ -1698,6 +1800,242 @@ export default function ConfiguracionEmpresaPage() {
           {/* ============================================ */}
           <TabsContent value="verifactu" className="space-y-6 mt-6">
             <VerifactuConfig />
+          </TabsContent>
+
+          {/* ============================================ */}
+          {/* TAB: CONFIGURACIÓN DE IA */}
+          {/* ============================================ */}
+          <TabsContent value="ia" className="space-y-6 mt-6">
+            {/* Estado de configuración */}
+            <div className={`flex items-center justify-between p-4 rounded-lg ${aiConfig.hasApiKey ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+              <div className="flex items-center gap-3">
+                {aiConfig.hasApiKey ? (
+                  <>
+                    <CheckCircle className="h-6 w-6 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-800">API Key de IA configurada</p>
+                      <p className="text-sm text-green-600">
+                        Proveedor: {aiConfig.provider === 'gemini' ? 'Google Gemini' : aiConfig.provider === 'claude' ? 'Anthropic Claude' : aiConfig.provider} - Modelo: {aiConfig.model}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-6 w-6 text-amber-600" />
+                    <div>
+                      <p className="font-medium text-amber-800">API Key de IA no configurada</p>
+                      <p className="text-sm text-amber-600">Configura una API key para usar funciones de IA como OCR de documentos.</p>
+                    </div>
+                  </>
+                )}
+              </div>
+              {aiConfig.hasApiKey && (
+                <Button variant="outline" size="sm" onClick={handleDeleteAiApiKey} className="text-red-600 hover:text-red-700 hover:bg-red-50" disabled={isSavingAi}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </Button>
+              )}
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  Configuración de Inteligencia Artificial
+                </CardTitle>
+                <CardDescription>
+                  Configura tu propia API key para usar funciones de IA como importación de documentos con OCR
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Información sobre costos */}
+                {aiConfig.provider === 'claude' ? (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h4 className="font-medium text-purple-800 mb-2 flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Información sobre Anthropic Claude
+                    </h4>
+                    <p className="text-sm text-purple-700 mb-2">
+                      Con tu <strong>Plan MAX</strong> de Claude tienes acceso a los modelos más potentes de Anthropic.
+                    </p>
+                    <p className="text-sm text-purple-600">
+                      Para obtener tu API key de Anthropic:
+                    </p>
+                    <ol className="text-sm text-purple-600 list-decimal pl-5 mt-1">
+                      <li>Visita <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="underline">Anthropic Console</a></li>
+                      <li>Inicia sesión con tu cuenta</li>
+                      <li>Ve a "API Keys" y crea una nueva key</li>
+                      <li>Copia la key y pégala aquí</li>
+                    </ol>
+                    <div className="mt-3 p-2 bg-purple-100 rounded text-sm text-purple-700">
+                      <strong>Nota:</strong> Claude Sonnet 4 es ideal para la mayoría de tareas. Opus 4 es más potente pero consume más créditos.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Información sobre costos
+                    </h4>
+                    <p className="text-sm text-blue-700 mb-2">
+                      Google Gemini Flash es muy económico: aproximadamente <strong>0,01€ por documento procesado</strong>.
+                    </p>
+                    <p className="text-sm text-blue-600">
+                      Para obtener tu API key gratuita de Google Gemini:
+                    </p>
+                    <ol className="text-sm text-blue-600 list-decimal pl-5 mt-1">
+                      <li>Visita <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">Google AI Studio</a></li>
+                      <li>Inicia sesión con tu cuenta de Google</li>
+                      <li>Haz clic en "Get API key" y crea una nueva key</li>
+                      <li>Copia la key y pégala aquí</li>
+                    </ol>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Configuración */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="aiProvider">Proveedor de IA</Label>
+                    <select
+                      id="aiProvider"
+                      value={aiConfig.provider}
+                      onChange={(e) => {
+                        const newProvider = e.target.value as any
+                        // Establecer modelo por defecto según el proveedor
+                        let defaultModel = 'gemini-2.0-flash'
+                        if (newProvider === 'claude') {
+                          defaultModel = 'claude-sonnet-4-20250514'
+                        }
+                        setAiConfig({ ...aiConfig, provider: newProvider, model: defaultModel })
+                      }}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="gemini">Google Gemini (Económico)</option>
+                      <option value="claude">Anthropic Claude (Plan MAX)</option>
+                      <option value="openai" disabled>OpenAI (Próximamente)</option>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      {aiConfig.provider === 'claude'
+                        ? 'Claude ofrece excelente calidad en análisis de documentos'
+                        : 'Google Gemini es el más económico y ofrece excelente calidad'
+                      }
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="aiModel">Modelo</Label>
+                    <select
+                      id="aiModel"
+                      value={aiConfig.model}
+                      onChange={(e) => setAiConfig({ ...aiConfig, model: e.target.value })}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      {aiConfig.provider === 'gemini' ? (
+                        <>
+                          <option value="gemini-2.0-flash">Gemini 2.0 Flash (Recomendado)</option>
+                          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                          <option value="gemini-1.5-pro">Gemini 1.5 Pro (Más potente)</option>
+                        </>
+                      ) : aiConfig.provider === 'claude' ? (
+                        <>
+                          <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (Recomendado)</option>
+                          <option value="claude-opus-4-20250514">Claude Opus 4 (Más potente)</option>
+                          <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (Más rápido)</option>
+                        </>
+                      ) : (
+                        <option value="">Selecciona un proveedor</option>
+                      )}
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      {aiConfig.provider === 'claude'
+                        ? 'Sonnet es equilibrado. Opus es más potente. Haiku es más rápido.'
+                        : 'Flash es rápido y económico. Pro es más preciso pero más caro.'
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="aiApiKey">API Key {aiConfig.hasApiKey ? '' : '*'}</Label>
+                  <div className="relative">
+                    <Input
+                      id="aiApiKey"
+                      type={showAiApiKey ? 'text' : 'password'}
+                      value={aiConfig.apiKey || (aiConfig.hasApiKey ? '••••••••••••••••' : '')}
+                      onChange={(e) => setAiConfig({ ...aiConfig, apiKey: e.target.value })}
+                      placeholder={aiConfig.hasApiKey ? 'Dejar vacío para mantener la actual' : 'AIzaSy...'}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full"
+                      onClick={() => setShowAiApiKey(!showAiApiKey)}
+                    >
+                      {showAiApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    La API key se almacena de forma segura y encriptada
+                  </p>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t">
+                  <Button onClick={handleSaveAiConfig} disabled={isSavingAi}>
+                    {isSavingAi ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Guardar Configuración
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Usos de la IA */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Cpu className="h-4 w-4" />
+                  Funciones que usan IA
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
+                    <h4 className="font-medium text-purple-800 mb-2">Importación de Documentos (OCR)</h4>
+                    <p className="text-purple-700">
+                      Sube fotos o PDFs de albaranes y facturas de proveedores y la IA extraerá automáticamente los datos.
+                    </p>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <h4 className="font-medium mb-2">Más funciones próximamente</h4>
+                    <ul className="text-muted-foreground space-y-1">
+                      <li>• Sugerencia de precios de mercado</li>
+                      <li>• Generación de descripciones de productos</li>
+                      <li>• Búsqueda por código de barras</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ============================================ */}
+          {/* TAB: ROLES Y PERMISOS */}
+          {/* ============================================ */}
+          <TabsContent value="roles" className="space-y-6 mt-6">
+            <RolesConfig />
+          </TabsContent>
+
+          {/* ============================================ */}
+          {/* TAB: USUARIOS */}
+          {/* ============================================ */}
+          <TabsContent value="usuarios" className="space-y-6 mt-6">
+            <UsuariosConfig />
           </TabsContent>
         </Tabs>
 

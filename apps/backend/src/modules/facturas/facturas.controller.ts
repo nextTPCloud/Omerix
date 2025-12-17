@@ -725,6 +725,40 @@ export const facturasController = {
       });
     }
   },
+
+  /**
+   * Obtener alertas de facturas (pendientes cobro, vencidas, próximas a vencer)
+   */
+  async getAlertas(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const diasAlerta = req.query.diasAlerta ? Number(req.query.diasAlerta) : 7;
+
+      const result = await facturasService.getAlertas(
+        new mongoose.Types.ObjectId(empresaId),
+        req.empresaDbConfig,
+        diasAlerta
+      );
+
+      return res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('Error al obtener alertas de facturas:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al obtener alertas de facturas',
+      });
+    }
+  },
 };
 
 export default facturasController;

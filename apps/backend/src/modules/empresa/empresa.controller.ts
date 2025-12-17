@@ -8,14 +8,43 @@ const UpdateEmpresaSchema = z.object({
   nombreComercial: z.string().max(100).optional().nullable(),
   email: z.string().email().optional(),
   telefono: z.string().optional().nullable(),
+  movil: z.string().optional().nullable(),
+  fax: z.string().optional().nullable(),
   web: z.string().url().optional().nullable().or(z.literal('')),
   logo: z.string().optional().nullable(),
   direccion: z.object({
     calle: z.string().optional(),
+    numero: z.string().optional(),
+    piso: z.string().optional(),
     ciudad: z.string().optional(),
     provincia: z.string().optional(),
     codigoPostal: z.string().optional(),
     pais: z.string().optional(),
+  }).optional(),
+  datosRegistro: z.object({
+    registroMercantil: z.string().optional(),
+    tomo: z.string().optional(),
+    libro: z.string().optional(),
+    folio: z.string().optional(),
+    seccion: z.string().optional(),
+    hoja: z.string().optional(),
+    inscripcion: z.string().optional(),
+  }).optional(),
+  seriesDocumentos: z.object({
+    presupuestos: z.string().optional(),
+    pedidos: z.string().optional(),
+    albaranes: z.string().optional(),
+    facturas: z.string().optional(),
+    facturasRectificativas: z.string().optional(),
+  }).optional(),
+  moneda: z.string().optional(),
+  formatoFecha: z.string().optional(),
+  formatoNumero: z.string().optional(),
+  // Configuración de IA
+  aiConfig: z.object({
+    provider: z.enum(['gemini', 'openai', 'claude', 'ollama']).optional(),
+    apiKey: z.string().optional().nullable(), // null para eliminar
+    model: z.string().optional(),
   }).optional(),
 });
 

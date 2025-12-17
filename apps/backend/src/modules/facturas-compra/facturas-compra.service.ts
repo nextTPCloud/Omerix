@@ -753,6 +753,128 @@ export class FacturasCompraService {
       vencidas,
     };
   }
+
+  // ============================================
+  // ALERTAS DE FACTURAS DE COMPRA
+  // ============================================
+
+  /**
+   * Obtener alertas de facturas de compra:
+   * - Pendientes de pago (pendiente_pago, parcialmente_pagada)
+   * - Vencidas (fecha de vencimiento pasada)
+   * - Próximas a vencer (vencen en los próximos X días)
+   */
+  async getAlertas(
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
+    diasAlerta: number = 7
+  ): Promise<{
+    alertas: {
+      pendientesPago: any[];
+      vencidas: any[];
+      proximasVencer: any[];
+    };
+    resumen: {
+      pendientesPago: number;
+      vencidas: number;
+      proximasVencer: number;
+      total: number;
+    };
+  }> {
+    const FacturaCompraModel = await getFacturaCompraModel(empresaId.toString(), dbConfig);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const fechaAlerta = new Date();
+    fechaAlerta.setDate(fechaAlerta.getDate() + diasAlerta);
+
+    // Pendientes de pago (no vencidas)
+    const pendientesPago = await FacturaCompraModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoFacturaCompra.PENDIENTE_PAGO,
+          EstadoFacturaCompra.PARCIALMENTE_PAGADA,
+        ],
+      },
+      $or: [
+        { fechaVencimiento: { $gte: hoy } },
+        { fechaVencimiento: { $exists: false } },
+        { fechaVencimiento: null },
+      ],
+    })
+      .populate('proveedorId', 'nombre nombreComercial')
+      .sort({ fechaVencimiento: 1, fecha: 1 })
+      .limit(50)
+      .lean();
+
+    // Vencidas: fecha de vencimiento pasada y no pagadas
+    const vencidas = await FacturaCompraModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoFacturaCompra.VENCIDA,
+          EstadoFacturaCompra.PENDIENTE_PAGO,
+          EstadoFacturaCompra.PARCIALMENTE_PAGADA,
+        ],
+      },
+      fechaVencimiento: { $lt: hoy },
+    })
+      .populate('proveedorId', 'nombre nombreComercial')
+      .sort({ fechaVencimiento: 1 })
+      .limit(50)
+      .lean();
+
+    // Próximas a vencer
+    const proximasVencer = await FacturaCompraModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoFacturaCompra.PENDIENTE_PAGO,
+          EstadoFacturaCompra.PARCIALMENTE_PAGADA,
+        ],
+      },
+      fechaVencimiento: {
+        $gte: hoy,
+        $lte: fechaAlerta,
+      },
+    })
+      .populate('proveedorId', 'nombre nombreComercial')
+      .sort({ fechaVencimiento: 1 })
+      .limit(50)
+      .lean();
+
+    // Formatear datos
+    const formatFactura = (f: any) => ({
+      _id: f._id,
+      codigo: f.codigo,
+      numeroFacturaProveedor: f.numeroFacturaProveedor,
+      proveedorNombre:
+        f.proveedorId?.nombreComercial ||
+        f.proveedorId?.nombre ||
+        f.proveedorNombre ||
+        'Sin proveedor',
+      fecha: f.fecha,
+      fechaVencimiento: f.fechaVencimiento,
+      estado: f.estado,
+      totales: f.totales,
+      importePendiente: (f.totales?.totalFactura || 0) - (f.totales?.totalPagado || 0),
+    });
+
+    return {
+      alertas: {
+        pendientesPago: pendientesPago.map(formatFactura),
+        vencidas: vencidas.map(formatFactura),
+        proximasVencer: proximasVencer.map(formatFactura),
+      },
+      resumen: {
+        pendientesPago: pendientesPago.length,
+        vencidas: vencidas.length,
+        proximasVencer: proximasVencer.length,
+        total: pendientesPago.length + vencidas.length,
+      },
+    };
+  }
 }
 
 export const facturasCompraService = new FacturasCompraService();

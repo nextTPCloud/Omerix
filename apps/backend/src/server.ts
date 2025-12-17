@@ -80,6 +80,11 @@ import proveedoresRoutes from './modules/proveedores/proveedores.routes';
 import pedidosCompraRoutes from './modules/pedidos-compra/pedidos-compra.routes';
 import albaranesCompraRoutes from './modules/albaranes-compra/albaranes-compra.routes';
 import facturasCompraRoutes from './modules/facturas-compra/facturas-compra.routes';
+import presupuestosCompraRoutes from './modules/presupuestos-compra/presupuestos-compra.routes';
+
+// Importar rutas de roles y usuarios
+import rolesRoutes from './modules/roles/roles.routes';
+import usuariosRoutes from './modules/usuarios/usuarios.routes';
 
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
@@ -308,12 +313,17 @@ app.use('/api/proveedores', proveedoresRoutes);
 app.use('/api/pedidos-compra', pedidosCompraRoutes);
 app.use('/api/albaranes-compra', albaranesCompraRoutes);
 app.use('/api/facturas-compra', facturasCompraRoutes);
+app.use('/api/presupuestos-compra', presupuestosCompraRoutes);
 
 // Rutas de series de documentos
 app.use('/api/series-documentos', seriesDocumentosRoutes);
 
 // Rutas de empresa (configuración, email, etc.)
 app.use('/api/empresa', empresaRoutes);
+
+// Rutas de roles y usuarios
+app.use('/api/roles', rolesRoutes);
+app.use('/api/usuarios', usuariosRoutes);
 
 // Rutas de certificados electrónicos
 app.use('/api/certificados', certificadosRoutes);

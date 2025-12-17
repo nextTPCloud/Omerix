@@ -670,11 +670,14 @@ export class StockService {
     const updateOptions = session ? { session } : {};
 
     if (varianteId) {
+      // Convertir varianteId a ObjectId para comparaciones en MongoDB
+      const varianteObjectId = new mongoose.Types.ObjectId(varianteId);
+
       // Actualizar stock de variante específica
-      await ProductoModel.updateOne(
+      const updateResult = await ProductoModel.updateOne(
         {
           _id: new mongoose.Types.ObjectId(productoId),
-          'variantes._id': varianteId,
+          'variantes._id': varianteObjectId,
           'variantes.stockPorAlmacen.almacenId': new mongoose.Types.ObjectId(almacenId),
         },
         {
@@ -686,39 +689,67 @@ export class StockService {
         {
           ...updateOptions,
           arrayFilters: [
-            { 'v._id': varianteId },
+            { 'v._id': varianteObjectId },
             { 'a.almacenId': new mongoose.Types.ObjectId(almacenId) },
           ],
         }
       );
 
       // Si no existe el almacén en la variante, agregarlo
-      const producto = await ProductoModel.findById(productoId).lean();
-      const variante = producto?.variantes?.find((v: any) => v._id?.toString() === varianteId);
-      const almacenExiste = variante?.stockPorAlmacen?.some(
-        (s: any) => s.almacenId?.toString() === almacenId
-      );
+      if (updateResult.modifiedCount === 0) {
+        const producto = await ProductoModel.findById(productoId).lean();
+        const variante = producto?.variantes?.find((v: any) => v._id?.toString() === varianteId);
 
-      if (!almacenExiste) {
-        await ProductoModel.updateOne(
-          {
-            _id: new mongoose.Types.ObjectId(productoId),
-            'variantes._id': varianteId,
-          },
-          {
-            $push: {
-              'variantes.$.stockPorAlmacen': {
-                almacenId: new mongoose.Types.ObjectId(almacenId),
-                cantidad: nuevoStock,
-                minimo: 0,
-                maximo: 0,
-                ultimaActualizacion: new Date(),
+        if (variante) {
+          const almacenExiste = variante?.stockPorAlmacen?.some(
+            (s: any) => s.almacenId?.toString() === almacenId
+          );
+
+          if (!almacenExiste) {
+            await ProductoModel.updateOne(
+              {
+                _id: new mongoose.Types.ObjectId(productoId),
+                'variantes._id': varianteObjectId,
               },
-            },
-          },
-          updateOptions
-        );
+              {
+                $push: {
+                  'variantes.$.stockPorAlmacen': {
+                    almacenId: new mongoose.Types.ObjectId(almacenId),
+                    cantidad: nuevoStock,
+                    minimo: 0,
+                    maximo: 0,
+                    ultimaActualizacion: new Date(),
+                  },
+                },
+              },
+              updateOptions
+            );
+          } else {
+            // El almacén existe pero no se actualizó, intentar actualización directa
+            await ProductoModel.updateOne(
+              {
+                _id: new mongoose.Types.ObjectId(productoId),
+                'variantes._id': varianteObjectId,
+              },
+              {
+                $set: {
+                  'variantes.$.stockPorAlmacen.$[a].cantidad': nuevoStock,
+                  'variantes.$.stockPorAlmacen.$[a].ultimaActualizacion': new Date(),
+                },
+              },
+              {
+                ...updateOptions,
+                arrayFilters: [
+                  { 'a.almacenId': new mongoose.Types.ObjectId(almacenId) },
+                ],
+              }
+            );
+          }
+        }
       }
+
+      // Recalcular y actualizar el stock total del producto (suma de todas las variantes)
+      await this.recalcularStockTotalProducto(productoId, empresaId, dbConfig, session);
     } else {
       // Actualizar stock sin variante
       const resultado = await ProductoModel.updateOne(
@@ -754,6 +785,47 @@ export class StockService {
         );
       }
     }
+  }
+
+  /**
+   * Recalcula el stock total de un producto con variantes
+   * Suma el stock de todas las variantes en todos los almacenes
+   * y actualiza el campo stock.cantidad del producto
+   */
+  private async recalcularStockTotalProducto(
+    productoId: string,
+    empresaId: string,
+    dbConfig: IDatabaseConfig,
+    session?: ClientSession
+  ): Promise<void> {
+    const ProductoModel = await getProductoModel(empresaId, dbConfig);
+    const updateOptions = session ? { session } : {};
+
+    const producto = await ProductoModel.findById(productoId).lean();
+    if (!producto || !producto.tieneVariantes) return;
+
+    // Calcular el stock total sumando todas las variantes
+    let stockTotal = 0;
+    if (producto.variantes && producto.variantes.length > 0) {
+      for (const variante of producto.variantes) {
+        if (variante.stockPorAlmacen && variante.stockPorAlmacen.length > 0) {
+          for (const almacen of variante.stockPorAlmacen) {
+            stockTotal += almacen.cantidad || 0;
+          }
+        }
+      }
+    }
+
+    // Actualizar el campo stock.cantidad del producto con el total
+    await ProductoModel.updateOne(
+      { _id: new mongoose.Types.ObjectId(productoId) },
+      {
+        $set: {
+          'stock.cantidad': stockTotal,
+        },
+      },
+      updateOptions
+    );
   }
 }
 

@@ -148,6 +148,8 @@ export interface CrearDesdePedidoCompraDTO {
   lineasIds?: string[]; // Si no se especifica, incluir todas las líneas pendientes
   recibirTodo?: boolean; // Si es true, recibir todas las cantidades pendientes
   almacenId?: string; // Almacén de recepción, si es diferente al del pedido
+  numeroAlbaranProveedor?: string; // Número del albarán del proveedor
+  observaciones?: string;
   fechaPrevistaRecepcion?: Date;
   datosTransporte?: {
     transportista?: string;
@@ -157,4 +159,12 @@ export interface CrearDesdePedidoCompraDTO {
     pesoTotal?: number;
     numeroSeguimiento?: string;
   };
+  // Líneas específicas con cantidades a recibir
+  lineas?: Array<{
+    lineaId: string;
+    cantidadRecibida: number;
+    varianteId?: string; // ID de la variante si el producto tiene variantes
+    lote?: string;
+    ubicacion?: string;
+  }>;
 }

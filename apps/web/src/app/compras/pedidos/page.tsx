@@ -70,6 +70,8 @@ import {
   Ban,
   Clock,
   AlertTriangle,
+  Bell,
+  BellOff,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -85,6 +87,8 @@ import { PrintButton } from '@/components/ui/PrintButton'
 // Filtros avanzados
 import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
 import { PEDIDOS_COMPRA_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
+import { PedidosCompraAlertas } from '@/components/compras/PedidosCompraAlertas'
+import { usePermissions } from '@/hooks/usePermissions'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -162,6 +166,7 @@ export default function PedidosCompraPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isInitialLoad = useRef(true)
+  const { canCreate, canDelete } = usePermissions()
 
   // Proveedor preseleccionado desde URL
   const proveedorIdFromUrl = searchParams.get('proveedorId')
@@ -205,6 +210,7 @@ export default function PedidosCompraPage() {
 
   // UI States
   const [showStats, setShowStats] = useState(false)
+  const [showAlertas, setShowAlertas] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     pedidoIds: string[]
@@ -892,6 +898,15 @@ export default function PedidosCompraPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowAlertas(!showAlertas)}
+              title={showAlertas ? 'Ocultar alertas' : 'Mostrar alertas'}
+            >
+              {showAlertas ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+              <span className="ml-2 hidden sm:inline">Alertas</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowStats(!showStats)}
             >
               {showStats ? <Eye className="h-4 w-4" /> : <Package className="h-4 w-4" />}
@@ -905,14 +920,26 @@ export default function PedidosCompraPage() {
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
+{canCreate('pedidos-compra') && (
             <Button asChild size="sm">
               <Link href="/compras/pedidos/nuevo">
                 <Plus className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Nuevo Pedido</span>
               </Link>
             </Button>
+)}
           </div>
         </div>
+
+        {/* ALERTAS DE PEDIDOS DE COMPRA */}
+        {showAlertas && (
+          <PedidosCompraAlertas
+            diasAlerta={7}
+            onRefresh={cargarPedidos}
+            collapsible={true}
+            defaultCollapsed={false}
+          />
+        )}
 
         {/* ESTADISTICAS RAPIDAS */}
         {showStats && (
@@ -1106,10 +1133,12 @@ export default function PedidosCompraPage() {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Exportar
               </Button>
+{canDelete('pedidos-compra') && (
               <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
               </Button>
+)}
             </div>
           </Card>
         )}
@@ -1504,6 +1533,8 @@ export default function PedidosCompraPage() {
                                 </DropdownMenuItem>
                               )}
 
+                              {canDelete('pedidos-compra') && (
+                              <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive"
@@ -1512,6 +1543,8 @@ export default function PedidosCompraPage() {
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Eliminar
                               </DropdownMenuItem>
+                              </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -1648,12 +1681,12 @@ export default function PedidosCompraPage() {
                 Estas seguro de que deseas eliminar {deleteDialog.pedidoIds.length === 1
                   ? 'el siguiente pedido de compra'
                   : `los siguientes ${deleteDialog.pedidoIds.length} pedidos de compra`}?
-                <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                  {deleteDialog.pedidoCodigos.map((codigo, index) => (
-                    <li key={index} className="text-sm font-medium">- {codigo}</li>
-                  ))}
-                </ul>
               </DialogDescription>
+              <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                {deleteDialog.pedidoCodigos.map((codigo, index) => (
+                  <li key={index} className="text-sm font-medium">- {codigo}</li>
+                ))}
+              </ul>
             </DialogHeader>
             <DialogFooter>
               <Button

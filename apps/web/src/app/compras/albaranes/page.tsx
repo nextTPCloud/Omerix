@@ -68,9 +68,12 @@ import {
   Receipt,
   Package,
   ClipboardCheck,
+  Bell,
+  BellOff,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
+import { usePermissions } from '@/hooks/usePermissions'
 import { ColumnaConfig } from '@/services/configuracion.service'
 
 // Componentes UI reutilizables
@@ -83,6 +86,7 @@ import { PrintButton } from '@/components/ui/PrintButton'
 // Filtros avanzados
 import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
 import { ALBARANES_COMPRA_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
+import { AlbaranesCompraAlertas } from '@/components/compras/AlbaranesCompraAlertas'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -157,6 +161,7 @@ export default function AlbaranesCompraPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isInitialLoad = useRef(true)
+  const { canCreate, canDelete } = usePermissions()
 
   // Proveedor preseleccionado desde URL
   const proveedorIdFromUrl = searchParams.get('proveedorId')
@@ -201,6 +206,7 @@ export default function AlbaranesCompraPage() {
 
   // UI States
   const [showStats, setShowStats] = useState(false)
+  const [showAlertas, setShowAlertas] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     albaranIds: string[]
@@ -876,6 +882,15 @@ export default function AlbaranesCompraPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowAlertas(!showAlertas)}
+              title={showAlertas ? 'Ocultar alertas' : 'Mostrar alertas'}
+            >
+              {showAlertas ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+              <span className="ml-2 hidden sm:inline">Alertas</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowStats(!showStats)}
             >
               {showStats ? <Eye className="h-4 w-4" /> : <Truck className="h-4 w-4" />}
@@ -889,14 +904,34 @@ export default function AlbaranesCompraPage() {
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
-            <Button asChild size="sm">
-              <Link href="/compras/albaranes/nuevo">
-                <Plus className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Nuevo Albaran</span>
-              </Link>
-            </Button>
+{canCreate('albaranes-compra') && (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/compras/albaranes/importar">
+                  <Upload className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Importar con IA</span>
+                </Link>
+              </Button>
+            )}
+            {canCreate('albaranes-compra') && (
+              <Button asChild size="sm">
+                <Link href="/compras/albaranes/nuevo">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Nuevo Albaran</span>
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
+
+        {/* ALERTAS DE ALBARANES DE COMPRA */}
+        {showAlertas && (
+          <AlbaranesCompraAlertas
+            diasAlerta={30}
+            onRefresh={cargarAlbaranes}
+            collapsible={true}
+            defaultCollapsed={false}
+          />
+        )}
 
         {/* ESTADISTICAS RAPIDAS */}
         {showStats && (
@@ -1101,10 +1136,12 @@ export default function AlbaranesCompraPage() {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Exportar
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </Button>
+{canDelete('albaranes-compra') && (
+                <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -1491,14 +1528,18 @@ export default function AlbaranesCompraPage() {
                                 </DropdownMenuItem>
                               )}
 
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => handleAlbaranAction(albaran._id, 'delete')}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar
-                              </DropdownMenuItem>
+{canDelete('albaranes-compra') && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={() => handleAlbaranAction(albaran._id, 'delete')}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -1630,12 +1671,12 @@ export default function AlbaranesCompraPage() {
                 Estas seguro de que deseas eliminar {deleteDialog.albaranIds.length === 1
                   ? 'el siguiente albaran de compra'
                   : `los siguientes ${deleteDialog.albaranIds.length} albaranes de compra`}?
-                <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                  {deleteDialog.albaranCodigos.map((codigo, index) => (
-                    <li key={index} className="text-sm font-medium">- {codigo}</li>
-                  ))}
-                </ul>
               </DialogDescription>
+              <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                {deleteDialog.albaranCodigos.map((codigo, index) => (
+                  <li key={index} className="text-sm font-medium">- {codigo}</li>
+                ))}
+              </ul>
             </DialogHeader>
             <DialogFooter>
               <Button

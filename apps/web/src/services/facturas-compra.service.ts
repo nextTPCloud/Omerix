@@ -170,6 +170,30 @@ export const facturasCompraService = {
 
     return facturasCompraService.getAll(params)
   },
+
+  // ============================================
+  // OBTENER ALERTAS
+  // ============================================
+
+  getAlertas: async (diasAlerta: number = 7): Promise<{
+    success: boolean
+    data: {
+      alertas: {
+        pendientesPago: FacturaCompra[]
+        vencidas: FacturaCompra[]
+        proximasVencer: FacturaCompra[]
+      }
+      resumen: {
+        pendientesPago: number
+        vencidas: number
+        proximasVencer: number
+        total: number
+      }
+    }
+  }> => {
+    const response = await api.get(`/facturas-compra/alertas?diasAlerta=${diasAlerta}`)
+    return response.data
+  },
 }
 
 export default facturasCompraService

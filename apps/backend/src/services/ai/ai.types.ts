@@ -19,6 +19,16 @@ export interface AIMessage {
   content: string;
 }
 
+// Mensaje con imagen (para visión)
+export interface AIMessageWithImage {
+  role: 'user';
+  content: string;
+  images: {
+    base64: string;
+    mimeType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'application/pdf';
+  }[];
+}
+
 // Opciones de generación
 export interface AIGenerationOptions {
   temperature?: number; // 0-1, más alto = más creativo
@@ -90,6 +100,68 @@ export interface BarcodeProductInfo {
   source?: string;
 }
 
+// Datos extraídos de documento de compra (albarán/factura proveedor)
+export interface DocumentoCompraExtraido {
+  // Datos del proveedor
+  cifProveedor: string | null;
+  nombreProveedor: string | null;
+
+  // Datos del documento
+  numeroDocumento: string | null;
+  fecha: string | null;
+
+  // Líneas del documento
+  lineas: {
+    codigoProducto: string | null;  // Referencia del proveedor
+    descripcion: string;
+    cantidad: number;
+    precioUnitario: number;
+    descuento?: number;
+    iva?: number;
+    total?: number;
+  }[];
+
+  // Totales
+  totales?: {
+    subtotal?: number;
+    iva?: number;
+    total?: number;
+  };
+
+  // Metadatos
+  observaciones?: string;
+  confianza: 'alta' | 'media' | 'baja';
+  camposNoDetectados: string[];
+}
+
+// Resultado del procesamiento OCR
+export interface OCRResult {
+  success: boolean;
+  datos: DocumentoCompraExtraido | null;
+  proveedorEncontrado?: {
+    _id: string;
+    nombre: string;
+    cif: string;
+  } | null;
+  productosEncontrados: {
+    lineaIndex: number;
+    codigoProveedor: string;
+    productoId: string;
+    nombre: string;
+    sku: string;
+    precioCompra: number;
+  }[];
+  productosNoEncontrados: {
+    lineaIndex: number;
+    codigoProveedor: string;
+    descripcion: string;
+  }[];
+  advertencias: string[];
+  error?: string;
+  // Código de error para manejo específico en frontend
+  errorCode?: 'QUOTA_EXCEEDED' | 'API_KEY_ERROR' | 'NETWORK_ERROR' | 'ERROR';
+}
+
 // Interfaz que deben implementar todos los proveedores
 export interface IAIProvider {
   name: AIProvider;
@@ -97,6 +169,13 @@ export interface IAIProvider {
   // Completar texto/chat
   complete(
     messages: AIMessage[],
+    options?: AIGenerationOptions
+  ): Promise<AIResponse>;
+
+  // Completar con imágenes (visión)
+  completeWithImage?(
+    message: AIMessageWithImage,
+    systemPrompt?: string,
     options?: AIGenerationOptions
   ): Promise<AIResponse>;
 

@@ -31,6 +31,7 @@ import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
 import { ColumnaConfig } from '@/services/configuracion.service'
 import { useDensityClasses } from '@/components/ui/DensitySelector'
+import { usePermissions } from '@/hooks/usePermissions'
 import { SettingsMenu } from '@/components/ui/SettingsMenu'
 import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
@@ -67,6 +68,7 @@ const DEFAULT_CONFIG = {
 
 export default function FormasPagoPage() {
   const router = useRouter()
+  const { canCreate, canDelete } = usePermissions()
   const isInitialLoad = useRef(true)
   const [formasPago, setFormasPago] = useState<FormaPago[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -240,7 +242,9 @@ export default function FormasPagoPage() {
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => setShowStats(!showStats)}><Eye className="h-4 w-4" /><span className="ml-2 hidden sm:inline">Estadísticas</span></Button>
             <Button variant="outline" size="sm" onClick={cargarFormasPago}><RefreshCw className="h-4 w-4" /><span className="ml-2 hidden sm:inline">Actualizar</span></Button>
-            <Button asChild size="sm"><Link href="/formas-pago/nuevo"><Plus className="h-4 w-4 mr-2" /><span className="hidden sm:inline">Nueva Forma</span></Link></Button>
+            {canCreate('formas-pago') && (
+              <Button asChild size="sm"><Link href="/formas-pago/nuevo"><Plus className="h-4 w-4 mr-2" /><span className="hidden sm:inline">Nueva Forma</span></Link></Button>
+            )}
           </div>
         </div>
 
@@ -273,7 +277,9 @@ export default function FormasPagoPage() {
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm font-medium text-blue-900 dark:text-blue-100">{selectedItems.length} seleccionado(s)</span>
               <div className="flex-1" />
-              <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}><Trash2 className="mr-2 h-4 w-4" />Eliminar</Button>
+              {canDelete('formas-pago') && (
+                <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}><Trash2 className="mr-2 h-4 w-4" />Eliminar</Button>
+              )}
             </div>
           </Card>
         )}
@@ -323,8 +329,12 @@ export default function FormasPagoPage() {
                           <DropdownMenuItem onClick={() => handleAction(fp._id, 'view')}><Eye className="mr-2 h-4 w-4" />Ver detalle</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleAction(fp._id, 'edit')}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleAction(fp._id, 'duplicate')}><Copy className="mr-2 h-4 w-4" />Duplicar</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleAction(fp._id, 'delete')}><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>
+                          {canDelete('formas-pago') && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleAction(fp._id, 'delete')}><Trash2 className="mr-2 h-4 w-4" />Eliminar</DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -360,7 +370,8 @@ export default function FormasPagoPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Confirmar eliminación</DialogTitle>
-              <DialogDescription>¿Eliminar {deleteDialog.ids.length === 1 ? 'la forma de pago' : `${deleteDialog.ids.length} formas de pago`}?<ul className="mt-3">{deleteDialog.nombres.map((n, i) => <li key={i}>• {n}</li>)}</ul></DialogDescription>
+              <DialogDescription>¿Eliminar {deleteDialog.ids.length === 1 ? 'la forma de pago' : `${deleteDialog.ids.length} formas de pago`}?</DialogDescription>
+              <ul className="mt-3">{deleteDialog.nombres.map((n, i) => <li key={i}>• {n}</li>)}</ul>
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDeleteDialog({ open: false, ids: [], nombres: [] })}>Cancelar</Button>

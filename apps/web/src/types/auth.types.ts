@@ -1,13 +1,19 @@
+import { IPermisosEspeciales } from './permissions.types';
+
 export interface Usuario {
   id: string;
   nombre: string;
   apellidos: string;
   email: string;
   rol: string;
+  rolId?: string;  // Rol personalizado
   empresaId: string;
   avatar?: string;
   twoFactorEnabled: boolean;
   twoFactorMethod?: 'app' | 'sms' | null;
+  permisos?: {
+    especiales?: Partial<IPermisosEspeciales>;
+  };
 }
 
 export interface Empresa {

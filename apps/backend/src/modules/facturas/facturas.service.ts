@@ -34,7 +34,7 @@ import {
   getSerieDocumentoModel,
   getPresupuestoModel,
 } from '@/utils/dynamic-models.helper';
-import { EstadoAlbaran } from '../albaranes/Albaran';
+import { EstadoAlbaran, TipoAlbaran } from '../albaranes/Albaran';
 import { EstadoPresupuesto } from '../presupuestos/Presupuesto';
 import fiscalLogService from '@/modules/logs/services/fiscal-log.service';
 import { DocumentType } from '@/modules/logs/interfaces/log.interface';
@@ -1299,7 +1299,37 @@ export class FacturasService {
     dbConfig: IDatabaseConfig
   ): Promise<IFactura> {
     const primerAlbaran = albaranes[0];
+
+    // El cliente puede venir populado (objeto) o como ObjectId
     const cliente = primerAlbaran.clienteId;
+    const esClientePopulado = cliente && typeof cliente === 'object' && cliente._id;
+
+    // Detectar si son albaranes de devolución (rectificativos)
+    // Nota: Si tipo no está definido, se asume VENTA (valor por defecto)
+    const esDevolucion = albaranes.every(a => a.tipo === TipoAlbaran.DEVOLUCION);
+    const tieneAlbaranesDevolucion = albaranes.some(a => a.tipo === TipoAlbaran.DEVOLUCION);
+
+    // No mezclar albaranes de venta con albaranes de devolución
+    if (tieneAlbaranesDevolucion && !esDevolucion) {
+      throw new Error('No se pueden mezclar albaranes de venta con albaranes de devolución en la misma factura');
+    }
+
+    // Obtener datos de la factura rectificada si es devolución
+    let facturaRectificadaId: string | undefined;
+    let facturaRectificadaCodigo: string | undefined;
+    if (esDevolucion && (primerAlbaran as any).albaranRectificadoId) {
+      // Buscar la factura del albarán original
+      const AlbaranModel = await getAlbaranModel(String(empresaId), dbConfig);
+      const albaranOriginal = await AlbaranModel.findById((primerAlbaran as any).albaranRectificadoId);
+      if (albaranOriginal?.facturaId) {
+        const FacturaModel = await this.getModeloFactura(String(empresaId), dbConfig);
+        const facturaOriginal = await FacturaModel.findById(albaranOriginal.facturaId);
+        if (facturaOriginal) {
+          facturaRectificadaId = String(facturaOriginal._id);
+          facturaRectificadaCodigo = facturaOriginal.codigo;
+        }
+      }
+    }
 
     // Combinar líneas de todos los albaranes
     const lineas: any[] = [];
@@ -1307,10 +1337,11 @@ export class FacturasService {
 
     for (const albaran of albaranes) {
       // Añadir línea de referencia al albarán
+      const tipoTexto = esDevolucion ? 'Devolución' : 'Albarán';
       lineas.push({
         orden: orden++,
         tipo: TipoLinea.TEXTO,
-        nombre: `Albarán ${albaran.codigo} - ${new Date(albaran.fecha).toLocaleDateString('es-ES')}`,
+        nombre: `${tipoTexto} ${albaran.codigo} - ${new Date(albaran.fecha).toLocaleDateString('es-ES')}`,
         cantidad: 0,
         precioUnitario: 0,
         descuento: 0,
@@ -1321,6 +1352,8 @@ export class FacturasService {
       // Añadir líneas del albarán
       for (const linea of albaran.lineas) {
         if (linea.incluidoEnTotal !== false) {
+          // Para devoluciones, las cantidades van en negativo
+          const cantidad = linea.cantidadEntregada || linea.cantidad || 0;
           lineas.push({
             orden: orden++,
             tipo: linea.tipo,
@@ -1330,7 +1363,7 @@ export class FacturasService {
             descripcion: linea.descripcion,
             sku: linea.sku,
             variante: linea.variante,
-            cantidad: linea.cantidadEntregada || linea.cantidad || 0,
+            cantidad: esDevolucion ? -Math.abs(cantidad) : cantidad, // Negativo para devoluciones
             unidad: linea.unidad,
             precioUnitario: linea.precioUnitario,
             descuento: linea.descuento,
@@ -1346,7 +1379,15 @@ export class FacturasService {
 
     // Crear factura
     const facturaDto: CreateFacturaDTO = {
-      serie: dto.serie || 'FAC',
+      serie: dto.serie || (esDevolucion ? 'REC' : 'FAC'), // Serie REC para rectificativas
+      tipo: esDevolucion ? TipoFactura.RECTIFICATIVA : TipoFactura.ORDINARIA,
+      esRectificativa: esDevolucion,
+      facturaRectificadaId,
+      facturaRectificadaCodigo,
+      motivoRectificacion: esDevolucion ? MotivoRectificacion.DEVOLUCION : undefined,
+      descripcionRectificacion: esDevolucion && (primerAlbaran as any).motivoDevolucion
+        ? (primerAlbaran as any).motivoDevolucion
+        : undefined,
       clienteId: String(cliente._id || cliente),
       clienteNombre: cliente.nombre,
       clienteNif: cliente.nif,
@@ -1356,7 +1397,7 @@ export class FacturasService {
       fechaVencimiento: dto.fechaVencimiento,
       albaranesOrigen: albaranes.map(a => String(a._id)),
       lineas,
-      observaciones: dto.observaciones,
+      observaciones: dto.observaciones || (esDevolucion ? 'Factura rectificativa por devolución de mercancía' : undefined),
     };
 
     return this.crear(facturaDto, empresaId, usuarioId, dbConfig);
@@ -1742,6 +1783,131 @@ export class FacturasService {
       logError('Error enviando factura por email', error);
       throw new Error(`Error al enviar email: ${error.message}`);
     }
+  }
+
+  // ============================================
+  // ALERTAS DE FACTURAS
+  // ============================================
+
+  /**
+   * Obtener alertas de facturas:
+   * - Pendientes de cobro (emitidas, enviadas, parcialmente cobradas)
+   * - Vencidas (fecha de vencimiento pasada)
+   * - Próximas a vencer (vencen en los próximos X días)
+   */
+  async getAlertas(
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
+    diasAlerta: number = 7
+  ): Promise<{
+    alertas: {
+      pendientesCobro: any[];
+      vencidas: any[];
+      proximasVencer: any[];
+    };
+    resumen: {
+      pendientesCobro: number;
+      vencidas: number;
+      proximasVencer: number;
+      total: number;
+    };
+  }> {
+    const FacturaModel = await this.getModeloFactura(empresaId.toString(), dbConfig);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const fechaAlerta = new Date();
+    fechaAlerta.setDate(fechaAlerta.getDate() + diasAlerta);
+
+    // Pendientes de cobro: emitidas, enviadas o parcialmente cobradas (no vencidas)
+    const pendientesCobro = await FacturaModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoFactura.EMITIDA,
+          EstadoFactura.ENVIADA,
+          EstadoFactura.PARCIALMENTE_COBRADA,
+        ],
+      },
+      $or: [
+        { fechaVencimiento: { $gte: hoy } },
+        { fechaVencimiento: { $exists: false } },
+        { fechaVencimiento: null },
+      ],
+    })
+      .populate('clienteId', 'nombre nombreComercial')
+      .sort({ fechaVencimiento: 1, fecha: 1 })
+      .limit(50)
+      .lean();
+
+    // Vencidas: fecha de vencimiento pasada y no cobradas
+    const vencidas = await FacturaModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoFactura.VENCIDA,
+          EstadoFactura.IMPAGADA,
+          EstadoFactura.EMITIDA,
+          EstadoFactura.ENVIADA,
+          EstadoFactura.PARCIALMENTE_COBRADA,
+        ],
+      },
+      fechaVencimiento: { $lt: hoy },
+    })
+      .populate('clienteId', 'nombre nombreComercial')
+      .sort({ fechaVencimiento: 1 })
+      .limit(50)
+      .lean();
+
+    // Próximas a vencer: vencen en los próximos X días
+    const proximasVencer = await FacturaModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoFactura.EMITIDA,
+          EstadoFactura.ENVIADA,
+          EstadoFactura.PARCIALMENTE_COBRADA,
+        ],
+      },
+      fechaVencimiento: {
+        $gte: hoy,
+        $lte: fechaAlerta,
+      },
+    })
+      .populate('clienteId', 'nombre nombreComercial')
+      .sort({ fechaVencimiento: 1 })
+      .limit(50)
+      .lean();
+
+    // Formatear datos para el frontend
+    const formatFactura = (f: any) => ({
+      _id: f._id,
+      codigo: f.codigo,
+      clienteNombre:
+        f.clienteId?.nombreComercial ||
+        f.clienteId?.nombre ||
+        f.clienteNombre ||
+        'Sin cliente',
+      fecha: f.fecha,
+      fechaVencimiento: f.fechaVencimiento,
+      estado: f.estado,
+      totales: f.totales,
+      importePendiente: (f.totales?.totalFactura || 0) - (f.totales?.totalCobrado || 0),
+    });
+
+    return {
+      alertas: {
+        pendientesCobro: pendientesCobro.map(formatFactura),
+        vencidas: vencidas.map(formatFactura),
+        proximasVencer: proximasVencer.map(formatFactura),
+      },
+      resumen: {
+        pendientesCobro: pendientesCobro.length,
+        vencidas: vencidas.length,
+        proximasVencer: proximasVencer.length,
+        total: pendientesCobro.length + vencidas.length,
+      },
+    };
   }
 }
 

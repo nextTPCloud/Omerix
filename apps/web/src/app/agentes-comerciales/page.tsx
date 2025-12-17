@@ -75,6 +75,7 @@ import { useModuleConfig } from '@/hooks/useModuleConfig'
 import { ColumnaConfig } from '@/services/configuracion.service'
 
 // Nuevos imports
+import { usePermissions } from '@/hooks/usePermissions'
 import { useDensityClasses } from '@/components/ui/DensitySelector'
 import { SettingsMenu } from '@/components/ui/SettingsMenu'
 import { ExportButton } from '@/components/ui/ExportButton'
@@ -151,6 +152,7 @@ const DEFAULT_AGENTES_CONFIG = {
 export default function AgentesPage() {
   const router = useRouter()
   const isInitialLoad = useRef(true)
+  const { canCreate, canDelete } = usePermissions()
 
   // Estados de datos
   const [agentes, setAgentes] = useState<AgenteComercial[]>([])
@@ -810,12 +812,14 @@ export default function AgentesPage() {
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
+{canCreate('agentes') && (
             <Button asChild size="sm">
               <Link href="/agentes-comerciales/nuevo">
                 <Plus className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Nuevo Agente</span>
               </Link>
             </Button>
+)}
           </div>
         </div>
 
@@ -1010,10 +1014,12 @@ export default function AgentesPage() {
               <Button variant="outline" size="sm" onClick={() => handleBulkAction('deactivate')}>
                 Desactivar
               </Button>
+{canDelete('agentes') && (
               <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
               </Button>
+)}
             </div>
           </Card>
         )}
@@ -1467,6 +1473,8 @@ export default function AgentesPage() {
                               )}
                             </DropdownMenuItem>
 
+{canDelete('agentes') && (
+                            <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
@@ -1475,6 +1483,8 @@ export default function AgentesPage() {
                               <Trash2 className="mr-2 h-4 w-4" />
                               Eliminar
                             </DropdownMenuItem>
+                            </>
+)}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -1605,12 +1615,12 @@ export default function AgentesPage() {
                 ¿Estás seguro de que deseas eliminar {deleteDialog.agenteIds.length === 1
                   ? 'el siguiente agente'
                   : `los siguientes ${deleteDialog.agenteIds.length} agentes`}?
-                <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                  {deleteDialog.agenteNombres.map((nombre, index) => (
-                    <li key={index} className="text-sm font-medium">• {nombre}</li>
-                  ))}
-                </ul>
               </DialogDescription>
+              <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                {deleteDialog.agenteNombres.map((nombre, index) => (
+                  <li key={index} className="text-sm font-medium">• {nombre}</li>
+                ))}
+              </ul>
             </DialogHeader>
             <DialogFooter>
               <Button

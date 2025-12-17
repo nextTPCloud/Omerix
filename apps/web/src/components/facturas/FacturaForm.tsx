@@ -14,14 +14,17 @@ import {
   EstadoFactura,
   MetodoPago,
   SistemaFiscal,
+  MotivoRectificacion,
   ESTADOS_FACTURA,
   TIPOS_FACTURA,
   TIPOS_LINEA,
   METODOS_PAGO,
   SISTEMAS_FISCALES,
+  MOTIVOS_RECTIFICACION,
   calcularLinea,
   crearLineaVacia,
 } from '@/types/factura.types'
+import { facturasService } from '@/services/facturas.service'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -70,6 +73,9 @@ import {
   Euro,
   Building2,
   Layers,
+  AlertTriangle,
+  FileWarning,
+  Search,
 } from 'lucide-react'
 
 // Components
@@ -99,6 +105,9 @@ import { toast } from 'sonner'
 // Componente de selección de variantes
 import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
 
+// Permisos
+import { usePermissions } from '@/hooks/usePermissions'
+
 interface FacturaFormProps {
   initialData?: IFactura
   onSubmit: (data: CreateFacturaDTO | UpdateFacturaDTO) => Promise<void>
@@ -114,6 +123,15 @@ export function FacturaForm({
 }: FacturaFormProps) {
   const [activeTab, setActiveTab] = useState('cliente')
 
+  // Permisos del usuario
+  const {
+    canVerCostes,
+    canVerMargenes,
+    canModificarPVP,
+    canAplicarDescuentos,
+    getDescuentoMaximo,
+  } = usePermissions()
+
   // Opciones cargadas
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [agentes, setAgentes] = useState<AgenteComercial[]>([])
@@ -127,8 +145,12 @@ export function FacturaForm({
   // Direcciones del cliente seleccionado
   const [direccionesCliente, setDireccionesCliente] = useState<DireccionExtendida[]>([])
 
-  // Estado de visibilidad de costes
-  const [mostrarCostes, setMostrarCostes] = useState(true)
+  // Estado de visibilidad de costes (controlado por permisos)
+  const [mostrarCostesUI, setMostrarCostesUI] = useState(true)
+  // Solo mostrar costes si el usuario tiene permiso Y el toggle está activo
+  const mostrarCostes = canVerCostes() && mostrarCostesUI
+  // Solo mostrar márgenes si el usuario tiene permiso Y se muestran costes
+  const mostrarMargenes = canVerMargenes() && mostrarCostes
 
   // Referencias para inputs
   const cantidadRefs = React.useRef<Map<number, HTMLInputElement>>(new Map())
@@ -149,6 +171,12 @@ export function FacturaForm({
   const [varianteSelectorOpen, setVarianteSelectorOpen] = useState(false)
   const [productoConVariantes, setProductoConVariantes] = useState<Producto | null>(null)
   const [lineaIndexParaVariante, setLineaIndexParaVariante] = useState<number | null>(null)
+
+  // Estado para facturas rectificativas
+  const [facturasDisponibles, setFacturasDisponibles] = useState<IFactura[]>([])
+  const [loadingFacturas, setLoadingFacturas] = useState(false)
+  const [busquedaFactura, setBusquedaFactura] = useState('')
+
   const [margenConfig, setMargenConfig] = useState({
     tipo: 'porcentaje' as 'porcentaje' | 'importe',
     valor: 0,
@@ -183,6 +211,12 @@ export function FacturaForm({
     mostrarMargenes: true,
     mostrarPrecios: true,
     mostrarComponentesKit: true,
+    // Campos para facturas rectificativas
+    esRectificativa: false,
+    facturaRectificadaId: undefined,
+    facturaRectificadaCodigo: undefined,
+    motivoRectificacion: undefined,
+    descripcionRectificacion: undefined,
     condiciones: {
       formaPagoId: undefined,
       terminoPagoId: undefined,
@@ -254,6 +288,50 @@ export function FacturaForm({
     loadOptions()
   }, [mode])
 
+  // Cargar facturas disponibles para rectificar cuando se selecciona tipo rectificativa
+  const buscarFacturasRectificables = useCallback(async (busqueda: string = '') => {
+    if (formData.tipo !== TipoFactura.RECTIFICATIVA) return
+
+    try {
+      setLoadingFacturas(true)
+      // Buscar facturas emitidas que pueden ser rectificadas
+      const response = await facturasService.getAll({
+        search: busqueda || undefined,
+        estado: EstadoFactura.EMITIDA,
+        tipo: TipoFactura.ORDINARIA,
+        limit: 50,
+      })
+
+      if (response.success && response.data) {
+        setFacturasDisponibles(response.data || [])
+      }
+    } catch (error) {
+      console.error('Error buscando facturas:', error)
+    } finally {
+      setLoadingFacturas(false)
+    }
+  }, [formData.tipo])
+
+  // Cargar facturas cuando se cambia a tipo rectificativa
+  useEffect(() => {
+    if (formData.tipo === TipoFactura.RECTIFICATIVA) {
+      buscarFacturasRectificables()
+      // Actualizar el flag esRectificativa
+      setFormData(prev => ({ ...prev, esRectificativa: true }))
+    } else {
+      setFacturasDisponibles([])
+      // Limpiar campos de rectificativa si se cambia el tipo
+      setFormData(prev => ({
+        ...prev,
+        esRectificativa: false,
+        facturaRectificadaId: undefined,
+        facturaRectificadaCodigo: undefined,
+        motivoRectificacion: undefined,
+        descripcionRectificacion: undefined,
+      }))
+    }
+  }, [formData.tipo, buscarFacturasRectificables])
+
   // Cargar datos iniciales
   useEffect(() => {
     if (initialData) {
@@ -309,7 +387,7 @@ export function FacturaForm({
         mostrarComponentesKit: initialData.mostrarComponentesKit,
       })
 
-      setMostrarCostes(initialData.mostrarCostes !== false)
+      setMostrarCostesUI(initialData.mostrarCostes !== false)
 
       if (clienteId) {
         const cliente = clientes.find(c => c._id === clienteId)
@@ -651,8 +729,7 @@ export function FacturaForm({
           precioUnitario: variante.precioUnitario,
           costeUnitario: variante.costeUnitario,
           descuento: 0,
-          tipoDescuento: 'porcentaje' as const,
-          impuesto: productoConVariantes.impuesto || 21,
+          iva: productoConVariantes.iva || 21,
           variante: {
             varianteId: variante.varianteId,
             sku: variante.sku,
@@ -1064,22 +1141,25 @@ export function FacturaForm({
         <CardContent className="py-3">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="mostrarCostes" className="text-sm cursor-pointer">
-                  {mostrarCostes ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                </Label>
-                <Switch
-                  id="mostrarCostes"
-                  checked={mostrarCostes}
-                  onCheckedChange={(checked) => {
-                    setMostrarCostes(checked)
-                    setFormData(prev => ({ ...prev, mostrarCostes: checked }))
-                  }}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {mostrarCostes ? 'Costes visibles' : 'Costes ocultos'}
-                </span>
-              </div>
+              {/* Solo mostrar toggle de costes si el usuario tiene permiso */}
+              {canVerCostes() && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="mostrarCostes" className="text-sm cursor-pointer">
+                    {mostrarCostes ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </Label>
+                  <Switch
+                    id="mostrarCostes"
+                    checked={mostrarCostesUI}
+                    onCheckedChange={(checked) => {
+                      setMostrarCostesUI(checked)
+                      setFormData(prev => ({ ...prev, mostrarCostes: checked }))
+                    }}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {mostrarCostes ? 'Costes visibles' : 'Costes ocultos'}
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <Label htmlFor="recargoEquivalencia" className="text-sm">
@@ -1096,15 +1176,18 @@ export function FacturaForm({
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowMargenDialog(true)}
-              >
-                <Percent className="h-4 w-4 mr-2" />
-                Aplicar Margen
-              </Button>
+              {/* Solo mostrar botón de margen si puede ver costes */}
+              {canVerCostes() && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowMargenDialog(true)}
+                >
+                  <Percent className="h-4 w-4 mr-2" />
+                  Aplicar Margen
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -1175,6 +1258,121 @@ export function FacturaForm({
                     />
                   </div>
                 </div>
+
+                {/* Campos para facturas rectificativas */}
+                {formData.tipo === TipoFactura.RECTIFICATIVA && (
+                  <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <FileWarning className="h-5 w-5 text-amber-600" />
+                        <CardTitle className="text-base">Datos de Factura Rectificativa</CardTitle>
+                      </div>
+                      <CardDescription>
+                        Información requerida para cumplir con la normativa antifraude
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Selector de factura a rectificar */}
+                      <div className="space-y-2">
+                        <Label htmlFor="facturaRectificar" className="flex items-center gap-2">
+                          <span>Factura a rectificar *</span>
+                          {loadingFacturas && <Loader2 className="h-3 w-3 animate-spin" />}
+                        </Label>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <SearchableSelect
+                              options={facturasDisponibles.map(f => ({
+                                value: f._id,
+                                label: f.codigo,
+                                description: `${f.clienteNombre} - ${new Date(f.fecha).toLocaleDateString('es-ES')} - ${f.totales?.totalFactura?.toFixed(2) || '0.00'}€`,
+                              }))}
+                              value={formData.facturaRectificadaId || ''}
+                              onValueChange={(value) => {
+                                const factura = facturasDisponibles.find(f => f._id === value)
+                                setFormData(prev => ({
+                                  ...prev,
+                                  facturaRectificadaId: value || undefined,
+                                  facturaRectificadaCodigo: factura?.codigo,
+                                  // Copiar datos del cliente de la factura original
+                                  clienteId: typeof factura?.clienteId === 'object'
+                                    ? factura.clienteId._id
+                                    : factura?.clienteId || prev.clienteId,
+                                  clienteNombre: factura?.clienteNombre || prev.clienteNombre,
+                                  clienteNif: factura?.clienteNif || prev.clienteNif,
+                                }))
+                              }}
+                              placeholder="Buscar factura emitida..."
+                              searchPlaceholder="Código, cliente..."
+                              emptyMessage={loadingFacturas ? "Cargando facturas..." : "No hay facturas disponibles"}
+                              loading={loadingFacturas}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => buscarFacturasRectificables(busquedaFactura)}
+                            disabled={loadingFacturas}
+                          >
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {formData.facturaRectificadaCodigo && (
+                          <p className="text-sm text-muted-foreground">
+                            Rectificando factura: <strong>{formData.facturaRectificadaCodigo}</strong>
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Motivo de rectificación */}
+                      <div className="space-y-2">
+                        <Label htmlFor="motivoRectificacion">Motivo de rectificación *</Label>
+                        <SearchableSelect
+                          options={MOTIVOS_RECTIFICACION.map(m => ({
+                            value: m.value,
+                            label: m.label,
+                          }))}
+                          value={formData.motivoRectificacion || ''}
+                          onValueChange={(value) => setFormData(prev => ({
+                            ...prev,
+                            motivoRectificacion: value as MotivoRectificacion || undefined,
+                          }))}
+                          placeholder="Seleccionar motivo..."
+                        />
+                      </div>
+
+                      {/* Descripción del motivo */}
+                      <div className="space-y-2">
+                        <Label htmlFor="descripcionRectificacion">Descripción del motivo</Label>
+                        <Textarea
+                          id="descripcionRectificacion"
+                          value={formData.descripcionRectificacion || ''}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            descripcionRectificacion: e.target.value,
+                          }))}
+                          placeholder="Describa detalladamente el motivo de la rectificación..."
+                          rows={3}
+                        />
+                      </div>
+
+                      {/* Aviso sobre productos vs servicios */}
+                      <div className="flex items-start gap-2 p-3 bg-amber-100 dark:bg-amber-900/30 rounded-md">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-amber-800 dark:text-amber-200">
+                          <p className="font-medium">Importante:</p>
+                          <p>
+                            Para rectificar facturas con <strong>productos</strong>, primero debe crear un
+                            <strong> albarán rectificativo</strong> (devolución de mercancía) y luego facturarlo.
+                          </p>
+                          <p className="mt-1">
+                            Las facturas rectificativas directas solo se permiten para <strong>servicios</strong>.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1396,16 +1594,20 @@ export function FacturaForm({
                       <span>{formatCurrency(totales.totalFactura)}</span>
                     </div>
                   </div>
+                  {/* Coste total - solo si puede ver costes */}
                   {mostrarCostes && (
-                    <div className="border-t pt-2 mt-2 space-y-1">
+                    <div className="border-t pt-2 mt-2">
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Coste total:</span>
                         <span>{formatCurrency(totales.costeTotal)}</span>
                       </div>
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>Margen:</span>
-                        <span>{formatCurrency(totales.margenBruto)} ({totales.margenPorcentaje.toFixed(1)}%)</span>
-                      </div>
+                    </div>
+                  )}
+                  {/* Margen - solo si puede ver márgenes */}
+                  {mostrarMargenes && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Margen:</span>
+                      <span>{formatCurrency(totales.margenBruto)} ({totales.margenPorcentaje.toFixed(1)}%)</span>
                     </div>
                   )}
                 </div>
@@ -1575,6 +1777,7 @@ export function FacturaForm({
                             value={linea.precioUnitario}
                             onChange={(e) => handleUpdateLinea(index, { precioUnitario: parseFloat(e.target.value) || 0 })}
                             className="text-right text-sm"
+                            disabled={!canModificarPVP()}
                           />
                         )}
                       </div>
@@ -1601,11 +1804,16 @@ export function FacturaForm({
                           <Input
                             type="number"
                             min="0"
-                            max="100"
+                            max={canAplicarDescuentos() ? getDescuentoMaximo() : 0}
                             step="0.1"
                             value={linea.descuento}
-                            onChange={(e) => handleUpdateLinea(index, { descuento: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => {
+                              const valor = parseFloat(e.target.value) || 0
+                              const max = getDescuentoMaximo()
+                              handleUpdateLinea(index, { descuento: Math.min(valor, max) })
+                            }}
                             className="text-right text-sm"
+                            disabled={!canAplicarDescuentos()}
                           />
                         )}
                       </div>
@@ -1634,7 +1842,7 @@ export function FacturaForm({
                       </div>
 
                       {/* Margen */}
-                      {mostrarCostes && (
+                      {mostrarMargenes && (
                         <div className="col-span-1 text-right">
                           {linea.tipo !== TipoLinea.TEXTO && linea.tipo !== TipoLinea.SUBTOTAL && (
                             <span className={linea.margenPorcentaje >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -1696,32 +1904,41 @@ export function FacturaForm({
             </CardContent>
           </Card>
 
-          {/* Descuento global */}
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center gap-4">
-                <Label htmlFor="descuentoGlobal" className="whitespace-nowrap">
-                  Descuento global:
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="descuentoGlobal"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={formData.descuentoGlobalPorcentaje || 0}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      descuentoGlobalPorcentaje: parseFloat(e.target.value) || 0
-                    }))}
-                    className="w-24"
-                  />
-                  <span className="text-sm text-muted-foreground">%</span>
+          {/* Descuento global - solo si puede aplicar descuentos */}
+          {canAplicarDescuentos() && (
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center gap-4">
+                  <Label htmlFor="descuentoGlobal" className="whitespace-nowrap">
+                    Descuento global:
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="descuentoGlobal"
+                      type="number"
+                      min="0"
+                      max={getDescuentoMaximo()}
+                      step="0.1"
+                      value={formData.descuentoGlobalPorcentaje || 0}
+                      onChange={(e) => {
+                        const valor = parseFloat(e.target.value) || 0
+                        const max = getDescuentoMaximo()
+                        setFormData(prev => ({
+                          ...prev,
+                          descuentoGlobalPorcentaje: Math.min(valor, max)
+                        }))
+                      }}
+                      className="w-24"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                    {getDescuentoMaximo() < 100 && (
+                      <span className="text-xs text-muted-foreground">(máx: {getDescuentoMaximo()}%)</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* TAB: VENCIMIENTOS */}

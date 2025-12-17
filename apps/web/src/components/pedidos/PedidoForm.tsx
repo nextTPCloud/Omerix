@@ -613,8 +613,7 @@ export function PedidoForm({
           precioUnitario: variante.precioUnitario,
           costeUnitario: variante.costeUnitario,
           descuento: 0,
-          tipoDescuento: 'porcentaje' as const,
-          impuesto: productoConVariantes.impuesto || 21,
+          iva: productoConVariantes.iva || 21,
           variante: {
             varianteId: variante.varianteId,
             sku: variante.sku,

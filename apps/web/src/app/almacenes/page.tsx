@@ -62,6 +62,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
+import { usePermissions } from '@/hooks/usePermissions'
 import { ColumnaConfig } from '@/services/configuracion.service'
 
 // Componentes UI
@@ -144,6 +145,7 @@ const DEFAULT_ALMACENES_CONFIG = {
 export default function AlmacenesPage() {
   const router = useRouter()
   const isInitialLoad = useRef(true)
+  const { canCreate, canDelete } = usePermissions()
 
   // Estados de datos
   const [almacenes, setAlmacenes] = useState<Almacen[]>([])
@@ -781,12 +783,14 @@ export default function AlmacenesPage() {
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
+{canCreate('almacenes') && (
             <Button asChild size="sm">
               <Link href="/almacenes/nuevo">
                 <Plus className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Nuevo Almacén</span>
               </Link>
             </Button>
+            )}
           </div>
         </div>
 
@@ -948,10 +952,12 @@ export default function AlmacenesPage() {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Exportar
               </Button>
+{canDelete('almacenes') && (
               <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
               </Button>
+              )}
             </div>
           </Card>
         )}
@@ -1306,6 +1312,8 @@ export default function AlmacenesPage() {
                               </>
                             )}
 
+{canDelete('almacenes') && (
+                            <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
@@ -1314,6 +1322,8 @@ export default function AlmacenesPage() {
                               <Trash2 className="mr-2 h-4 w-4" />
                               Eliminar
                             </DropdownMenuItem>
+                            </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -1449,12 +1459,12 @@ export default function AlmacenesPage() {
                 ¿Estás seguro de que deseas eliminar {deleteDialog.almacenIds.length === 1
                   ? 'el siguiente almacén'
                   : `los siguientes ${deleteDialog.almacenIds.length} almacenes`}?
-                <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                  {deleteDialog.almacenNombres.map((nombre, index) => (
-                    <li key={index} className="text-sm font-medium">• {nombre}</li>
-                  ))}
-                </ul>
               </DialogDescription>
+              <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                {deleteDialog.almacenNombres.map((nombre, index) => (
+                  <li key={index} className="text-sm font-medium">• {nombre}</li>
+                ))}
+              </ul>
             </DialogHeader>
             <DialogFooter>
               <Button

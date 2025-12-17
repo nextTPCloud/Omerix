@@ -15,7 +15,7 @@ export type EstadoPedidoCompra =
   | 'facturado'
   | 'cancelado'
 
-export type TipoLineaCompra = 'producto' | 'servicio' | 'texto' | 'subtotal' | 'descuento'
+export type TipoLineaCompra = 'producto' | 'servicio' | 'kit' | 'texto' | 'subtotal' | 'descuento'
 
 export type Prioridad = 'alta' | 'media' | 'baja'
 
@@ -42,10 +42,37 @@ export const PRIORIDADES: { value: Prioridad; label: string; color: string }[] =
 export const TIPOS_LINEA_COMPRA: { value: TipoLineaCompra; label: string }[] = [
   { value: 'producto', label: 'Producto' },
   { value: 'servicio', label: 'Servicio' },
+  { value: 'kit', label: 'Kit' },
   { value: 'texto', label: 'Texto' },
   { value: 'subtotal', label: 'Subtotal' },
   { value: 'descuento', label: 'Descuento' },
 ]
+
+// ============================================
+// INTERFACES - VARIANTES Y KITS
+// ============================================
+
+export interface IVarianteSeleccionada {
+  varianteId: string
+  sku: string
+  combinacion: Record<string, string>
+  precioAdicional?: number
+  costeAdicional?: number
+}
+
+export interface IComponenteKitCompra {
+  productoId: string
+  nombre: string
+  sku?: string
+  cantidad: number
+  precioUnitario: number
+  costeUnitario: number
+  descuento: number
+  iva: number
+  subtotal: number
+  opcional: boolean
+  seleccionado: boolean
+}
 
 // ============================================
 // INTERFACES - LINEAS
@@ -61,8 +88,16 @@ export interface LineaPedidoCompra {
   codigo?: string
   nombre: string
   descripcion?: string
+  descripcionLarga?: string
   sku?: string
   codigoProveedor?: string
+
+  // Variante
+  variante?: IVarianteSeleccionada
+
+  // Kit
+  componentesKit?: IComponenteKitCompra[]
+  mostrarComponentes?: boolean
 
   // Cantidades
   cantidad: number
@@ -72,6 +107,7 @@ export interface LineaPedidoCompra {
 
   // Precios
   precioUnitario: number
+  costeUnitario?: number
   descuento: number
   descuentoImporte: number
   subtotal: number

@@ -45,6 +45,23 @@ export interface ILineaPedidoCompra {
   sku?: string;
   codigoProveedor?: string; // Referencia del proveedor
 
+  // Variante (para productos con variantes)
+  variante?: {
+    varianteId?: mongoose.Types.ObjectId;
+    sku?: string;
+    valores?: Record<string, string>; // { talla: "M", color: "Rojo" }
+  };
+
+  // Kit/Compuesto (si el producto es un kit)
+  esKit?: boolean;
+  componentesKit?: Array<{
+    productoId: mongoose.Types.ObjectId;
+    codigo?: string;
+    nombre: string;
+    cantidad: number;
+    precioUnitario?: number;
+  }>;
+
   // Cantidades
   cantidad: number;
   cantidadRecibida: number;
@@ -245,6 +262,23 @@ const LineaPedidoCompraSchema = new Schema<ILineaPedidoCompra>({
   descripcion: { type: String, trim: true },
   sku: { type: String, trim: true },
   codigoProveedor: { type: String, trim: true },
+
+  // Variante
+  variante: {
+    varianteId: { type: Schema.Types.ObjectId },
+    sku: { type: String, trim: true },
+    valores: { type: Schema.Types.Mixed },
+  },
+
+  // Kit/Compuesto
+  esKit: { type: Boolean, default: false },
+  componentesKit: [{
+    productoId: { type: Schema.Types.ObjectId, ref: 'Producto' },
+    codigo: { type: String, trim: true },
+    nombre: { type: String, trim: true },
+    cantidad: { type: Number, min: 0 },
+    precioUnitario: { type: Number, min: 0 },
+  }],
 
   // Cantidades
   cantidad: { type: Number, required: true, min: 0, default: 1 },

@@ -47,9 +47,16 @@ export class PedidosCompraService {
       }
     }
 
+    // Generar codigo y numero
+    const serie = (createPedidoCompraDto as any).serie || 'PC';
+    const { codigo, numero } = await this.generarCodigoNumero(PedidoCompraModel, serie);
+
     // Crear pedido
     const pedidoCompra = new PedidoCompraModel({
       ...createPedidoCompraDto,
+      serie,
+      codigo,
+      numero,
       creadoPor: new mongoose.Types.ObjectId(usuarioId),
       fechaCreacion: new Date(),
     });
@@ -495,6 +502,321 @@ export class PedidosCompraService {
 
     await nuevoPedido.save();
     return nuevoPedido;
+  }
+
+  // ============================================
+  // ALERTAS DE PEDIDOS DE COMPRA
+  // ============================================
+
+  /**
+   * Obtener alertas de pedidos de compra:
+   * - Pendientes de recibir (enviados, confirmados, parcialmente recibidos)
+   * - Retrasados (fecha entrega pasada)
+   * - Próximos a recibir (entrega en los próximos X días)
+   */
+  async getAlertas(
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
+    diasAlerta: number = 7
+  ): Promise<{
+    alertas: {
+      pendientesRecibir: any[];
+      retrasados: any[];
+      proximosRecibir: any[];
+    };
+    resumen: {
+      pendientesRecibir: number;
+      retrasados: number;
+      proximosRecibir: number;
+      total: number;
+    };
+  }> {
+    const PedidoCompraModel = await getPedidoCompraModel(empresaId.toString(), dbConfig);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const fechaAlerta = new Date();
+    fechaAlerta.setDate(fechaAlerta.getDate() + diasAlerta);
+
+    // Pendientes de recibir
+    const pendientesRecibir = await PedidoCompraModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoPedidoCompra.ENVIADO,
+          EstadoPedidoCompra.CONFIRMADO,
+          EstadoPedidoCompra.PARCIALMENTE_RECIBIDO,
+        ],
+      },
+    })
+      .populate('proveedorId', 'nombre nombreComercial')
+      .sort({ fechaEntregaPrevista: 1, fecha: 1 })
+      .limit(50)
+      .lean();
+
+    // Retrasados: fecha de entrega pasada y no recibidos
+    const retrasados = await PedidoCompraModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoPedidoCompra.ENVIADO,
+          EstadoPedidoCompra.CONFIRMADO,
+          EstadoPedidoCompra.PARCIALMENTE_RECIBIDO,
+        ],
+      },
+      fechaEntregaPrevista: { $lt: hoy },
+    })
+      .populate('proveedorId', 'nombre nombreComercial')
+      .sort({ fechaEntregaPrevista: 1 })
+      .limit(50)
+      .lean();
+
+    // Próximos a recibir: entrega en los próximos X días
+    const proximosRecibir = await PedidoCompraModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoPedidoCompra.ENVIADO,
+          EstadoPedidoCompra.CONFIRMADO,
+          EstadoPedidoCompra.PARCIALMENTE_RECIBIDO,
+        ],
+      },
+      fechaEntregaPrevista: {
+        $gte: hoy,
+        $lte: fechaAlerta,
+      },
+    })
+      .populate('proveedorId', 'nombre nombreComercial')
+      .sort({ fechaEntregaPrevista: 1 })
+      .limit(50)
+      .lean();
+
+    // Formatear datos para el frontend
+    const formatPedido = (p: any) => ({
+      _id: p._id,
+      codigo: p.codigo,
+      proveedorNombre:
+        p.proveedorId?.nombreComercial ||
+        p.proveedorId?.nombre ||
+        p.proveedorNombre ||
+        'Sin proveedor',
+      fecha: p.fecha,
+      fechaEntregaPrevista: p.fechaEntregaPrevista,
+      estado: p.estado,
+      prioridad: p.prioridad,
+      totales: p.totales,
+    });
+
+    return {
+      alertas: {
+        pendientesRecibir: pendientesRecibir.map(formatPedido),
+        retrasados: retrasados.map(formatPedido),
+        proximosRecibir: proximosRecibir.map(formatPedido),
+      },
+      resumen: {
+        pendientesRecibir: pendientesRecibir.length,
+        retrasados: retrasados.length,
+        proximosRecibir: proximosRecibir.length,
+        total: pendientesRecibir.length + retrasados.length,
+      },
+    };
+  }
+
+  // ============================================
+  // PREPARAR PARA RECEPCIÓN
+  // ============================================
+
+  /**
+   * Prepara las líneas de un pedido para la recepción, expandiendo kits
+   * y obteniendo información de variantes
+   */
+  async prepararParaRecepcion(
+    id: string,
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<{
+    pedido: IPedidoCompra;
+    lineasRecepcion: Array<{
+      lineaId: string;
+      productoId?: string;
+      codigo?: string;
+      nombre: string;
+      descripcion?: string;
+      sku?: string;
+      cantidadPedida: number;
+      cantidadRecibida: number;
+      cantidadPendiente: number;
+      precioUnitario: number;
+      unidad?: string;
+      esKit: boolean;
+      tieneVariantes: boolean;
+      variantes?: Array<{
+        varianteId: string;
+        sku: string;
+        combinacion: Record<string, string>;
+        stockActual: number;
+      }>;
+      varianteSeleccionada?: {
+        varianteId: string;
+        sku: string;
+        valores: Record<string, string>;
+      };
+      componentesKit?: Array<{
+        productoId: string;
+        codigo?: string;
+        nombre: string;
+        cantidad: number;
+        cantidadPorRecibir: number;
+      }>;
+    }>;
+  } | null> {
+    const PedidoCompraModel = await getPedidoCompraModel(empresaId, dbConfig);
+    const { getProductoModel } = await import('@/utils/dynamic-models.helper');
+    const ProductoModel = await getProductoModel(empresaId, dbConfig);
+
+    const pedido = await PedidoCompraModel.findById(id).lean();
+    if (!pedido) return null;
+
+    const lineasRecepcion: any[] = [];
+
+    for (const linea of pedido.lineas) {
+      if (linea.tipo !== 'producto' || !linea.productoId) {
+        // Líneas que no son productos se pasan tal cual
+        lineasRecepcion.push({
+          lineaId: linea._id?.toString(),
+          productoId: linea.productoId?.toString(),
+          codigo: linea.codigo,
+          nombre: linea.nombre,
+          descripcion: linea.descripcion,
+          sku: linea.sku,
+          cantidadPedida: linea.cantidad,
+          cantidadRecibida: linea.cantidadRecibida || 0,
+          cantidadPendiente: linea.cantidadPendiente || (linea.cantidad - (linea.cantidadRecibida || 0)),
+          precioUnitario: linea.precioUnitario,
+          unidad: linea.unidad,
+          esKit: false,
+          tieneVariantes: false,
+          varianteSeleccionada: linea.variante ? {
+            varianteId: linea.variante.varianteId?.toString() || '',
+            sku: linea.variante.sku || '',
+            valores: linea.variante.valores || {},
+          } : undefined,
+        });
+        continue;
+      }
+
+      // Obtener información del producto
+      const producto = await ProductoModel.findById(linea.productoId).lean();
+
+      if (!producto) {
+        // Producto no encontrado, usar datos de la línea
+        lineasRecepcion.push({
+          lineaId: linea._id?.toString(),
+          productoId: linea.productoId?.toString(),
+          codigo: linea.codigo,
+          nombre: linea.nombre,
+          descripcion: linea.descripcion,
+          sku: linea.sku,
+          cantidadPedida: linea.cantidad,
+          cantidadRecibida: linea.cantidadRecibida || 0,
+          cantidadPendiente: linea.cantidadPendiente || (linea.cantidad - (linea.cantidadRecibida || 0)),
+          precioUnitario: linea.precioUnitario,
+          unidad: linea.unidad,
+          esKit: false,
+          tieneVariantes: false,
+        });
+        continue;
+      }
+
+      // Verificar si es un kit/compuesto
+      const esKit = producto.tipo === 'compuesto' && producto.componentesKit && producto.componentesKit.length > 0;
+
+      // Verificar si tiene variantes
+      const tieneVariantes = producto.tieneVariantes && producto.variantes && producto.variantes.length > 0;
+
+      // Preparar variantes si existen
+      let variantes: any[] | undefined = undefined;
+      if (tieneVariantes) {
+        variantes = producto.variantes.map((v: any) => ({
+          varianteId: v._id?.toString(),
+          sku: v.sku,
+          combinacion: v.combinacion,
+          stockActual: v.stockPorAlmacen?.reduce((sum: number, a: any) => sum + (a.cantidad || 0), 0) || 0,
+        }));
+      }
+
+      // Preparar componentes del kit si es un kit
+      let componentesKit: any[] | undefined = undefined;
+      if (esKit) {
+        componentesKit = [];
+        for (const comp of producto.componentesKit) {
+          const productoComponente = await ProductoModel.findById(comp.productoId).lean();
+          componentesKit.push({
+            productoId: comp.productoId?.toString(),
+            codigo: productoComponente?.sku || '',
+            nombre: productoComponente?.nombre || 'Producto no encontrado',
+            cantidad: comp.cantidad,
+            cantidadPorRecibir: comp.cantidad * linea.cantidad, // Cantidad total a recibir
+          });
+        }
+      }
+
+      lineasRecepcion.push({
+        lineaId: linea._id?.toString(),
+        productoId: linea.productoId?.toString(),
+        codigo: linea.codigo || producto.sku,
+        nombre: linea.nombre || producto.nombre,
+        descripcion: linea.descripcion || producto.descripcion,
+        sku: linea.sku || producto.sku,
+        cantidadPedida: linea.cantidad,
+        cantidadRecibida: linea.cantidadRecibida || 0,
+        cantidadPendiente: linea.cantidadPendiente || (linea.cantidad - (linea.cantidadRecibida || 0)),
+        precioUnitario: linea.precioUnitario,
+        unidad: linea.unidad || producto.unidadMedida,
+        esKit,
+        tieneVariantes,
+        variantes,
+        varianteSeleccionada: linea.variante ? {
+          varianteId: linea.variante.varianteId?.toString() || '',
+          sku: linea.variante.sku || '',
+          valores: linea.variante.valores || {},
+        } : undefined,
+        componentesKit,
+      });
+    }
+
+    return {
+      pedido,
+      lineasRecepcion,
+    };
+  }
+
+  // ============================================
+  // HELPERS PRIVADOS
+  // ============================================
+
+  /**
+   * Generar código y número para nuevo pedido de compra
+   */
+  private async generarCodigoNumero(
+    PedidoCompraModel: mongoose.Model<IPedidoCompra>,
+    serie: string = 'PC'
+  ): Promise<{ codigo: string; numero: number }> {
+    const año = new Date().getFullYear();
+
+    const ultimoPedido = await PedidoCompraModel.findOne({
+      serie,
+      codigo: new RegExp(`^${serie}${año}-\\d+$`),
+    }).sort({ numero: -1 }).lean();
+
+    let numero = 1;
+    if (ultimoPedido && ultimoPedido.numero) {
+      numero = ultimoPedido.numero + 1;
+    }
+
+    const codigo = `${serie}${año}-${numero.toString().padStart(5, '0')}`;
+
+    return { codigo, numero };
   }
 }
 

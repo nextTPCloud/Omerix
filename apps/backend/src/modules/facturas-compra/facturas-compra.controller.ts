@@ -465,6 +465,33 @@ export class FacturasCompraController {
       });
     }
   }
+
+  // ============================================
+  // ALERTAS
+  // ============================================
+
+  async getAlertas(req: AuthRequest, res: Response) {
+    try {
+      const diasAlerta = req.query.diasAlerta ? Number(req.query.diasAlerta) : 7;
+
+      const result = await facturasCompraService.getAlertas(
+        req.empresaId!,
+        req.dbConfig!,
+        diasAlerta
+      );
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: 'Error obteniendo alertas de facturas de compra',
+        error: error.message,
+      });
+    }
+  }
 }
 
 export const facturasCompraController = new FacturasCompraController();

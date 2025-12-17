@@ -67,6 +67,9 @@ import {
   Truck,
   PackageCheck,
   Layers,
+  AlertTriangle,
+  RotateCcw,
+  Search,
 } from 'lucide-react'
 
 // Components
@@ -81,6 +84,7 @@ import { proyectosService } from '@/services/proyectos.service'
 import { productosService } from '@/services/productos.service'
 import { almacenesService } from '@/services/almacenes.service'
 import { seriesDocumentosService } from '@/services/series-documentos.service'
+import { albaranesService } from '@/services/albaranes.service'
 import { ISerieDocumento } from '@/types/serie-documento.types'
 
 // Types
@@ -93,6 +97,9 @@ import { toast } from 'sonner'
 
 // Componente de selección de variantes
 import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
+
+// Permisos
+import { usePermissions } from '@/hooks/usePermissions'
 
 interface AlbaranFormProps {
   initialData?: IAlbaran
@@ -109,6 +116,15 @@ export function AlbaranForm({
 }: AlbaranFormProps) {
   const [activeTab, setActiveTab] = useState('cliente')
 
+  // Permisos del usuario
+  const {
+    canVerCostes,
+    canVerMargenes,
+    canModificarPVP,
+    canAplicarDescuentos,
+    getDescuentoMaximo,
+  } = usePermissions()
+
   // Opciones cargadas
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [agentes, setAgentes] = useState<AgenteComercial[]>([])
@@ -121,8 +137,12 @@ export function AlbaranForm({
   // Direcciones del cliente seleccionado
   const [direccionesCliente, setDireccionesCliente] = useState<DireccionExtendida[]>([])
 
-  // Estado de visibilidad de costes
-  const [mostrarCostes, setMostrarCostes] = useState(true)
+  // Estado de visibilidad de costes (controlado por permisos)
+  const [mostrarCostesUI, setMostrarCostesUI] = useState(true)
+  // Solo mostrar costes si el usuario tiene permiso Y el toggle está activo
+  const mostrarCostes = canVerCostes() && mostrarCostesUI
+  // Solo mostrar márgenes si el usuario tiene permiso Y se muestran costes
+  const mostrarMargenes = canVerMargenes() && mostrarCostes
 
   // Referencias para inputs
   const cantidadRefs = React.useRef<Map<number, HTMLInputElement>>(new Map())
@@ -141,6 +161,11 @@ export function AlbaranForm({
   const [varianteSelectorOpen, setVarianteSelectorOpen] = useState(false)
   const [productoConVariantes, setProductoConVariantes] = useState<Producto | null>(null)
   const [lineaIndexParaVariante, setLineaIndexParaVariante] = useState<number | null>(null)
+
+  // Estado para albaranes de devolución
+  const [albaranesDisponibles, setAlbaranesDisponibles] = useState<IAlbaran[]>([])
+  const [loadingAlbaranes, setLoadingAlbaranes] = useState(false)
+
   const [margenConfig, setMargenConfig] = useState({
     tipo: 'porcentaje' as 'porcentaje' | 'importe',
     valor: 0,
@@ -229,6 +254,47 @@ export function AlbaranForm({
     loadOptions()
   }, [])
 
+  // Buscar albaranes disponibles para devolución
+  const buscarAlbaranesRectificables = useCallback(async (busqueda: string = '') => {
+    if (formData.tipo !== TipoAlbaran.DEVOLUCION) return
+
+    try {
+      setLoadingAlbaranes(true)
+      // Buscar albaranes entregados que pueden ser devueltos (no facturados)
+      const response = await albaranesService.getAll({
+        search: busqueda || undefined,
+        tipo: TipoAlbaran.VENTA,
+        // Buscar albaranes entregados
+        estado: EstadoAlbaran.ENTREGADO,
+        limit: 50,
+      })
+
+      if (response.success && response.data) {
+        setAlbaranesDisponibles(response.data || [])
+      }
+    } catch (error) {
+      console.error('Error buscando albaranes:', error)
+    } finally {
+      setLoadingAlbaranes(false)
+    }
+  }, [formData.tipo])
+
+  // Cargar albaranes cuando se cambia a tipo devolución
+  useEffect(() => {
+    if (formData.tipo === TipoAlbaran.DEVOLUCION) {
+      buscarAlbaranesRectificables()
+    } else {
+      setAlbaranesDisponibles([])
+      // Limpiar campos de devolución si se cambia el tipo
+      setFormData(prev => ({
+        ...prev,
+        albaranRectificadoId: undefined,
+        albaranRectificadoCodigo: undefined,
+        motivoDevolucion: undefined,
+      }))
+    }
+  }, [formData.tipo, buscarAlbaranesRectificables])
+
   // Cargar datos iniciales
   useEffect(() => {
     if (initialData) {
@@ -284,7 +350,7 @@ export function AlbaranForm({
         mostrarPrecios: initialData.mostrarPrecios,
       })
 
-      setMostrarCostes(initialData.mostrarCostes !== false)
+      setMostrarCostesUI(initialData.mostrarCostes !== false)
 
       if (clienteId) {
         const cliente = clientes.find(c => c._id === clienteId)
@@ -549,7 +615,7 @@ export function AlbaranForm({
       aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, variante)
       // Actualizar cantidad si se especificó
       if (variante.cantidad && variante.cantidad !== 1) {
-        handleUpdateLinea(lineaIndexParaVariante, { cantidad: variante.cantidad })
+        handleUpdateLinea(lineaIndexParaVariante, { cantidadSolicitada: variante.cantidad })
       }
     }
     setVarianteSelectorOpen(false)
@@ -566,7 +632,7 @@ export function AlbaranForm({
     aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, primeraVariante)
     if (primeraVariante.cantidad) {
       setTimeout(() => {
-        handleUpdateLinea(lineaIndexParaVariante, { cantidad: primeraVariante.cantidad })
+        handleUpdateLinea(lineaIndexParaVariante, { cantidadSolicitada: primeraVariante.cantidad })
       }, 0)
     }
 
@@ -580,12 +646,12 @@ export function AlbaranForm({
           sku: variante.sku,
           nombre: `${productoConVariantes.nombre} - ${Object.values(variante.combinacion).join(' / ')}`,
           descripcion: productoConVariantes.descripcion || '',
-          cantidad: variante.cantidad || 1,
+          cantidadSolicitada: variante.cantidad || 1,
+          cantidadEntregada: variante.cantidad || 1,
           precioUnitario: variante.precioUnitario,
           costeUnitario: variante.costeUnitario,
           descuento: 0,
-          tipoDescuento: 'porcentaje' as const,
-          impuesto: productoConVariantes.impuesto || 21,
+          iva: productoConVariantes.iva || 21,
           variante: {
             varianteId: variante.varianteId,
             sku: variante.sku,
@@ -905,34 +971,40 @@ export function AlbaranForm({
         <CardContent className="py-3">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="mostrarCostes" className="text-sm cursor-pointer">
-                  {mostrarCostes ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                </Label>
-                <Switch
-                  id="mostrarCostes"
-                  checked={mostrarCostes}
-                  onCheckedChange={(checked) => {
-                    setMostrarCostes(checked)
-                    setFormData(prev => ({ ...prev, mostrarCostes: checked }))
-                  }}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {mostrarCostes ? 'Costes visibles' : 'Costes ocultos'}
-                </span>
-              </div>
+              {/* Solo mostrar toggle de costes si el usuario tiene permiso */}
+              {canVerCostes() && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="mostrarCostes" className="text-sm cursor-pointer">
+                    {mostrarCostes ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </Label>
+                  <Switch
+                    id="mostrarCostes"
+                    checked={mostrarCostesUI}
+                    onCheckedChange={(checked) => {
+                      setMostrarCostesUI(checked)
+                      setFormData(prev => ({ ...prev, mostrarCostes: checked }))
+                    }}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {mostrarCostes ? 'Costes visibles' : 'Costes ocultos'}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowMargenDialog(true)}
-              >
-                <Percent className="h-4 w-4 mr-2" />
-                Aplicar Margen
-              </Button>
+              {/* Solo mostrar botón de margen si puede ver costes */}
+              {canVerCostes() && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowMargenDialog(true)}
+                >
+                  <Percent className="h-4 w-4 mr-2" />
+                  Aplicar Margen
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -1016,6 +1088,112 @@ export function AlbaranForm({
                     </select>
                   </div>
                 </div>
+
+                {/* Campos para albaranes de devolución */}
+                {formData.tipo === TipoAlbaran.DEVOLUCION && (
+                  <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <RotateCcw className="h-5 w-5 text-amber-600" />
+                        <CardTitle className="text-base">Datos de Devolución</CardTitle>
+                      </div>
+                      <CardDescription>
+                        Seleccione el albarán original que se está devolviendo
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Selector de albarán a devolver */}
+                      <div className="space-y-2">
+                        <Label htmlFor="albaranRectificar" className="flex items-center gap-2">
+                          <span>Albarán original *</span>
+                          {loadingAlbaranes && <Loader2 className="h-3 w-3 animate-spin" />}
+                        </Label>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <SearchableSelect
+                              options={albaranesDisponibles.map(a => ({
+                                value: a._id,
+                                label: a.codigo,
+                                description: `${a.clienteNombre} - ${new Date(a.fecha).toLocaleDateString('es-ES')} - ${a.totales?.totalAlbaran?.toFixed(2) || '0.00'}€`,
+                              }))}
+                              value={formData.albaranRectificadoId || ''}
+                              onValueChange={(value) => {
+                                const albaran = albaranesDisponibles.find(a => a._id === value)
+                                setFormData(prev => ({
+                                  ...prev,
+                                  albaranRectificadoId: value || undefined,
+                                  albaranRectificadoCodigo: albaran?.codigo,
+                                  // Copiar datos del cliente del albarán original
+                                  clienteId: typeof albaran?.clienteId === 'object'
+                                    ? albaran.clienteId._id
+                                    : albaran?.clienteId || prev.clienteId,
+                                  clienteNombre: albaran?.clienteNombre || prev.clienteNombre,
+                                  clienteNif: albaran?.clienteNif || prev.clienteNif,
+                                  // Copiar líneas invirtiendo cantidades (para devolución)
+                                  lineas: albaran?.lineas?.map((linea, idx) => ({
+                                    ...linea,
+                                    orden: idx + 1,
+                                    cantidadSolicitada: linea.cantidadEntregada, // Devolver lo entregado
+                                    cantidadEntregada: 0,
+                                    cantidadPendiente: linea.cantidadEntregada,
+                                  })) || prev.lineas,
+                                }))
+                              }}
+                              placeholder="Buscar albarán entregado..."
+                              searchPlaceholder="Código, cliente..."
+                              emptyMessage={loadingAlbaranes ? "Cargando albaranes..." : "No hay albaranes disponibles"}
+                              loading={loadingAlbaranes}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => buscarAlbaranesRectificables('')}
+                            disabled={loadingAlbaranes}
+                          >
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {formData.albaranRectificadoCodigo && (
+                          <p className="text-sm text-muted-foreground">
+                            Devolviendo albarán: <strong>{formData.albaranRectificadoCodigo}</strong>
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Motivo de devolución */}
+                      <div className="space-y-2">
+                        <Label htmlFor="motivoDevolucion">Motivo de devolución *</Label>
+                        <Textarea
+                          id="motivoDevolucion"
+                          value={formData.motivoDevolucion || ''}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            motivoDevolucion: e.target.value,
+                          }))}
+                          placeholder="Describa el motivo de la devolución (defecto, error en pedido, etc.)..."
+                          rows={3}
+                        />
+                      </div>
+
+                      {/* Aviso sobre facturación */}
+                      <div className="flex items-start gap-2 p-3 bg-amber-100 dark:bg-amber-900/30 rounded-md">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-amber-800 dark:text-amber-200">
+                          <p className="font-medium">Importante:</p>
+                          <p>
+                            Este albarán de devolución podrá utilizarse para generar una
+                            <strong> factura rectificativa</strong> una vez se confirme la devolución.
+                          </p>
+                          <p className="mt-1">
+                            Las cantidades se tomarán con signo negativo al facturar.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1430,7 +1608,7 @@ export function AlbaranForm({
                             value={linea.precioUnitario || 0}
                             onChange={(e) => handleUpdateLinea(index, { precioUnitario: parseFloat(e.target.value) || 0 })}
                             className="h-9 text-right"
-                            disabled={linea.tipo === TipoLinea.TEXTO || linea.tipo === TipoLinea.SUBTOTAL}
+                            disabled={linea.tipo === TipoLinea.TEXTO || linea.tipo === TipoLinea.SUBTOTAL || !canModificarPVP()}
                           />
                         </div>
                       </div>
@@ -1460,12 +1638,16 @@ export function AlbaranForm({
                           <Input
                             type="number"
                             min="0"
-                            max="100"
+                            max={canAplicarDescuentos() ? getDescuentoMaximo() : 0}
                             step="0.1"
                             value={linea.descuento || 0}
-                            onChange={(e) => handleUpdateLinea(index, { descuento: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => {
+                              const valor = parseFloat(e.target.value) || 0
+                              const max = getDescuentoMaximo()
+                              handleUpdateLinea(index, { descuento: Math.min(valor, max) })
+                            }}
                             className="h-9 text-right"
-                            disabled={linea.tipo === TipoLinea.TEXTO || linea.tipo === TipoLinea.SUBTOTAL}
+                            disabled={linea.tipo === TipoLinea.TEXTO || linea.tipo === TipoLinea.SUBTOTAL || !canAplicarDescuentos()}
                           />
                         </div>
                       </div>
@@ -1496,7 +1678,7 @@ export function AlbaranForm({
                       </div>
 
                       {/* Margen */}
-                      {mostrarCostes && (
+                      {mostrarMargenes && (
                         <div className="col-span-6 md:col-span-1">
                           <div className={`flex items-center justify-end h-9 px-2 rounded text-sm font-medium ${
                             (linea.margenTotalLinea || 0) >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'
@@ -1573,20 +1755,29 @@ export function AlbaranForm({
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row md:justify-end gap-4">
-                {/* Descuento global */}
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="descuentoGlobal" className="text-sm whitespace-nowrap">Dto. Global %</Label>
-                  <Input
-                    id="descuentoGlobal"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={formData.descuentoGlobalPorcentaje || 0}
-                    onChange={(e) => setFormData(prev => ({ ...prev, descuentoGlobalPorcentaje: parseFloat(e.target.value) || 0 }))}
-                    className="w-20 h-9 text-right"
-                  />
-                </div>
+                {/* Descuento global - solo si puede aplicar descuentos */}
+                {canAplicarDescuentos() && (
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="descuentoGlobal" className="text-sm whitespace-nowrap">Dto. Global %</Label>
+                    <Input
+                      id="descuentoGlobal"
+                      type="number"
+                      min="0"
+                      max={getDescuentoMaximo()}
+                      step="0.1"
+                      value={formData.descuentoGlobalPorcentaje || 0}
+                      onChange={(e) => {
+                        const valor = parseFloat(e.target.value) || 0
+                        const max = getDescuentoMaximo()
+                        setFormData(prev => ({ ...prev, descuentoGlobalPorcentaje: Math.min(valor, max) }))
+                      }}
+                      className="w-20 h-9 text-right"
+                    />
+                    {getDescuentoMaximo() < 100 && (
+                      <span className="text-xs text-muted-foreground">(máx: {getDescuentoMaximo()}%)</span>
+                    )}
+                  </div>
+                )}
 
                 {/* Resumen de totales */}
                 <div className="border rounded-lg p-4 min-w-[280px] space-y-2">
@@ -1612,17 +1803,19 @@ export function AlbaranForm({
                     <span>TOTAL:</span>
                     <span className="text-primary">{formatCurrency(totales.totalAlbaran)}</span>
                   </div>
+                  {/* Coste total - solo si puede ver costes */}
                   {mostrarCostes && (
-                    <>
-                      <div className="border-t pt-2 flex justify-between text-sm text-blue-600">
-                        <span>Coste Total:</span>
-                        <span>{formatCurrency(totales.costeTotal)}</span>
-                      </div>
-                      <div className={`flex justify-between text-sm font-medium ${totales.margenBruto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        <span>Margen:</span>
-                        <span>{formatCurrency(totales.margenBruto)} ({totales.margenPorcentaje.toFixed(1)}%)</span>
-                      </div>
-                    </>
+                    <div className="border-t pt-2 flex justify-between text-sm text-blue-600">
+                      <span>Coste Total:</span>
+                      <span>{formatCurrency(totales.costeTotal)}</span>
+                    </div>
+                  )}
+                  {/* Margen - solo si puede ver márgenes */}
+                  {mostrarMargenes && (
+                    <div className={`flex justify-between text-sm font-medium ${totales.margenBruto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span>Margen:</span>
+                      <span>{formatCurrency(totales.margenBruto)} ({totales.margenPorcentaje.toFixed(1)}%)</span>
+                    </div>
                   )}
                 </div>
               </div>

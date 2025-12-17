@@ -23,6 +23,8 @@ declare global {
 
       // Configuración de base de datos de la empresa (multi-tenant)
       empresaDbConfig?: IDatabaseConfig;
+      // Alias para compatibilidad con controladores
+      dbConfig?: IDatabaseConfig;
     }
   }
 }

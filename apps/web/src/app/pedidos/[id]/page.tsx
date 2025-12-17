@@ -598,43 +598,106 @@ export default function PedidoDetailPage({ params }: PageProps) {
                     </thead>
                     <tbody>
                       {(pedido.lineas || []).map((linea, index) => (
-                        <tr key={linea._id || index} className="border-b hover:bg-muted/30">
-                          <td className="px-3 py-3">
-                            <div>
-                              <div className="font-medium">{linea.nombre}</div>
-                              {linea.descripcion && (
-                                <div className="text-xs text-muted-foreground">{linea.descripcion}</div>
-                              )}
-                              <Badge variant="outline" className="text-xs mt-1">
-                                {getTipoLineaLabel(linea.tipo)}
-                              </Badge>
-                            </div>
-                          </td>
-                          <td className="px-3 py-3 text-right">{linea.cantidad} {linea.unidad}</td>
-                          <td className="px-3 py-3 text-right">
-                            <span className={linea.cantidadServida === linea.cantidad ? 'text-green-600' : linea.cantidadServida > 0 ? 'text-yellow-600' : 'text-muted-foreground'}>
-                              {linea.cantidadServida || 0}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3 text-right">{formatCurrency(linea.precioUnitario)}</td>
-                          {mostrarCostes && (
-                            <td className="px-3 py-3 text-right text-blue-600">{formatCurrency(linea.costeUnitario)}</td>
-                          )}
-                          <td className="px-3 py-3 text-right">
-                            {linea.descuento > 0 ? `${linea.descuento}%` : '-'}
-                          </td>
-                          <td className="px-3 py-3 text-right font-medium">{formatCurrency(linea.subtotal)}</td>
-                          {mostrarCostes && (
+                        <React.Fragment key={linea._id || index}>
+                          <tr className="border-b hover:bg-muted/30">
+                            <td className="px-3 py-3">
+                              <div>
+                                <div className="font-medium">{linea.nombre}</div>
+                                {/* Mostrar variante seleccionada */}
+                                {linea.variante && (
+                                  <div className="text-xs text-purple-600 mt-0.5">
+                                    <span className="font-medium">Variante:</span>{' '}
+                                    {Object.entries(linea.variante.combinacion || {}).map(([attr, val]) => (
+                                      <span key={attr} className="inline-flex items-center gap-1 mr-2">
+                                        {attr}: <span className="font-semibold">{String(val)}</span>
+                                      </span>
+                                    ))}
+                                    {linea.variante.sku && (
+                                      <span className="text-muted-foreground">({linea.variante.sku})</span>
+                                    )}
+                                  </div>
+                                )}
+                                {linea.descripcion && (
+                                  <div className="text-xs text-muted-foreground">{linea.descripcion}</div>
+                                )}
+                                <Badge variant="outline" className="text-xs mt-1">
+                                  {getTipoLineaLabel(linea.tipo)}
+                                </Badge>
+                                {/* Indicador de que tiene componentes del kit */}
+                                {linea.componentesKit && linea.componentesKit.length > 0 && (
+                                  <Badge variant="secondary" className="text-xs mt-1 ml-1">
+                                    <Package className="h-3 w-3 mr-1" />
+                                    {linea.componentesKit.length} componentes
+                                  </Badge>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 text-right">{linea.cantidad} {linea.unidad}</td>
                             <td className="px-3 py-3 text-right">
-                              <span className={linea.margenTotalLinea >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                {formatCurrency(linea.margenTotalLinea)}
-                              </span>
-                              <span className="text-xs text-muted-foreground block">
-                                {linea.margenPorcentaje.toFixed(1)}%
+                              <span className={linea.cantidadServida === linea.cantidad ? 'text-green-600' : linea.cantidadServida > 0 ? 'text-yellow-600' : 'text-muted-foreground'}>
+                                {linea.cantidadServida || 0}
                               </span>
                             </td>
+                            <td className="px-3 py-3 text-right">{formatCurrency(linea.precioUnitario)}</td>
+                            {mostrarCostes && (
+                              <td className="px-3 py-3 text-right text-blue-600">{formatCurrency(linea.costeUnitario)}</td>
+                            )}
+                            <td className="px-3 py-3 text-right">
+                              {linea.descuento > 0 ? `${linea.descuento}%` : '-'}
+                            </td>
+                            <td className="px-3 py-3 text-right font-medium">{formatCurrency(linea.subtotal)}</td>
+                            {mostrarCostes && (
+                              <td className="px-3 py-3 text-right">
+                                <span className={linea.margenTotalLinea >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                  {formatCurrency(linea.margenTotalLinea)}
+                                </span>
+                                <span className="text-xs text-muted-foreground block">
+                                  {linea.margenPorcentaje.toFixed(1)}%
+                                </span>
+                              </td>
+                            )}
+                          </tr>
+                          {/* Filas de componentes del kit */}
+                          {linea.componentesKit && linea.componentesKit.length > 0 && linea.mostrarComponentes && (
+                            linea.componentesKit.map((componente: any, compIndex: number) => (
+                              <tr key={`${linea._id}-comp-${compIndex}`} className="bg-muted/20 border-b text-sm">
+                                <td className="px-3 py-2 pl-8">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground">└</span>
+                                    <div>
+                                      <span className="text-muted-foreground">{componente.nombre}</span>
+                                      {componente.sku && (
+                                        <span className="text-xs text-muted-foreground ml-2">({componente.sku})</span>
+                                      )}
+                                      {componente.opcional && (
+                                        <Badge variant="outline" className="text-xs ml-2">Opcional</Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-right text-muted-foreground">
+                                  {componente.cantidad * linea.cantidad}
+                                </td>
+                                <td className="px-3 py-2 text-right text-muted-foreground">-</td>
+                                <td className="px-3 py-2 text-right text-muted-foreground">
+                                  {formatCurrency(componente.precioUnitario)}
+                                </td>
+                                {mostrarCostes && (
+                                  <td className="px-3 py-2 text-right text-blue-400">
+                                    {formatCurrency(componente.costeUnitario)}
+                                  </td>
+                                )}
+                                <td className="px-3 py-2 text-right text-muted-foreground">
+                                  {componente.descuento > 0 ? `${componente.descuento}%` : '-'}
+                                </td>
+                                <td className="px-3 py-2 text-right text-muted-foreground">
+                                  {formatCurrency(componente.subtotal * linea.cantidad)}
+                                </td>
+                                {mostrarCostes && <td className="px-3 py-2"></td>}
+                              </tr>
+                            ))
                           )}
-                        </tr>
+                        </React.Fragment>
                       ))}
                     </tbody>
                     <tfoot className="bg-muted/30">

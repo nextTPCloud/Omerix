@@ -141,6 +141,77 @@ export const pedidosCompraService = {
     const response = await api.get('/pedidos-compra/estadisticas')
     return response.data
   },
+
+  // ============================================
+  // OBTENER ALERTAS
+  // ============================================
+
+  getAlertas: async (diasAlerta: number = 7): Promise<{
+    success: boolean
+    data: {
+      alertas: {
+        pendientesRecibir: PedidoCompra[]
+        retrasados: PedidoCompra[]
+        proximosRecibir: PedidoCompra[]
+      }
+      resumen: {
+        pendientesRecibir: number
+        retrasados: number
+        proximosRecibir: number
+        total: number
+      }
+    }
+  }> => {
+    const response = await api.get(`/pedidos-compra/alertas?diasAlerta=${diasAlerta}`)
+    return response.data
+  },
+
+  // ============================================
+  // PREPARAR PARA RECEPCIÓN
+  // ============================================
+
+  prepararParaRecepcion: async (id: string): Promise<{
+    success: boolean
+    data: {
+      pedido: PedidoCompra
+      lineasRecepcion: Array<{
+        lineaId: string
+        productoId?: string
+        codigo?: string
+        nombre: string
+        descripcion?: string
+        sku?: string
+        cantidadPedida: number
+        cantidadRecibida: number
+        cantidadPendiente: number
+        precioUnitario: number
+        unidad?: string
+        esKit: boolean
+        tieneVariantes: boolean
+        variantes?: Array<{
+          varianteId: string
+          sku: string
+          combinacion: Record<string, string>
+          stockActual: number
+        }>
+        varianteSeleccionada?: {
+          varianteId: string
+          sku: string
+          valores: Record<string, string>
+        }
+        componentesKit?: Array<{
+          productoId: string
+          codigo?: string
+          nombre: string
+          cantidad: number
+          cantidadPorRecibir: number
+        }>
+      }>
+    }
+  }> => {
+    const response = await api.get(`/pedidos-compra/${id}/preparar-recepcion`)
+    return response.data
+  },
 }
 
 export default pedidosCompraService

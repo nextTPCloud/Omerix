@@ -105,6 +105,27 @@ router.get('/estadisticas', pedidosCompraController.getEstadisticas.bind(pedidos
 
 /**
  * @swagger
+ * /pedidos-compra/alertas:
+ *   get:
+ *     summary: Obtener alertas de pedidos de compra (pendientes recibir, retrasados, proximos)
+ *     tags: [Pedidos de Compra]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: diasAlerta
+ *         schema:
+ *           type: integer
+ *           default: 7
+ *         description: Dias para considerar proximos a recibir
+ *     responses:
+ *       200:
+ *         description: Alertas de pedidos de compra
+ */
+router.get('/alertas', pedidosCompraController.getAlertas.bind(pedidosCompraController));
+
+/**
+ * @swagger
  * /pedidos-compra/codigo/{codigo}:
  *   get:
  *     summary: Obtener pedido de compra por codigo
@@ -260,6 +281,26 @@ router.patch('/:id/estado', pedidosCompraController.cambiarEstado.bind(pedidosCo
  *         description: Recepcion registrada
  */
 router.post('/:id/recepcion', pedidosCompraController.registrarRecepcion.bind(pedidosCompraController));
+
+/**
+ * @swagger
+ * /pedidos-compra/{id}/preparar-recepcion:
+ *   get:
+ *     summary: Obtener datos preparados para recepcion (expande kits, muestra variantes)
+ *     tags: [Pedidos de Compra]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Datos preparados para recepcion
+ */
+router.get('/:id/preparar-recepcion', pedidosCompraController.prepararParaRecepcion.bind(pedidosCompraController));
 
 /**
  * @swagger

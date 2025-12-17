@@ -50,6 +50,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFavoritosContext } from '@/contexts/FavoritosContext'
+import { usePermissions } from '@/hooks/usePermissions'
+import { IPermisosEspeciales } from '@/types/permissions.types'
 
 interface MenuItem {
   title: string
@@ -71,10 +73,21 @@ const iconMap: { [key: string]: any } = {
   Briefcase, UserCog, Star, FolderKanban,
 }
 
-const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
+// Tipo de permiso requerido para cada grupo
+type PermisoGrupo = keyof IPermisosEspeciales | null
+
+interface MenuGroup {
+  group: string
+  icon: any
+  items: MenuItem[]
+  permiso?: PermisoGrupo // Permiso requerido para ver este grupo
+}
+
+const menuGroups: MenuGroup[] = [
   {
     group: 'Ventas',
     icon: TrendingUp,
+    permiso: 'accesoVentas',
     items: [
       {
         title: 'Clientes',
@@ -123,6 +136,7 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
   {
     group: 'Compras',
     icon: TrendingDown,
+    permiso: 'accesoCompras',
     items: [
       {
         title: 'Proveedores',
@@ -166,6 +180,7 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
   {
     group: 'Servicios',
     icon: Wrench,
+    permiso: 'accesoVentas', // Los servicios están asociados a ventas
     items: [
       {
         title: 'Proyectos',
@@ -188,6 +203,7 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
   {
     group: 'Tesorería',
     icon: Wallet,
+    permiso: 'accesoContabilidad',
     items: [
       {
         title: 'Vencimientos',
@@ -218,6 +234,7 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
   {
     group: 'Catálogos',
     icon: Package,
+    permiso: 'accesoAlmacen',
     items: [
       {
         title: 'Productos',
@@ -244,6 +261,7 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
   {
     group: 'Restauración',
     icon: UtensilsCrossed,
+    permiso: 'accesoTPV',
     items: [
       {
         title: 'Zonas Preparación',
@@ -273,6 +291,7 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
   {
     group: 'Administración',
     icon: Database,
+    permiso: 'accederConfiguracion',
     items: [
       {
         title: 'Ficheros',
@@ -303,6 +322,7 @@ const menuGroups: { group: string; icon: any; items: MenuItem[] }[] = [
   {
     group: 'Sistema',
     icon: Settings,
+    permiso: 'accederConfiguracion',
     items: [
       {
         title: 'Configuración',
@@ -330,6 +350,15 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
   const [expandedGroups, setExpandedGroups] = useState<string[]>([])
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const { favoritos, isFavorito, toggleFavorito, loading: favoritosLoading } = useFavoritosContext()
+  const { can } = usePermissions()
+
+  // Filtrar grupos del menú según los permisos del usuario
+  const filteredMenuGroups = menuGroups.filter(group => {
+    // Si no tiene permiso definido, mostrar siempre (ej: Informes, RRHH)
+    if (!group.permiso) return true
+    // Verificar si el usuario tiene el permiso requerido
+    return can(group.permiso)
+  })
 
   const toggleGroup = (group: string) => {
     if (isCollapsed) return
@@ -458,8 +487,8 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                 </div>
               )}
 
-              {/* Grupos de menú */}
-              {menuGroups.map((group) => {
+              {/* Grupos de menú (filtrados por permisos) */}
+              {filteredMenuGroups.map((group) => {
                 const isGroupExpanded = expandedGroups.includes(group.group)
                 const GroupIcon = group.icon
 

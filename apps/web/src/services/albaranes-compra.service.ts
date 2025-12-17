@@ -67,8 +67,21 @@ export const albaranesCompraService = {
   // CREAR DESDE PEDIDO DE COMPRA
   // ============================================
 
-  crearDesdePedido: async (pedidoCompraId: string): Promise<AlbaranCompraResponse> => {
-    const response = await api.post('/albaranes-compra/desde-pedido', { pedidoCompraId })
+  crearDesdePedido: async (data: {
+    pedidoCompraId: string
+    almacenId: string
+    numeroAlbaranProveedor?: string
+    observaciones?: string
+    recibirTodo?: boolean
+    lineas?: Array<{
+      lineaId: string
+      cantidadRecibida: number
+      varianteId?: string
+      lote?: string
+      ubicacion?: string
+    }>
+  }): Promise<AlbaranCompraResponse> => {
+    const response = await api.post('/albaranes-compra/desde-pedido', data)
     return response.data
   },
 
@@ -169,6 +182,143 @@ export const albaranesCompraService = {
     const response = await api.get(`/albaranes-compra?${params.toString()}`)
     return response.data
   },
+
+  // ============================================
+  // OBTENER ALERTAS
+  // ============================================
+
+  getAlertas: async (diasAlerta: number = 30): Promise<{
+    success: boolean
+    data: {
+      alertas: {
+        pendientesFacturar: AlbaranCompra[]
+        pendientesRecepcion: AlbaranCompra[]
+        antiguosSinFacturar: AlbaranCompra[]
+      }
+      resumen: {
+        pendientesFacturar: number
+        pendientesRecepcion: number
+        antiguosSinFacturar: number
+        total: number
+      }
+    }
+  }> => {
+    const response = await api.get(`/albaranes-compra/alertas?diasAlerta=${diasAlerta}`)
+    return response.data
+  },
+
+  // ============================================
+  // OCR - PROCESAR DOCUMENTO
+  // ============================================
+
+  /**
+   * Procesar documento de compra con OCR
+   * @param file - Archivo imagen o PDF del albarán/factura del proveedor
+   */
+  procesarDocumentoOCR: async (file: File): Promise<OCRResultResponse> => {
+    const formData = new FormData()
+    formData.append('documento', file)
+
+    const response = await api.post('/albaranes-compra/ocr/procesar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
+
+  /**
+   * Buscar productos sugeridos por descripción
+   * Útil cuando el OCR no encuentra el producto por código
+   */
+  buscarProductosSugeridosOCR: async (descripcion: string): Promise<{
+    success: boolean
+    data: Array<{
+      _id: string
+      nombre: string
+      sku: string
+      referenciaProveedor?: string
+      precioCompra?: number
+    }>
+  }> => {
+    const response = await api.get(`/albaranes-compra/ocr/buscar-productos?descripcion=${encodeURIComponent(descripcion)}`)
+    return response.data
+  },
+
+  /**
+   * Crear albarán de compra desde datos extraídos por OCR
+   */
+  crearDesdeOCR: async (data: {
+    proveedorId: string
+    almacenId: string
+    numeroAlbaranProveedor?: string
+    fecha?: string
+    lineas: Array<{
+      productoId?: string
+      nombre?: string
+      descripcion: string
+      cantidad: number
+      precioUnitario: number
+      descuento?: number
+      iva?: number
+      codigoProveedor?: string
+    }>
+    observaciones?: string
+  }): Promise<AlbaranCompraResponse> => {
+    const response = await api.post('/albaranes-compra/ocr/crear', data)
+    return response.data
+  },
+}
+
+// Tipos para respuestas de OCR
+export interface OCRResultResponse {
+  success: boolean
+  data: {
+    success: boolean
+    datos: {
+      cifProveedor: string | null
+      nombreProveedor: string | null
+      numeroDocumento: string | null
+      fecha: string | null
+      lineas: Array<{
+        codigoProducto: string | null
+        descripcion: string
+        cantidad: number
+        precioUnitario: number
+        descuento?: number
+        iva?: number
+        total?: number
+      }>
+      totales?: {
+        subtotal?: number
+        iva?: number
+        total?: number
+      }
+      observaciones?: string
+      confianza: 'alta' | 'media' | 'baja'
+      camposNoDetectados: string[]
+    } | null
+    proveedorEncontrado?: {
+      _id: string
+      nombre: string
+      cif: string
+    } | null
+    productosEncontrados: Array<{
+      lineaIndex: number
+      codigoProveedor: string
+      productoId: string
+      nombre: string
+      sku: string
+      precioCompra: number
+    }>
+    productosNoEncontrados: Array<{
+      lineaIndex: number
+      codigoProveedor: string
+      descripcion: string
+    }>
+    advertencias: string[]
+    error?: string
+  }
 }
 
 export default albaranesCompraService

@@ -223,6 +223,14 @@ export interface IPresupuesto {
     documentoId: string;
     fecha: string;
   };
+  // Configuración de recordatorios
+  recordatoriosConfig?: {
+    activo?: boolean;
+    diasAntesExpiracion?: number;
+    enviarAlCliente?: boolean;
+    enviarAlAgente?: boolean;
+    maxRecordatorios?: number;
+  };
   // Virtuals
   diasParaCaducar?: number | null;
   estaVigente?: boolean;

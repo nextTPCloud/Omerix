@@ -7,8 +7,14 @@ import {
   Role,
   hasPermission,
   hasRoleLevel,
+  IPermisosEspeciales,
+  IUsuarioConPermisos,
+  hasSpecialPermission,
+  getPermisosEspecialesEfectivos,
+  getDescuentoMaximoUsuario,
 } from '../types/permissions.types';
 import Usuario from '../models/Usuario';
+import Rol from '../models/Rol';
 import mongoose from 'mongoose';
 
 /**
@@ -308,11 +314,250 @@ export const roleMiddleware = (allowedRoles: Role[]) => {
   };
 };
 
-// Extender el tipo Request para incluir el recurso
+/**
+ * Middleware para verificar permisos especiales
+ * Carga el rol personalizado si existe y verifica el permiso
+ * @param permiso - El permiso especial requerido
+ */
+export const requireSpecialPermission = (permiso: keyof IPermisosEspeciales) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.userId;
+      const userRole = req.userRole as Role;
+
+      if (!userId || !userRole) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      // Cargar usuario con rol personalizado si existe
+      const usuario = await Usuario.findById(userId).lean();
+      if (!usuario) {
+        return res.status(401).json({
+          success: false,
+          message: 'Usuario no encontrado',
+        });
+      }
+
+      // Construir objeto para verificación
+      const usuarioPermisos: IUsuarioConPermisos = {
+        rol: userRole,
+        rolId: usuario.rolId?.toString(),
+        permisos: usuario.permisos,
+      };
+
+      // Si tiene rol personalizado, cargarlo
+      if (usuario.rolId) {
+        const rolCustom = await Rol.findById(usuario.rolId).lean();
+        if (rolCustom) {
+          usuarioPermisos.rolCustom = rolCustom;
+        }
+      }
+
+      // Verificar permiso especial
+      if (!hasSpecialPermission(usuarioPermisos, permiso)) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes el permiso necesario para esta acción',
+          requiredPermission: permiso,
+        });
+      }
+
+      // Añadir permisos efectivos al request para uso posterior
+      req.userPermissions = getPermisosEspecialesEfectivos(usuarioPermisos);
+      req.userMaxDiscount = getDescuentoMaximoUsuario(usuarioPermisos);
+
+      next();
+    } catch (error: any) {
+      console.error('Error en requireSpecialPermission:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error verificando permisos especiales',
+        error: error.message,
+      });
+    }
+  };
+};
+
+/**
+ * Middleware para cargar permisos especiales del usuario
+ * No bloquea, solo carga los permisos en el request
+ */
+export const loadUserPermissions = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.userId;
+    const userRole = req.userRole as Role;
+
+    if (!userId || !userRole) {
+      return next();
+    }
+
+    // Cargar usuario
+    const usuario = await Usuario.findById(userId).lean();
+    if (!usuario) {
+      return next();
+    }
+
+    // Construir objeto para verificación
+    const usuarioPermisos: IUsuarioConPermisos = {
+      rol: userRole,
+      rolId: usuario.rolId?.toString(),
+      permisos: usuario.permisos,
+    };
+
+    // Si tiene rol personalizado, cargarlo
+    if (usuario.rolId) {
+      const rolCustom = await Rol.findById(usuario.rolId).lean();
+      if (rolCustom) {
+        usuarioPermisos.rolCustom = rolCustom;
+      }
+    }
+
+    // Añadir permisos al request
+    req.userPermissions = getPermisosEspecialesEfectivos(usuarioPermisos);
+    req.userMaxDiscount = getDescuentoMaximoUsuario(usuarioPermisos);
+
+    next();
+  } catch (error: any) {
+    console.error('Error en loadUserPermissions:', error);
+    // No bloquear, solo loguear
+    next();
+  }
+};
+
+/**
+ * Middleware para verificar descuento máximo permitido
+ * Verifica que el descuento en el body no exceda el máximo permitido
+ * @param fieldPath - Ruta al campo de descuento (ej: 'lineas[].descuento' o 'descuento')
+ */
+export const requireDescuentoPermitido = (fieldPath: string = 'descuento') => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.userId;
+      const userRole = req.userRole as Role;
+
+      if (!userId || !userRole) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      // Cargar permisos si no están ya
+      if (!req.userPermissions) {
+        const usuario = await Usuario.findById(userId).lean();
+        if (usuario) {
+          const usuarioPermisos: IUsuarioConPermisos = {
+            rol: userRole,
+            rolId: usuario.rolId?.toString(),
+            permisos: usuario.permisos,
+          };
+
+          if (usuario.rolId) {
+            const rolCustom = await Rol.findById(usuario.rolId).lean();
+            if (rolCustom) {
+              usuarioPermisos.rolCustom = rolCustom;
+            }
+          }
+
+          req.userPermissions = getPermisosEspecialesEfectivos(usuarioPermisos);
+          req.userMaxDiscount = getDescuentoMaximoUsuario(usuarioPermisos);
+        }
+      }
+
+      // Verificar si puede aplicar descuentos
+      if (!req.userPermissions?.aplicarDescuentos) {
+        // Buscar si hay descuentos en el body
+        const hayDescuentos = checkDescuentosEnBody(req.body, fieldPath);
+        if (hayDescuentos) {
+          return res.status(403).json({
+            success: false,
+            message: 'No tienes permisos para aplicar descuentos',
+          });
+        }
+      }
+
+      // Verificar que los descuentos no excedan el máximo
+      const maxDescuento = req.userMaxDiscount || 0;
+      const descuentosInvalidos = findDescuentosExcedidos(req.body, fieldPath, maxDescuento);
+
+      if (descuentosInvalidos.length > 0) {
+        return res.status(403).json({
+          success: false,
+          message: `El descuento máximo permitido es ${maxDescuento}%`,
+          maxDescuento,
+          descuentosExcedidos: descuentosInvalidos,
+        });
+      }
+
+      next();
+    } catch (error: any) {
+      console.error('Error en requireDescuentoPermitido:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error verificando permisos de descuento',
+        error: error.message,
+      });
+    }
+  };
+};
+
+/**
+ * Helper para verificar si hay descuentos en el body
+ */
+function checkDescuentosEnBody(body: any, fieldPath: string): boolean {
+  if (fieldPath.includes('[].')) {
+    // Campo en array (ej: lineas[].descuento)
+    const [arrayField, subField] = fieldPath.split('[].');
+    const arr = body[arrayField];
+    if (Array.isArray(arr)) {
+      return arr.some(item => item[subField] && item[subField] > 0);
+    }
+  } else {
+    // Campo simple
+    return body[fieldPath] && body[fieldPath] > 0;
+  }
+  return false;
+}
+
+/**
+ * Helper para encontrar descuentos que exceden el máximo
+ */
+function findDescuentosExcedidos(body: any, fieldPath: string, maxDescuento: number): number[] {
+  const excedidos: number[] = [];
+
+  if (fieldPath.includes('[].')) {
+    const [arrayField, subField] = fieldPath.split('[].');
+    const arr = body[arrayField];
+    if (Array.isArray(arr)) {
+      arr.forEach((item, index) => {
+        if (item[subField] && item[subField] > maxDescuento) {
+          excedidos.push(item[subField]);
+        }
+      });
+    }
+  } else {
+    if (body[fieldPath] && body[fieldPath] > maxDescuento) {
+      excedidos.push(body[fieldPath]);
+    }
+  }
+
+  return excedidos;
+}
+
+// Extender el tipo Request para incluir el recurso y permisos
 declare global {
   namespace Express {
     interface Request {
       resource?: any;
+      userPermissions?: IPermisosEspeciales;
+      userMaxDiscount?: number;
     }
   }
 }

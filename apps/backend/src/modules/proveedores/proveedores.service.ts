@@ -2,7 +2,7 @@ import mongoose, { Model } from 'mongoose';
 import { CreateProveedorDTO, UpdateProveedorDTO, GetProveedoresQuery } from './proveedores.dto';
 import { Proveedor, IProveedor } from '@/modules/proveedores/Proveedor';
 import { IDatabaseConfig } from '@/models/Empresa';
-import { getProveedorModel } from '@/utils/dynamic-models.helper';
+import { getProveedorModel, getFormaPagoModel, getTerminoPagoModel } from '@/utils/dynamic-models.helper';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 
 // ============================================
@@ -63,7 +63,12 @@ export class ProveedoresService {
     dbConfig: IDatabaseConfig,
     query: Partial<GetProveedoresQuery>
   ): Promise<findAllResult> {
-    const ProveedorModel = await this.getModeloProveedor(String(empresaId), dbConfig);
+    // Registrar modelos necesarios para populate
+    const [ProveedorModel] = await Promise.all([
+      this.getModeloProveedor(String(empresaId), dbConfig),
+      getFormaPagoModel(String(empresaId), dbConfig),
+      getTerminoPagoModel(String(empresaId), dbConfig),
+    ]);
 
     const {
       search,
@@ -176,7 +181,12 @@ export class ProveedoresService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ): Promise<IProveedor | null> {
-    const ProveedorModel = await this.getModeloProveedor(String(empresaId), dbConfig);
+    // Registrar modelos necesarios para populate
+    const [ProveedorModel] = await Promise.all([
+      this.getModeloProveedor(String(empresaId), dbConfig),
+      getFormaPagoModel(String(empresaId), dbConfig),
+      getTerminoPagoModel(String(empresaId), dbConfig),
+    ]);
 
     const proveedor = await ProveedorModel.findOne({
       _id: id,

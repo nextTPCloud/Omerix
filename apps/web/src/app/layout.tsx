@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SkinProvider } from "@/contexts/SkinContext";
+import { PermissionsProvider } from "@/contexts/PermissionsContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,8 +24,10 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning className="skin-default">
       <body className={inter.className} suppressHydrationWarning>
         <SkinProvider>
-          {children}
-          <Toaster position="top-right" richColors />
+          <PermissionsProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+          </PermissionsProvider>
         </SkinProvider>
       </body>
     </html>

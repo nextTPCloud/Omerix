@@ -78,6 +78,7 @@ import { ColumnaConfig } from '@/services/configuracion.service'
 
 // 🆕 NUEVOS IMPORTS
 import { useDensityClasses } from '@/components/ui/DensitySelector'
+import { usePermissions } from '@/hooks/usePermissions'
 import { SettingsMenu } from '@/components/ui/SettingsMenu'
 import { ExportButton } from '@/components/ui/ExportButton'
 import { TableSelect } from '@/components/ui/tableSelect'
@@ -154,6 +155,7 @@ const DEFAULT_CLIENTES_CONFIG = {
 export default function ClientesPage() {
   const router = useRouter()
   const isInitialLoad = useRef(true)
+  const { canCreate, canDelete } = usePermissions()
 
   // Estados de datos
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -872,12 +874,14 @@ const {
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
-            <Button asChild size="sm">
-              <Link href="/clientes/nuevo">
-                <Plus className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Nuevo Cliente</span>
-              </Link>
-            </Button>
+            {canCreate('clientes') && (
+              <Button asChild size="sm">
+                <Link href="/clientes/nuevo">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Nuevo Cliente</span>
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -1073,10 +1077,12 @@ const {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Exportar
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </Button>
+              {canDelete('clientes') && (
+                <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -1606,14 +1612,18 @@ const {
                               Vencimientos
                             </DropdownMenuItem>
                             
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => handleClientAction(cliente._id, 'delete')}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Eliminar
-                            </DropdownMenuItem>
+                            {canDelete('clientes') && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => handleClientAction(cliente._id, 'delete')}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -1746,15 +1756,15 @@ const {
             <DialogHeader>
               <DialogTitle>Confirmar eliminación</DialogTitle>
               <DialogDescription>
-                ¿Estás seguro de que deseas eliminar {deleteDialog.clienteIds.length === 1 
-                  ? 'el siguiente cliente' 
+                ¿Estás seguro de que deseas eliminar {deleteDialog.clienteIds.length === 1
+                  ? 'el siguiente cliente'
                   : `los siguientes ${deleteDialog.clienteIds.length} clientes`}?
-                <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                  {deleteDialog.clienteNombres.map((nombre, index) => (
-                    <li key={index} className="text-sm font-medium">• {nombre}</li>
-                  ))}
-                </ul>
               </DialogDescription>
+              <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                {deleteDialog.clienteNombres.map((nombre, index) => (
+                  <li key={index} className="text-sm font-medium">• {nombre}</li>
+                ))}
+              </ul>
             </DialogHeader>
             <DialogFooter>
               <Button

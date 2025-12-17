@@ -95,6 +95,9 @@ import { toast } from 'sonner'
 // Variantes
 import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
 
+// Permisos
+import { usePermissions } from '@/hooks/usePermissions'
+
 interface PresupuestoFormProps {
   initialData?: IPresupuesto
   onSubmit: (data: CreatePresupuestoDTO | UpdatePresupuestoDTO) => Promise<void>
@@ -110,6 +113,15 @@ export function PresupuestoForm({
 }: PresupuestoFormProps) {
   const [activeTab, setActiveTab] = useState('cliente')
 
+  // Permisos del usuario
+  const {
+    canVerCostes,
+    canVerMargenes,
+    canModificarPVP,
+    canAplicarDescuentos,
+    getDescuentoMaximo,
+  } = usePermissions()
+
   // Opciones cargadas
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [agentes, setAgentes] = useState<AgenteComercial[]>([])
@@ -124,8 +136,12 @@ export function PresupuestoForm({
   // Direcciones del cliente seleccionado
   const [direccionesCliente, setDireccionesCliente] = useState<DireccionExtendida[]>([])
 
-  // Estado de visibilidad de costes
-  const [mostrarCostes, setMostrarCostes] = useState(true)
+  // Estado de visibilidad de costes (controlado por permisos)
+  const [mostrarCostesUI, setMostrarCostesUI] = useState(true)
+  // Solo mostrar costes si el usuario tiene permiso Y el toggle está activo
+  const mostrarCostes = canVerCostes() && mostrarCostesUI
+  // Solo mostrar márgenes si el usuario tiene permiso Y se muestran costes
+  const mostrarMargenes = canVerMargenes() && mostrarCostes
 
   // Referencias para inputs (para navegación con teclado)
   const cantidadRefs = React.useRef<Map<number, HTMLInputElement>>(new Map())
@@ -306,7 +322,7 @@ export function PresupuestoForm({
         mostrarComponentesKit: initialData.mostrarComponentesKit,
       })
 
-      setMostrarCostes(initialData.mostrarCostes !== false)
+      setMostrarCostesUI(initialData.mostrarCostes !== false)
 
       // Cargar direcciones del cliente si viene preseleccionado
       if (clienteId) {
@@ -633,8 +649,7 @@ export function PresupuestoForm({
           precioUnitario: variante.precioUnitario,
           costeUnitario: variante.costeUnitario,
           descuento: 0,
-          tipoDescuento: 'porcentaje' as const,
-          impuesto: productoConVariantes.impuesto || 21,
+          iva: productoConVariantes.iva || 21,
           variante: {
             varianteId: variante.varianteId,
             sku: variante.sku,
@@ -968,34 +983,40 @@ export function PresupuestoForm({
         <CardContent className="py-3">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="mostrarCostes" className="text-sm cursor-pointer">
-                  {mostrarCostes ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                </Label>
-                <Switch
-                  id="mostrarCostes"
-                  checked={mostrarCostes}
-                  onCheckedChange={(checked) => {
-                    setMostrarCostes(checked)
-                    setFormData(prev => ({ ...prev, mostrarCostes: checked }))
-                  }}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {mostrarCostes ? 'Costes visibles' : 'Costes ocultos'}
-                </span>
-              </div>
+              {/* Solo mostrar toggle de costes si el usuario tiene permiso */}
+              {canVerCostes() && (
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="mostrarCostes" className="text-sm cursor-pointer">
+                    {mostrarCostes ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </Label>
+                  <Switch
+                    id="mostrarCostes"
+                    checked={mostrarCostesUI}
+                    onCheckedChange={(checked) => {
+                      setMostrarCostesUI(checked)
+                      setFormData(prev => ({ ...prev, mostrarCostes: checked }))
+                    }}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {mostrarCostes ? 'Costes visibles' : 'Costes ocultos'}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowMargenDialog(true)}
-              >
-                <Percent className="h-4 w-4 mr-2" />
-                Aplicar Margen
-              </Button>
+              {/* Solo mostrar botón de margen si puede ver costes */}
+              {canVerCostes() && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowMargenDialog(true)}
+                >
+                  <Percent className="h-4 w-4 mr-2" />
+                  Aplicar Margen
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -1257,11 +1278,11 @@ export function PresupuestoForm({
           {/* Estado y Condiciones de Pago */}
           <Card>
             <CardHeader>
-              <CardTitle>Estado y Condiciones</CardTitle>
+              <CardTitle>Estado del Presupuesto</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="estado">Estado del Presupuesto</Label>
+            <CardContent>
+              <div className="space-y-2 max-w-xs">
+                <Label htmlFor="estado">Estado</Label>
                 <select
                   id="estado"
                   value={formData.estado || EstadoPresupuesto.BORRADOR}
@@ -1272,80 +1293,6 @@ export function PresupuestoForm({
                     <option key={estado.value} value={estado.value}>{estado.label}</option>
                   ))}
                 </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="formaPagoId">Forma de Pago</Label>
-                <SearchableSelect
-                  options={formasPagoOptions}
-                  value={formData.condiciones?.formaPagoId || ''}
-                  onValueChange={(value) => setFormData(prev => ({
-                    ...prev,
-                    condiciones: { ...prev.condiciones!, formaPagoId: value || undefined }
-                  }))}
-                  placeholder="Seleccionar forma de pago..."
-                  searchPlaceholder="Buscar..."
-                  emptyMessage="No hay formas de pago"
-                  allowClear
-                  loading={loadingOptions}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="terminoPagoId">Término de Pago</Label>
-                <SearchableSelect
-                  options={terminosPagoOptions}
-                  value={formData.condiciones?.terminoPagoId || ''}
-                  onValueChange={(value) => setFormData(prev => ({
-                    ...prev,
-                    condiciones: { ...prev.condiciones!, terminoPagoId: value || undefined }
-                  }))}
-                  placeholder="Seleccionar término de pago..."
-                  searchPlaceholder="Buscar..."
-                  emptyMessage="No hay términos de pago"
-                  allowClear
-                  loading={loadingOptions}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="validezDias">Validez (días)</Label>
-                <Input
-                  id="validezDias"
-                  type="number"
-                  min="1"
-                  value={formData.condiciones?.validezDias || 30}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    condiciones: { ...prev.condiciones!, validezDias: parseInt(e.target.value) || 30 }
-                  }))}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tiempoEntrega">Tiempo de Entrega</Label>
-                <Input
-                  id="tiempoEntrega"
-                  value={formData.condiciones?.tiempoEntrega || ''}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    condiciones: { ...prev.condiciones!, tiempoEntrega: e.target.value }
-                  }))}
-                  placeholder="Ej: 15 días laborables"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="garantia">Garantía</Label>
-                <Input
-                  id="garantia"
-                  value={formData.condiciones?.garantia || ''}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    condiciones: { ...prev.condiciones!, garantia: e.target.value }
-                  }))}
-                  placeholder="Ej: 2 años"
-                />
               </div>
             </CardContent>
           </Card>
@@ -1380,12 +1327,12 @@ export function PresupuestoForm({
                     <col style={{ width: 'auto', minWidth: '200px' }} />
                     <col style={{ width: '70px' }} />
                     {mostrarCostes && <col style={{ width: '85px' }} />}
-                    {mostrarCostes && <col style={{ width: '75px' }} />}
+                    {mostrarMargenes && <col style={{ width: '75px' }} />}
                     <col style={{ width: '85px' }} />
                     <col style={{ width: '65px' }} />
                     <col style={{ width: '70px' }} />
                     <col style={{ width: '95px' }} />
-                    {mostrarCostes && <col style={{ width: '90px' }} />}
+                    {mostrarMargenes && <col style={{ width: '90px' }} />}
                     <col style={{ width: '120px' }} />
                   </colgroup>
                   <thead>
@@ -1397,14 +1344,14 @@ export function PresupuestoForm({
                       {mostrarCostes && (
                         <th className="px-1 py-3 text-right text-xs text-blue-600">Coste</th>
                       )}
-                      {mostrarCostes && (
+                      {mostrarMargenes && (
                         <th className="px-1 py-3 text-right text-xs text-green-600" title="Edita el margen para recalcular el precio">Margen%</th>
                       )}
                       <th className="px-1 py-3 text-right text-xs">Precio</th>
                       <th className="px-1 py-3 text-right text-xs">Dto%</th>
                       <th className="px-1 py-3 text-right text-xs">IVA%</th>
                       <th className="px-1 py-3 text-right text-xs">Subtotal</th>
-                      {mostrarCostes && (
+                      {mostrarMargenes && (
                         <th className="px-1 py-3 text-right text-xs text-green-600">Margen€</th>
                       )}
                       <th className="px-1 py-3"></th>
@@ -1549,7 +1496,7 @@ export function PresupuestoForm({
                             />
                           </td>
                         )}
-                        {mostrarCostes && (
+                        {mostrarMargenes && (
                           <td className="px-1 py-2">
                             <Input
                               type="number"
@@ -1558,6 +1505,7 @@ export function PresupuestoForm({
                               onChange={(e) => handleUpdateMargen(index, parseFloat(e.target.value) || 0)}
                               className="h-7 text-xs text-right text-green-600 px-1"
                               title="Editar margen recalcula precio"
+                              disabled={!canModificarPVP()}
                             />
                           </td>
                         )}
@@ -1569,17 +1517,23 @@ export function PresupuestoForm({
                             value={linea.precioUnitario || 0}
                             onChange={(e) => handleUpdateLinea(index, { precioUnitario: parseFloat(e.target.value) || 0 })}
                             className="h-7 text-xs text-right px-1"
+                            disabled={!canModificarPVP()}
                           />
                         </td>
                         <td className="px-1 py-2">
                           <Input
                             type="number"
                             min="0"
-                            max="100"
+                            max={canAplicarDescuentos() ? getDescuentoMaximo() : 0}
                             step="0.1"
                             value={linea.descuento || 0}
-                            onChange={(e) => handleUpdateLinea(index, { descuento: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => {
+                              const valor = parseFloat(e.target.value) || 0
+                              const max = getDescuentoMaximo()
+                              handleUpdateLinea(index, { descuento: Math.min(valor, max) })
+                            }}
                             className="h-7 text-xs text-right px-1"
+                            disabled={!canAplicarDescuentos()}
                           />
                         </td>
                         <td className="px-1 py-2">
@@ -1596,7 +1550,7 @@ export function PresupuestoForm({
                         <td className="px-1 py-2 text-right font-medium text-xs whitespace-nowrap">
                           {formatCurrency(linea.subtotal || 0)}
                         </td>
-                        {mostrarCostes && (
+                        {mostrarMargenes && (
                           <td className="px-1 py-2 text-right text-xs whitespace-nowrap">
                             <span className={linea.margenTotalLinea >= 0 ? 'text-green-600' : 'text-red-600'}>
                               {formatCurrency(linea.margenTotalLinea || 0)}
@@ -1686,42 +1640,54 @@ export function PresupuestoForm({
                       <span>{formatCurrency(totales.totalPresupuesto)}</span>
                     </div>
 
+                    {/* Coste total - solo si puede ver costes */}
                     {mostrarCostes && (
-                      <>
-                        <div className="border-t pt-2 mt-2">
-                          <div className="flex justify-between py-1 text-blue-600">
-                            <span>Coste Total:</span>
-                            <span>{formatCurrency(totales.costeTotal)}</span>
-                          </div>
-                          <div className={`flex justify-between py-1 font-medium ${totales.margenBruto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            <span>Margen Bruto:</span>
-                            <span>{formatCurrency(totales.margenBruto)} ({totales.margenPorcentaje.toFixed(1)}%)</span>
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Descuento global */}
-                    <div className="border-t pt-3 mt-3">
-                      <div className="flex items-center gap-4">
-                        <Label className="whitespace-nowrap">Descuento Global:</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                            value={formData.descuentoGlobalPorcentaje || 0}
-                            onChange={(e) => setFormData(prev => ({
-                              ...prev,
-                              descuentoGlobalPorcentaje: parseFloat(e.target.value) || 0,
-                            }))}
-                            className="w-20 h-8"
-                          />
-                          <span>%</span>
+                      <div className="border-t pt-2 mt-2">
+                        <div className="flex justify-between py-1 text-blue-600">
+                          <span>Coste Total:</span>
+                          <span>{formatCurrency(totales.costeTotal)}</span>
                         </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Margen bruto - solo si puede ver márgenes */}
+                    {mostrarMargenes && (
+                      <div className={`flex justify-between py-1 font-medium ${totales.margenBruto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <span>Margen Bruto:</span>
+                        <span>{formatCurrency(totales.margenBruto)} ({totales.margenPorcentaje.toFixed(1)}%)</span>
+                      </div>
+                    )}
+
+                    {/* Descuento global - solo si puede aplicar descuentos */}
+                    {canAplicarDescuentos() && (
+                      <div className="border-t pt-3 mt-3">
+                        <div className="flex items-center gap-4">
+                          <Label className="whitespace-nowrap">Descuento Global:</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              max={getDescuentoMaximo()}
+                              step="0.1"
+                              value={formData.descuentoGlobalPorcentaje || 0}
+                              onChange={(e) => {
+                                const valor = parseFloat(e.target.value) || 0
+                                const max = getDescuentoMaximo()
+                                setFormData(prev => ({
+                                  ...prev,
+                                  descuentoGlobalPorcentaje: Math.min(valor, max),
+                                }))
+                              }}
+                              className="w-20 h-8"
+                            />
+                            <span>%</span>
+                            {getDescuentoMaximo() < 100 && (
+                              <span className="text-xs text-muted-foreground">(máx: {getDescuentoMaximo()}%)</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2043,6 +2009,40 @@ export function PresupuestoForm({
               <CardTitle>Condiciones Comerciales</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="formaPagoId">Forma de Pago</Label>
+                <SearchableSelect
+                  options={formasPagoOptions}
+                  value={formData.condiciones?.formaPagoId || ''}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, formaPagoId: value || undefined }
+                  }))}
+                  placeholder="Seleccionar forma de pago..."
+                  searchPlaceholder="Buscar..."
+                  emptyMessage="No hay formas de pago"
+                  allowClear
+                  loading={loadingOptions}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="terminoPagoId">Término de Pago</Label>
+                <SearchableSelect
+                  options={terminosPagoOptions}
+                  value={formData.condiciones?.terminoPagoId || ''}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, terminoPagoId: value || undefined }
+                  }))}
+                  placeholder="Seleccionar término de pago..."
+                  searchPlaceholder="Buscar..."
+                  emptyMessage="No hay términos de pago"
+                  allowClear
+                  loading={loadingOptions}
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="validezDias">Validez (días)</Label>
                 <Input

@@ -271,24 +271,85 @@ export class AlbaranesCompraService {
     dbConfig: IDatabaseConfig
   ): Promise<IAlbaranCompra> {
     const PedidoCompraModel = await getPedidoCompraModel(String(empresaId), dbConfig);
+    const ProductoModel = await getProductoModel(String(empresaId), dbConfig);
     const pedido = await PedidoCompraModel.findById(dto.pedidoCompraId);
 
     if (!pedido) {
       throw new Error('Pedido de compra no encontrado');
     }
 
-    // Determinar qué líneas incluir
-    let lineasParaAlbaran = pedido.lineas;
-    if (dto.lineasIds && dto.lineasIds.length > 0) {
+    // Determinar qué líneas incluir y sus cantidades
+    let lineasParaAlbaran: any[] = [];
+
+    if (dto.lineas && dto.lineas.length > 0) {
+      // Usar líneas específicas con cantidades indicadas
+      for (const lineaDto of dto.lineas) {
+        const lineaPedido = pedido.lineas.find((l: any) => l._id?.toString() === lineaDto.lineaId);
+        if (lineaPedido && lineaDto.cantidadRecibida > 0) {
+          lineasParaAlbaran.push({
+            ...lineaPedido,
+            cantidadARecibir: lineaDto.cantidadRecibida,
+            varianteId: lineaDto.varianteId,
+            lote: lineaDto.lote,
+            ubicacion: lineaDto.ubicacion,
+          });
+        }
+      }
+    } else if (dto.lineasIds && dto.lineasIds.length > 0) {
+      // Filtrar por IDs de líneas
       lineasParaAlbaran = pedido.lineas.filter((l: any) =>
         dto.lineasIds!.includes(l._id?.toString())
       );
+    } else {
+      // Incluir todas las líneas con cantidad pendiente
+      lineasParaAlbaran = pedido.lineas.filter((l: any) => {
+        const cantidadPendiente = (l.cantidadPendiente || (l.cantidad - (l.cantidadRecibida || 0)));
+        return cantidadPendiente > 0;
+      });
     }
 
     // Convertir líneas de pedido a líneas de albarán
-    const lineas = lineasParaAlbaran.map((lineaPedido: any, index: number) => {
+    const lineas = await Promise.all(lineasParaAlbaran.map(async (lineaPedido: any, index: number) => {
       const cantidadPendiente = lineaPedido.cantidadPendiente || (lineaPedido.cantidad - (lineaPedido.cantidadRecibida || 0));
-      const cantidadARecibir = dto.recibirTodo ? cantidadPendiente : 0;
+      let cantidadARecibir: number;
+
+      // Determinar cantidad a recibir
+      if (lineaPedido.cantidadARecibir !== undefined) {
+        cantidadARecibir = lineaPedido.cantidadARecibir;
+      } else if (dto.recibirTodo) {
+        cantidadARecibir = cantidadPendiente;
+      } else {
+        cantidadARecibir = 0;
+      }
+
+      // Preparar datos de variante
+      let variante = lineaPedido.variante;
+      if (lineaPedido.varianteId && lineaPedido.productoId) {
+        // Buscar información de la variante
+        const producto = await ProductoModel.findById(lineaPedido.productoId).lean();
+        if (producto && producto.variantes) {
+          const varianteInfo = producto.variantes.find((v: any) => v._id?.toString() === lineaPedido.varianteId);
+          if (varianteInfo) {
+            variante = {
+              varianteId: varianteInfo._id,
+              sku: varianteInfo.sku,
+              valores: varianteInfo.combinacion,
+            };
+          }
+        }
+      }
+
+      // Manejar kits: expandir componentes si es un producto compuesto
+      let esKit = false;
+      let componentesExpandidos: any[] = [];
+      if (lineaPedido.productoId) {
+        const producto = await ProductoModel.findById(lineaPedido.productoId).lean();
+        if (producto && producto.tipo === 'compuesto' && producto.componentesKit && producto.componentesKit.length > 0) {
+          esKit = true;
+          // Los kits se reciben como unidad, pero el stock se registra por componentes
+          // Esto se maneja en el registro de recepción
+        }
+      }
 
       return {
         orden: index + 1,
@@ -299,6 +360,7 @@ export class AlbaranesCompraService {
         descripcion: lineaPedido.descripcion,
         sku: lineaPedido.sku,
         codigoProveedor: lineaPedido.codigoProveedor,
+        variante,
         cantidadPedida: cantidadPendiente,
         cantidadRecibida: cantidadARecibir,
         unidad: lineaPedido.unidad,
@@ -306,12 +368,14 @@ export class AlbaranesCompraService {
         descuento: lineaPedido.descuento,
         iva: lineaPedido.iva,
         almacenDestinoId: lineaPedido.almacenDestinoId || dto.almacenId,
+        lote: lineaPedido.lote,
+        ubicacion: lineaPedido.ubicacion,
         esEditable: true,
         incluidoEnTotal: lineaPedido.incluidoEnTotal,
         lineaPedidoCompraId: lineaPedido._id,
         notasInternas: lineaPedido.notasInternas,
       };
-    });
+    }));
 
     // Obtener almacén
     const almacenId = dto.almacenId || pedido.direccionRecepcion?.almacenId?.toString();
@@ -329,11 +393,12 @@ export class AlbaranesCompraService {
       proveedorTelefono: pedido.proveedorTelefono,
       almacenId,
       referenciaProveedor: pedido.referenciaProveedor,
+      numeroAlbaranProveedor: dto.numeroAlbaranProveedor,
       titulo: pedido.titulo,
       descripcion: pedido.descripcion,
       lineas: lineas as any,
       descuentoGlobalPorcentaje: pedido.descuentoGlobalPorcentaje,
-      observaciones: pedido.observaciones,
+      observaciones: dto.observaciones || pedido.observaciones,
       fechaPrevistaRecepcion: dto.fechaPrevistaRecepcion || pedido.fechaEntregaPrevista,
       datosTransporte: dto.datosTransporte,
     }, empresaId, usuarioId, dbConfig);
@@ -895,6 +960,107 @@ export class AlbaranesCompraService {
     };
 
     return this.crear(createDto, empresaId, usuarioId, dbConfig);
+  }
+
+  // ============================================
+  // ALERTAS DE ALBARANES DE COMPRA
+  // ============================================
+
+  /**
+   * Obtener alertas de albaranes de compra:
+   * - Pendientes de facturar (recibidos pero no facturados)
+   * - Recepciones pendientes (pendiente_recepcion, recibido_parcial)
+   * - Antiguos sin facturar (hace más de X días)
+   */
+  async getAlertas(
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
+    diasAlerta: number = 30
+  ): Promise<{
+    alertas: {
+      pendientesFacturar: any[];
+      pendientesRecepcion: any[];
+      antiguosSinFacturar: any[];
+    };
+    resumen: {
+      pendientesFacturar: number;
+      pendientesRecepcion: number;
+      antiguosSinFacturar: number;
+      total: number;
+    };
+  }> {
+    const AlbaranCompraModel = await this.getModelo(empresaId.toString(), dbConfig);
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - diasAlerta);
+
+    // Pendientes de facturar: recibidos pero no facturados
+    const pendientesFacturar = await AlbaranCompraModel.find({
+      activo: true,
+      estado: EstadoAlbaranCompra.RECIBIDO,
+    })
+      .populate('proveedorId', 'nombre nombreComercial')
+      .sort({ fecha: -1 })
+      .limit(50)
+      .lean();
+
+    // Pendientes de recepción
+    const pendientesRecepcion = await AlbaranCompraModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoAlbaranCompra.PENDIENTE_RECEPCION,
+          EstadoAlbaranCompra.RECIBIDO_PARCIAL,
+        ],
+      },
+    })
+      .populate('proveedorId', 'nombre nombreComercial')
+      .sort({ fecha: 1 })
+      .limit(50)
+      .lean();
+
+    // Antiguos sin facturar
+    const antiguosSinFacturar = await AlbaranCompraModel.find({
+      activo: true,
+      estado: {
+        $in: [
+          EstadoAlbaranCompra.RECIBIDO,
+          EstadoAlbaranCompra.RECIBIDO_PARCIAL,
+        ],
+      },
+      fecha: { $lt: fechaLimite },
+    })
+      .populate('proveedorId', 'nombre nombreComercial')
+      .sort({ fecha: 1 })
+      .limit(50)
+      .lean();
+
+    // Formatear datos
+    const formatAlbaran = (a: any) => ({
+      _id: a._id,
+      codigo: a.codigo,
+      proveedorNombre:
+        a.proveedorId?.nombreComercial ||
+        a.proveedorId?.nombre ||
+        a.proveedorNombre ||
+        'Sin proveedor',
+      fecha: a.fecha,
+      estado: a.estado,
+      totales: a.totales,
+    });
+
+    return {
+      alertas: {
+        pendientesFacturar: pendientesFacturar.map(formatAlbaran),
+        pendientesRecepcion: pendientesRecepcion.map(formatAlbaran),
+        antiguosSinFacturar: antiguosSinFacturar.map(formatAlbaran),
+      },
+      resumen: {
+        pendientesFacturar: pendientesFacturar.length,
+        pendientesRecepcion: pendientesRecepcion.length,
+        antiguosSinFacturar: antiguosSinFacturar.length,
+        total: pendientesFacturar.length + antiguosSinFacturar.length,
+      },
+    };
   }
 }
 

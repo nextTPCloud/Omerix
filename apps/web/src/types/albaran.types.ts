@@ -184,6 +184,10 @@ export interface IAlbaran {
   tipo: TipoAlbaran;
   pedidoOrigenId?: string | { _id: string; codigo: string };
   presupuestoOrigenId?: string | { _id: string; codigo: string };
+  // Devolución/Rectificación (cuando tipo = DEVOLUCION)
+  albaranRectificadoId?: string | { _id: string; codigo: string };
+  albaranRectificadoCodigo?: string;
+  motivoDevolucion?: string;
   estado: EstadoAlbaran;
   fecha: string | Date;
   fechaVencimiento?: string | Date;
@@ -243,6 +247,10 @@ export interface CreateAlbaranDTO {
   tipo?: TipoAlbaran;
   pedidoOrigenId?: string;
   presupuestoOrigenId?: string;
+  // Devolución/Rectificación
+  albaranRectificadoId?: string;
+  albaranRectificadoCodigo?: string;
+  motivoDevolucion?: string;
   estado?: EstadoAlbaran;
   fecha?: string | Date;
   fechaVencimiento?: string | Date;

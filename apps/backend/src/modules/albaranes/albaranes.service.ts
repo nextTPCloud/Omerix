@@ -1261,6 +1261,108 @@ export class AlbaranesService {
       .sort({ fecha: -1 })
       .lean();
   }
+
+  // ============================================
+  // ALERTAS
+  // ============================================
+
+  /**
+   * Obtener alertas de albaranes
+   */
+  async getAlertas(
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
+    diasAlerta: number = 30
+  ): Promise<{
+    alertas: {
+      pendientesFacturar: IAlbaran[];
+      pendientesEntregar: IAlbaran[];
+      antiguosSinFacturar: IAlbaran[];
+    };
+    resumen: {
+      pendientesFacturar: number;
+      pendientesEntregar: number;
+      antiguosSinFacturar: number;
+      total: number;
+    };
+  }> {
+    const AlbaranModel = await this.getModeloAlbaran(String(empresaId), dbConfig);
+
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - diasAlerta);
+
+    // Albaranes entregados pendientes de facturar
+    const pendientesFacturar = await AlbaranModel.find({
+      activo: true,
+      estado: EstadoAlbaran.ENTREGADO,
+      facturado: { $ne: true },
+      tipo: { $ne: TipoAlbaran.DEVOLUCION },
+    })
+      .select('codigo clienteNombre fecha estado facturado totales')
+      .sort({ fecha: -1 })
+      .limit(20)
+      .lean() as IAlbaran[];
+
+    // Albaranes pendientes de entregar
+    const pendientesEntregar = await AlbaranModel.find({
+      activo: true,
+      estado: { $in: [EstadoAlbaran.BORRADOR, EstadoAlbaran.CONFIRMADO, EstadoAlbaran.EN_PREPARACION] },
+      tipo: { $ne: TipoAlbaran.DEVOLUCION },
+    })
+      .select('codigo clienteNombre fecha estado facturado totales')
+      .sort({ fecha: 1 })
+      .limit(20)
+      .lean() as IAlbaran[];
+
+    // Albaranes antiguos sin facturar (más de X días)
+    const antiguosSinFacturar = await AlbaranModel.find({
+      activo: true,
+      estado: EstadoAlbaran.ENTREGADO,
+      facturado: { $ne: true },
+      fecha: { $lte: fechaLimite },
+      tipo: { $ne: TipoAlbaran.DEVOLUCION },
+    })
+      .select('codigo clienteNombre fecha estado facturado totales')
+      .sort({ fecha: 1 })
+      .limit(20)
+      .lean() as IAlbaran[];
+
+    // Contar totales
+    const [countPendientesFacturar, countPendientesEntregar, countAntiguos] = await Promise.all([
+      AlbaranModel.countDocuments({
+        activo: true,
+        estado: EstadoAlbaran.ENTREGADO,
+        facturado: { $ne: true },
+        tipo: { $ne: TipoAlbaran.DEVOLUCION },
+      }),
+      AlbaranModel.countDocuments({
+        activo: true,
+        estado: { $in: [EstadoAlbaran.BORRADOR, EstadoAlbaran.CONFIRMADO, EstadoAlbaran.EN_PREPARACION] },
+        tipo: { $ne: TipoAlbaran.DEVOLUCION },
+      }),
+      AlbaranModel.countDocuments({
+        activo: true,
+        estado: EstadoAlbaran.ENTREGADO,
+        facturado: { $ne: true },
+        fecha: { $lte: fechaLimite },
+        tipo: { $ne: TipoAlbaran.DEVOLUCION },
+      }),
+    ]);
+
+    return {
+      alertas: {
+        pendientesFacturar,
+        pendientesEntregar,
+        antiguosSinFacturar,
+      },
+      resumen: {
+        pendientesFacturar: countPendientesFacturar,
+        pendientesEntregar: countPendientesEntregar,
+        antiguosSinFacturar: countAntiguos,
+        total: countPendientesFacturar + countPendientesEntregar + countAntiguos,
+      },
+    };
+  }
 }
 
 export const albaranesService = new AlbaranesService();

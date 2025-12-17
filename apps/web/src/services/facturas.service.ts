@@ -274,6 +274,43 @@ class FacturasService {
     }
   }
 
+  /**
+   * Obtener alertas de facturas (pendientes cobro, vencidas, próximas a vencer)
+   */
+  async getAlertas(diasAlerta: number = 7): Promise<ApiResponse<{
+    alertas: {
+      pendientesCobro: IFactura[];
+      vencidas: IFactura[];
+      proximasVencer: IFactura[];
+    };
+    resumen: {
+      pendientesCobro: number;
+      vencidas: number;
+      proximasVencer: number;
+      total: number;
+    };
+  }>> {
+    try {
+      const response = await api.get<ApiResponse<{
+        alertas: {
+          pendientesCobro: IFactura[];
+          vencidas: IFactura[];
+          proximasVencer: IFactura[];
+        };
+        resumen: {
+          pendientesCobro: number;
+          vencidas: number;
+          proximasVencer: number;
+          total: number;
+        };
+      }>>(`${this.baseUrl}/alertas`, { params: { diasAlerta } });
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener alertas de facturas:', error);
+      throw error;
+    }
+  }
+
   // ============================================
   // BÚSQUEDAS ESPECIALIZADAS
   // ============================================

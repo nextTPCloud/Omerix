@@ -36,6 +36,27 @@ router.get('/estadisticas', albaranesController.estadisticas);
 
 /**
  * @swagger
+ * /api/albaranes/alertas:
+ *   get:
+ *     summary: Obtener alertas de albaranes (pendientes facturar, entregar, antiguos)
+ *     tags: [Albaranes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: diasAlerta
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *         description: Días para considerar un albarán como antiguo
+ *     responses:
+ *       200:
+ *         description: Alertas de albaranes
+ */
+router.get('/alertas', albaranesController.getAlertas);
+
+/**
+ * @swagger
  * /api/albaranes/desde-pedido/{pedidoId}:
  *   post:
  *     summary: Crear albarán desde un pedido existente

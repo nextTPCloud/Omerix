@@ -63,6 +63,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
+import { usePermissions } from '@/hooks/usePermissions'
 import { ColumnaConfig } from '@/services/configuracion.service'
 
 // Componentes reutilizables
@@ -140,6 +141,7 @@ const DEFAULT_PRODUCTOS_CONFIG = {
 export default function ProductosPage() {
   const router = useRouter()
   const isInitialLoad = useRef(true)
+  const { canCreate, canDelete } = usePermissions()
 
   // Estados de datos
   const [productos, setProductos] = useState<Producto[]>([])
@@ -493,10 +495,12 @@ export default function ProductosPage() {
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
+{canCreate('productos') && (
             <Button size="sm" onClick={() => router.push('/productos/nuevo')}>
               <Plus className="h-4 w-4 mr-2" />
               <span className="hidden sm:inline">Nuevo Producto</span>
             </Button>
+            )}
           </div>
         </div>
 
@@ -710,6 +714,7 @@ export default function ProductosPage() {
                 <span className="text-sm font-medium">
                   {selectedProductos.length} seleccionado(s)
                 </span>
+                {canDelete('productos') && (
                 <Button
                   variant="destructive"
                   size="sm"
@@ -727,6 +732,7 @@ export default function ProductosPage() {
                   <Trash2 className="h-4 w-4 mr-2" />
                   Eliminar seleccionados
                 </Button>
+                )}
               </div>
             )}
           </div>
@@ -1000,6 +1006,8 @@ export default function ProductosPage() {
                               <Copy className="h-4 w-4 mr-2" />
                               Duplicar
                             </DropdownMenuItem>
+                            {canDelete('productos') && (
+                            <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() =>
@@ -1014,6 +1022,8 @@ export default function ProductosPage() {
                               <Trash2 className="h-4 w-4 mr-2" />
                               Eliminar
                             </DropdownMenuItem>
+                            </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -1081,14 +1091,14 @@ export default function ProductosPage() {
             <DialogTitle>Confirmar eliminación</DialogTitle>
             <DialogDescription>
               ¿Estás seguro de que deseas eliminar {deleteDialog.productoIds.length === 1 ? 'este producto' : 'estos productos'}?
-              {deleteDialog.productoNombres.length > 0 && (
-                <ul className="mt-2 list-disc list-inside">
-                  {deleteDialog.productoNombres.map((nombre, i) => (
-                    <li key={i}>{nombre}</li>
-                  ))}
-                </ul>
-              )}
             </DialogDescription>
+            {deleteDialog.productoNombres.length > 0 && (
+              <ul className="mt-2 list-disc list-inside">
+                {deleteDialog.productoNombres.map((nombre, i) => (
+                  <li key={i}>{nombre}</li>
+                ))}
+              </ul>
+            )}
           </DialogHeader>
           <DialogFooter>
             <Button

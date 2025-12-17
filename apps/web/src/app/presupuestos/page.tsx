@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { presupuestosService } from '@/services/presupuestos.service'
 import { pedidosService } from '@/services/pedidos.service'
+import { albaranesService } from '@/services/albaranes.service'
 import { api } from '@/services/api'
 import vistasService from '@/services/vistas-guardadas.service'
 import {
@@ -79,6 +80,9 @@ import {
   Mail,
   MessageCircle,
   ClipboardList,
+  Truck,
+  Bell,
+  BellOff,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -93,6 +97,7 @@ import { PrintButton } from '@/components/ui/PrintButton'
 import { PresupuestosAlertas, PresupuestosAlertasBadge } from '@/components/presupuestos/PresupuestosAlertas'
 import PresupuestosDashboard from '@/components/presupuestos/PresupuestosDashboard'
 import { RecordatoriosWidget } from '@/components/presupuestos/RecordatoriosPresupuestos'
+import { usePermissions } from '@/hooks/usePermissions'
 
 // FILTROS AVANZADOS
 import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
@@ -161,6 +166,7 @@ const DEFAULT_CONFIG = {
 
 export default function PresupuestosPage() {
   const router = useRouter()
+  const { canCreate, canDelete } = usePermissions()
   const isInitialLoad = useRef(true)
 
   // Estados de datos
@@ -201,6 +207,7 @@ export default function PresupuestosPage() {
 
   // UI States
   const [showStats, setShowStats] = useState(false)
+  const [showAlertas, setShowAlertas] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     presupuestoIds: string[]
@@ -1011,6 +1018,22 @@ const {
           toast.error(error.response?.data?.message || 'Error al convertir a pedido')
         }
         break
+      case 'convertir_albaran':
+        try {
+          toast.loading('Convirtiendo a albarán...')
+          const responseAlbaran = await albaranesService.crearDesdePresupuesto(presupuestoId, {
+            copiarNotas: true,
+          })
+          toast.dismiss()
+          if (responseAlbaran.success && responseAlbaran.data) {
+            toast.success('Presupuesto convertido a albarán correctamente')
+            router.push(`/albaranes/${responseAlbaran.data._id}`)
+          }
+        } catch (error: any) {
+          toast.dismiss()
+          toast.error(error.response?.data?.message || 'Error al convertir a albarán')
+        }
+        break
       default:
         toast.info(`Acción "${action}" en desarrollo`)
     }
@@ -1164,17 +1187,27 @@ const {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowAlertas(!showAlertas)}
+            >
+              {showAlertas ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+              <span className="ml-2 hidden sm:inline">Alertas</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={cargarPresupuestos}
             >
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
+{canCreate('presupuestos') && (
             <Button asChild size="sm">
               <Link href="/presupuestos/nuevo">
                 <Plus className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Nuevo Presupuesto</span>
               </Link>
             </Button>
+            )}
           </div>
         </div>
 
@@ -1182,15 +1215,17 @@ const {
         {showStats && <PresupuestosDashboard />}
 
         {/* ALERTAS Y RECORDATORIOS */}
-        <div className="grid gap-4 md:grid-cols-[1fr,300px]">
-          <PresupuestosAlertas
-            diasAlerta={7}
-            onRefresh={cargarPresupuestos}
-            collapsible={true}
-            defaultCollapsed={false}
-          />
-          <RecordatoriosWidget />
-        </div>
+        {showAlertas && (
+          <div className="grid gap-4 md:grid-cols-[1fr,300px]">
+            <PresupuestosAlertas
+              diasAlerta={7}
+              onRefresh={cargarPresupuestos}
+              collapsible={true}
+              defaultCollapsed={false}
+            />
+            <RecordatoriosWidget />
+          </div>
+        )}
 
         {/* BARRA DE FILTROS AVANZADOS */}
         <AdvancedFilters
@@ -1316,10 +1351,12 @@ const {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Exportar
               </Button>
+{canDelete('presupuestos') && (
               <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
               </Button>
+              )}
             </div>
           </Card>
         )}
@@ -1709,19 +1746,26 @@ const {
                               </>
                             )}
 
-                            {/* Convertir a Pedido - solo si aceptado o enviado y no ya convertido */}
+                            {/* Convertir a Pedido/Albarán - solo si aceptado o enviado y no ya convertido */}
                             {presupuesto.estado !== EstadoPresupuesto.CONVERTIDO &&
                              presupuesto.estado !== EstadoPresupuesto.RECHAZADO &&
                              presupuesto.estado !== EstadoPresupuesto.BORRADOR && (
                               <>
                                 <DropdownMenuSeparator />
+                                <DropdownMenuLabel className="text-xs text-muted-foreground">Convertir a</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => handlePresupuestoAction(presupuesto._id, 'convertir_pedido')}>
                                   <ClipboardList className="mr-2 h-4 w-4 text-blue-600" />
-                                  Convertir a Pedido
+                                  Pedido
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handlePresupuestoAction(presupuesto._id, 'convertir_albaran')}>
+                                  <Truck className="mr-2 h-4 w-4 text-green-600" />
+                                  Albarán
                                 </DropdownMenuItem>
                               </>
                             )}
 
+{canDelete('presupuestos') && (
+                            <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
@@ -1730,6 +1774,8 @@ const {
                               <Trash2 className="mr-2 h-4 w-4" />
                               Eliminar
                             </DropdownMenuItem>
+                            </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -1865,12 +1911,12 @@ const {
                 ¿Estás seguro de que deseas eliminar {deleteDialog.presupuestoIds.length === 1
                   ? 'el siguiente presupuesto'
                   : `los siguientes ${deleteDialog.presupuestoIds.length} presupuestos`}?
-                <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                  {deleteDialog.presupuestoCodigos.map((codigo, index) => (
-                    <li key={index} className="text-sm font-medium">• {codigo}</li>
-                  ))}
-                </ul>
               </DialogDescription>
+              <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                {deleteDialog.presupuestoCodigos.map((codigo, index) => (
+                  <li key={index} className="text-sm font-medium">• {codigo}</li>
+                ))}
+              </ul>
             </DialogHeader>
             <DialogFooter>
               <Button

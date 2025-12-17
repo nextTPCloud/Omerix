@@ -1,5 +1,20 @@
 // apps/backend/src/types/permissions.types.ts
 
+import {
+  IPermisosEspeciales,
+  IPermisos,
+  IRol,
+  AccionRecurso,
+  RecursoSistema,
+  PERMISOS_ESPECIALES_DEFAULT,
+  PERMISOS_ESPECIALES_ADMIN,
+  ROLES_SISTEMA,
+} from '../models/Rol';
+
+// Re-exportar tipos de permisos especiales para uso en toda la app
+export type { IPermisosEspeciales, IPermisos, AccionRecurso, RecursoSistema };
+export { PERMISOS_ESPECIALES_DEFAULT, PERMISOS_ESPECIALES_ADMIN };
+
 /**
  * Recursos del sistema que pueden tener permisos
  */
@@ -222,4 +237,119 @@ export function hasRoleLevel(userRole: Role, requiredRole: Role): boolean {
  */
 export function getRolePermissions(role: Role): { [key in Resource]?: Action[] } {
   return ROLE_PERMISSIONS[role]?.resources || {};
+}
+
+// =============================================
+// FUNCIONES DE PERMISOS ESPECIALES
+// =============================================
+
+/**
+ * Interface para usuario con permisos (usado en middleware)
+ */
+export interface IUsuarioConPermisos {
+  rol: Role;
+  rolId?: string;
+  rolCustom?: IRol;  // Rol personalizado cargado
+  permisos?: {
+    especiales?: Partial<IPermisosEspeciales>;
+  };
+}
+
+/**
+ * Obtiene los permisos especiales efectivos de un usuario
+ * Prioridad: permisos usuario > permisos rol personalizado > permisos rol base
+ */
+export function getPermisosEspecialesEfectivos(
+  usuario: IUsuarioConPermisos
+): IPermisosEspeciales {
+  // Superadmin siempre tiene todos los permisos
+  if (usuario.rol === 'superadmin') {
+    return PERMISOS_ESPECIALES_ADMIN;
+  }
+
+  // Obtener permisos del rol base
+  const rolSistema = ROLES_SISTEMA.find(r => r.codigo === usuario.rol);
+  const permisosBase = rolSistema?.permisos?.especiales || PERMISOS_ESPECIALES_DEFAULT;
+
+  // Si tiene rol personalizado, combinarlo
+  let permisosRolCustom = permisosBase;
+  if (usuario.rolCustom?.permisos?.especiales) {
+    permisosRolCustom = {
+      ...permisosBase,
+      ...usuario.rolCustom.permisos.especiales,
+    };
+  }
+
+  // Aplicar permisos específicos del usuario (sobrescriben todo)
+  if (usuario.permisos?.especiales) {
+    return {
+      ...permisosRolCustom,
+      ...usuario.permisos.especiales,
+    };
+  }
+
+  return permisosRolCustom;
+}
+
+/**
+ * Verifica si un usuario tiene un permiso especial
+ */
+export function hasSpecialPermission(
+  usuario: IUsuarioConPermisos,
+  permiso: keyof IPermisosEspeciales
+): boolean {
+  const permisos = getPermisosEspecialesEfectivos(usuario);
+  const valor = permisos[permiso];
+
+  // Para descuentoMaximo, true si > 0
+  if (permiso === 'descuentoMaximo') {
+    return (valor as number) > 0;
+  }
+
+  return !!valor;
+}
+
+/**
+ * Obtiene el descuento máximo permitido para un usuario
+ */
+export function getDescuentoMaximoUsuario(usuario: IUsuarioConPermisos): number {
+  const permisos = getPermisosEspecialesEfectivos(usuario);
+  return permisos.descuentoMaximo || 0;
+}
+
+/**
+ * Verifica si un usuario puede ver costes
+ */
+export function canVerCostes(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'verCostes');
+}
+
+/**
+ * Verifica si un usuario puede modificar PVP
+ */
+export function canModificarPVP(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'modificarPVP');
+}
+
+/**
+ * Verifica si un usuario puede ver márgenes
+ */
+export function canVerMargenes(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'verMargenes');
+}
+
+/**
+ * Verifica si un usuario puede aplicar descuentos
+ */
+export function canAplicarDescuentos(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'aplicarDescuentos');
+}
+
+/**
+ * Verifica si un descuento está dentro del límite permitido para el usuario
+ */
+export function isDescuentoPermitido(usuario: IUsuarioConPermisos, descuento: number): boolean {
+  if (!canAplicarDescuentos(usuario)) return false;
+  const maximo = getDescuentoMaximoUsuario(usuario);
+  return descuento <= maximo;
 }

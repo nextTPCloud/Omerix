@@ -1,11 +1,36 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { albaranesCompraController } from './albaranes-compra.controller';
 import { authMiddleware } from '@/middleware/auth.middleware';
+import { tenantMiddleware } from '@/middleware/tenant.middleware';
 
 const router = Router();
 
-// Aplicar middleware de autenticación a todas las rutas
+// Configurar multer para subida de archivos en memoria
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20 MB máximo
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no soportado. Use JPG, PNG, GIF, WebP o PDF.'));
+    }
+  },
+});
+
+// Aplicar middleware de autenticación y tenant a todas las rutas
 router.use(authMiddleware);
+router.use(tenantMiddleware);
 
 /**
  * @swagger
@@ -57,6 +82,26 @@ router.get('/', albaranesCompraController.listar.bind(albaranesCompraController)
  *         description: Estadísticas obtenidas correctamente
  */
 router.get('/estadisticas', albaranesCompraController.obtenerEstadisticas.bind(albaranesCompraController));
+
+/**
+ * @swagger
+ * /api/albaranes-compra/alertas:
+ *   get:
+ *     summary: Obtener alertas de albaranes de compra
+ *     tags: [Albaranes de Compra]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: diasAlerta
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *     responses:
+ *       200:
+ *         description: Alertas obtenidas correctamente
+ */
+router.get('/alertas', albaranesCompraController.getAlertas.bind(albaranesCompraController));
 
 /**
  * @swagger
@@ -117,6 +162,47 @@ router.post('/desde-pedido', albaranesCompraController.crearDesdePedidoCompra.bi
  *         description: Albaranes eliminados
  */
 router.post('/bulk/delete', albaranesCompraController.eliminarMultiples.bind(albaranesCompraController));
+
+// ============================================
+// RUTAS OCR (deben ir ANTES de las rutas con :id)
+// ============================================
+
+/**
+ * @swagger
+ * /api/albaranes-compra/ocr/procesar:
+ *   post:
+ *     summary: Procesar documento de compra con OCR
+ *     tags: [Albaranes de Compra - OCR]
+ */
+router.post(
+  '/ocr/procesar',
+  upload.single('documento'),
+  albaranesCompraController.procesarDocumentoOCR.bind(albaranesCompraController)
+);
+
+/**
+ * @swagger
+ * /api/albaranes-compra/ocr/buscar-productos:
+ *   get:
+ *     summary: Buscar productos sugeridos por descripción
+ *     tags: [Albaranes de Compra - OCR]
+ */
+router.get(
+  '/ocr/buscar-productos',
+  albaranesCompraController.buscarProductosSugeridos.bind(albaranesCompraController)
+);
+
+/**
+ * @swagger
+ * /api/albaranes-compra/ocr/crear:
+ *   post:
+ *     summary: Crear albarán de compra desde datos OCR
+ *     tags: [Albaranes de Compra - OCR]
+ */
+router.post(
+  '/ocr/crear',
+  albaranesCompraController.crearDesdeOCR.bind(albaranesCompraController)
+);
 
 /**
  * @swagger

@@ -22,6 +22,12 @@ export interface EmailOptions {
   }>;
 }
 
+export interface UpdateAIConfigDTO {
+  provider?: 'gemini' | 'openai' | 'claude' | 'ollama';
+  apiKey?: string | null; // null para eliminar
+  model?: string;
+}
+
 export interface UpdateEmpresaDTO {
   nombre?: string;
   nombreComercial?: string;
@@ -53,6 +59,7 @@ export interface UpdateEmpresaDTO {
   moneda?: string;
   formatoFecha?: string;
   formatoNumero?: string;
+  aiConfig?: UpdateAIConfigDTO;
 }
 
 export interface UpdateEmailConfigDTO {
@@ -74,13 +81,25 @@ class EmpresaService {
    * Obtener información de la empresa actual (sin datos sensibles)
    */
   async getEmpresaById(empresaId: string): Promise<IEmpresa | null> {
-    const empresa = await Empresa.findById(empresaId).lean();
+    // Incluir aiConfig.apiKey para verificar si existe
+    const empresa = await Empresa.findById(empresaId)
+      .select('+aiConfig.apiKey')
+      .lean();
     if (empresa) {
       // Eliminar campos sensibles manualmente
       delete (empresa as any).databaseConfig;
       if ((empresa as any).emailConfig) {
         delete (empresa as any).emailConfig.password;
         delete (empresa as any).emailConfig.oauth2;
+      }
+      // Para aiConfig, indicar si hay API key pero no devolver el valor
+      if ((empresa as any).aiConfig) {
+        const hasApiKey = !!(empresa as any).aiConfig.apiKey;
+        (empresa as any).aiConfig = {
+          provider: (empresa as any).aiConfig.provider,
+          model: (empresa as any).aiConfig.model,
+          hasApiKey,
+        };
       }
     }
     return empresa as IEmpresa | null;
@@ -125,6 +144,32 @@ class EmpresaService {
     if (data.moneda !== undefined) updateData.moneda = data.moneda;
     if (data.formatoFecha !== undefined) updateData.formatoFecha = data.formatoFecha;
     if (data.formatoNumero !== undefined) updateData.formatoNumero = data.formatoNumero;
+
+    // Manejar configuración de IA
+    if (data.aiConfig !== undefined) {
+      // Obtener configuración actual para preservar apiKey si no se envía nueva
+      const empresaActual = await Empresa.findById(empresaId)
+        .select('+aiConfig.apiKey')
+        .lean();
+
+      const aiConfig: any = {
+        provider: data.aiConfig.provider || 'gemini',
+        model: data.aiConfig.model || 'gemini-2.0-flash',
+      };
+
+      // Si apiKey es null, eliminar la API key
+      if (data.aiConfig.apiKey === null) {
+        aiConfig.apiKey = undefined;
+      } else if (data.aiConfig.apiKey) {
+        // Nueva API key: encriptar
+        aiConfig.apiKey = encrypt(data.aiConfig.apiKey);
+      } else if ((empresaActual as any)?.aiConfig?.apiKey) {
+        // Mantener la existente
+        aiConfig.apiKey = (empresaActual as any).aiConfig.apiKey;
+      }
+
+      updateData.aiConfig = aiConfig;
+    }
 
     await Empresa.updateOne(
       { _id: empresaId },

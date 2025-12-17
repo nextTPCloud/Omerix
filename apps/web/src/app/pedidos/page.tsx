@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { pedidosService } from '@/services/pedidos.service'
+import { albaranesService } from '@/services/albaranes.service'
 import { api } from '@/services/api'
 import vistasService from '@/services/vistas-guardadas.service'
 import {
@@ -82,6 +83,8 @@ import {
   Package,
   AlertTriangle,
   Clock,
+  Bell,
+  BellOff,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -97,6 +100,8 @@ import { PrintButton } from '@/components/ui/PrintButton'
 // FILTROS AVANZADOS
 import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
 import { PEDIDOS_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
+import { PedidosAlertas } from '@/components/pedidos/PedidosAlertas'
+import { usePermissions } from '@/hooks/usePermissions'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -162,6 +167,7 @@ const DEFAULT_CONFIG = {
 export default function PedidosPage() {
   const router = useRouter()
   const isInitialLoad = useRef(true)
+  const { canCreate, canDelete } = usePermissions()
 
   // Estados de datos
   const [pedidos, setPedidos] = useState<IPedido[]>([])
@@ -201,6 +207,7 @@ export default function PedidosPage() {
 
   // UI States
   const [showStats, setShowStats] = useState(false)
+  const [showAlertas, setShowAlertas] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     pedidoIds: string[]
@@ -887,6 +894,22 @@ export default function PedidosPage() {
           toast.error('Error al cancelar pedido')
         }
         break
+      case 'crear_albaran':
+        try {
+          toast.loading('Creando albarán...')
+          const responseAlbaran = await albaranesService.crearDesdePedido(pedidoId, {
+            entregarTodo: true,
+          })
+          toast.dismiss()
+          if (responseAlbaran.success && responseAlbaran.data) {
+            toast.success('Albarán creado correctamente')
+            router.push(`/albaranes/${responseAlbaran.data._id}`)
+          }
+        } catch (error: any) {
+          toast.dismiss()
+          toast.error(error.response?.data?.message || 'Error al crear albarán')
+        }
+        break
       default:
         toast.info(`Acción "${action}" en desarrollo`)
     }
@@ -1049,17 +1072,27 @@ export default function PedidosPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowAlertas(!showAlertas)}
+            >
+              {showAlertas ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+              <span className="ml-2 hidden sm:inline">Alertas</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={cargarPedidos}
             >
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
+{canCreate('pedidos') && (
             <Button asChild size="sm">
               <Link href="/pedidos/nuevo">
                 <Plus className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Nuevo Pedido</span>
               </Link>
             </Button>
+            )}
           </div>
         </div>
 
@@ -1144,6 +1177,16 @@ export default function PedidosPage() {
               </div>
             </Card>
           </div>
+        )}
+
+        {/* ALERTAS */}
+        {showAlertas && (
+          <PedidosAlertas
+            diasAlerta={7}
+            onRefresh={cargarPedidos}
+            collapsible={true}
+            defaultCollapsed={false}
+          />
         )}
 
         {/* BARRA DE FILTROS AVANZADOS */}
@@ -1265,10 +1308,12 @@ export default function PedidosPage() {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Exportar
               </Button>
+{canDelete('pedidos') && (
               <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
               </Button>
+              )}
             </div>
           </Card>
         )}
@@ -1693,6 +1738,19 @@ export default function PedidosPage() {
                                 </DropdownMenuItem>
                               )}
 
+                              {/* Crear Albarán - solo si está confirmado, en proceso o parcialmente servido */}
+                              {[EstadoPedido.CONFIRMADO, EstadoPedido.EN_PROCESO, EstadoPedido.PARCIALMENTE_SERVIDO].includes(pedido.estado as EstadoPedido) && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handlePedidoAction(pedido._id, 'crear_albaran')}>
+                                    <Truck className="mr-2 h-4 w-4 text-cyan-600" />
+                                    Crear Albarán
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
+{canDelete('pedidos') && (
+                              <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive"
@@ -1701,6 +1759,8 @@ export default function PedidosPage() {
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Eliminar
                               </DropdownMenuItem>
+                              </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -1837,12 +1897,12 @@ export default function PedidosPage() {
                 ¿Estás seguro de que deseas eliminar {deleteDialog.pedidoIds.length === 1
                   ? 'el siguiente pedido'
                   : `los siguientes ${deleteDialog.pedidoIds.length} pedidos`}?
-                <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                  {deleteDialog.pedidoCodigos.map((codigo, index) => (
-                    <li key={index} className="text-sm font-medium">• {codigo}</li>
-                  ))}
-                </ul>
               </DialogDescription>
+              <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                {deleteDialog.pedidoCodigos.map((codigo, index) => (
+                  <li key={index} className="text-sm font-medium">• {codigo}</li>
+                ))}
+              </ul>
             </DialogHeader>
             <DialogFooter>
               <Button

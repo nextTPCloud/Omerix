@@ -206,6 +206,43 @@ class AlbaranesService {
   }
 
   /**
+   * Obtener alertas de albaranes (pendientes facturar, entregar, antiguos)
+   */
+  async getAlertas(diasAlerta: number = 30): Promise<ApiResponse<{
+    alertas: {
+      pendientesFacturar: IAlbaran[];
+      pendientesEntregar: IAlbaran[];
+      antiguosSinFacturar: IAlbaran[];
+    };
+    resumen: {
+      pendientesFacturar: number;
+      pendientesEntregar: number;
+      antiguosSinFacturar: number;
+      total: number;
+    };
+  }>> {
+    try {
+      const response = await api.get<ApiResponse<{
+        alertas: {
+          pendientesFacturar: IAlbaran[];
+          pendientesEntregar: IAlbaran[];
+          antiguosSinFacturar: IAlbaran[];
+        };
+        resumen: {
+          pendientesFacturar: number;
+          pendientesEntregar: number;
+          antiguosSinFacturar: number;
+          total: number;
+        };
+      }>>(`${this.baseUrl}/alertas`, { params: { diasAlerta } });
+      return response.data;
+    } catch (error) {
+      console.error('Error al obtener alertas de albaranes:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Obtener albaranes de un pedido específico
    */
   async getAlbaranesDePedido(pedidoId: string): Promise<ApiResponse<IAlbaran[]>> {

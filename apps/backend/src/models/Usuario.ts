@@ -1,5 +1,13 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { IPermisosEspeciales, PERMISOS_ESPECIALES_DEFAULT } from './Rol';
+
+/**
+ * Permisos personalizados del usuario (sobrescriben los del rol)
+ */
+export interface IPermisosUsuario {
+  especiales?: Partial<IPermisosEspeciales>;
+}
 
 export interface IUsuario extends Document {
   _id: mongoose.Types.ObjectId;
@@ -10,10 +18,11 @@ export interface IUsuario extends Document {
   apellidos: string;
   telefono?: string;
   avatar?: string;
-  
+
   // Rol y permisos
   rol: 'superadmin' | 'admin' | 'gerente' | 'vendedor' | 'tecnico' | 'almacenero' | 'visualizador';
-  permisos: any;
+  rolId?: Types.ObjectId;  // Referencia a rol personalizado (opcional)
+  permisos: IPermisosUsuario;
   
   // 2FA
   twoFactorEnabled: boolean;
@@ -95,9 +104,16 @@ const UsuarioSchema = new Schema<IUsuario>(
       enum: ['superadmin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador'],
       default: 'vendedor',
     },
+    rolId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Rol',
+      index: true,
+    },
     permisos: {
-      type: Schema.Types.Mixed,
-      default: {},
+      especiales: {
+        type: Schema.Types.Mixed,
+        default: {},
+      },
     },
     
     // 2FA

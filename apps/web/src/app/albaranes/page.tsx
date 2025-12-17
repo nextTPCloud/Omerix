@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { albaranesService } from '@/services/albaranes.service'
+import { facturasService } from '@/services/facturas.service'
 import { api } from '@/services/api'
 import vistasService from '@/services/vistas-guardadas.service'
 import {
@@ -17,7 +18,7 @@ import {
   getTipoAlbaranLabel,
 } from '@/types/albaran.types'
 import { empresaService, EmpresaInfo } from '@/services/empresa.service'
-import { Card } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -79,6 +80,9 @@ import {
   Building2,
   AlertTriangle,
   Ban,
+  Receipt,
+  Bell,
+  BellOff,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -94,6 +98,8 @@ import { PrintButton } from '@/components/ui/PrintButton'
 // FILTROS AVANZADOS
 import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
 import { ALBARANES_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
+import { AlbaranesAlertas } from '@/components/albaranes/AlbaranesAlertas'
+import { usePermissions } from '@/hooks/usePermissions'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -161,6 +167,7 @@ const DEFAULT_CONFIG = {
 export default function AlbaranesPage() {
   const router = useRouter()
   const isInitialLoad = useRef(true)
+  const { canCreate, canDelete } = usePermissions()
 
   // Estados de datos
   const [albaranes, setAlbaranes] = useState<IAlbaran[]>([])
@@ -200,6 +207,7 @@ export default function AlbaranesPage() {
 
   // UI States
   const [showStats, setShowStats] = useState(false)
+  const [showAlertas, setShowAlertas] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     albaranIds: string[]
@@ -797,6 +805,24 @@ export default function AlbaranesPage() {
     }
   }
 
+  // Eliminar múltiples albaranes seleccionados
+  const handleDeleteMultiple = () => {
+    if (selectedAlbaranes.length === 0) {
+      toast.error('No hay albaranes seleccionados')
+      return
+    }
+
+    const codigosSeleccionados = albaranes
+      .filter(a => selectedAlbaranes.includes(a._id))
+      .map(a => a.codigo)
+
+    setDeleteDialog({
+      open: true,
+      albaranIds: selectedAlbaranes,
+      albaranCodigos: codigosSeleccionados,
+    })
+  }
+
   // ============================================
   // CARGAR EMPRESA AL INICIO
   // ============================================
@@ -811,6 +837,57 @@ export default function AlbaranesPage() {
     }
     loadEmpresa()
   }, [])
+
+  // ============================================
+  // FACTURAR ALBARANES SELECCIONADOS
+  // ============================================
+  const handleFacturarSeleccionados = async () => {
+    if (selectedAlbaranes.length === 0) {
+      toast.warning('Selecciona al menos un albarán')
+      return
+    }
+
+    // Filtrar solo los albaranes que están entregados y sin facturar
+    const albaranesFacturables = albaranes
+      .filter(a => selectedAlbaranes.includes(a._id))
+      .filter(a => a.estado === EstadoAlbaran.ENTREGADO && !a.facturaId)
+
+    if (albaranesFacturables.length === 0) {
+      toast.warning('Los albaranes seleccionados ya están facturados o no están entregados')
+      return
+    }
+
+    if (albaranesFacturables.length !== selectedAlbaranes.length) {
+      toast.info(`Solo ${albaranesFacturables.length} de ${selectedAlbaranes.length} albaranes pueden facturarse`)
+    }
+
+    try {
+      toast.loading('Generando facturas...')
+      const response = await facturasService.crearDesdeAlbaranes({
+        albaranesIds: albaranesFacturables.map(a => a._id),
+        agruparPorCliente: true,
+      })
+      toast.dismiss()
+
+      if (response.success && response.data) {
+        const numFacturas = response.data.length
+        toast.success(`Se han creado ${numFacturas} factura${numFacturas !== 1 ? 's' : ''} correctamente`)
+
+        // Recargar y limpiar selección
+        await cargarAlbaranes()
+        setSelectedAlbaranes([])
+        setSelectAll(false)
+
+        // Si solo se creó una factura, ir a ella
+        if (numFacturas === 1) {
+          router.push(`/facturas/${response.data[0]._id}`)
+        }
+      }
+    } catch (error: any) {
+      toast.dismiss()
+      toast.error(error.response?.data?.message || 'Error al generar facturas')
+    }
+  }
 
   // ============================================
   // ACCIONES POR ALBARÁN
@@ -882,6 +959,23 @@ export default function AlbaranesPage() {
           cargarAlbaranes()
         } catch (error) {
           toast.error('Error al anular albarán')
+        }
+        break
+      case 'facturar':
+        try {
+          toast.loading('Creando factura...')
+          const responseFactura = await facturasService.crearDesdeAlbaranes({
+            albaranesIds: [albaranId],
+            agruparPorCliente: false,
+          })
+          toast.dismiss()
+          if (responseFactura.success && responseFactura.data && responseFactura.data.length > 0) {
+            toast.success('Factura creada correctamente')
+            router.push(`/facturas/${responseFactura.data[0]._id}`)
+          }
+        } catch (error: any) {
+          toast.dismiss()
+          toast.error(error.response?.data?.message || 'Error al crear factura')
         }
         break
       default:
@@ -1030,6 +1124,15 @@ export default function AlbaranesPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowAlertas(!showAlertas)}
+              title={showAlertas ? 'Ocultar alertas' : 'Mostrar alertas'}
+            >
+              {showAlertas ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+              <span className="ml-2 hidden sm:inline">Alertas</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowStats(!showStats)}
             >
               {showStats ? <Eye className="h-4 w-4" /> : <Truck className="h-4 w-4" />}
@@ -1043,14 +1146,72 @@ export default function AlbaranesPage() {
               <RefreshCw className="h-4 w-4" />
               <span className="ml-2 hidden sm:inline">Actualizar</span>
             </Button>
-            <Button asChild size="sm">
-              <Link href="/albaranes/nuevo">
-                <Plus className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Nuevo Albarán</span>
+            <Button asChild size="sm" variant="outline" className="text-purple-600 border-purple-200 hover:bg-purple-50">
+              <Link href="/facturas/facturar-albaranes">
+                <Receipt className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Facturar Albaranes</span>
               </Link>
             </Button>
+{canCreate('albaranes') && (
+              <Button asChild size="sm">
+                <Link href="/albaranes/nuevo">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Nuevo Albarán</span>
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
+
+        {/* ALERTAS DE ALBARANES */}
+        {showAlertas && (
+          <AlbaranesAlertas
+            diasAlerta={30}
+            onRefresh={cargarAlbaranes}
+            collapsible={true}
+            defaultCollapsed={false}
+          />
+        )}
+
+        {/* Barra de acciones masivas - visible cuando hay selección */}
+        {selectedAlbaranes.length > 0 && (
+          <Card className="bg-muted/50 border-dashed">
+            <CardContent className="py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium">
+                    {selectedAlbaranes.length} albarán{selectedAlbaranes.length !== 1 ? 'es' : ''} seleccionado{selectedAlbaranes.length !== 1 ? 's' : ''}
+                  </span>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedAlbaranes([])}>
+                    Deseleccionar todos
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                    onClick={handleFacturarSeleccionados}
+                  >
+                    <Receipt className="h-4 w-4 mr-2" />
+                    Facturar seleccionados
+                  </Button>
+{canDelete('albaranes') && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive"
+                      onClick={handleDeleteMultiple}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Eliminar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* ESTADÍSTICAS RÁPIDAS */}
         {showStats && (
@@ -1253,10 +1414,12 @@ export default function AlbaranesPage() {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Exportar
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </Button>
+{canDelete('albaranes') && (
+                <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -1684,14 +1847,29 @@ export default function AlbaranesPage() {
                                 </DropdownMenuItem>
                               )}
 
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => handleAlbaranAction(albaran._id, 'delete')}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar
-                              </DropdownMenuItem>
+                              {/* Facturar - solo si está entregado y no facturado */}
+                              {albaran.estado === EstadoAlbaran.ENTREGADO && !albaran.facturaId && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleAlbaranAction(albaran._id, 'facturar')}>
+                                    <Receipt className="mr-2 h-4 w-4 text-purple-600" />
+                                    Facturar
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
+{canDelete('albaranes') && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={() => handleAlbaranAction(albaran._id, 'delete')}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -1823,12 +2001,12 @@ export default function AlbaranesPage() {
                 ¿Estás seguro de que deseas eliminar {deleteDialog.albaranIds.length === 1
                   ? 'el siguiente albarán'
                   : `los siguientes ${deleteDialog.albaranIds.length} albaranes`}?
-                <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
-                  {deleteDialog.albaranCodigos.map((codigo, index) => (
-                    <li key={index} className="text-sm font-medium">• {codigo}</li>
-                  ))}
-                </ul>
               </DialogDescription>
+              <ul className="mt-3 max-h-32 overflow-y-auto space-y-1">
+                {deleteDialog.albaranCodigos.map((codigo, index) => (
+                  <li key={index} className="text-sm font-medium">• {codigo}</li>
+                ))}
+              </ul>
             </DialogHeader>
             <DialogFooter>
               <Button

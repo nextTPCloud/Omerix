@@ -98,6 +98,13 @@ export interface EmpresaInfo {
   moneda?: string;
   formatoFecha?: string;
   formatoNumero?: string;
+  // Configuración de IA
+  aiConfig?: {
+    provider?: 'openai' | 'anthropic' | 'gemini' | 'claude' | 'ollama';
+    model?: string;
+    apiKey?: string | null;
+    hasApiKey?: boolean;
+  };
 }
 
 // Configuración de email (actualizada para soportar OAuth2)
