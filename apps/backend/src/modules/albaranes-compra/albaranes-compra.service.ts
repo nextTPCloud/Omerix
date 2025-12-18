@@ -278,13 +278,16 @@ export class AlbaranesCompraService {
       throw new Error('Pedido de compra no encontrado');
     }
 
+    // Convertir líneas del pedido a objetos planos para poder mapearlas
+    const lineasPedidoPlanas = pedido.lineas.map((l: any) => l.toObject ? l.toObject() : l);
+
     // Determinar qué líneas incluir y sus cantidades
     let lineasParaAlbaran: any[] = [];
 
     if (dto.lineas && dto.lineas.length > 0) {
       // Usar líneas específicas con cantidades indicadas
       for (const lineaDto of dto.lineas) {
-        const lineaPedido = pedido.lineas.find((l: any) => l._id?.toString() === lineaDto.lineaId);
+        const lineaPedido = lineasPedidoPlanas.find((l: any) => l._id?.toString() === lineaDto.lineaId);
         if (lineaPedido && lineaDto.cantidadRecibida > 0) {
           lineasParaAlbaran.push({
             ...lineaPedido,
@@ -297,12 +300,12 @@ export class AlbaranesCompraService {
       }
     } else if (dto.lineasIds && dto.lineasIds.length > 0) {
       // Filtrar por IDs de líneas
-      lineasParaAlbaran = pedido.lineas.filter((l: any) =>
+      lineasParaAlbaran = lineasPedidoPlanas.filter((l: any) =>
         dto.lineasIds!.includes(l._id?.toString())
       );
     } else {
       // Incluir todas las líneas con cantidad pendiente
-      lineasParaAlbaran = pedido.lineas.filter((l: any) => {
+      lineasParaAlbaran = lineasPedidoPlanas.filter((l: any) => {
         const cantidadPendiente = (l.cantidadPendiente || (l.cantidad - (l.cantidadRecibida || 0)));
         return cantidadPendiente > 0;
       });

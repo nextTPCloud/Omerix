@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import React, { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -51,6 +51,9 @@ import {
   Clock,
   Send,
   Printer,
+  ChevronRight,
+  ChevronDown,
+  Layers,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -73,6 +76,19 @@ export default function AlbaranCompraDetallePage({ params }: PageProps) {
   const [albaran, setAlbaran] = useState<AlbaranCompra | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState(false)
+  const [expandedKits, setExpandedKits] = useState<Set<number>>(new Set())
+
+  const toggleKitExpanded = (index: number) => {
+    setExpandedKits(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }
 
   useEffect(() => {
     loadAlbaran()
@@ -381,31 +397,103 @@ export default function AlbaranCompraDetallePage({ params }: PageProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {albaran.lineas?.map((linea, index) => (
-                      <TableRow key={linea._id || index}>
-                        <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{linea.nombre}</p>
-                            {linea.descripcion && (
-                              <p className="text-xs text-muted-foreground">{linea.descripcion}</p>
-                            )}
-                            {linea.sku && (
-                              <p className="text-xs text-muted-foreground">SKU: {linea.sku}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">{linea.cantidad} {linea.unidad || 'ud.'}</TableCell>
-                        <TableCell className="text-right">
-                          <span className={linea.cantidadRecibida >= linea.cantidad ? 'text-green-600' : 'text-yellow-600'}>
-                            {linea.cantidadRecibida || 0}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">{formatCurrency(linea.precioUnitario)}</TableCell>
-                        <TableCell className="text-right">{linea.descuento}%</TableCell>
-                        <TableCell className="text-right">{linea.iva}%</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(linea.total)}</TableCell>
-                      </TableRow>
+                    {albaran.lineas?.map((linea: any, index) => (
+                      <React.Fragment key={linea._id || index}>
+                        <TableRow>
+                          <TableCell className="text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleKitExpanded(index)}
+                                  className="p-0.5 hover:bg-muted rounded"
+                                >
+                                  {expandedKits.has(index) ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                  )}
+                                </button>
+                              )}
+                              {index + 1}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <p className="font-medium">{linea.nombre}</p>
+                              {linea.descripcion && (
+                                <p className="text-xs text-muted-foreground">{linea.descripcion}</p>
+                              )}
+                              {linea.sku && (
+                                <p className="text-xs text-muted-foreground">SKU: {linea.sku}</p>
+                              )}
+                              <div className="flex flex-wrap gap-1">
+                                {linea.tipo === 'kit' && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Layers className="h-3 w-3 mr-1" />
+                                    Kit
+                                  </Badge>
+                                )}
+                                {linea.variante && linea.variante.combinacion && (
+                                  Object.entries(linea.variante.combinacion).map(([key, value]) => (
+                                    <Badge key={key} variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950">
+                                      {key}: {String(value)}
+                                    </Badge>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">{linea.cantidad} {linea.unidad || 'ud.'}</TableCell>
+                          <TableCell className="text-right">
+                            <span className={linea.cantidadRecibida >= linea.cantidad ? 'text-green-600' : 'text-yellow-600'}>
+                              {linea.cantidadRecibida || 0}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">{formatCurrency(linea.precioUnitario)}</TableCell>
+                          <TableCell className="text-right">{linea.descuento}%</TableCell>
+                          <TableCell className="text-right">{linea.iva}%</TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(linea.total)}</TableCell>
+                        </TableRow>
+                        {linea.tipo === 'kit' && expandedKits.has(index) && linea.componentesKit && linea.componentesKit.length > 0 && (
+                          <TableRow className="bg-muted/20">
+                            <TableCell colSpan={8} className="px-6 py-3">
+                              <div className="text-xs text-muted-foreground mb-2">
+                                Componentes del kit ({linea.componentesKit.length}):
+                              </div>
+                              <div className="space-y-1">
+                                {linea.componentesKit.map((comp: any, compIdx: number) => (
+                                  <div
+                                    key={compIdx}
+                                    className={`flex items-center justify-between px-3 py-1.5 rounded text-sm ${
+                                      comp.seleccionado !== false ? 'bg-background' : 'bg-muted/50 opacity-60'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono text-xs text-muted-foreground">{comp.sku}</span>
+                                      <span>{comp.nombre}</span>
+                                      {comp.opcional && (
+                                        <Badge variant="outline" className="text-xs">Opcional</Badge>
+                                      )}
+                                      {comp.seleccionado === false && (
+                                        <Badge variant="secondary" className="text-xs">No incluido</Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-4 text-xs">
+                                      <span className="text-muted-foreground">
+                                        {comp.cantidad} x {formatCurrency(comp.costeUnitario || comp.precioUnitario || 0)}
+                                      </span>
+                                      <span className="font-medium">
+                                        {formatCurrency(comp.cantidad * (comp.costeUnitario || comp.precioUnitario || 0))}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
@@ -543,7 +631,7 @@ export default function AlbaranCompraDetallePage({ params }: PageProps) {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Pedido origen</span>
-                    <Link href={`/compras/pedidos/${albaran.pedidoCompraId}`}>
+                    <Link href={`/compras/pedidos/${typeof albaran.pedidoCompraId === 'object' ? (albaran.pedidoCompraId as any)?._id : albaran.pedidoCompraId}`}>
                       <Button variant="link" size="sm" className="p-0 h-auto">
                         Ver pedido
                       </Button>

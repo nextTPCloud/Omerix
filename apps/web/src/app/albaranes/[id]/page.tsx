@@ -54,6 +54,9 @@ import {
   Mail,
   Receipt,
   Zap,
+  ChevronRight,
+  ChevronDown,
+  Layers,
 } from 'lucide-react'
 
 interface PageProps {
@@ -70,6 +73,19 @@ export default function AlbaranDetallePage({ params }: PageProps) {
   const [facturaDialogOpen, setFacturaDialogOpen] = useState(false)
   const [facturaDirectaDialogOpen, setFacturaDirectaDialogOpen] = useState(false)
   const [creandoFactura, setCreandoFactura] = useState(false)
+  const [expandedKits, setExpandedKits] = useState<Set<number>>(new Set())
+
+  const toggleKitExpanded = (index: number) => {
+    setExpandedKits(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }
 
   const loadAlbaran = async () => {
     try {
@@ -419,35 +435,50 @@ export default function AlbaranDetallePage({ params }: PageProps) {
                         <React.Fragment key={linea._id || index}>
                           <tr className="border-b">
                             <td className="p-4">
-                              <div>
-                                <p className="font-medium">{linea.nombre}</p>
-                                {/* Mostrar variante seleccionada */}
-                                {linea.variante && (
-                                  <p className="text-xs text-purple-600 mt-0.5">
-                                    <span className="font-medium">Variante:</span>{' '}
-                                    {Object.entries(linea.variante.combinacion || {}).map(([attr, val]) => (
-                                      <span key={attr} className="inline-flex items-center gap-1 mr-2">
-                                        {attr}: <span className="font-semibold">{String(val)}</span>
-                                      </span>
-                                    ))}
-                                    {linea.variante.sku && (
-                                      <span className="text-muted-foreground">({linea.variante.sku})</span>
+                              <div className="flex items-start gap-2">
+                                {/* Botón expandir/colapsar para kits */}
+                                {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 ? (
+                                  <button
+                                    onClick={() => toggleKitExpanded(index)}
+                                    className="mt-1 p-0.5 hover:bg-muted rounded"
+                                  >
+                                    {expandedKits.has(index) ? (
+                                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                     )}
-                                  </p>
+                                  </button>
+                                ) : (
+                                  <div className="w-5" />
                                 )}
-                                {linea.descripcion && (
-                                  <p className="text-sm text-muted-foreground">{linea.descripcion}</p>
-                                )}
-                                <Badge variant="outline" className="mt-1">
-                                  {getTipoLineaLabel(linea.tipo)}
-                                </Badge>
-                                {/* Indicador de que tiene componentes del kit */}
-                                {linea.componentesKit && linea.componentesKit.length > 0 && (
-                                  <Badge variant="secondary" className="text-xs mt-1 ml-1">
-                                    <Package className="h-3 w-3 mr-1" />
-                                    {linea.componentesKit.length} comp.
-                                  </Badge>
-                                )}
+                                <div className="flex-1">
+                                  <p className="font-medium">{linea.nombre}</p>
+                                  {/* Badge de Kit */}
+                                  {linea.tipo === 'kit' && (
+                                    <Badge variant="secondary" className="text-xs mt-1 mr-1">
+                                      <Layers className="h-3 w-3 mr-1" />
+                                      Kit
+                                    </Badge>
+                                  )}
+                                  {/* Mostrar variante seleccionada como badges */}
+                                  {linea.variante && linea.variante.combinacion && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {Object.entries(linea.variante.combinacion).map(([attr, val]) => (
+                                        <Badge key={attr} variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                          {attr}: {String(val)}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {linea.descripcion && (
+                                    <p className="text-sm text-muted-foreground mt-1">{linea.descripcion}</p>
+                                  )}
+                                  {linea.tipo !== 'kit' && (
+                                    <Badge variant="outline" className="mt-1">
+                                      {getTipoLineaLabel(linea.tipo)}
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                             </td>
                             <td className="p-4 text-center">
@@ -465,11 +496,11 @@ export default function AlbaranDetallePage({ params }: PageProps) {
                               {formatCurrency(linea.total)}
                             </td>
                           </tr>
-                          {/* Filas de componentes del kit */}
-                          {linea.componentesKit && linea.componentesKit.length > 0 && linea.mostrarComponentes && (
+                          {/* Filas de componentes del kit (expandible) */}
+                          {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 && expandedKits.has(index) && (
                             linea.componentesKit.map((componente: any, compIndex: number) => (
                               <tr key={`${linea._id}-comp-${compIndex}`} className="bg-muted/20 border-b text-sm">
-                                <td className="p-3 pl-8">
+                                <td className="p-3 pl-12">
                                   <div className="flex items-center gap-2">
                                     <span className="text-muted-foreground">└</span>
                                     <span className="text-muted-foreground">{componente.nombre}</span>

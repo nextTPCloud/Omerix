@@ -464,11 +464,17 @@ export class PedidosCompraService {
       throw new Error('Pedido no encontrado');
     }
 
+    // Generar nuevo codigo y numero
+    const serie = pedidoOriginal.serie || 'PC';
+    const { codigo, numero } = await this.generarCodigoNumero(PedidoCompraModel, serie);
+
     // Preparar datos para nuevo pedido
     const nuevoPedido = new PedidoCompraModel({
       ...pedidoOriginal,
       _id: new mongoose.Types.ObjectId(),
-      codigo: undefined, // Se generara automaticamente
+      serie,
+      codigo,
+      numero,
       estado: EstadoPedidoCompra.BORRADOR,
       fecha: new Date(),
       fechaEnvio: undefined,

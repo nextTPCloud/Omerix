@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,9 @@ import {
   Search,
   Truck,
   Warehouse,
+  Layers,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -54,21 +57,49 @@ import { productosService } from '@/services/productos.service'
 import { almacenesService } from '@/services/almacenes.service'
 import { SearchableSelect, EditableSearchableSelect } from '@/components/ui/searchable-select'
 import { DateInput } from '@/components/ui/date-picker'
+import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
+import { Producto, Variante } from '@/types/producto.types'
 
 // ============================================
 // INTERFACES LOCALES
 // ============================================
 
+// Interfaz para componentes de kit en albaran de compra
+interface IComponenteKitAlbaran {
+  productoId: string
+  nombre: string
+  sku: string
+  cantidad: number
+  precioUnitario: number
+  costeUnitario: number
+  descuento: number
+  iva: number
+  subtotal: number
+  opcional: boolean
+  seleccionado: boolean
+}
+
+// Interfaz para variante seleccionada
+interface IVarianteSeleccionada {
+  varianteId: string
+  sku: string
+  combinacion: Record<string, string>
+  costeAdicional?: number
+}
+
 interface LineaFormulario {
   _id?: string
   orden: number
-  tipo: 'producto' | 'servicio' | 'texto' | 'subtotal' | 'descuento'
+  tipo: 'producto' | 'servicio' | 'texto' | 'subtotal' | 'descuento' | 'kit'
   productoId?: string
   codigo?: string
   nombre: string
   descripcion?: string
   sku?: string
   codigoProveedor?: string
+  variante?: IVarianteSeleccionada
+  componentesKit?: IComponenteKitAlbaran[]
+  mostrarComponentes?: boolean
   cantidad: number
   cantidadRecibida: number
   unidad?: string
@@ -169,6 +200,11 @@ export function AlbaranCompraForm({
   const cantidadRefs = useRef<Map<number, HTMLInputElement>>(new Map())
   const productoRefs = useRef<Map<number, HTMLInputElement>>(new Map())
 
+  // Estado para selector de variantes
+  const [varianteSelectorOpen, setVarianteSelectorOpen] = useState(false)
+  const [productoConVariantes, setProductoConVariantes] = useState<Producto | null>(null)
+  const [lineaIndexParaVariante, setLineaIndexParaVariante] = useState<number | null>(null)
+
   // ============================================
   // CARGAR DATOS INICIALES
   // ============================================
@@ -181,7 +217,7 @@ export function AlbaranCompraForm({
 
   useEffect(() => {
     if (albaran?.lineas) {
-      const lineasConvertidas: LineaFormulario[] = albaran.lineas.map((l, idx) => ({
+      const lineasConvertidas: LineaFormulario[] = albaran.lineas.map((l: any, idx: number) => ({
         _id: l._id,
         orden: l.orden || idx + 1,
         tipo: l.tipo || 'producto',
@@ -191,6 +227,9 @@ export function AlbaranCompraForm({
         descripcion: l.descripcion,
         sku: l.sku,
         codigoProveedor: l.codigoProveedor,
+        variante: l.variante,
+        componentesKit: l.componentesKit,
+        mostrarComponentes: l.mostrarComponentes ?? true,
         cantidad: l.cantidad || 0,
         cantidadRecibida: l.cantidadRecibida || 0,
         unidad: l.unidad || 'ud.',
@@ -391,19 +430,196 @@ export function AlbaranCompraForm({
   }
 
   const seleccionarProducto = (index: number, productoId: string) => {
-    const producto = productos.find(p => p._id === productoId)
+    const producto = productos.find(p => p._id === productoId) as any
     if (producto) {
-      const nuevasLineas = [...lineas]
-      nuevasLineas[index] = {
-        ...nuevasLineas[index],
-        productoId: producto._id,
-        nombre: producto.nombre,
-        sku: producto.sku,
-        precioUnitario: producto.precioCompra || 0,
-        iva: producto.iva || 21,
-        unidad: producto.unidad || 'ud.',
+      // Si el producto tiene variantes activas, abrir el selector
+      if (producto.tieneVariantes && producto.variantes && producto.variantes.length > 0) {
+        const variantesActivas = producto.variantes.filter((v: Variante) => v.activo !== false)
+        if (variantesActivas.length > 0) {
+          setProductoConVariantes(producto)
+          setLineaIndexParaVariante(index)
+          setVarianteSelectorOpen(true)
+          return
+        }
       }
-      nuevasLineas[index] = calcularLinea(nuevasLineas[index])
+
+      // Producto sin variantes o sin variantes activas - proceder normalmente
+      aplicarProductoALinea(index, producto)
+    }
+  }
+
+  // Aplicar producto a línea (usado directamente o después de seleccionar variante)
+  const aplicarProductoALinea = (
+    index: number,
+    producto: any,
+    variante?: {
+      varianteId: string
+      sku: string
+      combinacion: Record<string, string>
+      precioUnitario: number
+      costeUnitario: number
+    }
+  ) => {
+    // Determinar si es un kit (tipo compuesto o tiene componentes)
+    const esKit = producto.tipo === 'compuesto' || (producto.componentesKit && producto.componentesKit.length > 0)
+
+    // Construir los componentes del kit si aplica
+    let componentesKit: IComponenteKitAlbaran[] | undefined
+    if (esKit && producto.componentesKit) {
+      componentesKit = producto.componentesKit.map((comp: any) => ({
+        productoId: comp.productoId,
+        nombre: comp.producto?.nombre || '',
+        sku: comp.producto?.sku || '',
+        cantidad: comp.cantidad,
+        precioUnitario: 0,
+        costeUnitario: 0,
+        descuento: 0,
+        iva: producto.iva || 21,
+        subtotal: 0,
+        opcional: comp.opcional || false,
+        seleccionado: !comp.opcional,
+      }))
+    }
+
+    // Construir nombre con info de variante
+    let nombreFinal = producto.nombre
+    if (variante) {
+      const combinacionStr = Object.entries(variante.combinacion)
+        .map(([, v]) => v)
+        .join(' / ')
+      nombreFinal = `${producto.nombre} - ${combinacionStr}`
+    }
+
+    const nuevasLineas = [...lineas]
+    nuevasLineas[index] = calcularLinea({
+      ...nuevasLineas[index],
+      productoId: producto._id,
+      codigo: variante?.sku || producto.sku,
+      nombre: nombreFinal,
+      sku: variante?.sku || producto.sku,
+      descripcion: producto.descripcionCorta,
+      precioUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? producto.precioCompra ?? 0,
+      iva: producto.iva || 21,
+      unidad: producto.unidadMedida || producto.unidad || 'ud.',
+      tipo: esKit ? 'kit' : 'producto',
+      componentesKit,
+      mostrarComponentes: true,
+      variante: variante ? {
+        varianteId: variante.varianteId,
+        sku: variante.sku,
+        combinacion: variante.combinacion,
+        costeAdicional: variante.costeUnitario - (producto.precios?.compra || 0),
+      } : undefined,
+    })
+    setLineas(nuevasLineas)
+
+    // Enfocar cantidad
+    setTimeout(() => {
+      const cantidadRef = cantidadRefs.current.get(index)
+      if (cantidadRef) {
+        cantidadRef.focus()
+        cantidadRef.select()
+      }
+    }, 50)
+  }
+
+  // Handler para cuando se selecciona una variante
+  const handleVarianteSelect = (varianteInfo: VarianteSeleccion) => {
+    if (productoConVariantes && lineaIndexParaVariante !== null) {
+      aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, {
+        ...varianteInfo,
+      })
+      if (varianteInfo.cantidad && varianteInfo.cantidad !== 1) {
+        actualizarLinea(lineaIndexParaVariante, 'cantidad', varianteInfo.cantidad)
+      }
+    }
+    setVarianteSelectorOpen(false)
+    setProductoConVariantes(null)
+    setLineaIndexParaVariante(null)
+  }
+
+  // Handler para cuando se seleccionan múltiples variantes
+  const handleVariantesMultipleSelect = (variantes: VarianteSeleccion[]) => {
+    if (!productoConVariantes || lineaIndexParaVariante === null) return
+
+    // Para la primera variante, usar la línea existente
+    const primeraVariante = variantes[0]
+    aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, {
+      ...primeraVariante,
+    })
+    if (primeraVariante.cantidad && primeraVariante.cantidad !== 1) {
+      actualizarLinea(lineaIndexParaVariante, 'cantidad', primeraVariante.cantidad)
+    }
+
+    // Para el resto de variantes, crear nuevas líneas
+    if (variantes.length > 1) {
+      const nuevasLineas = variantes.slice(1).map((variante, idx) => {
+        const combinacionStr = Object.values(variante.combinacion).join(' / ')
+        const linea: LineaFormulario = {
+          orden: lineas.length + idx,
+          tipo: 'producto',
+          productoId: productoConVariantes._id,
+          codigo: variante.sku,
+          nombre: `${productoConVariantes.nombre} - ${combinacionStr}`,
+          descripcion: productoConVariantes.descripcionCorta,
+          sku: variante.sku,
+          cantidad: variante.cantidad || 1,
+          cantidadRecibida: 0,
+          unidad: (productoConVariantes as any).unidadMedida || 'ud.',
+          precioUnitario: variante.costeUnitario,
+          descuento: 0,
+          descuentoImporte: 0,
+          subtotal: 0,
+          iva: productoConVariantes.iva || 21,
+          ivaImporte: 0,
+          total: 0,
+          almacenId: almacenDefaultId,
+          esEditable: true,
+          incluidoEnTotal: true,
+          variante: {
+            varianteId: variante.varianteId,
+            sku: variante.sku,
+            combinacion: variante.combinacion,
+            costeAdicional: variante.costeUnitario - (productoConVariantes.precios?.compra || 0),
+          },
+        }
+        return calcularLinea(linea)
+      })
+
+      setLineas(prev => [...prev, ...nuevasLineas])
+    }
+
+    setVarianteSelectorOpen(false)
+    setProductoConVariantes(null)
+    setLineaIndexParaVariante(null)
+  }
+
+  // Handler para usar producto base sin variante
+  const handleUseBaseProduct = () => {
+    if (productoConVariantes && lineaIndexParaVariante !== null) {
+      aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes)
+    }
+    setVarianteSelectorOpen(false)
+    setProductoConVariantes(null)
+    setLineaIndexParaVariante(null)
+  }
+
+  // Handler para toggle de mostrar/ocultar componentes del kit
+  const handleToggleComponentesKit = (index: number) => {
+    const nuevasLineas = [...lineas]
+    nuevasLineas[index] = {
+      ...nuevasLineas[index],
+      mostrarComponentes: !nuevasLineas[index].mostrarComponentes,
+    }
+    setLineas(nuevasLineas)
+  }
+
+  // Handler para toggle de componente opcional del kit
+  const handleToggleComponenteKit = (lineaIndex: number, componenteIndex: number) => {
+    const nuevasLineas = [...lineas]
+    const linea = nuevasLineas[lineaIndex]
+    if (linea.componentesKit) {
+      linea.componentesKit[componenteIndex].seleccionado = !linea.componentesKit[componenteIndex].seleccionado
       setLineas(nuevasLineas)
     }
   }
@@ -413,7 +629,7 @@ export function AlbaranCompraForm({
   // ============================================
 
   const calcularTotales = useCallback(() => {
-    const lineasIncluidas = lineas.filter(l => l.incluidoEnTotal && l.tipo === 'producto')
+    const lineasIncluidas = lineas.filter(l => l.incluidoEnTotal && (l.tipo === 'producto' || l.tipo === 'kit'))
 
     const subtotalBruto = lineasIncluidas.reduce((sum, l) => sum + (l.cantidad * l.precioUnitario), 0)
     const totalDescuentosLineas = lineasIncluidas.reduce((sum, l) => sum + l.descuentoImporte, 0)
@@ -483,7 +699,7 @@ export function AlbaranCompraForm({
       return
     }
 
-    const lineasInvalidas = lineas.filter(l => l.tipo === 'producto' && (!l.nombre || l.cantidad <= 0))
+    const lineasInvalidas = lineas.filter(l => (l.tipo === 'producto' || l.tipo === 'kit') && (!l.nombre || l.cantidad <= 0))
     if (lineasInvalidas.length > 0) {
       toast.error('Hay lineas sin producto o con cantidad invalida')
       setActiveTab('lineas')
@@ -508,13 +724,16 @@ export function AlbaranCompraForm({
         lineas: lineas.map(l => ({
           _id: l._id,
           orden: l.orden,
-          tipo: l.tipo,
+          tipo: l.tipo as any,
           productoId: l.productoId,
           codigo: l.codigo,
           nombre: l.nombre,
           descripcion: l.descripcion,
           sku: l.sku,
           codigoProveedor: l.codigoProveedor,
+          variante: l.variante as any,
+          componentesKit: l.componentesKit as any,
+          mostrarComponentes: l.mostrarComponentes,
           cantidad: l.cantidad,
           cantidadRecibida: l.cantidadRecibida,
           unidad: l.unidad,
@@ -761,130 +980,209 @@ export function AlbaranCompraForm({
                   </TableHeader>
                   <TableBody>
                     {lineas.map((linea, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                        <TableCell>
-                          <EditableSearchableSelect
-                            options={productos.map(p => ({
-                              value: p._id,
-                              label: p.nombre,
-                              sublabel: p.sku,
-                            }))}
-                            value={linea.productoId || ''}
-                            displayValue={linea.nombre}
-                            onValueChange={(value) => {
-                              if (value) seleccionarProducto(index, value)
-                            }}
-                            onDisplayValueChange={(value) => actualizarLinea(index, 'nombre', value)}
-                            placeholder="Buscar producto..."
-                            loading={loadingProductos}
-                            onCtrlEnterPress={agregarLinea}
-                            inputRef={(el) => {
-                              if (el) productoRefs.current.set(index, el)
-                              else productoRefs.current.delete(index)
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            ref={(el) => {
-                              if (el) cantidadRefs.current.set(index, el)
-                            }}
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={linea.cantidad}
-                            onChange={(e) => actualizarLinea(index, 'cantidad', parseFloat(e.target.value) || 0)}
-                            onKeyDown={(e) => handleCantidadKeyDown(e, index)}
-                            className="w-[80px] text-right"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={linea.precioUnitario}
-                            onChange={(e) => actualizarLinea(index, 'precioUnitario', parseFloat(e.target.value) || 0)}
-                            className="w-[100px] text-right"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={linea.descuento}
-                            onChange={(e) => actualizarLinea(index, 'descuento', parseFloat(e.target.value) || 0)}
-                            className="w-[60px] text-right"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={linea.iva.toString()}
-                            onValueChange={(v) => actualizarLinea(index, 'iva', parseFloat(v))}
-                          >
-                            <SelectTrigger className="w-[70px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0">0%</SelectItem>
-                              <SelectItem value="4">4%</SelectItem>
-                              <SelectItem value="10">10%</SelectItem>
-                              <SelectItem value="21">21%</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(linea.total)}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={linea.almacenId || almacenDefaultId}
-                            onValueChange={(v) => actualizarLinea(index, 'almacenId', v)}
-                          >
-                            <SelectTrigger className="w-[100px]">
-                              <SelectValue placeholder="Almacen" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {almacenes.map(a => (
-                                <SelectItem key={a._id} value={a._id}>{a.nombre}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => moverLinea(index, 'arriba')}
-                              disabled={index === 0}
-                              className="h-7 w-7 p-0"
+                      <React.Fragment key={index}>
+                        <TableRow>
+                          <TableCell className="text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              {/* Botón para expandir/colapsar componentes del kit */}
+                              {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleComponentesKit(index)}
+                                  className="p-0.5 hover:bg-muted rounded"
+                                >
+                                  {linea.mostrarComponentes ? (
+                                    <ChevronDown className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3" />
+                                  )}
+                                </button>
+                              )}
+                              {index + 1}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <EditableSearchableSelect
+                                options={productos.map(p => ({
+                                  value: p._id,
+                                  label: p.nombre,
+                                  sublabel: p.sku,
+                                }))}
+                                value={linea.productoId || ''}
+                                displayValue={linea.nombre}
+                                onValueChange={(value) => {
+                                  if (value) seleccionarProducto(index, value)
+                                }}
+                                onDisplayValueChange={(value) => actualizarLinea(index, 'nombre', value)}
+                                placeholder="Buscar producto..."
+                                loading={loadingProductos}
+                                onCtrlEnterPress={agregarLinea}
+                                inputRef={(el) => {
+                                  if (el) productoRefs.current.set(index, el)
+                                  else productoRefs.current.delete(index)
+                                }}
+                              />
+                              {/* Indicador de kit */}
+                              {linea.tipo === 'kit' && (
+                                <Badge variant="secondary" className="text-xs">
+                                  <Layers className="h-3 w-3 mr-1" />
+                                  Kit
+                                </Badge>
+                              )}
+                              {/* Indicador de variante */}
+                              {linea.variante && (
+                                <div className="flex flex-wrap gap-1">
+                                  {Object.entries(linea.variante.combinacion).map(([key, value]) => (
+                                    <Badge key={key} variant="outline" className="text-xs">
+                                      {key}: {value}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              ref={(el) => {
+                                if (el) cantidadRefs.current.set(index, el)
+                              }}
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={linea.cantidad}
+                              onChange={(e) => actualizarLinea(index, 'cantidad', parseFloat(e.target.value) || 0)}
+                              onKeyDown={(e) => handleCantidadKeyDown(e, index)}
+                              className="w-[80px] text-right"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={linea.precioUnitario}
+                              onChange={(e) => actualizarLinea(index, 'precioUnitario', parseFloat(e.target.value) || 0)}
+                              className="w-[100px] text-right"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={linea.descuento}
+                              onChange={(e) => actualizarLinea(index, 'descuento', parseFloat(e.target.value) || 0)}
+                              className="w-[60px] text-right"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={linea.iva.toString()}
+                              onValueChange={(v) => actualizarLinea(index, 'iva', parseFloat(v))}
                             >
-                              <ArrowUp className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => moverLinea(index, 'abajo')}
-                              disabled={index === lineas.length - 1}
-                              className="h-7 w-7 p-0"
+                              <SelectTrigger className="w-[70px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="0">0%</SelectItem>
+                                <SelectItem value="4">4%</SelectItem>
+                                <SelectItem value="10">10%</SelectItem>
+                                <SelectItem value="21">21%</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(linea.total)}
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={linea.almacenId || almacenDefaultId}
+                              onValueChange={(v) => actualizarLinea(index, 'almacenId', v)}
                             >
-                              <ArrowDown className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => eliminarLinea(index)}
-                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                              <SelectTrigger className="w-[100px]">
+                                <SelectValue placeholder="Almacen" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {almacenes.map(a => (
+                                  <SelectItem key={a._id} value={a._id}>{a.nombre}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => moverLinea(index, 'arriba')}
+                                disabled={index === 0}
+                                className="h-7 w-7 p-0"
+                              >
+                                <ArrowUp className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => moverLinea(index, 'abajo')}
+                                disabled={index === lineas.length - 1}
+                                className="h-7 w-7 p-0"
+                              >
+                                <ArrowDown className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => eliminarLinea(index)}
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {/* Componentes del kit expandidos */}
+                        {linea.tipo === 'kit' && linea.mostrarComponentes && linea.componentesKit && linea.componentesKit.length > 0 && (
+                          <TableRow className="bg-muted/20">
+                            <TableCell colSpan={9} className="px-8 py-2">
+                              <div className="text-xs text-muted-foreground mb-2">
+                                Componentes del kit ({linea.componentesKit.length}):
+                              </div>
+                              <div className="space-y-1">
+                                {linea.componentesKit.map((comp, compIdx) => (
+                                  <div
+                                    key={compIdx}
+                                    className={`flex items-center justify-between px-2 py-1 rounded ${
+                                      comp.seleccionado ? 'bg-background' : 'bg-muted/50 opacity-60'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      {comp.opcional && (
+                                        <input
+                                          type="checkbox"
+                                          checked={comp.seleccionado}
+                                          onChange={() => handleToggleComponenteKit(index, compIdx)}
+                                          className="h-3 w-3"
+                                        />
+                                      )}
+                                      <span className="font-mono text-xs text-muted-foreground">{comp.sku}</span>
+                                      <span>{comp.nombre}</span>
+                                      {comp.opcional && (
+                                        <Badge variant="outline" className="text-xs">Opcional</Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-4 text-xs">
+                                      <span>{comp.cantidad} x {formatCurrency(comp.costeUnitario)}</span>
+                                      <span className="font-medium">{formatCurrency(comp.cantidad * comp.costeUnitario)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
@@ -1147,6 +1445,17 @@ export function AlbaranCompraForm({
           </div>
         </div>
       </Card>
+
+      {/* Selector de variantes */}
+      <VarianteSelector
+        open={varianteSelectorOpen}
+        onOpenChange={setVarianteSelectorOpen}
+        producto={productoConVariantes}
+        onSelect={handleVarianteSelect}
+        onSelectMultiple={handleVariantesMultipleSelect}
+        onSelectBase={handleUseBaseProduct}
+        multiSelect={true}
+      />
     </div>
   )
 }

@@ -37,11 +37,15 @@ import {
   ArrowUp,
   ArrowDown,
   Percent,
+  Layers,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 
 // Components
 import { SearchableSelect, EditableSearchableSelect } from '@/components/ui/searchable-select'
 import { DateInput } from '@/components/ui/date-picker'
+import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
 
 // Services
 import { proveedoresService } from '@/services/proveedores.service'
@@ -50,9 +54,27 @@ import { seriesDocumentosService } from '@/services/series-documentos.service'
 
 // Types
 import { Proveedor } from '@/types/proveedor.types'
-import { Producto } from '@/types/producto.types'
+import { Producto, Variante } from '@/types/producto.types'
 import { ISerieDocumento } from '@/types/serie-documento.types'
 import { toast } from 'sonner'
+
+// Interfaces para kit y variante
+interface IComponenteKitPresupuesto {
+  productoId: string
+  nombre: string
+  sku?: string
+  cantidad: number
+  precioUnitario: number
+  opcional: boolean
+  seleccionado: boolean
+}
+
+interface IVarianteSeleccionada {
+  varianteId: string
+  sku: string
+  combinacion: Record<string, string>
+  costeAdicional?: number
+}
 
 interface PresupuestoCompraFormProps {
   presupuesto?: PresupuestoCompra
@@ -64,12 +86,17 @@ interface PresupuestoCompraFormProps {
 interface LineaFormulario {
   _id?: string
   orden: number
-  tipo: 'producto' | 'servicio' | 'texto'
+  tipo: 'producto' | 'servicio' | 'texto' | 'kit'
   productoId?: string
   codigo?: string
   nombre: string
   descripcion?: string
   codigoProveedor?: string
+  // Kit y variante
+  variante?: IVarianteSeleccionada
+  componentesKit?: IComponenteKitPresupuesto[]
+  mostrarComponentes?: boolean
+  // Cantidades
   cantidad: number
   unidad?: string
   precioUnitario: number
@@ -150,6 +177,11 @@ export function PresupuestoCompraForm({
   // Referencias para inputs (navegación con teclado)
   const cantidadRefs = useRef<Map<number, HTMLInputElement>>(new Map())
   const productoRefs = useRef<Map<number, HTMLInputElement>>(new Map())
+
+  // Estado para selector de variantes
+  const [varianteSelectorOpen, setVarianteSelectorOpen] = useState(false)
+  const [productoConVariantes, setProductoConVariantes] = useState<Producto | null>(null)
+  const [lineaIndexParaVariante, setLineaIndexParaVariante] = useState<number | null>(null)
 
   // Estado del formulario
   const [formData, setFormData] = useState<CreatePresupuestoCompraDTO>({
@@ -296,25 +328,189 @@ export function PresupuestoCompraForm({
   const handleProductoChange = (index: number, productoId: string) => {
     const producto = productos.find(p => p._id === productoId)
     if (producto) {
-      const precioCompra = producto.precios?.compra || 0
-      const precioVenta = producto.precios?.pvp || producto.precios?.venta || 0
+      // Si el producto tiene variantes activas, abrir el selector
+      if (producto.tieneVariantes && producto.variantes && producto.variantes.length > 0) {
+        const variantesActivas = producto.variantes.filter((v: Variante) => v.activo !== false)
+        if (variantesActivas.length > 0) {
+          setProductoConVariantes(producto)
+          setLineaIndexParaVariante(index)
+          setVarianteSelectorOpen(true)
+          return
+        }
+      }
 
-      const nuevaLinea = calcularLinea({
-        ...lineas[index],
-        productoId: producto._id,
-        codigo: producto.sku,
-        nombre: producto.nombre,
-        descripcion: producto.descripcionCorta,
-        precioUnitario: precioCompra,
-        precioVenta: precioVenta,
-        margenPorcentaje: 0, // Se calculará en calcularLinea
-        margenImporte: 0,
-        iva: producto.iva || 21,
-      })
-      const nuevasLineas = [...lineas]
-      nuevasLineas[index] = nuevaLinea
-      setLineas(nuevasLineas)
+      // Producto sin variantes o sin variantes activas - proceder normalmente
+      aplicarProductoALinea(index, producto)
     }
+  }
+
+  // Aplicar producto a línea (usado directamente o después de seleccionar variante)
+  const aplicarProductoALinea = (
+    index: number,
+    producto: Producto,
+    variante?: {
+      varianteId: string
+      sku: string
+      combinacion: Record<string, string>
+      precioUnitario: number
+      costeUnitario: number
+    }
+  ) => {
+    // Determinar si es un kit (tipo compuesto o tiene componentes)
+    const esKit = producto.tipo === 'compuesto' || (producto.componentesKit && producto.componentesKit.length > 0)
+
+    // Construir los componentes del kit si aplica
+    let componentesKit: IComponenteKitPresupuesto[] | undefined
+    if (esKit && producto.componentesKit) {
+      componentesKit = producto.componentesKit.map(comp => {
+        const productoComp = productos.find(p => p._id === comp.productoId)
+        return {
+          productoId: comp.productoId,
+          nombre: productoComp?.nombre || comp.producto?.nombre || '',
+          sku: productoComp?.sku || comp.producto?.sku || '',
+          cantidad: comp.cantidad,
+          precioUnitario: productoComp?.precios?.compra || 0,
+          opcional: comp.opcional || false,
+          seleccionado: !comp.opcional,
+        }
+      })
+    }
+
+    // Construir nombre con info de variante
+    let nombreFinal = producto.nombre
+    if (variante) {
+      const combinacionStr = Object.entries(variante.combinacion)
+        .map(([, v]) => v)
+        .join(' / ')
+      nombreFinal = `${producto.nombre} - ${combinacionStr}`
+    }
+
+    const precioCompra = variante?.costeUnitario ?? producto.precios?.compra ?? 0
+    const precioVenta = variante?.precioUnitario ?? producto.precios?.pvp ?? producto.precios?.venta ?? 0
+
+    const nuevaLinea = calcularLinea({
+      ...lineas[index],
+      productoId: producto._id,
+      codigo: variante?.sku || producto.sku,
+      nombre: nombreFinal,
+      descripcion: producto.descripcionCorta,
+      precioUnitario: precioCompra,
+      precioVenta: precioVenta,
+      margenPorcentaje: 0,
+      margenImporte: 0,
+      iva: producto.iva || 21,
+      tipo: esKit ? 'kit' : 'producto',
+      componentesKit,
+      mostrarComponentes: true,
+      variante: variante ? {
+        varianteId: variante.varianteId,
+        sku: variante.sku,
+        combinacion: variante.combinacion,
+        costeAdicional: variante.costeUnitario - (producto.precios?.compra || 0),
+      } : undefined,
+    })
+    const nuevasLineas = [...lineas]
+    nuevasLineas[index] = nuevaLinea
+    setLineas(nuevasLineas)
+
+    // Enfocar cantidad
+    setTimeout(() => {
+      const cantidadRef = cantidadRefs.current.get(index)
+      if (cantidadRef) {
+        cantidadRef.focus()
+        cantidadRef.select()
+      }
+    }, 50)
+  }
+
+  // Handler para cuando se selecciona una variante
+  const handleVarianteSelect = (varianteInfo: VarianteSeleccion) => {
+    if (productoConVariantes && lineaIndexParaVariante !== null) {
+      aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, {
+        ...varianteInfo,
+      })
+      if (varianteInfo.cantidad && varianteInfo.cantidad !== 1) {
+        handleLineaChange(lineaIndexParaVariante, 'cantidad', varianteInfo.cantidad)
+      }
+    }
+    setVarianteSelectorOpen(false)
+    setProductoConVariantes(null)
+    setLineaIndexParaVariante(null)
+  }
+
+  // Handler para cuando se seleccionan múltiples variantes
+  const handleVariantesMultipleSelect = (variantes: VarianteSeleccion[]) => {
+    if (!productoConVariantes || lineaIndexParaVariante === null) return
+
+    // Para la primera variante, usar la línea existente
+    const primeraVariante = variantes[0]
+    aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, {
+      ...primeraVariante,
+    })
+    if (primeraVariante.cantidad && primeraVariante.cantidad !== 1) {
+      handleLineaChange(lineaIndexParaVariante, 'cantidad', primeraVariante.cantidad)
+    }
+
+    // Para el resto de variantes, crear nuevas líneas
+    if (variantes.length > 1) {
+      const nuevasLineas = variantes.slice(1).map((variante, idx) => {
+        const combinacionStr = Object.values(variante.combinacion).join(' / ')
+        const precioCompra = variante.costeUnitario
+        const precioVenta = variante.precioUnitario
+
+        const linea: LineaFormulario = {
+          orden: lineas.length + idx,
+          tipo: 'producto',
+          productoId: productoConVariantes._id,
+          codigo: variante.sku,
+          nombre: `${productoConVariantes.nombre} - ${combinacionStr}`,
+          descripcion: productoConVariantes.descripcionCorta,
+          cantidad: variante.cantidad || 1,
+          precioUnitario: precioCompra,
+          precioVenta: precioVenta,
+          descuento: 0,
+          iva: productoConVariantes.iva || 21,
+          subtotal: 0,
+          ivaImporte: 0,
+          total: 0,
+          margenPorcentaje: 0,
+          margenImporte: 0,
+          variante: {
+            varianteId: variante.varianteId,
+            sku: variante.sku,
+            combinacion: variante.combinacion,
+            costeAdicional: variante.costeUnitario - (productoConVariantes.precios?.compra || 0),
+          },
+        }
+        return calcularLinea(linea)
+      })
+
+      setLineas(prev => [...prev, ...nuevasLineas])
+    }
+
+    setVarianteSelectorOpen(false)
+    setProductoConVariantes(null)
+    setLineaIndexParaVariante(null)
+  }
+
+  // Handler para usar producto base sin variante
+  const handleUseBaseProduct = () => {
+    if (productoConVariantes && lineaIndexParaVariante !== null) {
+      aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes)
+    }
+    setVarianteSelectorOpen(false)
+    setProductoConVariantes(null)
+    setLineaIndexParaVariante(null)
+  }
+
+  // Handler para toggle de mostrar/ocultar componentes del kit
+  const handleToggleComponentesKit = (index: number) => {
+    const nuevasLineas = [...lineas]
+    nuevasLineas[index] = {
+      ...nuevasLineas[index],
+      mostrarComponentes: !nuevasLineas[index].mostrarComponentes,
+    }
+    setLineas(nuevasLineas)
   }
 
   // Handler para cambio de campo en linea
@@ -494,7 +690,7 @@ export function PresupuestoCompraForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-4 w-full max-w-xl">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="proveedor" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Proveedor</span>
@@ -681,25 +877,86 @@ export function PresupuestoCompraForm({
                   <tbody>
                     {lineas.map((linea, index) => (
                       <tr key={index} className="border-b hover:bg-muted/30">
-                        <td className="px-2 py-2 text-muted-foreground">{index + 1}</td>
+                        <td className="px-2 py-2 text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleComponentesKit(index)}
+                                className="p-0.5 hover:bg-muted rounded"
+                              >
+                                {linea.mostrarComponentes ? (
+                                  <ChevronDown className="h-3 w-3" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
+                              </button>
+                            )}
+                            {index + 1}
+                          </div>
+                        </td>
                         <td className="px-2 py-2">
-                          <EditableSearchableSelect
-                            options={productos.map(p => ({
-                              value: p._id,
-                              label: p.nombre,
-                              description: p.sku,
-                            }))}
-                            value={linea.productoId || ''}
-                            onValueChange={(value) => handleProductoChange(index, value)}
-                            placeholder="Buscar producto..."
-                            displayValue={linea.nombre || ''}
-                            onDisplayValueChange={(value) => handleLineaChange(index, 'nombre', value)}
-                            onCtrlEnterPress={handleAddLinea}
-                            inputRef={(el) => {
-                              if (el) productoRefs.current.set(index, el)
-                              else productoRefs.current.delete(index)
-                            }}
-                          />
+                          <div className="space-y-1">
+                            <EditableSearchableSelect
+                              options={productos.map(p => ({
+                                value: p._id,
+                                label: p.nombre,
+                                description: p.sku,
+                              }))}
+                              value={linea.productoId || ''}
+                              onValueChange={(value) => handleProductoChange(index, value)}
+                              placeholder="Buscar producto..."
+                              displayValue={linea.nombre || ''}
+                              onDisplayValueChange={(value) => handleLineaChange(index, 'nombre', value)}
+                              onCtrlEnterPress={handleAddLinea}
+                              inputRef={(el) => {
+                                if (el) productoRefs.current.set(index, el)
+                                else productoRefs.current.delete(index)
+                              }}
+                            />
+                            {/* Indicador de kit */}
+                            {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Layers className="h-3 w-3 mr-1" />
+                                Kit
+                              </Badge>
+                            )}
+                            {/* Indicador de variante */}
+                            {linea.variante && (
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(linea.variante.combinacion).map(([key, value]) => (
+                                  <Badge key={key} variant="outline" className="text-xs">
+                                    {value}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                            {/* Componentes del kit expandidos */}
+                            {linea.tipo === 'kit' && linea.mostrarComponentes && linea.componentesKit && linea.componentesKit.length > 0 && (
+                              <div className="ml-2 mt-2 space-y-1 border-l-2 border-primary/20 pl-3">
+                                <div className="text-xs font-medium text-muted-foreground mb-1">
+                                  Componentes del kit ({linea.componentesKit.length}):
+                                </div>
+                                {linea.componentesKit.map((comp, compIdx) => (
+                                  <div
+                                    key={compIdx}
+                                    className={`flex items-center gap-2 text-xs py-1 px-2 rounded ${
+                                      comp.opcional ? 'bg-amber-50 border border-amber-200' : 'bg-muted/50'
+                                    }`}
+                                  >
+                                    <span className="font-medium">{comp.cantidad}x</span>
+                                    <span className="flex-1">{comp.nombre}</span>
+                                    {comp.sku && (
+                                      <span className="text-muted-foreground">({comp.sku})</span>
+                                    )}
+                                    {comp.opcional && (
+                                      <Badge variant="outline" className="text-xs">Opcional</Badge>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="px-2 py-2">
                           <Input
@@ -957,6 +1214,19 @@ export function PresupuestoCompraForm({
           )}
         </Button>
       </div>
+
+      {/* Selector de variantes */}
+      <VarianteSelector
+        open={varianteSelectorOpen}
+        onOpenChange={setVarianteSelectorOpen}
+        producto={productoConVariantes}
+        onSelect={handleVarianteSelect}
+        onSelectMultiple={handleVariantesMultipleSelect}
+        onSelectBase={handleUseBaseProduct}
+        multiSelect={true}
+        mostrarCantidad={true}
+        usarPrecioCompra={true}
+      />
     </form>
   )
 }

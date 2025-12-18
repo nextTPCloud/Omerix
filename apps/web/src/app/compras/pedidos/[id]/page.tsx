@@ -38,6 +38,7 @@ import {
   Clock,
   ShoppingCart,
   ChevronDown,
+  ChevronRight,
   Phone,
   AtSign,
   Hash,
@@ -45,6 +46,7 @@ import {
   Package,
   RefreshCw,
   PackageCheck,
+  Layers,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -75,6 +77,19 @@ export default function PedidoCompraDetailPage({ params }: PageProps) {
   const [pedido, setPedido] = useState<PedidoCompra | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [expandedKits, setExpandedKits] = useState<Set<number>>(new Set())
+
+  const toggleKitExpanded = (index: number) => {
+    setExpandedKits(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }
 
   useEffect(() => {
     loadPedido()
@@ -403,33 +418,107 @@ export default function PedidoCompraDetailPage({ params }: PageProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {(pedido.lineas || []).map((linea, index) => (
-                        <tr key={linea._id || index} className="border-b hover:bg-muted/30">
-                          <td className="px-3 py-3">
-                            <div>
-                              <div className="font-medium">{linea.nombre}</div>
-                              {linea.descripcion && (
-                                <div className="text-xs text-muted-foreground">{linea.descripcion}</div>
-                              )}
-                              {linea.codigoProveedor && (
-                                <Badge variant="outline" className="text-xs mt-1">
-                                  Ref: {linea.codigoProveedor}
-                                </Badge>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-3 py-3 text-right">{linea.cantidad}</td>
-                          <td className="px-3 py-3 text-right">
-                            <span className={linea.cantidadRecibida >= linea.cantidad ? 'text-green-600' : 'text-orange-600'}>
-                              {linea.cantidadRecibida}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3 text-right">{formatCurrency(linea.precioUnitario)}</td>
-                          <td className="px-3 py-3 text-right">
-                            {linea.descuento > 0 ? `${linea.descuento}%` : '-'}
-                          </td>
-                          <td className="px-3 py-3 text-right font-medium">{formatCurrency(linea.subtotal)}</td>
-                        </tr>
+                      {(pedido.lineas || []).map((linea: any, index) => (
+                        <React.Fragment key={linea._id || index}>
+                          <tr className="border-b hover:bg-muted/30">
+                            <td className="px-3 py-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  {/* Botón expandir kit */}
+                                  {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleKitExpanded(index)}
+                                      className="p-0.5 hover:bg-muted rounded"
+                                    >
+                                      {expandedKits.has(index) ? (
+                                        <ChevronDown className="h-4 w-4" />
+                                      ) : (
+                                        <ChevronRight className="h-4 w-4" />
+                                      )}
+                                    </button>
+                                  )}
+                                  <div className="font-medium">{linea.nombre}</div>
+                                </div>
+                                {linea.descripcion && (
+                                  <div className="text-xs text-muted-foreground">{linea.descripcion}</div>
+                                )}
+                                <div className="flex flex-wrap gap-1">
+                                  {linea.codigoProveedor && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Ref: {linea.codigoProveedor}
+                                    </Badge>
+                                  )}
+                                  {/* Badge de Kit */}
+                                  {linea.tipo === 'kit' && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      <Layers className="h-3 w-3 mr-1" />
+                                      Kit
+                                    </Badge>
+                                  )}
+                                  {/* Badges de Variante */}
+                                  {linea.variante && linea.variante.combinacion && (
+                                    Object.entries(linea.variante.combinacion).map(([key, value]) => (
+                                      <Badge key={key} variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950">
+                                        {key}: {String(value)}
+                                      </Badge>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 text-right">{linea.cantidad}</td>
+                            <td className="px-3 py-3 text-right">
+                              <span className={linea.cantidadRecibida >= linea.cantidad ? 'text-green-600' : 'text-orange-600'}>
+                                {linea.cantidadRecibida}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-right">{formatCurrency(linea.precioUnitario)}</td>
+                            <td className="px-3 py-3 text-right">
+                              {linea.descuento > 0 ? `${linea.descuento}%` : '-'}
+                            </td>
+                            <td className="px-3 py-3 text-right font-medium">{formatCurrency(linea.subtotal)}</td>
+                          </tr>
+                          {/* Componentes del kit expandidos */}
+                          {linea.tipo === 'kit' && expandedKits.has(index) && linea.componentesKit && linea.componentesKit.length > 0 && (
+                            <tr className="bg-muted/20">
+                              <td colSpan={6} className="px-6 py-3">
+                                <div className="text-xs text-muted-foreground mb-2">
+                                  Componentes del kit ({linea.componentesKit.length}):
+                                </div>
+                                <div className="space-y-1">
+                                  {linea.componentesKit.map((comp: any, compIdx: number) => (
+                                    <div
+                                      key={compIdx}
+                                      className={`flex items-center justify-between px-3 py-1.5 rounded text-sm ${
+                                        comp.seleccionado !== false ? 'bg-background' : 'bg-muted/50 opacity-60'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono text-xs text-muted-foreground">{comp.sku}</span>
+                                        <span>{comp.nombre}</span>
+                                        {comp.opcional && (
+                                          <Badge variant="outline" className="text-xs">Opcional</Badge>
+                                        )}
+                                        {comp.seleccionado === false && (
+                                          <Badge variant="secondary" className="text-xs">No incluido</Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-4 text-xs">
+                                        <span className="text-muted-foreground">
+                                          {comp.cantidad} x {formatCurrency(comp.costeUnitario || comp.precioUnitario || 0)}
+                                        </span>
+                                        <span className="font-medium">
+                                          {formatCurrency(comp.cantidad * (comp.costeUnitario || comp.precioUnitario || 0))}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                     <tfoot className="bg-muted/30">

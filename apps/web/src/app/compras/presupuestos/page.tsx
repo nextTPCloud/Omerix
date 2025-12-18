@@ -85,6 +85,7 @@ import { PrintButton } from '@/components/ui/PrintButton'
 // Filtros avanzados
 import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
 import { PEDIDOS_COMPRA_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
+import { PresupuestosCompraAlertas } from '@/components/compras/PresupuestosCompraAlertas'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -952,6 +953,16 @@ export default function PresupuestosCompraPage() {
               </div>
             </Card>
           </div>
+        )}
+
+        {/* ALERTAS */}
+        {showAlertas && (
+          <PresupuestosCompraAlertas
+            diasAlerta={7}
+            onRefresh={cargarPresupuestos}
+            collapsible={true}
+            defaultCollapsed={false}
+          />
         )}
 
         {/* BARRA DE FILTROS AVANZADOS */}

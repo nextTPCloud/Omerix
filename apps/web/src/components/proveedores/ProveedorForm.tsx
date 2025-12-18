@@ -62,6 +62,14 @@ export function ProveedorForm({
     cuentasBancarias: [],
   })
 
+  // Helper para extraer ID de un campo que puede venir poblado como objeto
+  const extractId = (value: any): string | undefined => {
+    if (!value) return undefined
+    if (typeof value === 'string') return value
+    if (typeof value === 'object' && value._id) return value._id
+    return undefined
+  }
+
   // Cargar datos iniciales si existen
   useEffect(() => {
     if (initialData) {
@@ -83,9 +91,9 @@ export function ProveedorForm({
         cuentasBancarias: initialData.cuentasBancarias || [],
         iban: initialData.iban,
         swift: initialData.swift,
-        // Condiciones comerciales
-        formaPagoId: initialData.formaPagoId,
-        terminoPagoId: initialData.terminoPagoId,
+        // Condiciones comerciales (extraer ID si viene como objeto poblado)
+        formaPagoId: extractId(initialData.formaPagoId),
+        terminoPagoId: extractId(initialData.terminoPagoId),
         diasPago: initialData.diasPago,
         descuentoGeneral: initialData.descuentoGeneral,
         portesMinimosPedido: initialData.portesMinimosPedido,

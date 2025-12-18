@@ -85,6 +85,14 @@ export function ClienteForm({
     loadAgentes()
   }, [])
 
+  // Helper para extraer ID de un campo que puede venir poblado como objeto
+  const extractId = (value: any): string | undefined => {
+    if (!value) return undefined
+    if (typeof value === 'string') return value
+    if (typeof value === 'object' && value._id) return value._id
+    return undefined
+  }
+
   // Cargar datos iniciales si existen
   useEffect(() => {
     if (initialData) {
@@ -101,8 +109,9 @@ export function ClienteForm({
         // Nuevos campos
         direcciones: initialData.direcciones || [],
         cuentasBancarias: initialData.cuentasBancarias || [],
-        formaPagoId: initialData.formaPagoId,
-        terminoPagoId: initialData.terminoPagoId,
+        // Condiciones de pago (extraer ID si viene como objeto poblado)
+        formaPagoId: extractId(initialData.formaPagoId),
+        terminoPagoId: extractId(initialData.terminoPagoId),
         // Legacy (por compatibilidad)
         direccion: initialData.direccion,
         direccionEnvio: initialData.direccionEnvio,

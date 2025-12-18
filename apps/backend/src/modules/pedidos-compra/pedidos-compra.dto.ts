@@ -2,6 +2,22 @@ import { z } from 'zod';
 import { EstadoPedidoCompra, TipoLineaCompra, Prioridad } from './PedidoCompra';
 
 // ============================================
+// HELPER PARA FECHAS FLEXIBLES
+// ============================================
+
+// Schema flexible para fechas que acepta:
+// - Date objects
+// - ISO datetime strings (2024-12-17T10:30:00.000Z)
+// - Datetime strings sin timezone (2024-12-17T10:30:00)
+// - Date-only strings (2024-12-17)
+const flexibleDateSchema = z.union([
+  z.date(),
+  z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'Fecha invalida',
+  }),
+]).optional();
+
+// ============================================
 // SCHEMAS DE LINEA
 // ============================================
 
@@ -33,8 +49,8 @@ const LineaPedidoCompraSchema = z.object({
   total: z.number().min(0).default(0),
 
   // Fechas
-  fechaEntregaPrevista: z.string().datetime().optional().or(z.date()).optional(),
-  fechaRecepcion: z.string().datetime().optional().or(z.date()).optional(),
+  fechaEntregaPrevista: flexibleDateSchema,
+  fechaRecepcion: flexibleDateSchema,
 
   // Almacen
   almacenDestinoId: z.string().optional(),
@@ -115,11 +131,11 @@ export const CreatePedidoCompraSchema = z.object({
   prioridad: z.nativeEnum(Prioridad).optional().default(Prioridad.MEDIA),
 
   // Fechas
-  fecha: z.string().datetime().optional().or(z.date()).optional(),
-  fechaEnvio: z.string().datetime().optional().or(z.date()).optional(),
-  fechaConfirmacion: z.string().datetime().optional().or(z.date()).optional(),
-  fechaEntregaPrevista: z.string().datetime().optional().or(z.date()).optional(),
-  fechaRecepcion: z.string().datetime().optional().or(z.date()).optional(),
+  fecha: flexibleDateSchema,
+  fechaEnvio: flexibleDateSchema,
+  fechaConfirmacion: flexibleDateSchema,
+  fechaEntregaPrevista: flexibleDateSchema,
+  fechaRecepcion: flexibleDateSchema,
 
   // Proveedor
   proveedorId: z.string().min(1, 'El proveedor es requerido'),

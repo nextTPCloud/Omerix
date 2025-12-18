@@ -8,7 +8,6 @@ import { ProveedorForm } from '@/components/proveedores/ProveedorForm'
 import { proveedoresService } from '@/services/proveedores.service'
 import { Proveedor, UpdateProveedorDTO } from '@/types/proveedor.types'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { ArrowLeft, Truck, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -118,14 +117,12 @@ export default function EditarProveedorPage() {
         </div>
 
         {/* Formulario */}
-        <Card className="p-6">
-          <ProveedorForm
-            initialData={proveedor}
-            onSubmit={handleSubmit}
-            isLoading={isSaving}
-            mode="edit"
-          />
-        </Card>
+        <ProveedorForm
+          initialData={proveedor}
+          onSubmit={handleSubmit}
+          isLoading={isSaving}
+          mode="edit"
+        />
       </div>
     </DashboardLayout>
   )

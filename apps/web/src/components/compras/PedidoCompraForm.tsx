@@ -676,7 +676,7 @@ export function PedidoCompraForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-4 w-full max-w-xl">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="proveedor" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Proveedor</span>
