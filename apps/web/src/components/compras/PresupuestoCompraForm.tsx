@@ -40,7 +40,18 @@ import {
   Layers,
   ChevronDown,
   ChevronRight,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 
 // Components
 import { SearchableSelect, EditableSearchableSelect } from '@/components/ui/searchable-select'
@@ -208,14 +219,20 @@ export function PresupuestoCompraForm({
     totalPresupuesto: 0,
   })
 
+  // Estado para dialogo de actualizar precios
+  const [showUpdatePricesDialog, setShowUpdatePricesDialog] = useState(false)
+  const [pendingSubmitData, setPendingSubmitData] = useState<CreatePresupuestoCompraDTO | null>(null)
+  const [updatePrecioCompra, setUpdatePrecioCompra] = useState(true)
+  const [updatePrecioVenta, setUpdatePrecioVenta] = useState(false)
+
   // Cargar opciones al montar
   useEffect(() => {
     const loadOptions = async () => {
       try {
         setLoadingOptions(true)
         const [proveedoresRes, productosRes] = await Promise.all([
-          proveedoresService.getAll({ activo: true, limit: 500 }),
-          productosService.getAll({ activo: true, limit: 500 }),
+          proveedoresService.getAll({ activo: true, limit: 100 }),
+          productosService.getAll({ activo: true, limit: 100 }),
         ])
 
         if (proveedoresRes.success) setProveedores(proveedoresRes.data || [])
@@ -266,7 +283,7 @@ export function PresupuestoCompraForm({
         const lineasFormulario: LineaFormulario[] = presupuesto.lineas.map((l, idx) => ({
           _id: l._id,
           orden: l.orden ?? idx,
-          tipo: l.tipo as 'producto' | 'servicio' | 'texto',
+          tipo: l.tipo as 'producto' | 'servicio' | 'texto' | 'kit',
           productoId: l.productoId,
           codigo: l.codigo,
           nombre: l.nombre,
@@ -280,9 +297,26 @@ export function PresupuestoCompraForm({
           subtotal: l.subtotal,
           ivaImporte: l.ivaImporte,
           total: l.total,
-          precioVenta: (l as any).precioVenta || 0,
-          margenPorcentaje: (l as any).margenPorcentaje || 0,
-          margenImporte: (l as any).margenImporte || 0,
+          precioVenta: l.precioVenta || 0,
+          margenPorcentaje: l.margenPorcentaje || 0,
+          margenImporte: l.margenImporte || 0,
+          // Cargar datos de kit y variante si existen
+          componentesKit: l.componentesKit?.map(comp => ({
+            productoId: comp.productoId,
+            nombre: comp.nombre,
+            sku: comp.sku,
+            cantidad: comp.cantidad,
+            precioUnitario: comp.precioUnitario,
+            opcional: comp.opcional,
+            seleccionado: comp.seleccionado,
+          })),
+          mostrarComponentes: l.mostrarComponentes ?? (l.componentesKit && l.componentesKit.length > 0),
+          variante: l.variante ? {
+            varianteId: l.variante.varianteId,
+            sku: l.variante.sku,
+            combinacion: l.variante.combinacion,
+            costeAdicional: l.variante.costeAdicional,
+          } : undefined,
         }))
         setLineas(lineasFormulario)
       }
@@ -611,6 +645,44 @@ export function PresupuestoCompraForm({
     setLineas(nuevasLineas.map((l, i) => ({ ...l, orden: i })))
   }
 
+  // Preparar datos para enviar
+  const prepareSubmitData = (): CreatePresupuestoCompraDTO => {
+    return {
+      ...formData,
+      lineas: lineas.filter(l => l.nombre).map(l => ({
+        orden: l.orden,
+        tipo: l.tipo,
+        productoId: l.productoId,
+        codigo: l.codigo,
+        nombre: l.nombre,
+        descripcion: l.descripcion,
+        codigoProveedor: l.codigoProveedor,
+        cantidad: l.cantidad,
+        unidad: l.unidad,
+        precioUnitario: l.precioUnitario,
+        descuento: l.descuento,
+        iva: l.iva,
+        precioVenta: l.precioVenta,
+        margenPorcentaje: l.margenPorcentaje,
+        margenImporte: l.margenImporte,
+        // Incluir datos de kit y variante
+        componentesKit: l.componentesKit,
+        variante: l.variante,
+      })),
+      totales: {
+        subtotalBruto: totales.subtotalBruto,
+        totalDescuentos: totales.totalDescuentos,
+        subtotalNeto: totales.subtotalNeto,
+        desgloseIva: [],
+        totalIva: totales.totalIva,
+        totalPresupuesto: totales.totalPresupuesto,
+      },
+    }
+  }
+
+  // Lineas con productos (para actualizar precios)
+  const lineasConProducto = lineas.filter(l => l.productoId && l.nombre)
+
   // Submit del formulario
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -628,43 +700,58 @@ export function PresupuestoCompraForm({
       return
     }
 
+    const data = prepareSubmitData()
+
+    // Si hay lineas con productos, preguntar si actualizar precios
+    if (lineasConProducto.length > 0) {
+      setPendingSubmitData(data)
+      setShowUpdatePricesDialog(true)
+      return
+    }
+
+    // Si no hay productos, guardar directamente
+    await doSubmit(data, false, false)
+  }
+
+  // Ejecutar el submit (con o sin actualizacion de precios)
+  const doSubmit = async (
+    data: CreatePresupuestoCompraDTO,
+    actualizarPrecioCompra: boolean,
+    actualizarPrecioVenta: boolean
+  ) => {
     setIsSubmitting(true)
 
     try {
-      const data: CreatePresupuestoCompraDTO = {
-        ...formData,
-        lineas: lineas.filter(l => l.nombre).map(l => ({
-          orden: l.orden,
-          tipo: l.tipo,
-          productoId: l.productoId,
-          codigo: l.codigo,
-          nombre: l.nombre,
-          descripcion: l.descripcion,
-          codigoProveedor: l.codigoProveedor,
-          cantidad: l.cantidad,
-          unidad: l.unidad,
-          precioUnitario: l.precioUnitario,
-          descuento: l.descuento,
-          iva: l.iva,
-          precioVenta: l.precioVenta,
-          margenPorcentaje: l.margenPorcentaje,
-          margenImporte: l.margenImporte,
-        })),
-        totales: {
-          subtotalBruto: totales.subtotalBruto,
-          totalDescuentos: totales.totalDescuentos,
-          subtotalNeto: totales.subtotalNeto,
-          desgloseIva: [],
-          totalIva: totales.totalIva,
-          totalPresupuesto: totales.totalPresupuesto,
+      // Si se quieren actualizar precios, agregar la opcion al data
+      const dataConOpciones = {
+        ...data,
+        actualizarPrecios: {
+          precioCompra: actualizarPrecioCompra,
+          precioVenta: actualizarPrecioVenta,
         },
       }
 
-      await onSubmit(data)
+      await onSubmit(dataConOpciones as CreatePresupuestoCompraDTO)
     } catch (error) {
       console.error('Error al guardar:', error)
     } finally {
       setIsSubmitting(false)
+      setShowUpdatePricesDialog(false)
+      setPendingSubmitData(null)
+    }
+  }
+
+  // Confirmar actualizacion de precios
+  const handleConfirmUpdatePrices = () => {
+    if (pendingSubmitData) {
+      doSubmit(pendingSubmitData, updatePrecioCompra, updatePrecioVenta)
+    }
+  }
+
+  // Cancelar y guardar sin actualizar precios
+  const handleSkipUpdatePrices = () => {
+    if (pendingSubmitData) {
+      doSubmit(pendingSubmitData, false, false)
     }
   }
 
@@ -1224,9 +1311,133 @@ export function PresupuestoCompraForm({
         onSelectMultiple={handleVariantesMultipleSelect}
         onSelectBase={handleUseBaseProduct}
         multiSelect={true}
-        mostrarCantidad={true}
-        usarPrecioCompra={true}
       />
+
+      {/* Dialogo para actualizar precios de productos */}
+      <Dialog open={showUpdatePricesDialog} onOpenChange={setShowUpdatePricesDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-primary" />
+              Actualizar precios de productos
+            </DialogTitle>
+            <DialogDescription>
+              Este documento contiene {lineasConProducto.length} producto(s). ¿Deseas actualizar los precios
+              en el catálogo de productos?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Opciones de actualización */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3 p-3 rounded-lg border bg-muted/30">
+                <Checkbox
+                  id="updatePrecioCompra"
+                  checked={updatePrecioCompra}
+                  onCheckedChange={(checked) => setUpdatePrecioCompra(checked === true)}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="updatePrecioCompra"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Actualizar precio de compra
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Se actualizará el coste/precio de compra de los productos
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 p-3 rounded-lg border bg-muted/30">
+                <Checkbox
+                  id="updatePrecioVenta"
+                  checked={updatePrecioVenta}
+                  onCheckedChange={(checked) => setUpdatePrecioVenta(checked === true)}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="updatePrecioVenta"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Actualizar PVP
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Se actualizará el precio de venta al público de los productos
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de productos afectados */}
+            {lineasConProducto.length > 0 && (updatePrecioCompra || updatePrecioVenta) && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Productos a actualizar:</p>
+                <div className="max-h-32 overflow-y-auto rounded-lg border p-2 space-y-1">
+                  {lineasConProducto.slice(0, 5).map((linea, idx) => (
+                    <div key={idx} className="flex justify-between text-xs py-1 border-b last:border-0">
+                      <span className="truncate flex-1">{linea.nombre}</span>
+                      <div className="flex gap-2 ml-2">
+                        {updatePrecioCompra && (
+                          <span className="text-muted-foreground">
+                            Compra: {formatCurrency(linea.precioUnitario)}
+                          </span>
+                        )}
+                        {updatePrecioVenta && linea.precioVenta > 0 && (
+                          <span className="text-muted-foreground">
+                            PVP: {formatCurrency(linea.precioVenta)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {lineasConProducto.length > 5 && (
+                    <p className="text-xs text-muted-foreground text-center py-1">
+                      ... y {lineasConProducto.length - 5} producto(s) más
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Aviso si no hay opción seleccionada */}
+            {!updatePrecioCompra && !updatePrecioVenta && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm">No se actualizará ningún precio en el catálogo</span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSkipUpdatePrices}
+              disabled={isSubmitting}
+            >
+              Guardar sin actualizar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmUpdatePrices}
+              disabled={isSubmitting || (!updatePrecioCompra && !updatePrecioVenta)}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Guardar y actualizar precios
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }

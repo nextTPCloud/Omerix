@@ -194,6 +194,94 @@ export const facturasCompraService = {
     const response = await api.get(`/facturas-compra/alertas?diasAlerta=${diasAlerta}`)
     return response.data
   },
+
+  // ============================================
+  // ENVIAR POR EMAIL
+  // ============================================
+
+  enviarPorEmail: async (
+    id: string,
+    opciones?: {
+      asunto?: string
+      mensaje?: string
+      cc?: string[]
+    }
+  ): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post(`/facturas-compra/${id}/enviar-email`, opciones || {})
+    return response.data
+  },
+
+  // ============================================
+  // GENERAR PDF
+  // ============================================
+
+  generarPDF: async (id: string): Promise<Blob> => {
+    const response = await api.get(`/facturas-compra/${id}/pdf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  // ============================================
+  // ENVÍO MASIVO POR EMAIL
+  // ============================================
+
+  enviarMasivoPorEmail: async (
+    ids: string[],
+    opciones?: {
+      asunto?: string
+      mensaje?: string
+    }
+  ): Promise<{
+    success: boolean
+    message: string
+    data: {
+      total: number
+      enviados: number
+      fallidos: number
+      resultados: Array<{ id: string; codigo: string; success: boolean; message: string }>
+    }
+  }> => {
+    const response = await api.post('/facturas-compra/bulk/enviar-email', { ids, ...opciones })
+    return response.data
+  },
+
+  // ============================================
+  // EXPORTAR PDFs MASIVO
+  // ============================================
+
+  exportarPDFsMasivo: async (ids: string[]): Promise<Blob> => {
+    const response = await api.post(
+      '/facturas-compra/bulk/exportar-pdf',
+      { ids },
+      { responseType: 'blob' }
+    )
+    return response.data
+  },
+
+  // ============================================
+  // WHATSAPP
+  // ============================================
+
+  getWhatsAppURL: async (id: string): Promise<{ success: boolean; data: { url: string } }> => {
+    const response = await api.get(`/facturas-compra/${id}/whatsapp`)
+    return response.data
+  },
+
+  getWhatsAppURLsMasivo: async (ids: string[]): Promise<{
+    success: boolean
+    data: Array<{
+      id: string
+      codigo: string
+      url?: string
+      telefono?: string
+      proveedorNombre?: string
+      error?: string
+    }>
+  }> => {
+    const response = await api.post('/facturas-compra/whatsapp-masivo', { ids })
+    return response.data
+  },
 }
 
 export default facturasCompraService

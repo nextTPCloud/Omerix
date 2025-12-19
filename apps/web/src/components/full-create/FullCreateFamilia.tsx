@@ -37,7 +37,7 @@ export function FullCreateFamilia({ open, onOpenChange, onCreated }: FullCreateF
     const loadFamilias = async () => {
       try {
         setLoadingFamilias(true)
-        const response = await familiasService.getAll({ activo: true, limit: 500 })
+        const response = await familiasService.getAll({ activo: true, limit: 100 })
         if (response.success) {
           setFamiliasDisponibles(response.data || [])
         }

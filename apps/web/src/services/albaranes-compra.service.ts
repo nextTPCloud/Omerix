@@ -208,6 +208,33 @@ export const albaranesCompraService = {
   },
 
   // ============================================
+  // ENVIAR POR EMAIL
+  // ============================================
+
+  enviarPorEmail: async (
+    id: string,
+    opciones?: {
+      asunto?: string
+      mensaje?: string
+      cc?: string[]
+    }
+  ): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post(`/albaranes-compra/${id}/enviar-email`, opciones || {})
+    return response.data
+  },
+
+  // ============================================
+  // GENERAR PDF
+  // ============================================
+
+  generarPDF: async (id: string): Promise<Blob> => {
+    const response = await api.get(`/albaranes-compra/${id}/pdf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  // ============================================
   // OCR - PROCESAR DOCUMENTO
   // ============================================
 
@@ -266,6 +293,67 @@ export const albaranesCompraService = {
     observaciones?: string
   }): Promise<AlbaranCompraResponse> => {
     const response = await api.post('/albaranes-compra/ocr/crear', data)
+    return response.data
+  },
+
+  // ============================================
+  // ENVÍO MASIVO POR EMAIL
+  // ============================================
+
+  enviarMasivoPorEmail: async (
+    ids: string[],
+    opciones?: {
+      asunto?: string
+      mensaje?: string
+    }
+  ): Promise<{
+    success: boolean
+    message: string
+    data: {
+      total: number
+      enviados: number
+      fallidos: number
+      resultados: Array<{ id: string; codigo: string; success: boolean; message: string }>
+    }
+  }> => {
+    const response = await api.post('/albaranes-compra/bulk/enviar-email', { ids, ...opciones })
+    return response.data
+  },
+
+  // ============================================
+  // EXPORTAR PDFs MASIVO
+  // ============================================
+
+  exportarPDFsMasivo: async (ids: string[]): Promise<Blob> => {
+    const response = await api.post(
+      '/albaranes-compra/bulk/exportar-pdf',
+      { ids },
+      { responseType: 'blob' }
+    )
+    return response.data
+  },
+
+  // ============================================
+  // WHATSAPP
+  // ============================================
+
+  getWhatsAppURL: async (id: string): Promise<{ success: boolean; data: { url: string } }> => {
+    const response = await api.get(`/albaranes-compra/${id}/whatsapp`)
+    return response.data
+  },
+
+  getWhatsAppURLsMasivo: async (ids: string[]): Promise<{
+    success: boolean
+    data: Array<{
+      id: string
+      codigo: string
+      url?: string
+      telefono?: string
+      proveedorNombre?: string
+      error?: string
+    }>
+  }> => {
+    const response = await api.post('/albaranes-compra/whatsapp-masivo', { ids })
     return response.data
   },
 }

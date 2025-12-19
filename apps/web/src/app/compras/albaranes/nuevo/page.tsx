@@ -1,11 +1,13 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { AlbaranCompraForm } from '@/components/compras/AlbaranCompraForm'
 import { albaranesCompraService } from '@/services/albaranes-compra.service'
-import { CreateAlbaranCompraDTO, UpdateAlbaranCompraDTO, AlbaranCompra } from '@/types/albaran-compra.types'
+import { CreateAlbaranCompraDTO, UpdateAlbaranCompraDTO } from '@/types/albaran-compra.types'
 import { toast } from 'sonner'
 import { ArrowLeft, Truck, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,32 +19,11 @@ export default function NuevoAlbaranCompraPage() {
   const pedidoCompraId = searchParams.get('pedidoCompraId')
   const proveedorId = searchParams.get('proveedorId')
 
-  const [albaranDesdePedido, setAlbaranDesdePedido] = useState<AlbaranCompra | null>(null)
-  const [isLoadingPedido, setIsLoadingPedido] = useState(false)
-
-  // Si viene de un pedido, crear el albaran automaticamente
+  // Si viene con pedidoCompraId, redirigir a la pagina de recepcion
   useEffect(() => {
-    const crearDesdePedido = async () => {
-      if (pedidoCompraId) {
-        try {
-          setIsLoadingPedido(true)
-          toast.loading('Creando albaran desde pedido...')
-          const response = await albaranesCompraService.crearDesdePedido(pedidoCompraId)
-          toast.dismiss()
-          if (response.success && response.data) {
-            toast.success('Albaran creado desde pedido')
-            // Redirigir a editar el albaran recien creado
-            router.push(`/compras/albaranes/${response.data._id}/editar`)
-          }
-        } catch (error: any) {
-          toast.dismiss()
-          toast.error(error.response?.data?.message || 'Error al crear albaran desde pedido')
-        } finally {
-          setIsLoadingPedido(false)
-        }
-      }
+    if (pedidoCompraId) {
+      router.replace(`/compras/pedidos/${pedidoCompraId}/recepcion`)
     }
-    crearDesdePedido()
   }, [pedidoCompraId, router])
 
   const handleSubmit = async (data: CreateAlbaranCompraDTO | UpdateAlbaranCompraDTO) => {
@@ -58,13 +39,14 @@ export default function NuevoAlbaranCompraPage() {
     }
   }
 
-  if (isLoadingPedido) {
+  // Si viene de un pedido, mostrar loading mientras redirecciona
+  if (pedidoCompraId) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <RefreshCw className="h-12 w-12 animate-spin text-primary mx-auto" />
-            <p className="mt-4 text-muted-foreground">Creando albaran desde pedido...</p>
+            <p className="mt-4 text-muted-foreground">Redirigiendo a recepcion de pedido...</p>
           </div>
         </div>
       </DashboardLayout>

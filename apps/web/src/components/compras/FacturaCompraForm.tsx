@@ -42,7 +42,18 @@ import {
   Layers,
   ChevronDown,
   ChevronRight,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import {
   FacturaCompra,
@@ -114,6 +125,10 @@ interface LineaFormulario {
   esEditable: boolean
   incluidoEnTotal: boolean
   notasInternas?: string
+  // Campos para actualización de precios
+  precioVenta?: number
+  margenPorcentaje?: number
+  margenImporte?: number
 }
 
 interface VencimientoFormulario {
@@ -225,6 +240,15 @@ export function FacturaCompraForm({
   const [varianteSelectorOpen, setVarianteSelectorOpen] = useState(false)
   const [productoConVariantes, setProductoConVariantes] = useState<Producto | null>(null)
   const [lineaIndexParaVariante, setLineaIndexParaVariante] = useState<number | null>(null)
+
+  // Estado para dialogo de actualizar precios
+  const [showUpdatePricesDialog, setShowUpdatePricesDialog] = useState(false)
+  const [pendingSubmitData, setPendingSubmitData] = useState<CreateFacturaCompraDTO | UpdateFacturaCompraDTO | null>(null)
+  const [updatePrecioCompra, setUpdatePrecioCompra] = useState(true)
+  const [updatePrecioVenta, setUpdatePrecioVenta] = useState(false)
+
+  // Lineas con productos (para actualizar precios)
+  const lineasConProducto = lineas.filter(l => l.productoId && l.nombre)
 
   // ============================================
   // CARGAR DATOS INICIALES
@@ -759,6 +783,117 @@ export function FacturaCompraForm({
   // SUBMIT
   // ============================================
 
+  // Preparar datos para enviar
+  const prepareSubmitData = (): CreateFacturaCompraDTO | UpdateFacturaCompraDTO => {
+    return {
+      estado,
+      fecha,
+      numeroFacturaProveedor,
+      fechaFacturaProveedor,
+      proveedorId,
+      proveedorNombre,
+      proveedorNif,
+      proveedorEmail: proveedorEmail || undefined,
+      proveedorTelefono: proveedorTelefono || undefined,
+      albaranesCompraIds: defaultAlbaranIds,
+      titulo: titulo || undefined,
+      descripcion: descripcion || undefined,
+      lineas: lineas.map(l => ({
+        _id: l._id,
+        orden: l.orden,
+        tipo: l.tipo as any,
+        productoId: l.productoId,
+        codigo: l.codigo,
+        nombre: l.nombre,
+        descripcion: l.descripcion,
+        sku: l.sku,
+        codigoProveedor: l.codigoProveedor,
+        variante: l.variante,
+        componentesKit: l.componentesKit,
+        mostrarComponentes: l.mostrarComponentes,
+        cantidad: l.cantidad,
+        unidad: l.unidad,
+        precioUnitario: l.precioUnitario,
+        descuento: l.descuento,
+        descuentoImporte: l.descuentoImporte,
+        subtotal: l.subtotal,
+        iva: l.iva,
+        ivaImporte: l.ivaImporte,
+        total: l.total,
+        albaranCompraId: l.albaranCompraId,
+        lineaAlbaranId: l.lineaAlbaranId,
+        esEditable: l.esEditable,
+        incluidoEnTotal: l.incluidoEnTotal,
+        notasInternas: l.notasInternas,
+        precioVenta: l.precioVenta,
+      })) as any,
+      vencimientos: vencimientos.map(v => ({
+        _id: v._id,
+        numero: v.numero,
+        fechaVencimiento: v.fechaVencimiento,
+        importe: v.importe,
+        importePagado: v.importePagado,
+        importePendiente: v.importePendiente,
+        pagado: v.pagado,
+        observaciones: v.observaciones,
+      })),
+      totales: {
+        subtotalBruto: totales.subtotalBruto,
+        totalDescuentos: totales.totalDescuentos,
+        subtotalNeto: totales.subtotalNeto,
+        desgloseIva: totales.desgloseIva,
+        totalIva: totales.totalIva,
+        totalFactura: totales.totalFactura,
+        totalPagado: totales.totalPagado,
+        totalPendiente: totales.totalPendiente,
+      },
+      descuentoGlobalPorcentaje,
+      descuentoGlobalImporte: totales.descuentoGlobalImporte,
+      observaciones: observaciones || undefined,
+    }
+  }
+
+  // Ejecutar el submit (con o sin actualización de precios)
+  const doSubmit = async (
+    data: CreateFacturaCompraDTO | UpdateFacturaCompraDTO,
+    actualizarPrecioCompra: boolean,
+    actualizarPrecioVenta: boolean
+  ) => {
+    setIsLoading(true)
+
+    try {
+      const dataConOpciones = {
+        ...data,
+        actualizarPrecios: {
+          precioCompra: actualizarPrecioCompra,
+          precioVenta: actualizarPrecioVenta,
+        },
+      }
+
+      await onSubmit(dataConOpciones as CreateFacturaCompraDTO)
+    } catch (error) {
+      // Error manejado en el componente padre
+    } finally {
+      setIsLoading(false)
+      setShowUpdatePricesDialog(false)
+      setPendingSubmitData(null)
+    }
+  }
+
+  // Confirmar actualización de precios
+  const handleConfirmUpdatePrices = () => {
+    if (pendingSubmitData) {
+      doSubmit(pendingSubmitData, updatePrecioCompra, updatePrecioVenta)
+    }
+  }
+
+  // Cancelar y guardar sin actualizar precios
+  const handleSkipUpdatePrices = () => {
+    if (pendingSubmitData) {
+      doSubmit(pendingSubmitData, false, false)
+    }
+  }
+
   const handleSubmit = async () => {
     // Validaciones
     if (!proveedorId) {
@@ -786,81 +921,17 @@ export function FacturaCompraForm({
       return
     }
 
-    try {
-      setIsLoading(true)
+    const data = prepareSubmitData()
 
-      const data: CreateFacturaCompraDTO | UpdateFacturaCompraDTO = {
-        estado,
-        fecha,
-        numeroFacturaProveedor,
-        fechaFacturaProveedor,
-        proveedorId,
-        proveedorNombre,
-        proveedorNif,
-        proveedorEmail: proveedorEmail || undefined,
-        proveedorTelefono: proveedorTelefono || undefined,
-        albaranesCompraIds: defaultAlbaranIds,
-        titulo: titulo || undefined,
-        descripcion: descripcion || undefined,
-        lineas: lineas.map(l => ({
-          _id: l._id,
-          orden: l.orden,
-          tipo: l.tipo as any,
-          productoId: l.productoId,
-          codigo: l.codigo,
-          nombre: l.nombre,
-          descripcion: l.descripcion,
-          sku: l.sku,
-          codigoProveedor: l.codigoProveedor,
-          variante: l.variante,
-          componentesKit: l.componentesKit,
-          mostrarComponentes: l.mostrarComponentes,
-          cantidad: l.cantidad,
-          unidad: l.unidad,
-          precioUnitario: l.precioUnitario,
-          descuento: l.descuento,
-          descuentoImporte: l.descuentoImporte,
-          subtotal: l.subtotal,
-          iva: l.iva,
-          ivaImporte: l.ivaImporte,
-          total: l.total,
-          albaranCompraId: l.albaranCompraId,
-          lineaAlbaranId: l.lineaAlbaranId,
-          esEditable: l.esEditable,
-          incluidoEnTotal: l.incluidoEnTotal,
-          notasInternas: l.notasInternas,
-        })) as any,
-        vencimientos: vencimientos.map(v => ({
-          _id: v._id,
-          numero: v.numero,
-          fechaVencimiento: v.fechaVencimiento,
-          importe: v.importe,
-          importePagado: v.importePagado,
-          importePendiente: v.importePendiente,
-          pagado: v.pagado,
-          observaciones: v.observaciones,
-        })),
-        totales: {
-          subtotalBruto: totales.subtotalBruto,
-          totalDescuentos: totales.totalDescuentos,
-          subtotalNeto: totales.subtotalNeto,
-          desgloseIva: totales.desgloseIva,
-          totalIva: totales.totalIva,
-          totalFactura: totales.totalFactura,
-          totalPagado: totales.totalPagado,
-          totalPendiente: totales.totalPendiente,
-        },
-        descuentoGlobalPorcentaje,
-        descuentoGlobalImporte: totales.descuentoGlobalImporte,
-        observaciones: observaciones || undefined,
-      }
-
-      await onSubmit(data)
-    } catch (error) {
-      // Error manejado en el componente padre
-    } finally {
-      setIsLoading(false)
+    // Si hay lineas con productos, preguntar si actualizar precios
+    if (lineasConProducto.length > 0) {
+      setPendingSubmitData(data)
+      setShowUpdatePricesDialog(true)
+      return
     }
+
+    // Si no hay productos, guardar directamente
+    await doSubmit(data, false, false)
   }
 
   // ============================================
@@ -1551,6 +1622,127 @@ export function FacturaCompraForm({
         onSelectBase={handleUseBaseProduct}
         multiSelect={true}
       />
+
+      {/* Dialogo para actualizar precios de productos */}
+      <Dialog open={showUpdatePricesDialog} onOpenChange={setShowUpdatePricesDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-primary" />
+              Actualizar precios de productos
+            </DialogTitle>
+            <DialogDescription>
+              Este documento contiene {lineasConProducto.length} producto(s). ¿Deseas actualizar los precios
+              en el catálogo de productos?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Opciones de actualización */}
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3 p-3 rounded-lg border bg-muted/30">
+                <Checkbox
+                  id="updatePrecioCompra"
+                  checked={updatePrecioCompra}
+                  onCheckedChange={(checked) => setUpdatePrecioCompra(checked === true)}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="updatePrecioCompra"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Actualizar precio de compra
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Se actualizará el coste/precio de compra de los productos
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 p-3 rounded-lg border bg-muted/30">
+                <Checkbox
+                  id="updatePrecioVenta"
+                  checked={updatePrecioVenta}
+                  onCheckedChange={(checked) => setUpdatePrecioVenta(checked === true)}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="updatePrecioVenta"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Actualizar PVP
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Se actualizará el precio de venta al público de los productos
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista de productos afectados */}
+            {lineasConProducto.length > 0 && (updatePrecioCompra || updatePrecioVenta) && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Productos a actualizar:</p>
+                <div className="max-h-32 overflow-y-auto rounded-lg border p-2 space-y-1">
+                  {lineasConProducto.slice(0, 5).map((linea, idx) => (
+                    <div key={idx} className="flex justify-between text-xs py-1 border-b last:border-0">
+                      <span className="truncate flex-1">{linea.nombre}</span>
+                      <div className="flex gap-2 ml-2">
+                        {updatePrecioCompra && (
+                          <span className="text-muted-foreground">
+                            Compra: {formatCurrency(linea.precioUnitario)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {lineasConProducto.length > 5 && (
+                    <p className="text-xs text-muted-foreground text-center py-1">
+                      ... y {lineasConProducto.length - 5} producto(s) más
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Aviso si no hay opción seleccionada */}
+            {!updatePrecioCompra && !updatePrecioVenta && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm">No se actualizará ningún precio en el catálogo</span>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSkipUpdatePrices}
+              disabled={isLoading}
+            >
+              Guardar sin actualizar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmUpdatePrices}
+              disabled={isLoading || (!updatePrecioCompra && !updatePrecioVenta)}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Guardar y actualizar precios
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

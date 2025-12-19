@@ -69,7 +69,10 @@ export type RecursoSistema =
   | 'proyectos'
   | 'agentes'
   | 'formas-pago'
-  | 'tipos-impuesto';
+  | 'tipos-impuesto'
+  | 'partes-trabajo'
+  | 'maquinaria'
+  | 'tipos-gasto';
 
 /**
  * Estructura de permisos por recurso
@@ -210,6 +213,9 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         agentes: ['create', 'read', 'update', 'delete'],
         'formas-pago': ['create', 'read', 'update', 'delete'],
         'tipos-impuesto': ['create', 'read', 'update', 'delete'],
+        'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
+        maquinaria: ['create', 'read', 'update', 'delete'],
+        'tipos-gasto': ['create', 'read', 'update', 'delete'],
       },
       especiales: PERMISOS_ESPECIALES_ADMIN,
     },
@@ -245,6 +251,9 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         agentes: ['create', 'read', 'update'],
         'formas-pago': ['read'],
         'tipos-impuesto': ['read'],
+        'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
+        maquinaria: ['create', 'read', 'update', 'delete'],
+        'tipos-gasto': ['create', 'read', 'update', 'delete'],
       },
       especiales: {
         ...PERMISOS_ESPECIALES_DEFAULT,
@@ -297,6 +306,9 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         agentes: ['read'],
         'formas-pago': ['read'],
         'tipos-impuesto': ['read'],
+        'partes-trabajo': ['read'],
+        maquinaria: [],
+        'tipos-gasto': [],
       },
       especiales: {
         ...PERMISOS_ESPECIALES_DEFAULT,
@@ -341,6 +353,9 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         agentes: [],
         'formas-pago': [],
         'tipos-impuesto': [],
+        'partes-trabajo': ['create', 'read', 'update'],
+        maquinaria: ['read'],
+        'tipos-gasto': ['read'],
       },
       especiales: {
         ...PERMISOS_ESPECIALES_DEFAULT,
@@ -380,6 +395,9 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         agentes: [],
         'formas-pago': [],
         'tipos-impuesto': [],
+        'partes-trabajo': ['read'],
+        maquinaria: ['read'],
+        'tipos-gasto': ['read'],
       },
       especiales: {
         ...PERMISOS_ESPECIALES_DEFAULT,
@@ -420,6 +438,9 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         agentes: ['read'],
         'formas-pago': ['read'],
         'tipos-impuesto': ['read'],
+        'partes-trabajo': ['read'],
+        maquinaria: ['read'],
+        'tipos-gasto': ['read'],
       },
       especiales: {
         ...PERMISOS_ESPECIALES_DEFAULT,

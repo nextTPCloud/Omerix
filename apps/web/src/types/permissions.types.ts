@@ -67,7 +67,10 @@ export type RecursoSistema =
   | 'proyectos'
   | 'agentes'
   | 'formas-pago'
-  | 'tipos-impuesto';
+  | 'tipos-impuesto'
+  | 'partes-trabajo'
+  | 'maquinaria'
+  | 'tipos-gasto';
 
 /**
  * Permisos por recurso
@@ -233,6 +236,9 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       agentes: ['create', 'read', 'update', 'delete', 'export'],
       'formas-pago': ['create', 'read', 'update', 'delete'],
       'tipos-impuesto': ['create', 'read', 'update', 'delete'],
+      'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
+      maquinaria: ['create', 'read', 'update', 'delete'],
+      'tipos-gasto': ['create', 'read', 'update', 'delete'],
     },
   },
   admin: {
@@ -258,6 +264,9 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       agentes: ['create', 'read', 'update', 'delete', 'export'],
       'formas-pago': ['create', 'read', 'update', 'delete'],
       'tipos-impuesto': ['create', 'read', 'update', 'delete'],
+      'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
+      maquinaria: ['create', 'read', 'update', 'delete'],
+      'tipos-gasto': ['create', 'read', 'update', 'delete'],
     },
   },
   gerente: {
@@ -282,6 +291,9 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       agentes: ['read', 'update'],
       'formas-pago': ['read'],
       'tipos-impuesto': ['read'],
+      'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
+      maquinaria: ['create', 'read', 'update', 'delete'],
+      'tipos-gasto': ['create', 'read', 'update', 'delete'],
     },
   },
   vendedor: {
@@ -305,6 +317,7 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       agentes: ['read'],
       'formas-pago': ['read'],
       'tipos-impuesto': ['read'],
+      'partes-trabajo': ['read'],
     },
   },
   tecnico: {
@@ -326,6 +339,9 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       proyectos: ['read', 'update'],
       'formas-pago': ['read'],
       'tipos-impuesto': ['read'],
+      'partes-trabajo': ['create', 'read', 'update'],
+      maquinaria: ['read'],
+      'tipos-gasto': ['read'],
     },
   },
   almacenero: {
@@ -347,6 +363,9 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       proyectos: ['read'],
       'formas-pago': ['read'],
       'tipos-impuesto': ['read'],
+      'partes-trabajo': ['read'],
+      maquinaria: ['read'],
+      'tipos-gasto': ['read'],
     },
   },
   visualizador: {
@@ -370,6 +389,9 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       agentes: ['read'],
       'formas-pago': ['read'],
       'tipos-impuesto': ['read'],
+      'partes-trabajo': ['read'],
+      maquinaria: ['read'],
+      'tipos-gasto': ['read'],
     },
   },
 };

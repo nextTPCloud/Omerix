@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -70,6 +72,10 @@ import {
   ClipboardCheck,
   Bell,
   BellOff,
+  Mail,
+  MessageCircle,
+  Loader2,
+  Printer,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -217,6 +223,19 @@ export default function AlbaranesCompraPage() {
     albaranCodigos: [],
   })
 
+  // Estados para acciones masivas
+  const [showBulkWhatsAppDialog, setShowBulkWhatsAppDialog] = useState(false)
+  const [whatsAppUrls, setWhatsAppUrls] = useState<Array<{
+    id: string
+    codigo: string
+    url?: string
+    telefono?: string
+    proveedorNombre?: string
+    error?: string
+  }>>([])
+  const [isLoadingWhatsApp, setIsLoadingWhatsApp] = useState(false)
+  const [isSendingBulkEmail, setIsSendingBulkEmail] = useState(false)
+
   // Columnas disponibles
   const [columnasDisponibles] = useState([
     { key: 'codigo', label: 'Codigo', sortable: true },
@@ -355,26 +374,11 @@ export default function AlbaranesCompraPage() {
     cargarAlbaranes()
   }, [cargarAlbaranes])
 
-  // Crear albaran desde pedido si viene en URL
+  // Si viene pedidoCompraId en URL, redirigir a la pagina de recepcion
   useEffect(() => {
-    const crearDesdePedido = async () => {
-      if (pedidoCompraIdFromUrl) {
-        try {
-          toast.loading('Creando albaran desde pedido...')
-          const response = await albaranesCompraService.crearDesdePedido(pedidoCompraIdFromUrl)
-          toast.dismiss()
-          if (response.success && response.data) {
-            toast.success('Albaran creado desde pedido')
-            router.push(`/compras/albaranes/${response.data._id}/editar`)
-          }
-        } catch (error: any) {
-          toast.dismiss()
-          toast.error(error.response?.data?.message || 'Error al crear albaran desde pedido')
-          router.replace('/compras/albaranes')
-        }
-      }
+    if (pedidoCompraIdFromUrl) {
+      router.replace(`/compras/pedidos/${pedidoCompraIdFromUrl}/recepcion`)
     }
-    crearDesdePedido()
   }, [pedidoCompraIdFromUrl, router])
 
   // ============================================
@@ -669,6 +673,94 @@ export default function AlbaranesCompraPage() {
   const handleExportSelected = () => {
     const selectedData = albaranes.filter(a => selectedAlbaranes.includes(a._id))
     toast.success(`${selectedData.length} albaranes seleccionados para exportar`)
+  }
+
+  // ============================================
+  // ENVÍO MASIVO POR EMAIL
+  // ============================================
+
+  const handleBulkEmail = async () => {
+    if (selectedAlbaranes.length === 0) {
+      toast.error('Selecciona al menos un albaran para enviar por email')
+      return
+    }
+
+    setIsSendingBulkEmail(true)
+    try {
+      toast.loading('Enviando emails a proveedores...', { id: 'bulk-email' })
+      const response = await albaranesCompraService.enviarMasivoPorEmail(selectedAlbaranes)
+      toast.dismiss('bulk-email')
+
+      if (response.success && response.data) {
+        const { enviados, fallidos, total } = response.data
+        if (enviados === total) {
+          toast.success(`${enviados} emails enviados correctamente`)
+        } else if (enviados > 0) {
+          toast.warning(`${enviados} de ${total} emails enviados (${fallidos} fallidos)`)
+        } else {
+          toast.error('No se pudo enviar ningun email')
+        }
+        cargarAlbaranes()
+        setSelectedAlbaranes([])
+        setSelectAll(false)
+      } else {
+        toast.error(response.message || 'Error al enviar emails')
+      }
+    } catch (error: any) {
+      toast.dismiss('bulk-email')
+      toast.error(error.response?.data?.message || 'Error al enviar emails')
+    } finally {
+      setIsSendingBulkEmail(false)
+    }
+  }
+
+  // ============================================
+  // ENVÍO MASIVO POR WHATSAPP
+  // ============================================
+
+  const handleBulkWhatsApp = async () => {
+    if (selectedAlbaranes.length === 0) {
+      toast.error('Selecciona al menos un albaran para enviar por WhatsApp')
+      return
+    }
+
+    setIsLoadingWhatsApp(true)
+    setWhatsAppUrls([])
+    setShowBulkWhatsAppDialog(true)
+
+    try {
+      const result = await albaranesCompraService.getWhatsAppURLsMasivo(selectedAlbaranes)
+      if (result.success && result.data) {
+        setWhatsAppUrls(result.data)
+      } else {
+        toast.error('Error al generar URLs de WhatsApp')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al generar URLs de WhatsApp')
+    } finally {
+      setIsLoadingWhatsApp(false)
+    }
+  }
+
+  const handleOpenWhatsApp = (url: string) => {
+    window.open(url, '_blank')
+  }
+
+  // ============================================
+  // IMPRIMIR MASIVO
+  // ============================================
+
+  const handleBulkPrint = () => {
+    if (selectedAlbaranes.length === 0) {
+      toast.error('Selecciona al menos un albaran para imprimir')
+      return
+    }
+    // Abrir ventana de impresion para cada albaran seleccionado
+    selectedAlbaranes.forEach((id, index) => {
+      setTimeout(() => {
+        window.open(`/compras/albaranes/${id}/imprimir`, '_blank', 'width=900,height=700')
+      }, index * 500)
+    })
   }
 
   // ============================================
@@ -1132,9 +1224,21 @@ export default function AlbaranesCompraPage() {
                 {selectedAlbaranes.length} {selectedAlbaranes.length === 1 ? 'albaran seleccionado' : 'albaranes seleccionados'}
               </span>
               <div className="flex-1" />
+              <Button variant="outline" size="sm" onClick={handleBulkEmail} disabled={isSendingBulkEmail}>
+                <Mail className="mr-2 h-4 w-4" />
+                {isSendingBulkEmail ? 'Enviando...' : 'Email'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleBulkWhatsApp} className="text-green-600 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-950">
+                <MessageCircle className="mr-2 h-4 w-4" />
+                WhatsApp
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleBulkPrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir
+              </Button>
               <Button variant="outline" size="sm" onClick={() => handleBulkAction('export')}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Exportar
+                Exportar PDF
               </Button>
 {canDelete('albaranes-compra') && (
                 <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
@@ -1690,6 +1794,86 @@ export default function AlbaranesCompraPage() {
                 onClick={handleDeleteConfirm}
               >
                 Eliminar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* DIALOG DE ENVÍO MASIVO POR WHATSAPP */}
+        <Dialog open={showBulkWhatsAppDialog} onOpenChange={setShowBulkWhatsAppDialog}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5 text-green-600" />
+                Enviar por WhatsApp
+              </DialogTitle>
+              <DialogDescription>
+                Haz clic en cada boton para abrir WhatsApp con el mensaje predefinido
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4">
+              {isLoadingWhatsApp ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-green-600 mb-3" />
+                  <p className="text-sm text-muted-foreground">Generando enlaces de WhatsApp...</p>
+                </div>
+              ) : (
+                <div className="max-h-[400px] overflow-y-auto space-y-2">
+                  {whatsAppUrls.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-lg border ${item.url ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20' : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono font-medium text-sm">{item.codigo}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {item.proveedorNombre || 'Proveedor'}
+                          </p>
+                          {item.telefono && (
+                            <p className="text-xs text-muted-foreground">
+                              Tel: {item.telefono}
+                            </p>
+                          )}
+                          {item.error && (
+                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                              {item.error}
+                            </p>
+                          )}
+                        </div>
+                        {item.url ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenWhatsApp(item.url!)}
+                            className="bg-green-600 hover:bg-green-700 text-white shrink-0"
+                          >
+                            <MessageCircle className="h-4 w-4 mr-1" />
+                            Abrir
+                          </Button>
+                        ) : (
+                          <Badge variant="destructive" className="shrink-0">
+                            Sin telefono
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!isLoadingWhatsApp && whatsAppUrls.length > 0 && (
+                <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-green-600">{whatsAppUrls.filter(u => u.url).length}</span> de {whatsAppUrls.length} albaranes tienen telefono valido para WhatsApp
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowBulkWhatsAppDialog(false)}>
+                Cerrar
               </Button>
             </DialogFooter>
           </DialogContent>

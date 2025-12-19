@@ -113,7 +113,9 @@ export class FacturasCompraController {
 
   async crear(req: AuthRequest, res: Response) {
     try {
-      const dto: CreateFacturaCompraDTO = req.body;
+      // Extraer opción de actualizar precios
+      const { actualizarPrecios, ...bodyData } = req.body;
+      const dto: CreateFacturaCompraDTO = bodyData;
 
       if (!dto.proveedorId) {
         return res.status(400).json({
@@ -143,10 +145,25 @@ export class FacturasCompraController {
         req.dbConfig!
       );
 
+      // Si se solicitó actualizar precios, hacerlo después de crear
+      let preciosActualizados = 0;
+      if (actualizarPrecios && (actualizarPrecios.precioCompra || actualizarPrecios.precioVenta)) {
+        const resultado = await facturasCompraService.actualizarPreciosProductos(
+          req.empresaId!,
+          req.dbConfig!,
+          factura.lineas || [],
+          actualizarPrecios
+        );
+        preciosActualizados = resultado.actualizados;
+      }
+
       res.status(201).json({
         success: true,
-        message: 'Factura de compra creada correctamente',
+        message: preciosActualizados > 0
+          ? `Factura de compra creada correctamente. ${preciosActualizados} producto(s) actualizados.`
+          : 'Factura de compra creada correctamente',
         data: factura,
+        preciosActualizados,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -214,7 +231,9 @@ export class FacturasCompraController {
   async actualizar(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const dto: UpdateFacturaCompraDTO = req.body;
+      // Extraer opción de actualizar precios
+      const { actualizarPrecios, ...bodyData } = req.body;
+      const dto: UpdateFacturaCompraDTO = bodyData;
 
       if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({
@@ -238,10 +257,25 @@ export class FacturasCompraController {
         });
       }
 
+      // Si se solicitó actualizar precios, hacerlo después de actualizar
+      let preciosActualizados = 0;
+      if (actualizarPrecios && (actualizarPrecios.precioCompra || actualizarPrecios.precioVenta)) {
+        const resultado = await facturasCompraService.actualizarPreciosProductos(
+          req.empresaId!,
+          req.dbConfig!,
+          factura.lineas || [],
+          actualizarPrecios
+        );
+        preciosActualizados = resultado.actualizados;
+      }
+
       res.json({
         success: true,
-        message: 'Factura de compra actualizada correctamente',
+        message: preciosActualizados > 0
+          ? `Factura de compra actualizada correctamente. ${preciosActualizados} producto(s) actualizados.`
+          : 'Factura de compra actualizada correctamente',
         data: factura,
+        preciosActualizados,
       });
     } catch (error: any) {
       res.status(500).json({

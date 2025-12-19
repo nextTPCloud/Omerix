@@ -14,7 +14,7 @@ export type EstadoFacturaCompra =
   | 'vencida'
   | 'anulada'
 
-export type TipoLineaCompra = 'producto' | 'servicio' | 'texto' | 'subtotal' | 'descuento'
+export type TipoLineaCompra = 'producto' | 'servicio' | 'kit' | 'texto' | 'subtotal' | 'descuento'
 
 // ============================================
 // CONSTANTES
@@ -32,6 +32,7 @@ export const ESTADOS_FACTURA_COMPRA: { value: EstadoFacturaCompra; label: string
 export const TIPOS_LINEA_COMPRA: { value: TipoLineaCompra; label: string }[] = [
   { value: 'producto', label: 'Producto' },
   { value: 'servicio', label: 'Servicio' },
+  { value: 'kit', label: 'Kit' },
   { value: 'texto', label: 'Texto' },
   { value: 'subtotal', label: 'Subtotal' },
   { value: 'descuento', label: 'Descuento' },

@@ -67,7 +67,7 @@ export interface CreatePresupuestoCompraDTO {
 }
 
 export interface CreateLineaPresupuestoCompraDTO {
-  tipo?: 'producto' | 'servicio' | 'texto' | 'subtotal' | 'descuento';
+  tipo?: 'producto' | 'servicio' | 'texto' | 'subtotal' | 'descuento' | 'kit';
   productoId?: string;
   codigo?: string;
   nombre: string;
@@ -84,6 +84,36 @@ export interface CreateLineaPresupuestoCompraDTO {
   fechaEntregaEstimada?: Date;
   almacenDestinoId?: string;
   notasInternas?: string;
+  // Precio de venta y margen
+  precioVenta?: number;
+  margenPorcentaje?: number;
+  margenImporte?: number;
+  // Componentes de kit
+  componentesKit?: {
+    productoId: string;
+    nombre: string;
+    sku?: string;
+    cantidad: number;
+    precioUnitario: number;
+    opcional: boolean;
+    seleccionado: boolean;
+  }[];
+  // Variante seleccionada
+  variante?: {
+    varianteId: string;
+    sku: string;
+    combinacion: Record<string, string>;
+    costeAdicional?: number;
+  };
+}
+
+// ============================================
+// OPCION PARA ACTUALIZAR PRECIOS
+// ============================================
+
+export interface ActualizarPreciosOpcion {
+  precioCompra: boolean;
+  precioVenta: boolean;
 }
 
 // ============================================

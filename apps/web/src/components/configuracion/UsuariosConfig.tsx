@@ -150,7 +150,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
       nombre: '',
       apellidos: '',
       telefono: '',
-      rol: rolesDisponibles[0]?.codigo || 'vendedor',
+      rol: (rolesDisponibles.find(r => r.codigo !== 'superadmin')?.codigo || 'vendedor') as Exclude<RoleType, 'superadmin'>,
       activo: true,
     })
     setShowPassword(false)
@@ -166,7 +166,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
       nombre: usuario.nombre,
       apellidos: usuario.apellidos,
       telefono: usuario.telefono || '',
-      rol: usuario.rol,
+      rol: usuario.rol as Exclude<RoleType, 'superadmin'>,
       activo: usuario.activo,
     })
     setShowDialog(true)

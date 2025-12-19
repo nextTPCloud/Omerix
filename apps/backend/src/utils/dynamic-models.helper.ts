@@ -32,6 +32,9 @@ import { MovimientoStock, IMovimientoStock } from '../models/MovimientoStock';
 import { PedidoCompra, IPedidoCompra } from '../modules/pedidos-compra/PedidoCompra';
 import { AlbaranCompra, IAlbaranCompra } from '../modules/albaranes-compra/AlbaranCompra';
 import { FacturaCompra, IFacturaCompra } from '../modules/facturas-compra/FacturaCompra';
+import { TipoGasto, ITipoGasto } from '../modules/tipos-gasto/TipoGasto';
+import { Maquinaria, IMaquinaria } from '../modules/maquinaria/Maquinaria';
+import { ParteTrabajo, IParteTrabajo } from '../modules/partes-trabajo/ParteTrabajo';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -570,6 +573,54 @@ export const getFacturaCompraModel = async (
 };
 
 /**
+ * Obtener modelo de TipoGasto para una empresa específica
+ */
+export const getTipoGastoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ITipoGasto>> => {
+  const TipoGastoSchema = TipoGasto.schema;
+  return databaseManager.getModel<ITipoGasto>(
+    empresaId,
+    dbConfig,
+    'TipoGasto',
+    TipoGastoSchema
+  );
+};
+
+/**
+ * Obtener modelo de Maquinaria para una empresa específica
+ */
+export const getMaquinariaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IMaquinaria>> => {
+  const MaquinariaSchema = Maquinaria.schema;
+  return databaseManager.getModel<IMaquinaria>(
+    empresaId,
+    dbConfig,
+    'Maquinaria',
+    MaquinariaSchema
+  );
+};
+
+/**
+ * Obtener modelo de ParteTrabajo para una empresa específica
+ */
+export const getParteTrabajoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IParteTrabajo>> => {
+  const ParteTrabajoSchema = ParteTrabajo.schema;
+  return databaseManager.getModel<IParteTrabajo>(
+    empresaId,
+    dbConfig,
+    'ParteTrabajo',
+    ParteTrabajoSchema
+  );
+};
+
+/**
  * Objeto con todos los modelos por empresa
  * Se puede extender con más modelos según sea necesario
  */
@@ -606,6 +657,9 @@ export const EmpresaModels = {
   PedidoCompra: getPedidoCompraModel,
   AlbaranCompra: getAlbaranCompraModel,
   FacturaCompra: getFacturaCompraModel,
+  TipoGasto: getTipoGastoModel,
+  Maquinaria: getMaquinariaModel,
+  ParteTrabajo: getParteTrabajoModel,
 };
 
 /**

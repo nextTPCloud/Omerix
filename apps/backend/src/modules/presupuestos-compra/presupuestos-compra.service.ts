@@ -9,6 +9,10 @@ import {
 import { IDatabaseConfig } from '@/types/database.types';
 import { databaseManager } from '@/services/database-manager.service';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
+import { getProveedorModel, getProductoModel, getUserModel } from '@/utils/dynamic-models.helper';
+import { presupuestosCompraPDFService, PDFOptions } from './presupuestos-compra-pdf.service';
+import { empresaService } from '@/modules/empresa/empresa.service';
+import Empresa from '@/models/Empresa';
 
 // ============================================
 // HELPER PARA OBTENER MODELO DINAMICO
@@ -188,6 +192,9 @@ export class PresupuestosCompraService {
     // Paginacion
     const skip = (page - 1) * limit;
 
+    // Registrar modelo de Proveedor para populate
+    await getProveedorModel(empresaId, dbConfig);
+
     // Ejecutar consultas
     const [data, total] = await Promise.all([
       PresupuestoCompraModel.find(filter)
@@ -247,6 +254,9 @@ export class PresupuestosCompraService {
     codigo: string
   ): Promise<IPresupuestoCompra | null> {
     const PresupuestoCompraModel = await getPresupuestoCompraModel(empresaId, dbConfig);
+
+    // Registrar modelo de Proveedor para populate
+    await getProveedorModel(empresaId, dbConfig);
 
     return PresupuestoCompraModel.findOne({ codigo: codigo.toUpperCase() })
       .populate('proveedorId', 'nombre nombreComercial nif email telefono direccion')
@@ -497,9 +507,14 @@ export class PresupuestosCompraService {
       throw new Error('Presupuesto de compra no encontrado');
     }
 
+    // Obtener ID del proveedor (puede estar populado o ser ObjectId)
+    const proveedorId = typeof presupuesto.proveedorId === 'object' && presupuesto.proveedorId._id
+      ? presupuesto.proveedorId._id.toString()
+      : presupuesto.proveedorId?.toString() || '';
+
     // Crear copia sin campos de identificacion
     const nuevoPresupuesto = await this.crear({
-      proveedorId: presupuesto.proveedorId?.toString() || '',
+      proveedorId,
       proveedorNombre: presupuesto.proveedorNombre,
       proveedorNif: presupuesto.proveedorNif,
       proveedorEmail: presupuesto.proveedorEmail,
@@ -620,6 +635,10 @@ export class PresupuestosCompraService {
     };
   }> {
     const PresupuestoCompraModel = await getPresupuestoCompraModel(empresaId, dbConfig);
+
+    // Registrar modelo de Proveedor para populate
+    await getProveedorModel(empresaId, dbConfig);
+
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
@@ -680,6 +699,112 @@ export class PresupuestosCompraService {
         total: pendientesDecision.length + proximosExpirar.length + expirados.length,
       },
     };
+  }
+
+  // ============================================
+  // ACTUALIZAR PRECIOS DE PRODUCTOS
+  // ============================================
+
+  /**
+   * Actualizar precios de productos basándose en las líneas del documento
+   */
+  async actualizarPreciosProductos(
+    empresaId: string,
+    dbConfig: IDatabaseConfig,
+    lineas: any[],
+    opciones: { precioCompra: boolean; precioVenta: boolean }
+  ): Promise<{ actualizados: number; errores: string[] }> {
+    if (!opciones.precioCompra && !opciones.precioVenta) {
+      return { actualizados: 0, errores: [] };
+    }
+
+    const ProductoModel = await getProductoModel(empresaId, dbConfig);
+    let actualizados = 0;
+    const errores: string[] = [];
+
+    // Agrupar actualizaciones por producto (para evitar actualizaciones duplicadas)
+    const actualizacionesPorProducto = new Map<string, {
+      precioCompra?: number;
+      precioVenta?: number;
+      varianteId?: string;
+    }>();
+
+    for (const linea of lineas) {
+      if (!linea.productoId) continue;
+
+      const productoId = linea.productoId.toString();
+      const key = linea.variante?.varianteId
+        ? `${productoId}:${linea.variante.varianteId}`
+        : productoId;
+
+      const actualizacion: any = {};
+      if (opciones.precioCompra && linea.precioUnitario > 0) {
+        actualizacion.precioCompra = linea.precioUnitario;
+      }
+      if (opciones.precioVenta && linea.precioVenta > 0) {
+        actualizacion.precioVenta = linea.precioVenta;
+      }
+      if (linea.variante?.varianteId) {
+        actualizacion.varianteId = linea.variante.varianteId;
+      }
+
+      if (Object.keys(actualizacion).length > 0) {
+        actualizacionesPorProducto.set(key, {
+          ...actualizacionesPorProducto.get(key),
+          ...actualizacion,
+        });
+      }
+    }
+
+    // Aplicar actualizaciones
+    for (const [key, actualizacion] of actualizacionesPorProducto) {
+      try {
+        const [productoId, varianteId] = key.split(':');
+
+        if (varianteId) {
+          // Actualizar variante específica
+          const updateFields: any = {};
+          if (actualizacion.precioCompra !== undefined) {
+            updateFields['variantes.$.costeUnitario'] = actualizacion.precioCompra;
+          }
+          if (actualizacion.precioVenta !== undefined) {
+            updateFields['variantes.$.precioUnitario'] = actualizacion.precioVenta;
+          }
+
+          const result = await ProductoModel.updateOne(
+            { _id: productoId, 'variantes._id': varianteId },
+            { $set: updateFields }
+          );
+
+          if (result.modifiedCount > 0) {
+            actualizados++;
+          }
+        } else {
+          // Actualizar producto base
+          const updateFields: any = {};
+          if (actualizacion.precioCompra !== undefined) {
+            updateFields['precios.compra'] = actualizacion.precioCompra;
+          }
+          if (actualizacion.precioVenta !== undefined) {
+            updateFields['precios.pvp'] = actualizacion.precioVenta;
+            updateFields['precios.venta'] = actualizacion.precioVenta;
+          }
+
+          const result = await ProductoModel.updateOne(
+            { _id: productoId },
+            { $set: updateFields }
+          );
+
+          if (result.modifiedCount > 0) {
+            actualizados++;
+          }
+        }
+      } catch (error: any) {
+        errores.push(`Error actualizando producto ${key}: ${error.message}`);
+      }
+    }
+
+    return { actualizados, errores };
   }
 
   // ============================================
@@ -810,6 +935,380 @@ export class PresupuestosCompraService {
       totalIva: Math.round(totalIva * 100) / 100,
       totalPresupuesto: Math.round(totalPresupuesto * 100) / 100,
     };
+  }
+
+  // ============================================
+  // ENVIAR POR EMAIL
+  // ============================================
+
+  /**
+   * Enviar solicitud de presupuesto por email al proveedor con PDF adjunto
+   */
+  async enviarPorEmail(
+    id: string,
+    empresaId: string,
+    usuarioId: string,
+    dbConfig: IDatabaseConfig,
+    opciones?: {
+      asunto?: string;
+      mensaje?: string;
+      cc?: string[];
+      bcc?: string[];
+      pdfOptions?: PDFOptions;
+    }
+  ): Promise<{ success: boolean; message: string; messageId?: string }> {
+    const PresupuestoCompraModel = await getPresupuestoCompraModel(empresaId, dbConfig);
+
+    // Obtener presupuesto completo
+    await getProveedorModel(empresaId, dbConfig);
+    const presupuesto = await PresupuestoCompraModel.findById(id)
+      .populate('proveedorId', 'nombre email')
+      .lean();
+
+    if (!presupuesto) {
+      return { success: false, message: 'Presupuesto de compra no encontrado' };
+    }
+
+    // Obtener email del proveedor
+    const proveedorEmail = presupuesto.proveedorEmail ||
+      (typeof presupuesto.proveedorId === 'object' ? (presupuesto.proveedorId as any).email : null);
+
+    if (!proveedorEmail) {
+      return { success: false, message: 'El proveedor no tiene email configurado' };
+    }
+
+    // Obtener datos de la empresa
+    const empresa = await Empresa.findById(empresaId).lean();
+    if (!empresa) {
+      return { success: false, message: 'Empresa no encontrada' };
+    }
+
+    try {
+      // Generar PDF
+      const pdfBuffer = await presupuestosCompraPDFService.generarPDF(
+        presupuesto as IPresupuestoCompra,
+        empresaId,
+        opciones?.pdfOptions
+      );
+
+      // Formatear datos para el email
+      const proveedorNombre = typeof presupuesto.proveedorId === 'object'
+        ? (presupuesto.proveedorId as any).nombre
+        : presupuesto.proveedorNombre;
+
+      const formatCurrency = (value: number) => new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency: 'EUR',
+      }).format(value || 0);
+
+      // Asunto del email
+      const asunto = opciones?.asunto ||
+        `Solicitud de Presupuesto ${presupuesto.codigo} - ${empresa.nombre}`;
+
+      // Mensaje personalizado o por defecto
+      const mensajePersonalizado = opciones?.mensaje || '';
+
+      // Contenido HTML del email
+      const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .header { background: #3B82F6; color: white; padding: 20px; text-align: center; }
+    .content { padding: 20px; }
+    .info-box { background: #F3F4F6; padding: 15px; border-radius: 8px; margin: 15px 0; }
+    .footer { background: #F9FAFB; padding: 15px; text-align: center; font-size: 12px; color: #6B7280; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Solicitud de Presupuesto</h1>
+    <p>${presupuesto.codigo}</p>
+  </div>
+  <div class="content">
+    <p>Estimado/a ${proveedorNombre || 'Proveedor'},</p>
+
+    ${mensajePersonalizado ? `<p>${mensajePersonalizado}</p>` : `
+    <p>Le adjuntamos nuestra solicitud de presupuesto para los productos/servicios detallados en el documento PDF adjunto.</p>
+    `}
+
+    <div class="info-box">
+      <p><strong>Código:</strong> ${presupuesto.codigo}</p>
+      <p><strong>Fecha:</strong> ${new Date(presupuesto.fecha).toLocaleDateString('es-ES')}</p>
+      ${presupuesto.fechaValidez ? `<p><strong>Respuesta antes de:</strong> ${new Date(presupuesto.fechaValidez).toLocaleDateString('es-ES')}</p>` : ''}
+      ${presupuesto.fechaEntregaDeseada ? `<p><strong>Entrega deseada:</strong> ${new Date(presupuesto.fechaEntregaDeseada).toLocaleDateString('es-ES')}</p>` : ''}
+    </div>
+
+    <p>Por favor, envíenos su cotización con los precios y condiciones de entrega.</p>
+
+    <p>Quedamos a la espera de su respuesta.</p>
+
+    <p>Saludos cordiales,<br>
+    <strong>${empresa.nombre}</strong></p>
+  </div>
+  <div class="footer">
+    <p>${empresa.nombre}</p>
+    ${empresa.direccion ? `<p>${empresa.direccion}</p>` : ''}
+    ${empresa.telefono ? `<p>Tel: ${empresa.telefono}</p>` : ''}
+    ${empresa.email ? `<p>${empresa.email}</p>` : ''}
+  </div>
+</body>
+</html>
+      `;
+
+      // Contenido en texto plano
+      const textContent = `
+Solicitud de Presupuesto ${presupuesto.codigo}
+
+Estimado/a ${proveedorNombre || 'Proveedor'},
+
+${mensajePersonalizado || 'Le adjuntamos nuestra solicitud de presupuesto para los productos/servicios detallados en el documento PDF adjunto.'}
+
+Código: ${presupuesto.codigo}
+Fecha: ${new Date(presupuesto.fecha).toLocaleDateString('es-ES')}
+${presupuesto.fechaValidez ? `Respuesta antes de: ${new Date(presupuesto.fechaValidez).toLocaleDateString('es-ES')}` : ''}
+${presupuesto.fechaEntregaDeseada ? `Entrega deseada: ${new Date(presupuesto.fechaEntregaDeseada).toLocaleDateString('es-ES')}` : ''}
+
+Por favor, envíenos su cotización con los precios y condiciones de entrega.
+
+Saludos cordiales,
+${empresa.nombre}
+${empresa.telefono ? `Tel: ${empresa.telefono}` : ''}
+      `;
+
+      // Enviar email con PDF adjunto
+      const result = await empresaService.sendEmail(empresaId, {
+        to: proveedorEmail,
+        subject: asunto,
+        html: htmlContent,
+        text: textContent,
+        cc: opciones?.cc,
+        bcc: opciones?.bcc,
+        attachments: [
+          {
+            filename: `Solicitud_Presupuesto_${presupuesto.codigo}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf',
+          },
+        ],
+      });
+
+      if (result.success) {
+        // Actualizar estado a enviado si estaba en borrador
+        if (presupuesto.estado === EstadoPresupuestoCompra.BORRADOR) {
+          await PresupuestoCompraModel.findByIdAndUpdate(id, {
+            estado: EstadoPresupuestoCompra.ENVIADO,
+            fechaEnvio: new Date(),
+            modificadoPor: new mongoose.Types.ObjectId(usuarioId),
+            fechaModificacion: new Date(),
+            $push: {
+              historial: {
+                fecha: new Date(),
+                usuarioId: new mongoose.Types.ObjectId(usuarioId),
+                accion: 'Envío por email',
+                descripcion: `Solicitud enviada por email a ${proveedorEmail}`,
+              },
+            },
+          });
+        } else {
+          // Registrar reenvío
+          await PresupuestoCompraModel.findByIdAndUpdate(id, {
+            $push: {
+              historial: {
+                fecha: new Date(),
+                usuarioId: new mongoose.Types.ObjectId(usuarioId),
+                accion: 'Reenvío por email',
+                descripcion: `Solicitud reenviada por email a ${proveedorEmail}`,
+              },
+            },
+          });
+        }
+
+        return {
+          success: true,
+          message: `Email enviado correctamente a ${proveedorEmail}`,
+          messageId: result.messageId,
+        };
+      }
+
+      return { success: false, message: result.error || 'Error al enviar email' };
+    } catch (error: any) {
+      console.error('Error al enviar solicitud de presupuesto por email:', error);
+      return { success: false, message: error.message || 'Error al generar o enviar email' };
+    }
+  }
+
+  /**
+   * Enviar múltiples solicitudes de presupuesto por email (envío masivo)
+   */
+  async enviarMasivoPorEmail(
+    ids: string[],
+    empresaId: string,
+    usuarioId: string,
+    dbConfig: IDatabaseConfig,
+    opciones?: {
+      asunto?: string;
+      mensaje?: string;
+      pdfOptions?: PDFOptions;
+    }
+  ): Promise<{
+    success: boolean;
+    total: number;
+    enviados: number;
+    fallidos: number;
+    resultados: Array<{ id: string; codigo: string; success: boolean; message: string }>;
+  }> {
+    const resultados: Array<{ id: string; codigo: string; success: boolean; message: string }> = [];
+    let enviados = 0;
+    let fallidos = 0;
+
+    for (const id of ids) {
+      try {
+        const PresupuestoCompraModel = await getPresupuestoCompraModel(empresaId, dbConfig);
+        const presupuesto = await PresupuestoCompraModel.findById(id).select('codigo').lean();
+        const codigo = presupuesto?.codigo || id;
+
+        const result = await this.enviarPorEmail(id, empresaId, usuarioId, dbConfig, opciones);
+
+        resultados.push({
+          id,
+          codigo,
+          success: result.success,
+          message: result.message,
+        });
+
+        if (result.success) {
+          enviados++;
+        } else {
+          fallidos++;
+        }
+
+        // Pequeña pausa para no saturar el servidor de email
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error: any) {
+        fallidos++;
+        resultados.push({
+          id,
+          codigo: id,
+          success: false,
+          message: error.message || 'Error desconocido',
+        });
+      }
+    }
+
+    return {
+      success: fallidos === 0,
+      total: ids.length,
+      enviados,
+      fallidos,
+      resultados,
+    };
+  }
+
+  // ============================================
+  // GENERAR PDF
+  // ============================================
+
+  /**
+   * Generar PDF de solicitud de presupuesto
+   */
+  async generarPDF(
+    id: string,
+    empresaId: string,
+    dbConfig: IDatabaseConfig,
+    pdfOptions?: PDFOptions
+  ): Promise<{ success: boolean; pdf?: Buffer; filename?: string; message?: string }> {
+    const PresupuestoCompraModel = await getPresupuestoCompraModel(empresaId, dbConfig);
+    const presupuesto = await PresupuestoCompraModel.findById(id).lean();
+
+    if (!presupuesto) {
+      return { success: false, message: 'Presupuesto de compra no encontrado' };
+    }
+
+    try {
+      const pdf = await presupuestosCompraPDFService.generarPDF(
+        presupuesto as IPresupuestoCompra,
+        empresaId,
+        pdfOptions
+      );
+
+      return {
+        success: true,
+        pdf,
+        filename: `Solicitud_Presupuesto_${presupuesto.codigo}.pdf`,
+      };
+    } catch (error: any) {
+      console.error('Error generando PDF:', error);
+      return { success: false, message: error.message || 'Error al generar PDF' };
+    }
+  }
+
+  /**
+   * Exportar múltiples PDFs (devuelve ZIP si hay más de uno)
+   */
+  async exportarPDFsMasivo(
+    ids: string[],
+    empresaId: string,
+    dbConfig: IDatabaseConfig,
+    pdfOptions?: PDFOptions
+  ): Promise<{
+    success: boolean;
+    pdf?: Buffer;
+    zip?: Buffer;
+    filename?: string;
+    message?: string;
+  }> {
+    const PresupuestoCompraModel = await getPresupuestoCompraModel(empresaId, dbConfig);
+
+    if (ids.length === 1) {
+      // Si es solo uno, devolver PDF directamente
+      return this.generarPDF(ids[0], empresaId, dbConfig, pdfOptions);
+    }
+
+    // Múltiples: generar ZIP
+    try {
+      const archiver = (await import('archiver')).default;
+      const { PassThrough } = await import('stream');
+
+      const passthrough = new PassThrough();
+      const archive = archiver('zip', { zlib: { level: 9 } });
+
+      const chunks: Buffer[] = [];
+      passthrough.on('data', chunk => chunks.push(chunk));
+
+      archive.pipe(passthrough);
+
+      for (const id of ids) {
+        const presupuesto = await PresupuestoCompraModel.findById(id).lean();
+        if (presupuesto) {
+          const pdf = await presupuestosCompraPDFService.generarPDF(
+            presupuesto as IPresupuestoCompra,
+            empresaId,
+            pdfOptions
+          );
+          archive.append(pdf, { name: `Solicitud_${presupuesto.codigo}.pdf` });
+        }
+      }
+
+      await archive.finalize();
+
+      // Esperar a que termine
+      await new Promise<void>((resolve, reject) => {
+        passthrough.on('end', resolve);
+        passthrough.on('error', reject);
+      });
+
+      return {
+        success: true,
+        zip: Buffer.concat(chunks),
+        filename: `Solicitudes_Presupuesto_${new Date().toISOString().split('T')[0]}.zip`,
+      };
+    } catch (error: any) {
+      console.error('Error exportando PDFs masivamente:', error);
+      return { success: false, message: error.message || 'Error al exportar PDFs' };
+    }
   }
 }
 

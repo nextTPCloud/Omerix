@@ -59,6 +59,9 @@ export interface UpdateEmpresaDTO {
   moneda?: string;
   formatoFecha?: string;
   formatoNumero?: string;
+  // Configuración de decimales
+  decimalesCantidad?: number;
+  decimalesPrecios?: number;
   aiConfig?: UpdateAIConfigDTO;
 }
 
@@ -144,6 +147,8 @@ class EmpresaService {
     if (data.moneda !== undefined) updateData.moneda = data.moneda;
     if (data.formatoFecha !== undefined) updateData.formatoFecha = data.formatoFecha;
     if (data.formatoNumero !== undefined) updateData.formatoNumero = data.formatoNumero;
+    if (data.decimalesCantidad !== undefined) updateData.decimalesCantidad = data.decimalesCantidad;
+    if (data.decimalesPrecios !== undefined) updateData.decimalesPrecios = data.decimalesPrecios;
 
     // Manejar configuración de IA
     if (data.aiConfig !== undefined) {

@@ -194,9 +194,14 @@ const menuGroups: MenuGroup[] = [
         title: 'Partes de Trabajo',
         icon: Wrench,
         children: [
-          { title: 'Listado partes', href: '/partes' },
-          { title: 'Nuevo parte', href: '/partes/nuevo' },
+          { title: 'Listado partes', href: '/partes-trabajo' },
+          { title: 'Nuevo parte', href: '/partes-trabajo/nuevo' },
         ],
+      },
+      {
+        title: 'Maquinaria',
+        href: '/maquinaria',
+        icon: Truck,
       },
     ],
   },
@@ -301,6 +306,7 @@ const menuGroups: MenuGroup[] = [
           { title: 'Tipos de Impuesto', href: '/tipos-impuesto' },
           { title: 'Formas de Pago', href: '/formas-pago' },
           { title: 'Términos de Pago', href: '/terminos-pago' },
+          { title: 'Tipos de Gasto', href: '/tipos-gasto' },
           { title: 'Estados', href: '/estados' },
           { title: 'Situaciones', href: '/situaciones' },
           { title: 'Clasificaciones', href: '/clasificaciones' },
@@ -387,7 +393,8 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-14 z-50 h-[calc(100vh-3.5rem)] border-r bg-background transition-all duration-300 ease-in-out",
+          "fixed left-0 top-14 z-50 h-[calc(100vh-3.5rem)] border-r transition-all duration-300 ease-in-out",
+          "bg-slate-900 dark:bg-slate-950",
           isCollapsed ? "w-16" : "w-64",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
@@ -395,14 +402,14 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
         <div className="flex h-full flex-col">
           {/* Toggle button */}
           <div className={cn(
-            "flex items-center border-b p-2",
+            "flex items-center border-b border-slate-800 p-2",
             isCollapsed ? "justify-center" : "justify-end"
           )}>
             <Button
               variant="ghost"
               size="icon"
               onClick={onToggleCollapse}
-              className="h-8 w-8 hidden lg:flex"
+              className="h-8 w-8 hidden lg:flex text-slate-400 hover:text-white hover:bg-slate-800"
               title={isCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
             >
               {isCollapsed ? (
@@ -421,10 +428,10 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                 href="/dashboard"
                 onClick={onClose}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent',
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
                   pathname === '/dashboard'
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground',
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white',
                   isCollapsed && "justify-center"
                 )}
                 title={isCollapsed ? "Dashboard" : undefined}
@@ -434,18 +441,18 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
               </Link>
 
               {/* Separador */}
-              {!isCollapsed && <div className="border-t my-2" />}
+              {!isCollapsed && <div className="border-t border-slate-800 my-3" />}
 
               {/* Favoritos */}
               {favoritos.length > 0 && (
                 <div className="space-y-1">
                   {!isCollapsed && (
-                    <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground">
-                      <Star className="h-4 w-4 flex-shrink-0 text-yellow-500 fill-yellow-500" />
+                    <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      <Star className="h-3.5 w-3.5 flex-shrink-0 text-yellow-500 fill-yellow-500" />
                       <span>Favoritos</span>
                     </div>
                   )}
-                  <div className={cn("space-y-1", !isCollapsed && "pl-2")}>
+                  <div className={cn("space-y-0.5", !isCollapsed && "pl-2")}>
                     {favoritos.map((fav) => {
                       const FavIcon = fav.icon ? iconMap[fav.icon] || Star : Star
                       const isActive = pathname === fav.href
@@ -455,10 +462,10 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                             href={fav.href}
                             onClick={onClose}
                             className={cn(
-                              'flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent',
+                              'flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
                               isActive
-                                ? 'bg-accent text-accent-foreground'
-                                : 'text-muted-foreground',
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                                : 'text-slate-300 hover:bg-slate-800 hover:text-white',
                               isCollapsed && "justify-center"
                             )}
                             title={isCollapsed ? fav.title : undefined}
@@ -483,7 +490,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                       )
                     })}
                   </div>
-                  {!isCollapsed && <div className="border-t my-2" />}
+                  {!isCollapsed && <div className="border-t border-slate-800 my-3" />}
                 </div>
               )}
 
@@ -493,14 +500,16 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                 const GroupIcon = group.icon
 
                 return (
-                  <div key={group.group} className="space-y-1">
+                  <div key={group.group} className="space-y-0.5">
                     {/* Grupo header */}
                     {!isCollapsed && (
                       <button
                         onClick={() => toggleGroup(group.group)}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
-                          "text-muted-foreground"
+                          "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors",
+                          isGroupExpanded
+                            ? "text-white bg-slate-800/50"
+                            : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                         )}
                       >
                         <GroupIcon className="h-4 w-4 flex-shrink-0" />
@@ -516,7 +525,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                     {/* Items del grupo */}
                     {(isGroupExpanded || isCollapsed) && (
                       <div className={cn(
-                        "space-y-1",
+                        "space-y-0.5",
                         !isCollapsed && "pl-2"
                       )}>
                         {group.items.map((item) => {
@@ -524,6 +533,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                           const hasChildren = item.children && item.children.length > 0
                           const isItemExpanded = expandedItems.includes(item.title)
                           const isActive = item.href ? pathname === item.href : false
+                          const isChildActive = hasChildren && item.children?.some(c => pathname === c.href)
                           const itemIsFavorito = item.href ? isFavorito(item.href) : false
 
                           if (!hasChildren && item.href) {
@@ -534,10 +544,10 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                                   href={item.href}
                                   onClick={onClose}
                                   className={cn(
-                                    'flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent',
+                                    'flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
                                     isActive
-                                      ? 'bg-accent text-accent-foreground'
-                                      : 'text-muted-foreground',
+                                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-medium'
+                                      : 'text-slate-300 hover:bg-slate-800 hover:text-white',
                                     isCollapsed && "justify-center"
                                   )}
                                   title={isCollapsed ? item.title : undefined}
@@ -566,7 +576,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                                       "h-3.5 w-3.5",
                                       itemIsFavorito
                                         ? "text-yellow-500 fill-yellow-500"
-                                        : "text-muted-foreground hover:text-yellow-500"
+                                        : "text-slate-500 hover:text-yellow-500"
                                     )} />
                                   </button>
                                 )}
@@ -581,7 +591,10 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                                 <button
                                   onClick={() => toggleItem(item.title)}
                                   className={cn(
-                                    'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent text-muted-foreground',
+                                    'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all',
+                                    isChildActive
+                                      ? 'text-blue-400 bg-slate-800/50'
+                                      : 'text-slate-300 hover:bg-slate-800 hover:text-white',
                                     isCollapsed && "justify-center"
                                   )}
                                   title={isCollapsed ? item.title : undefined}
@@ -601,9 +614,9 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
 
                                 {/* Submenú */}
                                 {isItemExpanded && !isCollapsed && (
-                                  <div className="ml-8 mt-1 space-y-1">
+                                  <div className="ml-6 mt-1 space-y-0.5 border-l border-slate-700 pl-2">
                                     {item.children?.map((child) => {
-                                      const isChildActive = pathname === child.href
+                                      const isThisChildActive = pathname === child.href
                                       const childIsFavorito = isFavorito(child.href)
                                       return (
                                         <div key={child.href} className="flex items-center group">
@@ -611,13 +624,16 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                                             href={child.href}
                                             onClick={onClose}
                                             className={cn(
-                                              'flex-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent',
-                                              isChildActive
-                                                ? 'bg-accent text-accent-foreground'
-                                                : 'text-muted-foreground'
+                                              'flex-1 flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-all',
+                                              isThisChildActive
+                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-medium'
+                                                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                                             )}
                                           >
-                                            <div className="h-1.5 w-1.5 rounded-full bg-current" />
+                                            <div className={cn(
+                                              "h-1.5 w-1.5 rounded-full",
+                                              isThisChildActive ? "bg-white" : "bg-slate-600"
+                                            )} />
                                             <span>{child.title}</span>
                                           </Link>
                                           <button
@@ -640,7 +656,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                                               "h-3 w-3",
                                               childIsFavorito
                                                 ? "text-yellow-500 fill-yellow-500"
-                                                : "text-muted-foreground hover:text-yellow-500"
+                                                : "text-slate-500 hover:text-yellow-500"
                                             )} />
                                           </button>
                                         </div>

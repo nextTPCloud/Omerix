@@ -27,8 +27,11 @@ class PedidosCompraController {
         });
       }
 
+      // Extraer opción de actualizar precios
+      const { actualizarPrecios, ...bodyData } = req.body;
+
       // Validar datos
-      const validatedData = CreatePedidoCompraSchema.parse(req.body);
+      const validatedData = CreatePedidoCompraSchema.parse(bodyData);
 
       const pedidoCompra = await pedidosCompraService.crear(
         validatedData,
@@ -37,10 +40,25 @@ class PedidosCompraController {
         dbConfig
       );
 
+      // Si se solicitó actualizar precios, hacerlo después de crear
+      let preciosActualizados = 0;
+      if (actualizarPrecios && (actualizarPrecios.precioCompra || actualizarPrecios.precioVenta)) {
+        const resultado = await pedidosCompraService.actualizarPreciosProductos(
+          req.user!.empresaId,
+          dbConfig,
+          pedidoCompra.lineas || [],
+          actualizarPrecios
+        );
+        preciosActualizados = resultado.actualizados;
+      }
+
       return res.status(201).json({
         success: true,
         data: pedidoCompra,
-        message: 'Pedido de compra creado correctamente',
+        message: preciosActualizados > 0
+          ? `Pedido de compra creado correctamente. ${preciosActualizados} producto(s) actualizados.`
+          : 'Pedido de compra creado correctamente',
+        preciosActualizados,
       });
     } catch (error: any) {
       console.error('Error al crear pedido de compra:', error);
@@ -197,8 +215,11 @@ class PedidosCompraController {
 
       const { id } = req.params;
 
+      // Extraer opción de actualizar precios
+      const { actualizarPrecios, ...bodyData } = req.body;
+
       // Validar datos
-      const validatedData = UpdatePedidoCompraSchema.parse(req.body);
+      const validatedData = UpdatePedidoCompraSchema.parse(bodyData);
 
       const pedidoCompra = await pedidosCompraService.update(
         id,
@@ -215,10 +236,25 @@ class PedidosCompraController {
         });
       }
 
+      // Si se solicitó actualizar precios, hacerlo después de actualizar
+      let preciosActualizados = 0;
+      if (actualizarPrecios && (actualizarPrecios.precioCompra || actualizarPrecios.precioVenta)) {
+        const resultado = await pedidosCompraService.actualizarPreciosProductos(
+          req.user!.empresaId,
+          dbConfig,
+          pedidoCompra.lineas || [],
+          actualizarPrecios
+        );
+        preciosActualizados = resultado.actualizados;
+      }
+
       return res.json({
         success: true,
         data: pedidoCompra,
-        message: 'Pedido de compra actualizado correctamente',
+        message: preciosActualizados > 0
+          ? `Pedido de compra actualizado correctamente. ${preciosActualizados} producto(s) actualizados.`
+          : 'Pedido de compra actualizado correctamente',
+        preciosActualizados,
       });
     } catch (error: any) {
       console.error('Error al actualizar pedido de compra:', error);

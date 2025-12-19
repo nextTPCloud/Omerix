@@ -16,7 +16,7 @@ export class PresupuestosCompraController {
 
   async create(req: Request, res: Response) {
     try {
-      const dto: CreatePresupuestoCompraDTO = req.body;
+      const { actualizarPrecios, ...dto }: CreatePresupuestoCompraDTO & { actualizarPrecios?: { precioCompra: boolean; precioVenta: boolean } } = req.body;
 
       if (!dto.proveedorId) {
         return res.status(400).json({
@@ -39,10 +39,25 @@ export class PresupuestosCompraController {
         req.dbConfig
       );
 
+      // Si se solicitó actualizar precios, hacerlo después de crear
+      let preciosActualizados = 0;
+      if (actualizarPrecios && (actualizarPrecios.precioCompra || actualizarPrecios.precioVenta)) {
+        const resultado = await presupuestosCompraService.actualizarPreciosProductos(
+          req.empresaId,
+          req.dbConfig,
+          presupuesto.lineas || [],
+          actualizarPrecios
+        );
+        preciosActualizados = resultado.actualizados;
+      }
+
       res.status(201).json({
         success: true,
-        message: 'Presupuesto de compra creado correctamente',
+        message: preciosActualizados > 0
+          ? `Presupuesto de compra creado correctamente. ${preciosActualizados} producto(s) actualizados.`
+          : 'Presupuesto de compra creado correctamente',
         data: presupuesto,
+        preciosActualizados,
       });
     } catch (error: any) {
       console.error('Error creando presupuesto de compra:', error);
@@ -205,7 +220,7 @@ export class PresupuestosCompraController {
   async update(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const dto: UpdatePresupuestoCompraDTO = req.body;
+      const { actualizarPrecios, ...dto }: UpdatePresupuestoCompraDTO & { actualizarPrecios?: { precioCompra: boolean; precioVenta: boolean } } = req.body;
 
       if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({
@@ -236,10 +251,25 @@ export class PresupuestosCompraController {
         });
       }
 
+      // Si se solicitó actualizar precios, hacerlo después de actualizar
+      let preciosActualizados = 0;
+      if (actualizarPrecios && (actualizarPrecios.precioCompra || actualizarPrecios.precioVenta)) {
+        const resultado = await presupuestosCompraService.actualizarPreciosProductos(
+          req.empresaId,
+          req.dbConfig,
+          presupuesto.lineas || [],
+          actualizarPrecios
+        );
+        preciosActualizados = resultado.actualizados;
+      }
+
       res.json({
         success: true,
-        message: 'Presupuesto de compra actualizado correctamente',
+        message: preciosActualizados > 0
+          ? `Presupuesto de compra actualizado correctamente. ${preciosActualizados} producto(s) actualizados.`
+          : 'Presupuesto de compra actualizado correctamente',
         data: presupuesto,
+        preciosActualizados,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -559,6 +589,217 @@ export class PresupuestosCompraController {
       res.status(500).json({
         success: false,
         message: 'Error eliminando presupuestos',
+        error: error.message,
+      });
+    }
+  }
+
+  // ============================================
+  // ENVIAR POR EMAIL
+  // ============================================
+
+  async enviarPorEmail(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const empresaId = req.empresaId!;
+      const usuarioId = req.userId!;
+      const opciones = req.body;
+
+      const result = await presupuestosCompraService.enviarPorEmail(
+        id,
+        String(empresaId),
+        String(usuarioId),
+        req.empresaDbConfig,
+        opciones
+      );
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: result.message,
+          data: { messageId: result.messageId },
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: result.message,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error enviando email:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al enviar email',
+        error: error.message,
+      });
+    }
+  }
+
+  // ============================================
+  // ENVÍO MASIVO POR EMAIL
+  // ============================================
+
+  async enviarMasivoPorEmail(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { ids, ...opciones } = req.body;
+      const empresaId = req.empresaId!;
+      const usuarioId = req.userId!;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Debe proporcionar un array de IDs',
+        });
+      }
+
+      const result = await presupuestosCompraService.enviarMasivoPorEmail(
+        ids,
+        String(empresaId),
+        String(usuarioId),
+        req.empresaDbConfig,
+        opciones
+      );
+
+      res.json({
+        success: result.success,
+        message: `${result.enviados} de ${result.total} emails enviados`,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('Error en envío masivo:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error en envío masivo',
+        error: error.message,
+      });
+    }
+  }
+
+  // ============================================
+  // GENERAR PDF
+  // ============================================
+
+  async generarPDF(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const empresaId = req.empresaId!;
+      const pdfOptions = req.body;
+
+      const result = await presupuestosCompraService.generarPDF(
+        id,
+        String(empresaId),
+        req.empresaDbConfig,
+        pdfOptions
+      );
+
+      if (result.success && result.pdf) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+        res.send(result.pdf);
+      } else {
+        res.status(400).json({
+          success: false,
+          message: result.message,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error generando PDF:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al generar PDF',
+        error: error.message,
+      });
+    }
+  }
+
+  // ============================================
+  // EXPORTAR PDFs MASIVO
+  // ============================================
+
+  async exportarPDFsMasivo(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { ids, pdfOptions } = req.body;
+      const empresaId = req.empresaId!;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Debe proporcionar un array de IDs',
+        });
+      }
+
+      if (ids.length > 50) {
+        return res.status(400).json({
+          success: false,
+          message: 'La exportación masiva está limitada a 50 presupuestos por vez',
+        });
+      }
+
+      const result = await presupuestosCompraService.exportarPDFsMasivo(
+        ids,
+        String(empresaId),
+        req.empresaDbConfig,
+        pdfOptions
+      );
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: result.message,
+        });
+      }
+
+      // Si es un solo presupuesto, devolver PDF directamente
+      if (ids.length === 1 && result.pdf) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+        return res.send(result.pdf);
+      }
+
+      // Si son múltiples, devolver ZIP
+      if (result.zip) {
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+        return res.send(result.zip);
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: 'Error al generar archivos',
+      });
+    } catch (error: any) {
+      console.error('Error exportando PDFs:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al exportar PDFs',
         error: error.message,
       });
     }

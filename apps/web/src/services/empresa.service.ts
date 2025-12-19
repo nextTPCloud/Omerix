@@ -98,6 +98,9 @@ export interface EmpresaInfo {
   moneda?: string;
   formatoFecha?: string;
   formatoNumero?: string;
+  // Configuración de decimales
+  decimalesCantidad?: number;
+  decimalesPrecios?: number;
   // Configuración de IA
   aiConfig?: {
     provider?: 'openai' | 'anthropic' | 'gemini' | 'claude' | 'ollama';

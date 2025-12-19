@@ -45,6 +45,9 @@ import {
   CheckCircle2,
   XCircle,
   RefreshCw,
+  Mail,
+  Download,
+  Printer,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -77,6 +80,8 @@ export default function PresupuestoCompraDetailPage({ params }: PageProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showConvertirDialog, setShowConvertirDialog] = useState(false)
   const [isConvirtiendo, setIsConvirtiendo] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [isExportingPDF, setIsExportingPDF] = useState(false)
 
   useEffect(() => {
     loadPresupuesto()
@@ -155,6 +160,77 @@ export default function PresupuestoCompraDetailPage({ params }: PageProps) {
     } finally {
       setIsConvirtiendo(false)
       setShowConvertirDialog(false)
+    }
+  }
+
+  const handleEnviarEmail = async () => {
+    if (!presupuesto) return
+
+    const email = presupuesto.proveedorEmail
+    if (!email) {
+      toast.error('El proveedor no tiene email configurado')
+      return
+    }
+
+    setIsSendingEmail(true)
+    try {
+      toast.loading('Enviando email al proveedor...', { id: 'sending-email' })
+
+      const response = await presupuestosCompraService.enviarPorEmail(presupuesto._id)
+
+      toast.dismiss('sending-email')
+
+      if (response.success) {
+        toast.success('Email enviado correctamente al proveedor')
+        loadPresupuesto()
+      } else {
+        toast.error(response.message || 'Error al enviar email')
+      }
+    } catch (error: any) {
+      toast.dismiss('sending-email')
+
+      if (error.response?.status === 400 && error.response?.data?.message?.includes('configuración')) {
+        toast.error('No hay configuración de email. Configúrala en Ajustes > Email')
+      } else {
+        toast.error(error.response?.data?.message || 'Error al enviar email')
+      }
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
+  const handlePrint = () => {
+    if (!presupuesto) return
+    window.open(`/compras/presupuestos/${presupuesto._id}/imprimir`, '_blank', 'width=900,height=700,menubar=yes,toolbar=yes,scrollbars=yes,resizable=yes')
+  }
+
+  const handleExportPDF = async () => {
+    if (!presupuesto) return
+
+    setIsExportingPDF(true)
+    try {
+      toast.loading('Generando PDF...', { id: 'export-pdf' })
+
+      const blob = await presupuestosCompraService.generarPDF(presupuesto._id)
+
+      toast.dismiss('export-pdf')
+
+      // Descargar el PDF
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Presupuesto_Compra_${presupuesto.codigo}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+
+      toast.success('PDF descargado correctamente')
+    } catch (error: any) {
+      toast.dismiss('export-pdf')
+      toast.error(error.response?.data?.message || 'Error al generar PDF')
+    } finally {
+      setIsExportingPDF(false)
     }
   }
 
@@ -329,6 +405,38 @@ export default function PresupuestoCompraDetailPage({ params }: PageProps) {
                           </DropdownMenuItem>
                         )
                       })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Enviar por Email */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEnviarEmail}
+                    disabled={isSendingEmail}
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    {isSendingEmail ? 'Enviando...' : 'Email'}
+                  </Button>
+
+                  {/* Imprimir / PDF */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={isExportingPDF}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Imprimir
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={handlePrint}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Imprimir
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExportPDF}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Descargar PDF
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 

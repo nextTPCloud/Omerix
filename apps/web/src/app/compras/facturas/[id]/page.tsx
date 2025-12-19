@@ -51,6 +51,8 @@ import {
   Hash,
   Clock,
   Printer,
+  Download,
+  ChevronDown,
   CreditCard,
   DollarSign,
   AlertTriangle,
@@ -83,6 +85,8 @@ export default function FacturaCompraDetallePage({ params }: PageProps) {
   const [importePago, setImportePago] = useState('')
   const [referenciaPago, setReferenciaPago] = useState('')
   const [expandedKits, setExpandedKits] = useState<Set<number>>(new Set())
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [isExportingPDF, setIsExportingPDF] = useState(false)
 
   const toggleKitExpanded = (index: number) => {
     setExpandedKits(prev => {
@@ -180,6 +184,77 @@ export default function FacturaCompraDetallePage({ params }: PageProps) {
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error al registrar pago')
+    }
+  }
+
+  const handleEnviarEmail = async () => {
+    if (!factura) return
+
+    const email = factura.proveedorEmail
+    if (!email) {
+      toast.error('El proveedor no tiene email configurado')
+      return
+    }
+
+    setIsSendingEmail(true)
+    try {
+      toast.loading('Enviando email al proveedor...', { id: 'sending-email' })
+
+      const response = await facturasCompraService.enviarPorEmail(factura._id)
+
+      toast.dismiss('sending-email')
+
+      if (response.success) {
+        toast.success('Email enviado correctamente al proveedor')
+        loadFactura()
+      } else {
+        toast.error(response.message || 'Error al enviar email')
+      }
+    } catch (error: any) {
+      toast.dismiss('sending-email')
+
+      if (error.response?.status === 400 && error.response?.data?.message?.includes('configuración')) {
+        toast.error('No hay configuración de email. Configúrala en Ajustes > Email')
+      } else {
+        toast.error(error.response?.data?.message || 'Error al enviar email')
+      }
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
+  const handlePrint = () => {
+    if (!factura) return
+    window.open(`/compras/facturas/${factura._id}/imprimir`, '_blank', 'width=900,height=700,menubar=yes,toolbar=yes,scrollbars=yes,resizable=yes')
+  }
+
+  const handleExportPDF = async () => {
+    if (!factura) return
+
+    setIsExportingPDF(true)
+    try {
+      toast.loading('Generando PDF...', { id: 'export-pdf' })
+
+      const blob = await facturasCompraService.generarPDF(factura._id)
+
+      toast.dismiss('export-pdf')
+
+      // Descargar el PDF
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Factura_Compra_${factura.codigo}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+
+      toast.success('PDF descargado correctamente')
+    } catch (error: any) {
+      toast.dismiss('export-pdf')
+      toast.error(error.response?.data?.message || 'Error al generar PDF')
+    } finally {
+      setIsExportingPDF(false)
     }
   }
 
@@ -295,10 +370,37 @@ export default function FacturaCompraDetallePage({ params }: PageProps) {
               </Button>
             )}
 
-            <Button variant="outline" size="sm">
-              <Printer className="h-4 w-4 mr-2" />
-              Imprimir
+            {/* Enviar por Email */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleEnviarEmail}
+              disabled={isSendingEmail}
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              {isSendingEmail ? 'Enviando...' : 'Email'}
             </Button>
+
+            {/* Imprimir / PDF */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isExportingPDF}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Imprimir
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handlePrint}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Imprimir
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Descargar PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <Link href={`/compras/facturas/${resolvedParams.id}/editar`}>
               <Button variant="outline" size="sm">

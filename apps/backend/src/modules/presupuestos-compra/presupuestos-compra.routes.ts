@@ -337,4 +337,121 @@ router.post('/:id/duplicar', presupuestosCompraController.duplicar.bind(presupue
  */
 router.post('/bulk/delete', presupuestosCompraController.deleteMany.bind(presupuestosCompraController));
 
+/**
+ * @swagger
+ * /presupuestos-compra/bulk/enviar-email:
+ *   post:
+ *     summary: Enviar múltiples solicitudes de presupuesto por email
+ *     tags: [Presupuestos de Compra]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - ids
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               asunto:
+ *                 type: string
+ *               mensaje:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Resultado del envío masivo
+ */
+router.post('/bulk/enviar-email', presupuestosCompraController.enviarMasivoPorEmail.bind(presupuestosCompraController));
+
+/**
+ * @swagger
+ * /presupuestos-compra/bulk/exportar-pdf:
+ *   post:
+ *     summary: Exportar múltiples presupuestos como PDF
+ *     tags: [Presupuestos de Compra]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - ids
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: PDFs generados (ZIP si son múltiples)
+ */
+router.post('/bulk/exportar-pdf', presupuestosCompraController.exportarPDFsMasivo.bind(presupuestosCompraController));
+
+/**
+ * @swagger
+ * /presupuestos-compra/{id}/enviar-email:
+ *   post:
+ *     summary: Enviar solicitud de presupuesto por email al proveedor
+ *     tags: [Presupuestos de Compra]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               asunto:
+ *                 type: string
+ *               mensaje:
+ *                 type: string
+ *               cc:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Email enviado correctamente
+ */
+router.post('/:id/enviar-email', presupuestosCompraController.enviarPorEmail.bind(presupuestosCompraController));
+
+/**
+ * @swagger
+ * /presupuestos-compra/{id}/pdf:
+ *   get:
+ *     summary: Generar PDF de solicitud de presupuesto
+ *     tags: [Presupuestos de Compra]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: PDF generado
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ */
+router.get('/:id/pdf', presupuestosCompraController.generarPDF.bind(presupuestosCompraController));
+
 export default router;

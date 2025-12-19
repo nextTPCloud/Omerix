@@ -37,7 +37,7 @@ export function QuickCreateProyecto({ open, onOpenChange, onCreated, clienteIdDe
     const fetchClientes = async () => {
       setLoadingClientes(true)
       try {
-        const response = await clientesService.getAll({ activo: true, limit: 500 })
+        const response = await clientesService.getAll({ activo: true, limit: 100 })
         if (response.success) {
           setClientes(response.data || [])
         }

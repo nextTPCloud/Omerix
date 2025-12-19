@@ -197,6 +197,9 @@ export interface IEmpresa extends Document {
   moneda?: string;
   formatoFecha?: string;
   formatoNumero?: string;
+  // Configuración de decimales
+  decimalesCantidad?: number;
+  decimalesPrecios?: number;
 
   // Configuración de base de datos dedicada
   databaseConfig: IDatabaseConfig;
@@ -425,6 +428,9 @@ const EmpresaSchema = new Schema<IEmpresa>(
     moneda: { type: String, default: 'EUR' },
     formatoFecha: { type: String, default: 'DD/MM/YYYY' },
     formatoNumero: { type: String, default: 'es-ES' },
+    // Configuración de decimales
+    decimalesCantidad: { type: Number, default: 2, min: 0, max: 6 },
+    decimalesPrecios: { type: Number, default: 2, min: 0, max: 6 },
 
     // Configuración de base de datos dedicada para esta empresa
     databaseConfig: {

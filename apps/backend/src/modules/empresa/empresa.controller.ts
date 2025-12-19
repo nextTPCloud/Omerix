@@ -40,6 +40,9 @@ const UpdateEmpresaSchema = z.object({
   moneda: z.string().optional(),
   formatoFecha: z.string().optional(),
   formatoNumero: z.string().optional(),
+  // Configuración de decimales
+  decimalesCantidad: z.number().int().min(0).max(6).optional(),
+  decimalesPrecios: z.number().int().min(0).max(6).optional(),
   // Configuración de IA
   aiConfig: z.object({
     provider: z.enum(['gemini', 'openai', 'claude', 'ollama']).optional(),

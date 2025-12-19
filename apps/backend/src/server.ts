@@ -86,6 +86,11 @@ import presupuestosCompraRoutes from './modules/presupuestos-compra/presupuestos
 import rolesRoutes from './modules/roles/roles.routes';
 import usuariosRoutes from './modules/usuarios/usuarios.routes';
 
+// Importar rutas de catalogos de soporte (partes de trabajo)
+import tiposGastoRoutes from './modules/tipos-gasto/tipos-gasto.routes';
+import maquinariaRoutes from './modules/maquinaria/maquinaria.routes';
+import partesTrabajoRoutes from './modules/partes-trabajo/partes-trabajo.routes';
+
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
 import logger, { httpLoggerMiddleware, logStartup, logShutdown } from './utils/logger/winston.config'; // 🆕 NUEVO
@@ -333,6 +338,11 @@ app.use('/api/verifactu', verifactuRoutes);
 
 // Rutas de IA
 app.use('/api/ai', aiRoutes);
+
+// Rutas de catalogos de soporte (partes de trabajo)
+app.use('/api/tipos-gasto', tiposGastoRoutes);
+app.use('/api/maquinaria', maquinariaRoutes);
+app.use('/api/partes-trabajo', partesTrabajoRoutes);
 
 // ============================================
 // MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS

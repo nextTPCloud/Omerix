@@ -125,7 +125,9 @@ export class AlbaranesCompraController {
 
   async crear(req: AuthRequest, res: Response) {
     try {
-      const dto: CreateAlbaranCompraDTO = req.body;
+      // Extraer opción de actualizar precios
+      const { actualizarPrecios, ...bodyData } = req.body;
+      const dto: CreateAlbaranCompraDTO = bodyData;
 
       if (!dto.proveedorId) {
         return res.status(400).json({
@@ -148,10 +150,25 @@ export class AlbaranesCompraController {
         req.dbConfig!
       );
 
+      // Si se solicitó actualizar precios, hacerlo después de crear
+      let preciosActualizados = 0;
+      if (actualizarPrecios && (actualizarPrecios.precioCompra || actualizarPrecios.precioVenta)) {
+        const resultado = await albaranesCompraService.actualizarPreciosProductos(
+          req.empresaId!,
+          req.dbConfig!,
+          albaran.lineas || [],
+          actualizarPrecios
+        );
+        preciosActualizados = resultado.actualizados;
+      }
+
       res.status(201).json({
         success: true,
-        message: 'Albarán de compra creado correctamente',
+        message: preciosActualizados > 0
+          ? `Albarán de compra creado correctamente. ${preciosActualizados} producto(s) actualizados.`
+          : 'Albarán de compra creado correctamente',
         data: albaran,
+        preciosActualizados,
       });
     } catch (error: any) {
       res.status(500).json({
@@ -205,7 +222,9 @@ export class AlbaranesCompraController {
   async actualizar(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const dto: UpdateAlbaranCompraDTO = req.body;
+      // Extraer opción de actualizar precios
+      const { actualizarPrecios, ...bodyData } = req.body;
+      const dto: UpdateAlbaranCompraDTO = bodyData;
 
       if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({
@@ -229,10 +248,25 @@ export class AlbaranesCompraController {
         });
       }
 
+      // Si se solicitó actualizar precios, hacerlo después de actualizar
+      let preciosActualizados = 0;
+      if (actualizarPrecios && (actualizarPrecios.precioCompra || actualizarPrecios.precioVenta)) {
+        const resultado = await albaranesCompraService.actualizarPreciosProductos(
+          req.empresaId!,
+          req.dbConfig!,
+          albaran.lineas || [],
+          actualizarPrecios
+        );
+        preciosActualizados = resultado.actualizados;
+      }
+
       res.json({
         success: true,
-        message: 'Albarán de compra actualizado correctamente',
+        message: preciosActualizados > 0
+          ? `Albarán de compra actualizado correctamente. ${preciosActualizados} producto(s) actualizados.`
+          : 'Albarán de compra actualizado correctamente',
         data: albaran,
+        preciosActualizados,
       });
     } catch (error: any) {
       res.status(500).json({

@@ -91,7 +91,7 @@ export default function FacturarAlbaranesPage() {
       const response = await albaranesService.getAll({
         estado: EstadoAlbaran.ENTREGADO,
         facturado: 'false',
-        limit: 500,
+        limit: 100,
         page: 1,
       })
 

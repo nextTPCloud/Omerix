@@ -702,6 +702,14 @@ export class AlbaranesCompraService {
     const skip = (page - 1) * limit;
     const sort: any = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
+    // Registrar modelos para populate
+    await Promise.all([
+      getProveedorModel(String(empresaId), dbConfig),
+      getAlmacenModel(String(empresaId), dbConfig),
+      getPedidoCompraModel(String(empresaId), dbConfig),
+      getUserModel(String(empresaId), dbConfig),
+    ]);
+
     const [albaranes, total] = await Promise.all([
       AlbaranCompraModel.find(finalFilter)
         .populate('proveedorId', 'codigo nombre nombreComercial')
@@ -734,6 +742,14 @@ export class AlbaranesCompraService {
     dbConfig: IDatabaseConfig
   ): Promise<IAlbaranCompra | null> {
     const AlbaranCompraModel = await this.getModelo(String(empresaId), dbConfig);
+
+    // Registrar modelos para populate
+    await Promise.all([
+      getProveedorModel(String(empresaId), dbConfig),
+      getAlmacenModel(String(empresaId), dbConfig),
+      getPedidoCompraModel(String(empresaId), dbConfig),
+      getUserModel(String(empresaId), dbConfig),
+    ]);
 
     return AlbaranCompraModel.findById(id)
       .populate('proveedorId', 'codigo nombre nombreComercial nif cif email telefono direcciones')
@@ -941,13 +957,21 @@ export class AlbaranesCompraService {
       throw new Error('Albarán de compra no encontrado');
     }
 
+    // Obtener IDs correctamente (pueden estar populados)
+    const proveedorId = typeof albaran.proveedorId === 'object' && (albaran.proveedorId as any)._id
+      ? (albaran.proveedorId as any)._id.toString()
+      : albaran.proveedorId?.toString() || '';
+    const almacenId = typeof albaran.almacenId === 'object' && (albaran.almacenId as any)._id
+      ? (albaran.almacenId as any)._id.toString()
+      : albaran.almacenId?.toString() || '';
+
     const createDto: CreateAlbaranCompraDTO = {
-      proveedorId: albaran.proveedorId?.toString() || '',
+      proveedorId,
       proveedorNombre: albaran.proveedorNombre,
       proveedorNif: albaran.proveedorNif,
       proveedorEmail: albaran.proveedorEmail,
       proveedorTelefono: albaran.proveedorTelefono,
-      almacenId: albaran.almacenId?.toString() || '',
+      almacenId,
       referenciaProveedor: albaran.referenciaProveedor,
       titulo: albaran.titulo ? `${albaran.titulo} (copia)` : undefined,
       descripcion: albaran.descripcion,
@@ -993,6 +1017,10 @@ export class AlbaranesCompraService {
     };
   }> {
     const AlbaranCompraModel = await this.getModelo(empresaId.toString(), dbConfig);
+
+    // Registrar modelo de Proveedor para populate
+    await getProveedorModel(empresaId.toString(), dbConfig);
+
     const fechaLimite = new Date();
     fechaLimite.setDate(fechaLimite.getDate() - diasAlerta);
 
@@ -1064,6 +1092,112 @@ export class AlbaranesCompraService {
         total: pendientesFacturar.length + antiguosSinFacturar.length,
       },
     };
+  }
+
+  // ============================================
+  // ACTUALIZAR PRECIOS DE PRODUCTOS
+  // ============================================
+
+  /**
+   * Actualizar precios de productos basándose en las líneas del documento
+   */
+  async actualizarPreciosProductos(
+    empresaId: string,
+    dbConfig: IDatabaseConfig,
+    lineas: any[],
+    opciones: { precioCompra: boolean; precioVenta: boolean }
+  ): Promise<{ actualizados: number; errores: string[] }> {
+    if (!opciones.precioCompra && !opciones.precioVenta) {
+      return { actualizados: 0, errores: [] };
+    }
+
+    const ProductoModel = await getProductoModel(empresaId, dbConfig);
+    let actualizados = 0;
+    const errores: string[] = [];
+
+    // Agrupar actualizaciones por producto
+    const actualizacionesPorProducto = new Map<string, {
+      precioCompra?: number;
+      precioVenta?: number;
+      varianteId?: string;
+    }>();
+
+    for (const linea of lineas) {
+      if (!linea.productoId) continue;
+
+      const productoId = linea.productoId.toString();
+      const key = linea.variante?.varianteId
+        ? `${productoId}:${linea.variante.varianteId}`
+        : productoId;
+
+      const actualizacion: any = {};
+      if (opciones.precioCompra && linea.precioUnitario > 0) {
+        actualizacion.precioCompra = linea.precioUnitario;
+      }
+      if (opciones.precioVenta && linea.precioVenta > 0) {
+        actualizacion.precioVenta = linea.precioVenta;
+      }
+      if (linea.variante?.varianteId) {
+        actualizacion.varianteId = linea.variante.varianteId;
+      }
+
+      if (Object.keys(actualizacion).length > 0) {
+        actualizacionesPorProducto.set(key, {
+          ...actualizacionesPorProducto.get(key),
+          ...actualizacion,
+        });
+      }
+    }
+
+    // Aplicar actualizaciones
+    for (const [key, actualizacion] of actualizacionesPorProducto) {
+      try {
+        const [productoId, varianteId] = key.split(':');
+
+        if (varianteId) {
+          // Actualizar variante específica
+          const updateFields: any = {};
+          if (actualizacion.precioCompra !== undefined) {
+            updateFields['variantes.$.costeUnitario'] = actualizacion.precioCompra;
+          }
+          if (actualizacion.precioVenta !== undefined) {
+            updateFields['variantes.$.precioUnitario'] = actualizacion.precioVenta;
+          }
+
+          const result = await ProductoModel.updateOne(
+            { _id: productoId, 'variantes._id': varianteId },
+            { $set: updateFields }
+          );
+
+          if (result.modifiedCount > 0) {
+            actualizados++;
+          }
+        } else {
+          // Actualizar producto base
+          const updateFields: any = {};
+          if (actualizacion.precioCompra !== undefined) {
+            updateFields['precios.compra'] = actualizacion.precioCompra;
+          }
+          if (actualizacion.precioVenta !== undefined) {
+            updateFields['precios.pvp'] = actualizacion.precioVenta;
+            updateFields['precios.venta'] = actualizacion.precioVenta;
+          }
+
+          const result = await ProductoModel.updateOne(
+            { _id: productoId },
+            { $set: updateFields }
+          );
+
+          if (result.modifiedCount > 0) {
+            actualizados++;
+          }
+        }
+      } catch (error: any) {
+        errores.push(`Error actualizando producto ${key}: ${error.message}`);
+      }
+    }
+
+    return { actualizados, errores };
   }
 }
 

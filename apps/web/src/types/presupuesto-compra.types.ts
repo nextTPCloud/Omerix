@@ -16,7 +16,7 @@ export type EstadoPresupuestoCompra =
   | 'expirado'
   | 'cancelado'
 
-export type TipoLineaCompra = 'producto' | 'servicio' | 'texto' | 'subtotal' | 'descuento'
+export type TipoLineaCompra = 'producto' | 'servicio' | 'kit' | 'texto' | 'subtotal' | 'descuento'
 
 export type Prioridad = 'alta' | 'media' | 'baja'
 
@@ -44,6 +44,7 @@ export const PRIORIDADES: { value: Prioridad; label: string; color: string }[] =
 export const TIPOS_LINEA_COMPRA: { value: TipoLineaCompra; label: string }[] = [
   { value: 'producto', label: 'Producto' },
   { value: 'servicio', label: 'Servicio' },
+  { value: 'kit', label: 'Kit' },
   { value: 'texto', label: 'Texto' },
   { value: 'subtotal', label: 'Subtotal' },
   { value: 'descuento', label: 'Descuento' },
@@ -52,6 +53,24 @@ export const TIPOS_LINEA_COMPRA: { value: TipoLineaCompra; label: string }[] = [
 // ============================================
 // INTERFACES - LINEAS
 // ============================================
+
+// Interfaces para componentes de kit y variantes
+export interface ComponenteKitLinea {
+  productoId: string
+  nombre: string
+  sku?: string
+  cantidad: number
+  precioUnitario: number
+  opcional: boolean
+  seleccionado: boolean
+}
+
+export interface VarianteSeleccionada {
+  varianteId: string
+  sku: string
+  combinacion: Record<string, string>
+  costeAdicional?: number
+}
 
 export interface LineaPresupuestoCompra {
   _id?: string
@@ -70,7 +89,7 @@ export interface LineaPresupuestoCompra {
   cantidad: number
   unidad?: string
 
-  // Precios
+  // Precios de compra
   precioUnitario: number
   descuento: number
   descuentoImporte: number
@@ -78,6 +97,16 @@ export interface LineaPresupuestoCompra {
   iva: number
   ivaImporte: number
   total: number
+
+  // Precios de venta (para calcular margen)
+  precioVenta?: number
+  margenPorcentaje?: number
+  margenImporte?: number
+
+  // Kit y variante
+  componentesKit?: ComponenteKitLinea[]
+  mostrarComponentes?: boolean
+  variante?: VarianteSeleccionada
 
   // Almacen
   almacenDestinoId?: string
