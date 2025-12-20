@@ -367,7 +367,7 @@ const LineaMaterialSchema = new Schema<ILineaMaterial>({
 const LineaMaquinariaSchema = new Schema<ILineaMaquinaria>({
   maquinariaId: { type: Schema.Types.ObjectId, ref: 'Maquinaria' },
   codigo: { type: String, trim: true },
-  nombre: { type: String, required: true, trim: true },
+  nombre: { type: String, trim: true, default: '' },
   descripcion: { type: String, trim: true },
   tipoUnidad: {
     type: String,
@@ -388,7 +388,7 @@ const LineaMaquinariaSchema = new Schema<ILineaMaquinaria>({
 }, { _id: true });
 
 const LineaTransporteSchema = new Schema<ILineaTransporte>({
-  vehiculoNombre: { type: String, required: true, trim: true },
+  vehiculoNombre: { type: String, trim: true, default: '' },
   matricula: { type: String, trim: true },
   conductorId: { type: Schema.Types.ObjectId, ref: 'Personal' },
   conductorNombre: { type: String, trim: true },
@@ -409,7 +409,7 @@ const LineaTransporteSchema = new Schema<ILineaTransporte>({
 
 const LineaGastoSchema = new Schema<ILineaGasto>({
   tipoGastoId: { type: Schema.Types.ObjectId, ref: 'TipoGasto' },
-  tipoGastoNombre: { type: String, required: true, trim: true },
+  tipoGastoNombre: { type: String, trim: true, default: '' },
   descripcion: { type: String, trim: true },
   fecha: { type: Date, required: true, default: Date.now },
   proveedor: { type: String, trim: true },

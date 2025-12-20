@@ -121,6 +121,46 @@ router.get('/', proveedoresController.findAll.bind(proveedoresController));
 
 /**
  * @swagger
+ * /proveedores/sugerir-codigo:
+ *   get:
+ *     summary: Sugerir el siguiente código disponible
+ *     tags: [Proveedores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefijo
+ *         schema:
+ *           type: string
+ *         description: Prefijo del código (ej. PROV-, P-). Si no se proporciona, detecta el patrón más común
+ *     responses:
+ *       200:
+ *         description: Código sugerido generado exitosamente
+ */
+router.get('/sugerir-codigo', proveedoresController.sugerirSiguienteCodigo.bind(proveedoresController));
+
+/**
+ * @swagger
+ * /proveedores/codigos:
+ *   get:
+ *     summary: Buscar códigos existentes por prefijo (para auto-sugerencia)
+ *     tags: [Proveedores]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefix
+ *         schema:
+ *           type: string
+ *         description: Prefijo del código a buscar
+ *     responses:
+ *       200:
+ *         description: Lista de códigos que coinciden con el prefijo
+ */
+router.get('/codigos', proveedoresController.searchCodigos.bind(proveedoresController));
+
+/**
+ * @swagger
  * /proveedores/estadisticas:
  *   get:
  *     summary: Obtener estadísticas de proveedores

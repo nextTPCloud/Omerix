@@ -211,6 +211,18 @@ export interface ICliente extends Document {
   // Tags
   tags?: string[];
 
+  // ============================================
+  // AUTORIZACIONES COMUNICACIONES (LOPD/RGPD)
+  // ============================================
+  autorizacionWhatsApp?: boolean;       // Si autoriza comunicaciones por WhatsApp
+  fechaAutorizacionWhatsApp?: Date;     // Fecha de autorización
+  verificadoWhatsApp?: boolean;         // Si ha verificado su número de WhatsApp
+  fechaVerificacionWhatsApp?: Date;     // Fecha de verificación
+  autorizacionEmail?: boolean;          // Si autoriza comunicaciones por email
+  fechaAutorizacionEmail?: Date;        // Fecha de autorización email
+  autorizacionSMS?: boolean;            // Si autoriza comunicaciones por SMS
+  fechaAutorizacionSMS?: Date;          // Fecha de autorización SMS
+
   // Archivos
   archivos?: IArchivo[];
 
@@ -545,7 +557,19 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
     type: String,
     trim: true,
   }],
-  
+
+  // ============================================
+  // AUTORIZACIONES COMUNICACIONES (LOPD/RGPD)
+  // ============================================
+  autorizacionWhatsApp: { type: Boolean, default: false },
+  fechaAutorizacionWhatsApp: { type: Date },
+  verificadoWhatsApp: { type: Boolean, default: false },
+  fechaVerificacionWhatsApp: { type: Date },
+  autorizacionEmail: { type: Boolean, default: true }, // Por defecto true para emails
+  fechaAutorizacionEmail: { type: Date },
+  autorizacionSMS: { type: Boolean, default: false },
+  fechaAutorizacionSMS: { type: Date },
+
   // Archivos
   archivos: [ArchivoSchema],
   

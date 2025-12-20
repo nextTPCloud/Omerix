@@ -90,6 +90,9 @@ export interface IDatosLaborales {
   fechaFinContrato?: Date;
   periodoPrueba?: boolean;
   fechaFinPrueba?: Date;
+  // Configuración de fichaje
+  ubicacionObligatoria?: boolean;  // Si requiere ubicación al fichar
+  fotoObligatoria?: boolean;       // Si requiere foto para sincronizar con terminal
 }
 
 export interface IDatosEconomicos {
@@ -299,7 +302,10 @@ const DatosLaboralesSchema = new Schema<IDatosLaborales>({
   fechaInicioContrato: { type: Date, required: true },
   fechaFinContrato: { type: Date },
   periodoPrueba: { type: Boolean, default: false },
-  fechaFinPrueba: { type: Date }
+  fechaFinPrueba: { type: Date },
+  // Configuración de fichaje
+  ubicacionObligatoria: { type: Boolean, default: false },
+  fotoObligatoria: { type: Boolean, default: false }
 }, { _id: false });
 
 const DatosEconomicosSchema = new Schema<IDatosEconomicos>({

@@ -69,6 +69,19 @@ class TiposGastoService {
     const response = await api.post<TipoGastoResponse>(`${this.BASE_URL}/${id}/duplicar`)
     return response.data
   }
+
+  async searchCodigos(prefix: string): Promise<string[]> {
+    try {
+      const response = await api.get<{ success: boolean; data: string[] }>(
+        `${this.BASE_URL}/codigos`,
+        { params: { prefix } }
+      )
+      return response.data.data
+    } catch (error) {
+      console.error('Error al buscar codigos:', error)
+      return []
+    }
+  }
 }
 
 export const tiposGastoService = new TiposGastoService()

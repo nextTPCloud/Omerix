@@ -533,6 +533,90 @@ export class ProveedoresController {
   }
 
   // ============================================
+  // SUGERIR SIGUIENTE CÓDIGO
+  // ============================================
+
+  async sugerirSiguienteCodigo(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const prefijo = req.query.prefijo as string | undefined;
+
+      const codigo = await proveedoresService.sugerirSiguienteCodigo(
+        empresaId,
+        req.empresaDbConfig,
+        prefijo
+      );
+
+      res.json({
+        success: true,
+        data: { codigo },
+      });
+    } catch (error: any) {
+      console.error('Error al sugerir código:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al sugerir código',
+      });
+    }
+  }
+
+  // ============================================
+  // BUSCAR CÓDIGOS (PARA AUTO-SUGERENCIA)
+  // ============================================
+
+  async searchCodigos(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const prefix = (req.query.prefix as string) || '';
+
+      const codigos = await proveedoresService.searchCodigos(
+        empresaId,
+        prefix,
+        req.empresaDbConfig
+      );
+
+      res.json({
+        success: true,
+        data: codigos,
+      });
+    } catch (error: any) {
+      console.error('Error al buscar códigos:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al buscar códigos',
+      });
+    }
+  }
+
+  // ============================================
   // BUSCAR PARA SELECTOR
   // ============================================
 

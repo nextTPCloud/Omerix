@@ -197,6 +197,28 @@ router.get('/alertas', maquinariaController.getAlertas.bind(maquinariaController
 
 /**
  * @swagger
+ * /api/maquinaria/codigos:
+ *   get:
+ *     summary: Buscar codigos existentes por prefijo (para auto-sugerencia)
+ *     tags: [Maquinaria]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefix
+ *         schema:
+ *           type: string
+ *         description: Prefijo del codigo a buscar
+ *     responses:
+ *       200:
+ *         description: Lista de codigos
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/codigos', maquinariaController.searchCodigos.bind(maquinariaController));
+
+/**
+ * @swagger
  * /api/maquinaria/bulk/delete:
  *   post:
  *     summary: Eliminar multiples maquinarias

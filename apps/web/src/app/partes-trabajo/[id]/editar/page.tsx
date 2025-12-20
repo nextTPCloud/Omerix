@@ -11,6 +11,7 @@ import { personalService } from '@/services/personal.service'
 import { productosService } from '@/services/productos.service'
 import { maquinariaService } from '@/services/maquinaria.service'
 import { tiposGastoService } from '@/services/tipos-gasto.service'
+import { empresaService } from '@/services/empresa.service'
 import {
   ParteTrabajo,
   UpdateParteTrabajoDTO,
@@ -82,6 +83,9 @@ export default function EditarParteTrabajoPage() {
   const [productos, setProductos] = useState<any[]>([])
   const [maquinarias, setMaquinarias] = useState<any[]>([])
   const [tiposGasto, setTiposGasto] = useState<any[]>([])
+  const [intervaloFacturacion, setIntervaloFacturacion] = useState<number>(15)
+  const [decimalesPrecios, setDecimalesPrecios] = useState<number>(2)
+  const [decimalesCantidad, setDecimalesCantidad] = useState<number>(2)
 
   // Form data
   const [formData, setFormData] = useState<UpdateParteTrabajoDTO>({})
@@ -90,7 +94,7 @@ export default function EditarParteTrabajoPage() {
   const cargarDatos = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [parteRes, clientesRes, proyectosRes, personalRes, productosRes, maquinariasRes, tiposGastoRes] = await Promise.all([
+      const [parteRes, clientesRes, proyectosRes, personalRes, productosRes, maquinariasRes, tiposGastoRes, empresaRes] = await Promise.all([
         partesTrabajoService.getById(id),
         clientesService.getAll({ limit: 100, activo: 'true' }),
         proyectosService.getAll({ limit: 100, activo: 'true' }),
@@ -98,7 +102,21 @@ export default function EditarParteTrabajoPage() {
         productosService.getAll({ limit: 100, activo: 'true' }),
         maquinariaService.getAll({ limit: 100, activo: 'true' }),
         tiposGastoService.getActivos(),
+        empresaService.getMiEmpresa(),
       ])
+
+      // Cargar configuración de empresa
+      if (empresaRes.success && empresaRes.data) {
+        if (empresaRes.data.intervaloFacturacion) {
+          setIntervaloFacturacion(empresaRes.data.intervaloFacturacion)
+        }
+        if (empresaRes.data.decimalesPrecios !== undefined) {
+          setDecimalesPrecios(empresaRes.data.decimalesPrecios)
+        }
+        if (empresaRes.data.decimalesCantidad !== undefined) {
+          setDecimalesCantidad(empresaRes.data.decimalesCantidad)
+        }
+      }
 
       if (parteRes.success && parteRes.data) {
         setParte(parteRes.data)
@@ -113,6 +131,7 @@ export default function EditarParteTrabajoPage() {
           productoServicioId: extractId(l.productoServicioId),
           productoServicioCodigo: l.productoServicioCodigo || (typeof l.productoServicioId === 'object' ? l.productoServicioId?.codigo : '') || '',
           productoServicioNombre: l.productoServicioNombre || (typeof l.productoServicioId === 'object' ? l.productoServicioId?.nombre : '') || '',
+          facturable: l.facturable !== false, // Por defecto true
         }))
 
         // Normalizar líneas de material para extraer IDs de objetos poblados
@@ -120,6 +139,7 @@ export default function EditarParteTrabajoPage() {
           ...l,
           productoId: extractId(l.productoId),
           nombre: l.nombre || (typeof l.productoId === 'object' ? l.productoId?.nombre : '') || '',
+          facturable: l.facturable !== false, // Por defecto true
         }))
 
         // Normalizar líneas de maquinaria para asegurar que tengan el campo nombre
@@ -128,12 +148,14 @@ export default function EditarParteTrabajoPage() {
           maquinariaId: extractId(l.maquinariaId),
           operadorId: extractId(l.operadorId),
           nombre: l.nombre || (typeof l.maquinariaId === 'object' ? l.maquinariaId?.nombre : '') || '',
+          facturable: l.facturable !== false, // Por defecto true
         }))
 
         // Normalizar líneas de transporte para extraer IDs de objetos poblados
         const normalizarLineasTransporte = (lineas: any[]) => (lineas || []).map(l => ({
           ...l,
           conductorId: extractId(l.conductorId),
+          facturable: l.facturable !== false, // Por defecto true
         }))
 
         // Normalizar líneas de gastos para asegurar que tengan el campo tipoGastoNombre
@@ -141,6 +163,7 @@ export default function EditarParteTrabajoPage() {
           ...l,
           tipoGastoId: extractId(l.tipoGastoId),
           tipoGastoNombre: l.tipoGastoNombre || (typeof l.tipoGastoId === 'object' ? l.tipoGastoId?.nombre : '') || '',
+          facturable: l.facturable !== false, // Por defecto true
         }))
 
         setFormData({
@@ -236,6 +259,10 @@ export default function EditarParteTrabajoPage() {
     description: t.codigo || '',
   })), [tiposGasto])
 
+  // Valores de step para inputs numéricos basados en configuración de decimales
+  const stepPrecios = useMemo(() => Math.pow(10, -decimalesPrecios), [decimalesPrecios])
+  const stepCantidad = useMemo(() => Math.pow(10, -decimalesCantidad), [decimalesCantidad])
+
   // Handlers para lineas
   const agregarLineaPersonal = () => {
     setFormData(prev => ({
@@ -279,6 +306,20 @@ export default function EditarParteTrabajoPage() {
     }))
   }
 
+  // Función para calcular horas desde hora inicio y fin
+  const calcularHorasDesdeHorario = useCallback((horaInicio?: string, horaFin?: string): number => {
+    if (!horaInicio || !horaFin) return 0
+    const [hiH, hiM] = horaInicio.split(':').map(Number)
+    const [hfH, hfM] = horaFin.split(':').map(Number)
+    const inicioMinutos = hiH * 60 + hiM
+    const finMinutos = hfH * 60 + hfM
+    const diferenciaMinutos = finMinutos - inicioMinutos
+    if (diferenciaMinutos <= 0) return 0
+    // Redondear al intervalo de facturación configurado en la empresa
+    const minutosRedondeados = Math.ceil(diferenciaMinutos / intervaloFacturacion) * intervaloFacturacion
+    return minutosRedondeados / 60
+  }, [intervaloFacturacion])
+
   const actualizarLinea = (tipo: string, index: number, campo: string, valor: any) => {
     setFormData(prev => {
       const lineas = [...((prev as any)[tipo] || [])]
@@ -287,6 +328,10 @@ export default function EditarParteTrabajoPage() {
       // Recalcular totales de linea
       if (tipo === 'lineasPersonal') {
         const l = lineas[index]
+        // Si se cambia hora inicio o fin, recalcular horas trabajadas
+        if (campo === 'horaInicio' || campo === 'horaFin') {
+          l.horasTrabajadas = calcularHorasDesdeHorario(l.horaInicio, l.horaFin)
+        }
         const horas = (l.horasTrabajadas || 0) + (l.horasExtras || 0)
         l.costeTotal = horas * (l.tarifaHoraCoste || 0)
         l.ventaTotal = horas * (l.tarifaHoraVenta || 0)
@@ -351,9 +396,9 @@ export default function EditarParteTrabajoPage() {
 
   return (
     <DashboardLayout>
-      <div className="w-full space-y-6">
+      <div className="w-full max-w-full space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="w-full flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" asChild>
               <Link href={`/partes-trabajo/${id}`}>
@@ -381,9 +426,9 @@ export default function EditarParteTrabajoPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="w-full">
           <Tabs defaultValue="general" className="w-full">
-            <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:grid-cols-none lg:inline-flex">
+            <TabsList className="w-full flex flex-wrap gap-1">
               <TabsTrigger value="general">
                 <Building2 className="h-4 w-4 mr-2 hidden sm:inline" />
                 General
@@ -636,7 +681,7 @@ export default function EditarParteTrabajoPage() {
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>
-                          <div className="grid grid-cols-5 gap-3">
+                          <div className="grid grid-cols-4 gap-3">
                             <div className="space-y-1">
                               <Label className="text-xs">Trabajador</Label>
                               <SearchableSelect
@@ -696,26 +741,44 @@ export default function EditarParteTrabajoPage() {
                                 onChange={(e) => actualizarLinea('lineasPersonal', idx, 'fecha', e.target.value)}
                               />
                             </div>
+                          </div>
+                          <div className="grid grid-cols-6 gap-3">
                             <div className="space-y-1">
-                              <Label className="text-xs">Horas</Label>
+                              <Label className="text-xs">Hora Entrada</Label>
+                              <Input
+                                type="time"
+                                className="h-9"
+                                value={linea.horaInicio || ''}
+                                onChange={(e) => actualizarLinea('lineasPersonal', idx, 'horaInicio', e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Hora Salida</Label>
+                              <Input
+                                type="time"
+                                className="h-9"
+                                value={linea.horaFin || ''}
+                                onChange={(e) => actualizarLinea('lineasPersonal', idx, 'horaFin', e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Horas Facturar</Label>
                               <Input
                                 type="number"
-                                className="h-9"
+                                className="h-9 bg-muted"
                                 min={0}
-                                step={0.5}
+                                step={0.25}
                                 value={linea.horasTrabajadas || 0}
                                 onChange={(e) => actualizarLinea('lineasPersonal', idx, 'horasTrabajadas', parseFloat(e.target.value) || 0)}
                               />
                             </div>
-                          </div>
-                          <div className="grid grid-cols-4 gap-3">
                             <div className="space-y-1">
                               <Label className="text-xs">Horas Extra</Label>
                               <Input
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.5}
+                                step={0.25}
                                 value={linea.horasExtras || 0}
                                 onChange={(e) => actualizarLinea('lineasPersonal', idx, 'horasExtras', parseFloat(e.target.value) || 0)}
                               />
@@ -726,7 +789,7 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step="any"
                                 value={linea.tarifaHoraCoste || 0}
                                 onChange={(e) => actualizarLinea('lineasPersonal', idx, 'tarifaHoraCoste', parseFloat(e.target.value) || 0)}
                               />
@@ -737,27 +800,29 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step="any"
                                 value={linea.tarifaHoraVenta || 0}
                                 onChange={(e) => actualizarLinea('lineasPersonal', idx, 'tarifaHoraVenta', parseFloat(e.target.value) || 0)}
                               />
                             </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">Total Venta</Label>
-                              <Input
-                                className="h-9 bg-muted"
-                                readOnly
-                                value={(linea.ventaTotal || 0).toFixed(2)}
-                              />
-                            </div>
                           </div>
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <Switch
                                 checked={linea.facturable}
                                 onCheckedChange={(checked) => actualizarLinea('lineasPersonal', idx, 'facturable', checked)}
                               />
                               <Label className="text-xs">Facturable</Label>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="text-sm">
+                                <span className="text-muted-foreground">Coste:</span>{' '}
+                                <span className="font-medium">{(linea.costeTotal || 0).toFixed(2)} €</span>
+                              </div>
+                              <div className="text-sm">
+                                <span className="text-muted-foreground">Venta:</span>{' '}
+                                <span className="font-medium text-green-600">{(linea.ventaTotal || 0).toFixed(2)} €</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -842,7 +907,7 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step={stepPrecios}
                                 value={linea.precioCoste || 0}
                                 onChange={(e) => actualizarLinea('lineasMaterial', idx, 'precioCoste', parseFloat(e.target.value) || 0)}
                               />
@@ -853,7 +918,7 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step={stepPrecios}
                                 value={linea.precioVenta || 0}
                                 onChange={(e) => actualizarLinea('lineasMaterial', idx, 'precioVenta', parseFloat(e.target.value) || 0)}
                               />
@@ -979,7 +1044,7 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step={stepPrecios}
                                 value={linea.tarifaCoste || 0}
                                 onChange={(e) => actualizarLinea('lineasMaquinaria', idx, 'tarifaCoste', parseFloat(e.target.value) || 0)}
                               />
@@ -990,7 +1055,7 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step={stepPrecios}
                                 value={linea.tarifaVenta || 0}
                                 onChange={(e) => actualizarLinea('lineasMaquinaria', idx, 'tarifaVenta', parseFloat(e.target.value) || 0)}
                               />
@@ -1097,7 +1162,7 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step={stepPrecios}
                                 value={linea.tarifaPorKm || 0}
                                 onChange={(e) => actualizarLinea('lineasTransporte', idx, 'tarifaPorKm', parseFloat(e.target.value) || 0)}
                               />
@@ -1108,7 +1173,7 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step={stepPrecios}
                                 value={linea.peajes || 0}
                                 onChange={(e) => actualizarLinea('lineasTransporte', idx, 'peajes', parseFloat(e.target.value) || 0)}
                               />
@@ -1119,7 +1184,7 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step={stepPrecios}
                                 value={linea.combustible || 0}
                                 onChange={(e) => actualizarLinea('lineasTransporte', idx, 'combustible', parseFloat(e.target.value) || 0)}
                               />
@@ -1130,7 +1195,7 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step={stepPrecios}
                                 value={linea.precioVenta || 0}
                                 onChange={(e) => actualizarLinea('lineasTransporte', idx, 'precioVenta', parseFloat(e.target.value) || 0)}
                               />
@@ -1216,7 +1281,7 @@ export default function EditarParteTrabajoPage() {
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.01}
+                                step={stepPrecios}
                                 value={linea.importe || 0}
                                 onChange={(e) => actualizarLinea('lineasGastos', idx, 'importe', parseFloat(e.target.value) || 0)}
                               />

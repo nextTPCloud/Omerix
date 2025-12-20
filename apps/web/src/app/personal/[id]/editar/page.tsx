@@ -94,6 +94,8 @@ export default function EditarPersonalPage() {
               fechaFinContrato: emp.datosLaborales?.fechaFinContrato,
               periodoPrueba: emp.datosLaborales?.periodoPrueba,
               fechaFinPrueba: emp.datosLaborales?.fechaFinPrueba,
+              ubicacionObligatoria: emp.datosLaborales?.ubicacionObligatoria,
+              fotoObligatoria: emp.datosLaborales?.fotoObligatoria,
             },
             datosEconomicos: emp.datosEconomicos || { numPagas: 14 },
             responsableId: emp.responsableId,
@@ -611,6 +613,33 @@ export default function EditarPersonalPage() {
                     onCheckedChange={(checked) => updateNestedField('datosLaborales', 'periodoPrueba', checked)}
                   />
                   <Label htmlFor="periodoPrueba">En periodo de prueba</Label>
+                </div>
+
+                {/* Configuración de fichaje */}
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="text-sm font-medium mb-3">Configuración de Fichaje</h4>
+                  <div className="flex flex-wrap gap-6">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="ubicacionObligatoria"
+                        checked={formData.datosLaborales?.ubicacionObligatoria || false}
+                        onCheckedChange={(checked) => updateNestedField('datosLaborales', 'ubicacionObligatoria', !!checked)}
+                      />
+                      <Label htmlFor="ubicacionObligatoria" className="text-sm">
+                        Ubicación obligatoria para fichaje
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="fotoObligatoria"
+                        checked={formData.datosLaborales?.fotoObligatoria || false}
+                        onCheckedChange={(checked) => updateNestedField('datosLaborales', 'fotoObligatoria', !!checked)}
+                      />
+                      <Label htmlFor="fotoObligatoria" className="text-sm">
+                        Foto obligatoria para terminal biométrico
+                      </Label>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

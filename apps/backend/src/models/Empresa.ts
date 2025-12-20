@@ -91,12 +91,18 @@ export interface ITextosLegales {
   facturaIntroduccion?: string;
   facturaPiePagina?: string;
   facturaCondiciones?: string;
+  // Para partes de trabajo
+  parteTrabajoIntroduccion?: string;
+  parteTrabajoPiePagina?: string;
+  parteTrabajoConformidad?: string; // Texto de conformidad del cliente
   // Para emails
   emailFirma?: string;
   emailDisclaimer?: string;
   // LOPD / RGPD
   textoLOPD?: string;
   textoRGPD?: string;
+  // Autorización comunicaciones WhatsApp/SMS
+  textoAutorizacionWhatsApp?: string;
   // Política de privacidad, cookies, etc.
   politicaPrivacidad?: string;
   condicionesVenta?: string;
@@ -200,6 +206,8 @@ export interface IEmpresa extends Document {
   // Configuración de decimales
   decimalesCantidad?: number;
   decimalesPrecios?: number;
+  // Intervalo de facturación para partes de trabajo (en minutos)
+  intervaloFacturacion?: number;
 
   // Configuración de base de datos dedicada
   databaseConfig: IDatabaseConfig;
@@ -277,10 +285,14 @@ const TextosLegalesSchema = new Schema<ITextosLegales>({
   facturaIntroduccion: { type: String },
   facturaPiePagina: { type: String },
   facturaCondiciones: { type: String },
+  parteTrabajoIntroduccion: { type: String },
+  parteTrabajoPiePagina: { type: String },
+  parteTrabajoConformidad: { type: String },
   emailFirma: { type: String },
   emailDisclaimer: { type: String },
   textoLOPD: { type: String },
   textoRGPD: { type: String },
+  textoAutorizacionWhatsApp: { type: String },
   politicaPrivacidad: { type: String },
   condicionesVenta: { type: String },
 }, { _id: false });
@@ -431,6 +443,10 @@ const EmpresaSchema = new Schema<IEmpresa>(
     // Configuración de decimales
     decimalesCantidad: { type: Number, default: 2, min: 0, max: 6 },
     decimalesPrecios: { type: Number, default: 2, min: 0, max: 6 },
+
+    // Intervalo de facturación para partes de trabajo (en minutos)
+    // Ej: 15 = redondea al cuarto de hora más cercano hacia arriba
+    intervaloFacturacion: { type: Number, default: 15, min: 1, max: 60 },
 
     // Configuración de base de datos dedicada para esta empresa
     databaseConfig: {

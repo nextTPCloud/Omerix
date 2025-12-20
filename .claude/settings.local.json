@@ -4,7 +4,11 @@
       "Bash(npm run build:*)",
       "Bash(npm run build:web:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "Bash(npm install:*)"
     ]
   }
 }

@@ -11,7 +11,8 @@
     "seed:plans": "tsx src/scripts/seed-plans.ts",
     "seed:clientes": "tsx src/scripts/seedClientes.ts",
     "seed:textos-legales": "tsx src/scripts/seedTextosLegales.ts",
-    "migrate:multidb": "tsx src/scripts/migrateToMultiDB.ts"
+    "migrate:multidb": "tsx src/scripts/migrateToMultiDB.ts",
+    "migrate:fichajes-personal": "tsx src/scripts/migrateFichajesPersonalData.ts"
   },
   "keywords": [],
   "author": "",
@@ -35,6 +36,7 @@
     "mongoose": "^8.0.3",
     "multer": "^2.0.2",
     "node-forge": "^1.3.3",
+    "node-zklib": "^1.3.0",
     "nodemailer": "^7.0.10",
     "pdfkit": "^0.17.2",
     "qrcode": "^1.5.4",

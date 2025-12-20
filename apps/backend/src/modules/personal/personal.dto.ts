@@ -89,7 +89,10 @@ export const DatosLaboralesSchema = z.object({
   fechaInicioContrato: z.string(),
   fechaFinContrato: z.string().optional(),
   periodoPrueba: z.boolean().optional(),
-  fechaFinPrueba: z.string().optional()
+  fechaFinPrueba: z.string().optional(),
+  // Configuración de fichaje
+  ubicacionObligatoria: z.boolean().optional(),
+  fotoObligatoria: z.boolean().optional()
 });
 
 export const DatosEconomicosSchema = z.object({

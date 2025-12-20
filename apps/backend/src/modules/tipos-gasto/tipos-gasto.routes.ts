@@ -136,6 +136,28 @@ router.get('/activos', tiposGastoController.getActivos.bind(tiposGastoController
 
 /**
  * @swagger
+ * /api/tipos-gasto/codigos:
+ *   get:
+ *     summary: Buscar codigos existentes por prefijo (para auto-sugerencia)
+ *     tags: [TiposGasto]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefix
+ *         schema:
+ *           type: string
+ *         description: Prefijo del codigo a buscar
+ *     responses:
+ *       200:
+ *         description: Lista de codigos
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/codigos', tiposGastoController.searchCodigos.bind(tiposGastoController));
+
+/**
+ * @swagger
  * /api/tipos-gasto/bulk/delete:
  *   post:
  *     summary: Eliminar multiples tipos de gasto

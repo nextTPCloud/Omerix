@@ -54,6 +54,28 @@ router.get('/sugerir-codigo', familiasController.sugerirSiguienteCodigo.bind(fam
 
 /**
  * @swagger
+ * /api/familias/codigos:
+ *   get:
+ *     summary: Buscar codigos existentes por prefijo (para auto-sugerencia)
+ *     tags: [Familias]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefix
+ *         schema:
+ *           type: string
+ *         description: Prefijo del codigo a buscar
+ *     responses:
+ *       200:
+ *         description: Lista de codigos
+ *       401:
+ *         description: No autorizado
+ */
+router.get('/codigos', familiasController.searchCodigos.bind(familiasController));
+
+/**
+ * @swagger
  * /api/familias/arbol:
  *   get:
  *     summary: Obtener árbol jerárquico de familias

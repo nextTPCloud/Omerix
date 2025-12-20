@@ -444,6 +444,97 @@ export class ProveedoresService {
   }
 
   // ============================================
+  // SUGERIR SIGUIENTE CÓDIGO
+  // ============================================
+
+  async sugerirSiguienteCodigo(
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
+    prefijo?: string
+  ): Promise<string> {
+    const ProveedorModel = await this.getModeloProveedor(String(empresaId), dbConfig);
+
+    // Si no se proporciona prefijo, buscar el patrón más común
+    if (!prefijo || prefijo.trim() === '') {
+      const proveedores = await ProveedorModel.find({})
+        .select('codigo')
+        .sort({ codigo: -1 })
+        .limit(10)
+        .lean();
+
+      if (proveedores.length === 0) {
+        return 'PROV-001';
+      }
+
+      // Detectar el patrón más común
+      const patrones = proveedores
+        .map(p => {
+          const match = p.codigo?.match(/^([A-Za-z]+-)/);
+          return match ? match[1] : null;
+        })
+        .filter(Boolean);
+
+      if (patrones.length > 0) {
+        const patronMasComun = patrones.sort(
+          (a, b) =>
+            patrones.filter(v => v === a).length - patrones.filter(v => v === b).length
+        )[patrones.length - 1];
+        prefijo = patronMasComun!;
+      } else {
+        prefijo = 'PROV-';
+      }
+    }
+
+    // Buscar el último código con ese prefijo
+    const regex = new RegExp(`^${prefijo}(\\d+)$`, 'i');
+    const proveedores = await ProveedorModel.find({
+      codigo: regex,
+    })
+      .select('codigo')
+      .sort({ codigo: -1 })
+      .lean();
+
+    if (proveedores.length === 0) {
+      return `${prefijo}001`;
+    }
+
+    // Extraer todos los números y encontrar el máximo
+    const numeros = proveedores
+      .map(p => {
+        const match = p.codigo?.match(regex);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter(n => !isNaN(n));
+
+    const maxNumero = Math.max(...numeros);
+    const siguienteNumero = maxNumero + 1;
+    const numeroStr = siguienteNumero.toString().padStart(3, '0');
+
+    return `${prefijo}${numeroStr}`;
+  }
+
+  // ============================================
+  // BUSCAR CÓDIGOS EXISTENTES (PARA AUTO-SUGERENCIA)
+  // ============================================
+
+  async searchCodigos(
+    empresaId: mongoose.Types.ObjectId,
+    prefix: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<string[]> {
+    const ProveedorModel = await this.getModeloProveedor(String(empresaId), dbConfig);
+
+    const proveedores = await ProveedorModel.find(
+      {
+        codigo: { $regex: `^${prefix}`, $options: 'i' }
+      },
+      { codigo: 1 }
+    ).lean();
+
+    return proveedores.map(p => p.codigo).filter(Boolean) as string[];
+  }
+
+  // ============================================
   // VERIFICAR EXISTENCIA POR NIF
   // ============================================
 

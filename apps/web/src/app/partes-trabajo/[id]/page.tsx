@@ -19,6 +19,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
   DialogContent,
@@ -61,6 +64,9 @@ import {
   Wallet,
   Clock,
   FileText,
+  Mail,
+  MessageCircle,
+  Download,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -74,6 +80,16 @@ export default function ParteTrabajoDetallePage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [generarAlbaranDialogOpen, setGenerarAlbaranDialogOpen] = useState(false)
   const [isGenerandoAlbaran, setIsGenerandoAlbaran] = useState(false)
+
+  // Estados para el modal de email
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  const [isEnviandoEmail, setIsEnviandoEmail] = useState(false)
+  const [emailForm, setEmailForm] = useState({
+    destinatarios: '',
+    cc: '',
+    asunto: '',
+    mensaje: '',
+  })
 
   const cargarParte = async () => {
     try {
@@ -134,6 +150,111 @@ export default function ParteTrabajoDetallePage() {
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Error al duplicar')
     }
+  }
+
+  const handleAbrirEmailDialog = () => {
+    // Obtener email del cliente
+    const clienteEmail = typeof parte?.clienteId === 'object'
+      ? parte.clienteId?.email
+      : parte?.clienteEmail
+
+    // Inicializar formulario con valores por defecto
+    setEmailForm({
+      destinatarios: clienteEmail || '',
+      cc: '',
+      asunto: `Parte de Trabajo ${parte?.codigo}`,
+      mensaje: '',
+    })
+    setEmailDialogOpen(true)
+  }
+
+  const handleEnviarEmail = async () => {
+    // Validar destinatarios
+    const destinatarios = emailForm.destinatarios
+      .split(',')
+      .map(e => e.trim())
+      .filter(e => e.length > 0)
+
+    if (destinatarios.length === 0) {
+      toast.error('Debe indicar al menos un destinatario')
+      return
+    }
+
+    // Validar formato de emails
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const emailsInvalidos = destinatarios.filter(e => !emailRegex.test(e))
+    if (emailsInvalidos.length > 0) {
+      toast.error(`Email(s) inválido(s): ${emailsInvalidos.join(', ')}`)
+      return
+    }
+
+    try {
+      setIsEnviandoEmail(true)
+
+      // Preparar CC
+      const cc = emailForm.cc
+        .split(',')
+        .map(e => e.trim())
+        .filter(e => e.length > 0 && emailRegex.test(e))
+
+      const result = await partesTrabajoService.enviarEmail(id, {
+        destinatarios,
+        cc: cc.length > 0 ? cc : undefined,
+        asunto: emailForm.asunto || undefined,
+        mensaje: emailForm.mensaje || undefined,
+        urlParte: `${window.location.origin}/partes-trabajo/${id}/imprimir`,
+      })
+
+      if (result.success) {
+        toast.success(result.message || 'Email enviado correctamente')
+        setEmailDialogOpen(false)
+      } else {
+        toast.error('Error al enviar el email')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Error al enviar el email')
+    } finally {
+      setIsEnviandoEmail(false)
+    }
+  }
+
+  const handleEnviarWhatsApp = async () => {
+    // Obtener teléfono del cliente
+    const clienteTelefono = typeof parte?.clienteId === 'object'
+      ? parte.clienteId?.movil || parte.clienteId?.telefono
+      : parte?.clienteTelefono
+
+    if (!clienteTelefono) {
+      toast.error('El cliente no tiene teléfono configurado')
+      return
+    }
+
+    // Verificar autorización WhatsApp del cliente
+    const autorizadoWhatsApp = typeof parte?.clienteId === 'object'
+      ? parte.clienteId?.autorizacionWhatsApp
+      : false
+
+    if (!autorizadoWhatsApp) {
+      toast.warning('El cliente no ha autorizado comunicaciones por WhatsApp. Verifique los permisos LOPD.')
+    }
+
+    // Limpiar número de teléfono (quitar espacios, guiones, etc.)
+    const telefonoLimpio = clienteTelefono.replace(/[^0-9+]/g, '')
+    const telefonoConPrefijo = telefonoLimpio.startsWith('+') ? telefonoLimpio : `+34${telefonoLimpio}`
+
+    const mensaje = encodeURIComponent(
+      `Hola, le enviamos el parte de trabajo ${parte?.codigo}.\n\nPuede visualizarlo en:\n${window.location.origin}/partes-trabajo/${id}/imprimir`
+    )
+
+    window.open(`https://wa.me/${telefonoConPrefijo.replace('+', '')}?text=${mensaje}`, '_blank')
+    toast.info('Se ha abierto WhatsApp Web')
+  }
+
+  const handleExportarPDF = async () => {
+    // Abrir la vista de impresión en una nueva pestaña
+    // El usuario puede guardar como PDF desde el navegador
+    window.open(`/partes-trabajo/${id}/imprimir`, '_blank')
+    toast.info('Para exportar a PDF, use la opción "Guardar como PDF" del navegador (Ctrl+P)')
   }
 
   const handleGenerarAlbaran = async () => {
@@ -264,6 +385,20 @@ export default function ParteTrabajoDetallePage() {
                 <DropdownMenuItem onClick={handleDuplicar}>
                   <Copy className="h-4 w-4 mr-2" />
                   Duplicar
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Enviar / Exportar</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => handleAbrirEmailDialog()}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Enviar por Email
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleEnviarWhatsApp()}>
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Enviar por WhatsApp
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportarPDF()}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar PDF
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs">Cambiar estado</DropdownMenuLabel>
@@ -411,25 +546,73 @@ export default function ParteTrabajoDetallePage() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b">
-                              <th className="text-left p-2">Trabajador</th>
-                              <th className="text-left p-2">Fecha</th>
-                              <th className="text-right p-2">Horas</th>
-                              <th className="text-right p-2">Tarifa/h</th>
-                              <th className="text-right p-2">Venta</th>
+                            <tr className="border-b bg-muted/50">
+                              <th className="text-left p-2 font-medium">Trabajador</th>
+                              <th className="text-left p-2 font-medium">Fecha</th>
+                              <th className="text-center p-2 font-medium">Entrada</th>
+                              <th className="text-center p-2 font-medium">Salida</th>
+                              <th className="text-right p-2 font-medium">Horas</th>
+                              <th className="text-right p-2 font-medium">H.Extra</th>
+                              <th className="text-right p-2 font-medium">Tarifa/h</th>
+                              <th className="text-right p-2 font-medium">Venta</th>
                             </tr>
                           </thead>
                           <tbody>
                             {parte.lineasPersonal.map((linea, idx) => (
-                              <tr key={linea._id || idx} className="border-b">
-                                <td className="p-2">{linea.personalNombre}</td>
-                                <td className="p-2">{new Date(linea.fecha).toLocaleDateString('es-ES')}</td>
-                                <td className="p-2 text-right">{linea.horasTrabajadas + (linea.horasExtras || 0)}h</td>
-                                <td className="p-2 text-right">{formatCurrency(linea.tarifaHoraVenta)}</td>
-                                <td className="p-2 text-right font-medium">{formatCurrency(linea.ventaTotal)}</td>
-                              </tr>
+                              <>
+                                <tr key={linea._id || idx} className="border-b hover:bg-muted/30">
+                                  <td className="p-2">
+                                    <div className="font-medium">{linea.personalNombre}</div>
+                                    {linea.categoria && <div className="text-xs text-muted-foreground">{linea.categoria}</div>}
+                                  </td>
+                                  <td className="p-2">{new Date(linea.fecha).toLocaleDateString('es-ES')}</td>
+                                  <td className="p-2 text-center">
+                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                      {linea.horaInicio || '--:--'}
+                                    </Badge>
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                      {linea.horaFin || '--:--'}
+                                    </Badge>
+                                  </td>
+                                  <td className="p-2 text-right">{linea.horasTrabajadas}h</td>
+                                  <td className="p-2 text-right">
+                                    {linea.horasExtras > 0 && (
+                                      <span className="text-orange-600">+{linea.horasExtras}h</span>
+                                    )}
+                                  </td>
+                                  <td className="p-2 text-right">{formatCurrency(linea.tarifaHoraVenta)}</td>
+                                  <td className="p-2 text-right font-medium">{formatCurrency(linea.ventaTotal)}</td>
+                                </tr>
+                                {linea.descripcionTrabajo && (
+                                  <tr key={`${linea._id || idx}-desc`} className="border-b bg-muted/10">
+                                    <td colSpan={8} className="p-2 pl-6">
+                                      <div className="flex items-start gap-2">
+                                        <FileText className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                                        <span className="text-sm text-muted-foreground">{linea.descripcionTrabajo}</span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
                             ))}
                           </tbody>
+                          <tfoot className="bg-muted/50">
+                            <tr>
+                              <td colSpan={4} className="p-2 text-right font-medium">Totales:</td>
+                              <td className="p-2 text-right font-medium">
+                                {parte.lineasPersonal.reduce((sum, l) => sum + (l.horasTrabajadas || 0), 0)}h
+                              </td>
+                              <td className="p-2 text-right font-medium text-orange-600">
+                                +{parte.lineasPersonal.reduce((sum, l) => sum + (l.horasExtras || 0), 0)}h
+                              </td>
+                              <td className="p-2"></td>
+                              <td className="p-2 text-right font-bold text-primary">
+                                {formatCurrency(parte.totales?.ventaPersonal || 0)}
+                              </td>
+                            </tr>
+                          </tfoot>
                         </table>
                       </div>
                     ) : (
@@ -443,23 +626,47 @@ export default function ParteTrabajoDetallePage() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b">
-                              <th className="text-left p-2">Producto</th>
-                              <th className="text-right p-2">Cantidad</th>
-                              <th className="text-right p-2">Precio</th>
-                              <th className="text-right p-2">Venta</th>
+                            <tr className="border-b bg-muted/50">
+                              <th className="text-left p-2 font-medium">Producto</th>
+                              <th className="text-right p-2 font-medium">Cantidad</th>
+                              <th className="text-right p-2 font-medium">Precio Unit.</th>
+                              <th className="text-right p-2 font-medium">Dto.</th>
+                              <th className="text-right p-2 font-medium">IVA</th>
+                              <th className="text-right p-2 font-medium">Venta</th>
                             </tr>
                           </thead>
                           <tbody>
                             {parte.lineasMaterial.map((linea, idx) => (
-                              <tr key={linea._id || idx} className="border-b">
-                                <td className="p-2">{linea.productoNombre}</td>
+                              <tr key={linea._id || idx} className="border-b hover:bg-muted/30">
+                                <td className="p-2">
+                                  <div className="font-medium">{linea.productoNombre}</div>
+                                  {linea.productoCodigo && (
+                                    <div className="text-xs text-muted-foreground">{linea.productoCodigo}</div>
+                                  )}
+                                  {linea.lote && (
+                                    <div className="text-xs text-muted-foreground">Lote: {linea.lote}</div>
+                                  )}
+                                </td>
                                 <td className="p-2 text-right">{linea.cantidad} {linea.unidad}</td>
                                 <td className="p-2 text-right">{formatCurrency(linea.precioVenta)}</td>
+                                <td className="p-2 text-right">
+                                  {linea.descuento > 0 && (
+                                    <span className="text-green-600">-{linea.descuento}%</span>
+                                  )}
+                                </td>
+                                <td className="p-2 text-right">{linea.iva || 21}%</td>
                                 <td className="p-2 text-right font-medium">{formatCurrency(linea.ventaTotal)}</td>
                               </tr>
                             ))}
                           </tbody>
+                          <tfoot className="bg-muted/50">
+                            <tr>
+                              <td colSpan={5} className="p-2 text-right font-medium">Total Material:</td>
+                              <td className="p-2 text-right font-bold text-primary">
+                                {formatCurrency(parte.totales?.ventaMaterial || 0)}
+                              </td>
+                            </tr>
+                          </tfoot>
                         </table>
                       </div>
                     ) : (
@@ -473,25 +680,63 @@ export default function ParteTrabajoDetallePage() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b">
-                              <th className="text-left p-2">Maquinaria</th>
-                              <th className="text-left p-2">Fecha</th>
-                              <th className="text-right p-2">Cantidad</th>
-                              <th className="text-right p-2">Tarifa</th>
-                              <th className="text-right p-2">Venta</th>
+                            <tr className="border-b bg-muted/50">
+                              <th className="text-left p-2 font-medium">Maquinaria</th>
+                              <th className="text-left p-2 font-medium">Operador</th>
+                              <th className="text-left p-2 font-medium">Fecha</th>
+                              <th className="text-right p-2 font-medium">Cantidad</th>
+                              <th className="text-right p-2 font-medium">Tarifa</th>
+                              <th className="text-right p-2 font-medium">Venta</th>
                             </tr>
                           </thead>
                           <tbody>
                             {parte.lineasMaquinaria.map((linea, idx) => (
-                              <tr key={linea._id || idx} className="border-b">
-                                <td className="p-2">{linea.nombre}</td>
-                                <td className="p-2">{new Date(linea.fechaUso).toLocaleDateString('es-ES')}</td>
-                                <td className="p-2 text-right">{linea.cantidad} {getTipoUnidadAbbr(linea.tipoUnidad)}</td>
-                                <td className="p-2 text-right">{formatCurrency(linea.tarifaVenta)}</td>
-                                <td className="p-2 text-right font-medium">{formatCurrency(linea.ventaTotal)}</td>
-                              </tr>
+                              <>
+                                <tr key={linea._id || idx} className="border-b hover:bg-muted/30">
+                                  <td className="p-2">
+                                    <div className="font-medium">{linea.nombre}</div>
+                                    {linea.codigo && <div className="text-xs text-muted-foreground">{linea.codigo}</div>}
+                                  </td>
+                                  <td className="p-2">
+                                    {linea.operadorNombre ? (
+                                      <div className="flex items-center gap-1">
+                                        <User className="h-3 w-3 text-muted-foreground" />
+                                        <span>{linea.operadorNombre}</span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">-</span>
+                                    )}
+                                  </td>
+                                  <td className="p-2">{new Date(linea.fechaUso).toLocaleDateString('es-ES')}</td>
+                                  <td className="p-2 text-right">
+                                    <Badge variant="secondary">
+                                      {linea.cantidad} {getTipoUnidadAbbr(linea.tipoUnidad)}
+                                    </Badge>
+                                  </td>
+                                  <td className="p-2 text-right">{formatCurrency(linea.tarifaVenta)}/{getTipoUnidadAbbr(linea.tipoUnidad)}</td>
+                                  <td className="p-2 text-right font-medium">{formatCurrency(linea.ventaTotal)}</td>
+                                </tr>
+                                {linea.observaciones && (
+                                  <tr key={`${linea._id || idx}-obs`} className="border-b bg-muted/10">
+                                    <td colSpan={6} className="p-2 pl-6">
+                                      <div className="flex items-start gap-2">
+                                        <FileText className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                                        <span className="text-sm text-muted-foreground">{linea.observaciones}</span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
                             ))}
                           </tbody>
+                          <tfoot className="bg-muted/50">
+                            <tr>
+                              <td colSpan={5} className="p-2 text-right font-medium">Total Maquinaria:</td>
+                              <td className="p-2 text-right font-bold text-primary">
+                                {formatCurrency(parte.totales?.ventaMaquinaria || 0)}
+                              </td>
+                            </tr>
+                          </tfoot>
                         </table>
                       </div>
                     ) : (
@@ -505,23 +750,70 @@ export default function ParteTrabajoDetallePage() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b">
-                              <th className="text-left p-2">Vehiculo</th>
-                              <th className="text-left p-2">Ruta</th>
-                              <th className="text-right p-2">Km</th>
-                              <th className="text-right p-2">Venta</th>
+                            <tr className="border-b bg-muted/50">
+                              <th className="text-left p-2 font-medium">Vehiculo</th>
+                              <th className="text-left p-2 font-medium">Conductor</th>
+                              <th className="text-left p-2 font-medium">Fecha</th>
+                              <th className="text-left p-2 font-medium">Ruta</th>
+                              <th className="text-right p-2 font-medium">Km</th>
+                              <th className="text-right p-2 font-medium">Extras</th>
+                              <th className="text-right p-2 font-medium">Venta</th>
                             </tr>
                           </thead>
                           <tbody>
                             {parte.lineasTransporte.map((linea, idx) => (
-                              <tr key={linea._id || idx} className="border-b">
-                                <td className="p-2">{linea.vehiculoNombre}</td>
-                                <td className="p-2">{linea.origen && linea.destino ? `${linea.origen} → ${linea.destino}` : '-'}</td>
-                                <td className="p-2 text-right">{linea.kmRecorridos} km</td>
+                              <tr key={linea._id || idx} className="border-b hover:bg-muted/30">
+                                <td className="p-2">
+                                  <div className="font-medium">{linea.vehiculoNombre}</div>
+                                  {linea.matricula && <div className="text-xs text-muted-foreground">{linea.matricula}</div>}
+                                </td>
+                                <td className="p-2">
+                                  {linea.conductorNombre ? (
+                                    <div className="flex items-center gap-1">
+                                      <User className="h-3 w-3 text-muted-foreground" />
+                                      <span>{linea.conductorNombre}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground">-</span>
+                                  )}
+                                </td>
+                                <td className="p-2">{linea.fecha ? new Date(linea.fecha).toLocaleDateString('es-ES') : '-'}</td>
+                                <td className="p-2">
+                                  {linea.origen && linea.destino ? (
+                                    <div className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3 text-muted-foreground" />
+                                      <span>{linea.origen} → {linea.destino}</span>
+                                    </div>
+                                  ) : '-'}
+                                </td>
+                                <td className="p-2 text-right">
+                                  <Badge variant="secondary">{linea.kmRecorridos} km</Badge>
+                                </td>
+                                <td className="p-2 text-right text-xs">
+                                  {(linea.peajes > 0 || linea.combustible > 0 || linea.importeFijoViaje > 0) && (
+                                    <div className="space-y-0.5">
+                                      {linea.peajes > 0 && <div>Peajes: {formatCurrency(linea.peajes)}</div>}
+                                      {linea.combustible > 0 && <div>Combustible: {formatCurrency(linea.combustible)}</div>}
+                                      {linea.importeFijoViaje > 0 && <div>Fijo: {formatCurrency(linea.importeFijoViaje)}</div>}
+                                    </div>
+                                  )}
+                                </td>
                                 <td className="p-2 text-right font-medium">{formatCurrency(linea.precioVenta)}</td>
                               </tr>
                             ))}
                           </tbody>
+                          <tfoot className="bg-muted/50">
+                            <tr>
+                              <td colSpan={4} className="p-2 text-right font-medium">Totales:</td>
+                              <td className="p-2 text-right font-medium">
+                                {parte.lineasTransporte.reduce((sum, l) => sum + (l.kmRecorridos || 0), 0)} km
+                              </td>
+                              <td className="p-2"></td>
+                              <td className="p-2 text-right font-bold text-primary">
+                                {formatCurrency(parte.totales?.ventaTransporte || 0)}
+                              </td>
+                            </tr>
+                          </tfoot>
                         </table>
                       </div>
                     ) : (
@@ -535,23 +827,52 @@ export default function ParteTrabajoDetallePage() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b">
-                              <th className="text-left p-2">Tipo</th>
-                              <th className="text-left p-2">Descripcion</th>
-                              <th className="text-right p-2">Importe</th>
-                              <th className="text-right p-2">Facturable</th>
+                            <tr className="border-b bg-muted/50">
+                              <th className="text-left p-2 font-medium">Tipo</th>
+                              <th className="text-left p-2 font-medium">Descripcion</th>
+                              <th className="text-left p-2 font-medium">Fecha</th>
+                              <th className="text-left p-2 font-medium">Proveedor</th>
+                              <th className="text-right p-2 font-medium">Importe</th>
+                              <th className="text-right p-2 font-medium">Margen</th>
+                              <th className="text-right p-2 font-medium">Facturable</th>
                             </tr>
                           </thead>
                           <tbody>
                             {parte.lineasGastos.map((linea, idx) => (
-                              <tr key={linea._id || idx} className="border-b">
-                                <td className="p-2">{linea.tipoGastoNombre}</td>
-                                <td className="p-2">{linea.descripcion || '-'}</td>
+                              <tr key={linea._id || idx} className="border-b hover:bg-muted/30">
+                                <td className="p-2">
+                                  <Badge variant="outline">{linea.tipoGastoNombre}</Badge>
+                                </td>
+                                <td className="p-2">
+                                  <div>{linea.descripcion || '-'}</div>
+                                  {linea.numeroFactura && (
+                                    <div className="text-xs text-muted-foreground">Fact: {linea.numeroFactura}</div>
+                                  )}
+                                </td>
+                                <td className="p-2">{linea.fecha ? new Date(linea.fecha).toLocaleDateString('es-ES') : '-'}</td>
+                                <td className="p-2">{linea.proveedor || '-'}</td>
                                 <td className="p-2 text-right">{formatCurrency(linea.importe)}</td>
+                                <td className="p-2 text-right">
+                                  {linea.margen > 0 && (
+                                    <span className="text-green-600">+{linea.margen}%</span>
+                                  )}
+                                </td>
                                 <td className="p-2 text-right font-medium">{formatCurrency(linea.importeFacturable)}</td>
                               </tr>
                             ))}
                           </tbody>
+                          <tfoot className="bg-muted/50">
+                            <tr>
+                              <td colSpan={4} className="p-2 text-right font-medium">Totales:</td>
+                              <td className="p-2 text-right font-medium">
+                                {formatCurrency(parte.lineasGastos.reduce((sum, l) => sum + (l.importe || 0), 0))}
+                              </td>
+                              <td className="p-2"></td>
+                              <td className="p-2 text-right font-bold text-primary">
+                                {formatCurrency(parte.totales?.ventaGastos || 0)}
+                              </td>
+                            </tr>
+                          </tfoot>
                         </table>
                       </div>
                     ) : (
@@ -735,6 +1056,83 @@ export default function ParteTrabajoDetallePage() {
                 <>
                   <Receipt className="h-4 w-4 mr-2" />
                   Generar Albaran
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de enviar email */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Enviar Parte por Email
+            </DialogTitle>
+            <DialogDescription>
+              Enviar el parte de trabajo {parte.codigo} por correo electronico.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="destinatarios">
+                Destinatarios <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="destinatarios"
+                placeholder="email@ejemplo.com, otro@ejemplo.com"
+                value={emailForm.destinatarios}
+                onChange={(e) => setEmailForm({ ...emailForm, destinatarios: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Separe multiples emails con comas
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cc">CC (copia)</Label>
+              <Input
+                id="cc"
+                placeholder="copia@ejemplo.com"
+                value={emailForm.cc}
+                onChange={(e) => setEmailForm({ ...emailForm, cc: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="asunto">Asunto</Label>
+              <Input
+                id="asunto"
+                placeholder="Asunto del email"
+                value={emailForm.asunto}
+                onChange={(e) => setEmailForm({ ...emailForm, asunto: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mensaje">Mensaje personalizado (opcional)</Label>
+              <Textarea
+                id="mensaje"
+                placeholder="Escriba un mensaje personalizado para el cliente..."
+                value={emailForm.mensaje}
+                onChange={(e) => setEmailForm({ ...emailForm, mensaje: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEnviarEmail} disabled={isEnviandoEmail}>
+              {isEnviandoEmail ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Enviar Email
                 </>
               )}
             </Button>

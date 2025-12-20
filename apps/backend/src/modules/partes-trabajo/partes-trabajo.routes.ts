@@ -455,4 +455,59 @@ router.post('/:id/generar-albaran', partesTrabajoController.generarAlbaran);
  */
 router.post('/:id/duplicar', partesTrabajoController.duplicar);
 
+/**
+ * @swagger
+ * /api/partes-trabajo/{id}/enviar-email:
+ *   post:
+ *     summary: Enviar parte de trabajo por email
+ *     tags: [PartesTrabajo]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del parte de trabajo
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - destinatarios
+ *             properties:
+ *               destinatarios:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: email
+ *                 description: Lista de emails destinatarios
+ *               cc:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: email
+ *                 description: Lista de emails en copia
+ *               asunto:
+ *                 type: string
+ *                 description: Asunto del email (opcional)
+ *               mensaje:
+ *                 type: string
+ *                 description: Mensaje personalizado (opcional)
+ *               urlParte:
+ *                 type: string
+ *                 description: URL para ver el parte online
+ *     responses:
+ *       200:
+ *         description: Email enviado correctamente
+ *       400:
+ *         description: Datos invalidos
+ *       404:
+ *         description: Parte no encontrado
+ */
+router.post('/:id/enviar-email', partesTrabajoController.enviarEmail);
+
 export default router;

@@ -262,6 +262,115 @@ export const emailTemplates = {
     </html>
   `,
 
+  // Email de parte de trabajo
+  parteTrabajo: (params: {
+    clienteNombre: string;
+    codigoParte: string;
+    tituloParte?: string;
+    tipoParte: string;
+    fecha: string;
+    estado: string;
+    totalVenta: string;
+    empresaNombre: string;
+    empresaEmail?: string;
+    empresaTelefono?: string;
+    urlParte?: string;
+    mensaje?: string;
+    trabajoRealizado?: string;
+    lineasResumen?: {
+      personal: number;
+      material: number;
+      maquinaria: number;
+      transporte: number;
+      gastos: number;
+    };
+  }) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669; }
+        .highlight { font-size: 24px; font-weight: bold; color: #059669; }
+        .lineas-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+        .linea-item { background: #E5E7EB; padding: 10px; border-radius: 6px; text-align: center; }
+        .linea-item span { font-weight: bold; color: #059669; }
+        .cta-button { display: inline-block; padding: 14px 30px; background: #059669; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .contact-info { background: #E5E7EB; padding: 15px; border-radius: 6px; margin-top: 20px; }
+        .mensaje-personalizado { background: #FEF3C7; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #F59E0B; }
+        .trabajo-realizado { background: #DBEAFE; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #3B82F6; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #D1FAE5; color: #065F46; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Parte de Trabajo</h1>
+          <p style="margin: 0; opacity: 0.9;">${params.codigoParte}</p>
+        </div>
+        <div class="content">
+          <p>Estimado/a <strong>${params.clienteNombre}</strong>,</p>
+
+          ${params.mensaje ? `
+          <div class="mensaje-personalizado">
+            <p style="margin: 0;">${params.mensaje}</p>
+          </div>
+          ` : '<p>Le enviamos el parte de trabajo correspondiente a los servicios realizados:</p>'}
+
+          <div class="info-box">
+            <p><strong>Parte:</strong> ${params.codigoParte}</p>
+            ${params.tituloParte ? `<p><strong>Concepto:</strong> ${params.tituloParte}</p>` : ''}
+            <p><strong>Tipo:</strong> <span class="badge">${params.tipoParte}</span></p>
+            <p><strong>Fecha:</strong> ${params.fecha}</p>
+            <p><strong>Estado:</strong> ${params.estado}</p>
+            <p><strong>Importe total:</strong> <span class="highlight">${params.totalVenta}</span></p>
+          </div>
+
+          ${params.lineasResumen ? `
+          <p><strong>Resumen de trabajos:</strong></p>
+          <div class="lineas-grid">
+            ${params.lineasResumen.personal > 0 ? `<div class="linea-item">Personal<br><span>${params.lineasResumen.personal} líneas</span></div>` : ''}
+            ${params.lineasResumen.material > 0 ? `<div class="linea-item">Material<br><span>${params.lineasResumen.material} líneas</span></div>` : ''}
+            ${params.lineasResumen.maquinaria > 0 ? `<div class="linea-item">Maquinaria<br><span>${params.lineasResumen.maquinaria} líneas</span></div>` : ''}
+            ${params.lineasResumen.transporte > 0 ? `<div class="linea-item">Transporte<br><span>${params.lineasResumen.transporte} líneas</span></div>` : ''}
+            ${params.lineasResumen.gastos > 0 ? `<div class="linea-item">Gastos<br><span>${params.lineasResumen.gastos} líneas</span></div>` : ''}
+          </div>
+          ` : ''}
+
+          ${params.trabajoRealizado ? `
+          <div class="trabajo-realizado">
+            <p><strong>Trabajo realizado:</strong></p>
+            <p style="margin: 0;">${params.trabajoRealizado}</p>
+          </div>
+          ` : ''}
+
+          ${params.urlParte ? `
+          <center>
+            <a href="${params.urlParte}" class="cta-button">Ver Parte de Trabajo</a>
+          </center>
+          ` : ''}
+
+          <div class="contact-info">
+            <p><strong>Contacto:</strong></p>
+            ${params.empresaEmail ? `<p>Email: ${params.empresaEmail}</p>` : ''}
+            ${params.empresaTelefono ? `<p>Telefono: ${params.empresaTelefono}</p>` : ''}
+          </div>
+
+          <p>Saludos cordiales,<br><strong>${params.empresaNombre}</strong></p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} ${params.empresaNombre}. Todos los derechos reservados.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
+
   // Notificación al agente comercial
   recordatorioAgente: (params: {
     agenteNombre: string;

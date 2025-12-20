@@ -510,6 +510,33 @@ export default function NuevoPersonalEditarPage() {
                     />
                   </div>
                 </div>
+
+                {/* Configuración de fichaje */}
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="text-sm font-medium mb-3">Configuración de Fichaje</h4>
+                  <div className="flex flex-wrap gap-6">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="ubicacionObligatoria"
+                        checked={formData.datosLaborales?.ubicacionObligatoria || false}
+                        onCheckedChange={(checked) => updateNestedField('datosLaborales', 'ubicacionObligatoria', !!checked)}
+                      />
+                      <Label htmlFor="ubicacionObligatoria" className="text-sm">
+                        Ubicación obligatoria para fichaje
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="fotoObligatoria"
+                        checked={formData.datosLaborales?.fotoObligatoria || false}
+                        onCheckedChange={(checked) => updateNestedField('datosLaborales', 'fotoObligatoria', !!checked)}
+                      />
+                      <Label htmlFor="fotoObligatoria" className="text-sm">
+                        Foto obligatoria para terminal biométrico
+                      </Label>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

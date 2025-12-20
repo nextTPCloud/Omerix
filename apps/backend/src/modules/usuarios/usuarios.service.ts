@@ -28,6 +28,7 @@ export interface UpdateUsuarioDTO {
   telefono?: string;
   rol?: Role;
   rolId?: string;
+  personalId?: string | null;  // Vinculación con empleado para fichaje
   activo?: boolean;
   avatar?: string;
 }
@@ -78,6 +79,7 @@ class UsuariosService {
       Usuario.find(filter)
         .select('-password -twoFactorSecret -resetPasswordToken -resetPasswordExpires')
         .populate('rolId', 'nombre codigo color')
+        .populate('personalId', 'codigo nombre apellidos')
         .sort({ nombre: 1, apellidos: 1 })
         .skip(skip)
         .limit(limit)
@@ -98,6 +100,7 @@ class UsuariosService {
     })
       .select('-password -twoFactorSecret -resetPasswordToken -resetPasswordExpires')
       .populate('rolId', 'nombre codigo color permisos')
+      .populate('personalId', 'codigo nombre apellidos')
       .lean();
   }
 
@@ -206,6 +209,9 @@ class UsuariosService {
     if (data.rol !== undefined) updateData.rol = data.rol;
     if (data.rolId !== undefined) {
       updateData.rolId = data.rolId ? new Types.ObjectId(data.rolId) : null;
+    }
+    if (data.personalId !== undefined) {
+      updateData.personalId = data.personalId ? new Types.ObjectId(data.personalId) : null;
     }
     if (data.activo !== undefined) updateData.activo = data.activo;
     if (data.avatar !== undefined) updateData.avatar = data.avatar;

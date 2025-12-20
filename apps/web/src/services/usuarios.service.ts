@@ -24,6 +24,7 @@ export interface IUsuario {
     codigo: string;
     color?: string;
   };
+  personalId?: string;  // Vinculación con empleado para fichaje
   activo: boolean;
   emailVerificado: boolean;
   twoFactorEnabled: boolean;
@@ -56,6 +57,7 @@ export interface UpdateUsuarioDTO {
   telefono?: string;
   rol?: Exclude<RoleType, 'superadmin'>;
   rolId?: string | null;
+  personalId?: string | null;  // Vinculación con empleado
   activo?: boolean;
   avatar?: string;
 }

@@ -318,6 +318,45 @@ export class FamiliasController {
     }
   }
 
+  // Buscar códigos existentes
+  async searchCodigos(req: Request, res: Response) {
+    try {
+      if (!req.empresaId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+        });
+      }
+
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const prefix = (req.query.prefix as string) || '';
+
+      const codigos = await familiasService.searchCodigos(
+        empresaId,
+        prefix,
+        req.empresaDbConfig
+      );
+
+      res.json({
+        success: true,
+        data: codigos,
+      });
+    } catch (error: any) {
+      console.error('Error al buscar códigos:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al buscar códigos',
+      });
+    }
+  }
+
   // Sugerir siguiente código
   async sugerirSiguienteCodigo(req: Request, res: Response) {
     try {

@@ -281,6 +281,28 @@ export class MaquinariaController {
     }
   }
 
+  async searchCodigos(req: Request, res: Response, next: NextFunction) {
+    try {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autorizado',
+        });
+      }
+
+      const prefix = (req.query.prefix as string) || '';
+      const codigos = await maquinariaService.searchCodigos(empresaId, prefix, req.empresaDbConfig);
+
+      res.json({
+        success: true,
+        data: codigos,
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
   async getEstadisticas(req: Request, res: Response, next: NextFunction) {
     try {
       const empresaId = req.empresaId;

@@ -95,6 +95,9 @@ export interface DatosLaborales {
   fechaFinContrato?: string;
   periodoPrueba?: boolean;
   fechaFinPrueba?: string;
+  // Configuración de fichaje
+  ubicacionObligatoria?: boolean;
+  fotoObligatoria?: boolean;
 }
 
 export interface DatosEconomicos {
@@ -250,6 +253,8 @@ export interface CreatePersonalDTO {
     fechaFinContrato?: string;
     periodoPrueba?: boolean;
     fechaFinPrueba?: string;
+    ubicacionObligatoria?: boolean;
+    fotoObligatoria?: boolean;
   };
   datosEconomicos?: DatosEconomicos;
   responsableId?: string;

@@ -331,3 +331,16 @@ export interface BulkCambiarEstadoDTO {
   ids: string[];
   estado: EstadoParteTrabajo;
 }
+
+// ============================================
+// ENVIAR EMAIL
+// ============================================
+
+export interface EnviarEmailParteDTO {
+  destinatarios: string[];
+  cc?: string[];
+  asunto?: string;
+  mensaje?: string;
+  urlParte?: string;
+  adjuntarPDF?: boolean;
+}

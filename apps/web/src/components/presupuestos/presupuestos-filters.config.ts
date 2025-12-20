@@ -775,3 +775,125 @@ export const FACTURAS_COMPRA_FILTERABLE_FIELDS: FilterableField[] = [
     type: 'boolean',
   },
 ];
+
+// ============================================
+// MÓDULOS DE CONTROL HORARIO
+// ============================================
+
+// Campos filtrables para el módulo de terminales biométricos
+export const TERMINALES_FILTERABLE_FIELDS: FilterableField[] = [
+  {
+    key: 'codigo',
+    label: 'Código',
+    type: 'text',
+    placeholder: 'Ej: TERM-001',
+  },
+  {
+    key: 'nombre',
+    label: 'Nombre',
+    type: 'text',
+    placeholder: 'Nombre del terminal',
+  },
+  {
+    key: 'ip',
+    label: 'IP',
+    type: 'text',
+    placeholder: 'Ej: 192.168.1.100',
+  },
+  {
+    key: 'marca',
+    label: 'Marca',
+    type: 'select',
+    options: [
+      { value: 'ZKTeco', label: 'ZKTeco' },
+      { value: 'ANVIZ', label: 'ANVIZ' },
+      { value: 'Hikvision', label: 'Hikvision' },
+      { value: 'otro', label: 'Otro' },
+    ],
+  },
+  {
+    key: 'estado',
+    label: 'Estado',
+    type: 'select',
+    options: [
+      { value: 'activo', label: 'Activo' },
+      { value: 'inactivo', label: 'Inactivo' },
+      { value: 'error', label: 'Error' },
+    ],
+  },
+  {
+    key: 'estadoConexion',
+    label: 'Conexión',
+    type: 'select',
+    options: [
+      { value: 'conectado', label: 'Conectado' },
+      { value: 'desconectado', label: 'Desconectado' },
+      { value: 'desconocido', label: 'Desconocido' },
+    ],
+  },
+  {
+    key: 'ultimaSincronizacion',
+    label: 'Última Sincronización',
+    type: 'date',
+  },
+  {
+    key: 'activo',
+    label: 'Activo',
+    type: 'boolean',
+  },
+];
+
+// Campos filtrables para el módulo de fichajes
+export const FICHAJES_FILTERABLE_FIELDS: FilterableField[] = [
+  {
+    key: 'personalNombre',
+    label: 'Empleado',
+    type: 'text',
+    placeholder: 'Nombre del empleado',
+  },
+  {
+    key: 'departamentoNombre',
+    label: 'Departamento',
+    type: 'text',
+    placeholder: 'Departamento',
+  },
+  {
+    key: 'fecha',
+    label: 'Fecha',
+    type: 'date',
+  },
+  {
+    key: 'tipo',
+    label: 'Tipo',
+    type: 'select',
+    options: [
+      { value: 'normal', label: 'Normal' },
+      { value: 'teletrabajo', label: 'Teletrabajo' },
+      { value: 'viaje', label: 'Viaje' },
+      { value: 'formacion', label: 'Formación' },
+    ],
+  },
+  {
+    key: 'estado',
+    label: 'Estado',
+    type: 'select',
+    options: [
+      { value: 'abierto', label: 'Abierto' },
+      { value: 'cerrado', label: 'Cerrado' },
+      { value: 'pendiente', label: 'Pendiente' },
+      { value: 'aprobado', label: 'Aprobado' },
+      { value: 'rechazado', label: 'Rechazado' },
+    ],
+  },
+  {
+    key: 'horasTrabajadas',
+    label: 'Horas Trabajadas',
+    type: 'number',
+    placeholder: 'Ej: 8',
+  },
+  {
+    key: 'incidencia',
+    label: 'Con Incidencia',
+    type: 'boolean',
+  },
+];

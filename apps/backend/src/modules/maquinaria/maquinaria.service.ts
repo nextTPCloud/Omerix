@@ -356,6 +356,19 @@ export class MaquinariaService {
   }
 
   /**
+   * Buscar codigos que empiecen con un prefijo (para auto-sugerencia)
+   */
+  async searchCodigos(empresaId: string, prefix: string, dbConfig: IDatabaseConfig): Promise<string[]> {
+    const MaquinariaModel = await this.getModelo(empresaId, dbConfig);
+    const maquinarias = await MaquinariaModel.find(
+      { codigo: { $regex: `^${prefix}`, $options: 'i' } },
+      { codigo: 1 }
+    ).lean();
+
+    return maquinarias.map(m => m.codigo);
+  }
+
+  /**
    * Obtener estadisticas
    */
   async getEstadisticas(empresaId: string, dbConfig: IDatabaseConfig) {

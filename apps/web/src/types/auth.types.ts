@@ -11,6 +11,7 @@ export interface Usuario {
   avatar?: string;
   twoFactorEnabled: boolean;
   twoFactorMethod?: 'app' | 'sms' | null;
+  personalId?: string;  // Vinculación con empleado para fichaje
   permisos?: {
     especiales?: Partial<IPermisosEspeciales>;
   };

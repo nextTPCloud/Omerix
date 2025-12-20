@@ -13,6 +13,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { CodeInput } from '@/components/ui/code-input'
+import { proveedoresService } from '@/services/proveedores.service'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -274,22 +276,16 @@ export function ProveedorForm({
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="codigo">Codigo {mode === 'create' && '(opcional)'}</Label>
-                <div className="relative">
-                  <Input
-                    id="codigo"
-                    name="codigo"
-                    value={formData.codigo || ''}
-                    onChange={handleChange}
-                    placeholder={mode === 'create' ? 'Ej: PROV-001 (vacio para autogenerar)' : 'Codigo del proveedor'}
-                    disabled={mode === 'edit'}
-                    className={mode === 'edit' ? 'bg-muted' : ''}
-                  />
-                  {mode === 'create' && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Se generara automaticamente si se deja vacio
-                    </p>
-                  )}
-                </div>
+                <CodeInput
+                  id="codigo"
+                  value={formData.codigo || ''}
+                  onChange={(value) => setFormData(prev => ({ ...prev, codigo: value }))}
+                  onSearchCodes={mode === 'create' ? proveedoresService.searchCodigos : undefined}
+                  disabled={mode === 'edit'}
+                  placeholder={mode === 'create' ? 'Ej: PROV-001 (vacio para autogenerar)' : 'Codigo del proveedor'}
+                  helperText={mode === 'create' ? "Pulsa ↓ para sugerir siguiente codigo" : undefined}
+                  className={mode === 'edit' ? 'bg-muted' : ''}
+                />
               </div>
 
               <div className="space-y-2">

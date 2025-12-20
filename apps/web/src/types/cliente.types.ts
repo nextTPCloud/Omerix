@@ -188,6 +188,16 @@ export interface Cliente {
   observaciones?: string
   tags?: string[]
 
+  // Autorizaciones comunicaciones (LOPD/RGPD)
+  autorizacionWhatsApp?: boolean
+  fechaAutorizacionWhatsApp?: string
+  verificadoWhatsApp?: boolean
+  fechaVerificacionWhatsApp?: string
+  autorizacionEmail?: boolean
+  fechaAutorizacionEmail?: string
+  autorizacionSMS?: boolean
+  fechaAutorizacionSMS?: string
+
   // Auditoría
   creadoPor?: string
   modificadoPor?: string
@@ -260,6 +270,11 @@ export interface CreateClienteDTO {
   usarEnTPV?: boolean
   observaciones?: string
   tags?: string[]
+
+  // Autorizaciones comunicaciones (LOPD/RGPD)
+  autorizacionWhatsApp?: boolean
+  autorizacionEmail?: boolean
+  autorizacionSMS?: boolean
 }
 
 export interface UpdateClienteDTO extends Partial<CreateClienteDTO> {

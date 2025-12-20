@@ -986,6 +986,73 @@ export default function ConfiguracionEmpresaPage() {
                   </div>
                 </div>
 
+                <Separator />
+
+                {/* Configuración de Partes de Trabajo */}
+                <div>
+                  <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Configuración de Partes de Trabajo
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="intervaloFacturacion">Intervalo de Facturación (minutos)</Label>
+                      <Input
+                        id="intervaloFacturacion"
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={empresa.intervaloFacturacion || 15}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          intervaloFacturacion: parseInt(e.target.value) || 15
+                        })}
+                        placeholder="15"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Las horas trabajadas se redondean hacia arriba a este intervalo.
+                        Ej: 15 min = 2h 5min → 2h 15min facturables.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="decimalesCantidad">Decimales en Cantidades</Label>
+                      <Input
+                        id="decimalesCantidad"
+                        type="number"
+                        min={0}
+                        max={4}
+                        value={empresa.decimalesCantidad ?? 2}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          decimalesCantidad: parseInt(e.target.value) || 0
+                        })}
+                        placeholder="2"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Número de decimales para cantidades (0-4).
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="decimalesPrecios">Decimales en Precios</Label>
+                      <Input
+                        id="decimalesPrecios"
+                        type="number"
+                        min={0}
+                        max={4}
+                        value={empresa.decimalesPrecios ?? 2}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          decimalesPrecios: parseInt(e.target.value) || 0
+                        })}
+                        placeholder="2"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Número de decimales para precios (0-4).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex justify-end pt-4">
                   <Button onClick={handleSaveEmpresa} disabled={isSaving}>
                     {isSaving ? (
@@ -1206,6 +1273,60 @@ export default function ConfiguracionEmpresaPage() {
 
                 <Separator />
 
+                {/* Textos para Partes de Trabajo */}
+                <div>
+                  <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Partes de Trabajo
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="parteTrabajoIntroduccion">Introducción</Label>
+                      <Textarea
+                        id="parteTrabajoIntroduccion"
+                        value={empresa.textosLegales?.parteTrabajoIntroduccion || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, parteTrabajoIntroduccion: e.target.value }
+                        })}
+                        placeholder="Texto que aparecerá al inicio del parte de trabajo..."
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="parteTrabajoConformidad">Texto de Conformidad</Label>
+                      <Textarea
+                        id="parteTrabajoConformidad"
+                        value={empresa.textosLegales?.parteTrabajoConformidad || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, parteTrabajoConformidad: e.target.value }
+                        })}
+                        placeholder="El cliente da su conformidad a los trabajos realizados según se describen en el presente documento..."
+                        rows={3}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Texto que aparece junto a la firma del cliente para confirmar la conformidad con los trabajos realizados.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="parteTrabajoPiePagina">Pie de Página</Label>
+                      <Textarea
+                        id="parteTrabajoPiePagina"
+                        value={empresa.textosLegales?.parteTrabajoPiePagina || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, parteTrabajoPiePagina: e.target.value }
+                        })}
+                        placeholder="Texto que aparecerá al final del parte de trabajo..."
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
                 {/* Textos para Emails */}
                 <div>
                   <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
@@ -1279,6 +1400,22 @@ export default function ConfiguracionEmpresaPage() {
                         placeholder="Condiciones generales de venta..."
                         rows={4}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="textoAutorizacionWhatsApp">Autorización Comunicaciones WhatsApp/SMS</Label>
+                      <Textarea
+                        id="textoAutorizacionWhatsApp"
+                        value={empresa.textosLegales?.textoAutorizacionWhatsApp || ''}
+                        onChange={(e) => setEmpresa({
+                          ...empresa,
+                          textosLegales: { ...empresa.textosLegales, textoAutorizacionWhatsApp: e.target.value }
+                        })}
+                        placeholder="Autorizo a recibir comunicaciones comerciales y documentos a través de WhatsApp y/o SMS al número de teléfono facilitado. Esta autorización puede ser revocada en cualquier momento..."
+                        rows={4}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Texto de consentimiento para envío de comunicaciones por WhatsApp. Según LOPD/RGPD, el cliente debe autorizar expresamente este tipo de comunicaciones.
+                      </p>
                     </div>
                   </div>
                 </div>

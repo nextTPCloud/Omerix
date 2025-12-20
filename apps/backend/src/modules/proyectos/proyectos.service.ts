@@ -585,6 +585,27 @@ export class ProyectosService {
   }
 
   // ============================================
+  // BUSCAR CÓDIGOS EXISTENTES (PARA AUTO-SUGERENCIA)
+  // ============================================
+
+  async searchCodigos(
+    empresaId: mongoose.Types.ObjectId,
+    prefix: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<string[]> {
+    const ProyectoModel = await this.getModeloProyecto(String(empresaId), dbConfig);
+
+    const proyectos = await ProyectoModel.find(
+      {
+        codigo: { $regex: `^${prefix}`, $options: 'i' }
+      },
+      { codigo: 1 }
+    ).lean();
+
+    return proyectos.map(p => p.codigo).filter(Boolean) as string[];
+  }
+
+  // ============================================
   // ELIMINAR EN LOTE
   // ============================================
 

@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Tooltip,
   TooltipContent,
@@ -59,6 +60,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { usuariosService, IUsuario, RolDisponible, CreateUsuarioDTO, UpdateUsuarioDTO, RoleType } from '@/services/usuarios.service'
+import { personalService } from '@/services/personal.service'
+import { Personal } from '@/types/personal.types'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -72,6 +75,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
 
   const [usuarios, setUsuarios] = useState<IUsuario[]>([])
   const [rolesDisponibles, setRolesDisponibles] = useState<RolDisponible[]>([])
+  const [personalList, setPersonalList] = useState<Personal[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [total, setTotal] = useState(0)
@@ -87,13 +91,14 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
   const [isNewUsuario, setIsNewUsuario] = useState(false)
 
   // Formulario del usuario
-  const [formData, setFormData] = useState<Partial<CreateUsuarioDTO & { avatar?: string }>>({
+  const [formData, setFormData] = useState<Partial<CreateUsuarioDTO & { avatar?: string; personalId?: string }>>({
     email: '',
     password: '',
     nombre: '',
     apellidos: '',
     telefono: '',
     rol: 'vendedor',
+    personalId: '',
     activo: true,
   })
   const [showPassword, setShowPassword] = useState(false)
@@ -112,13 +117,14 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true)
-      const [usuariosRes, rolesRes] = await Promise.all([
+      const [usuariosRes, rolesRes, personalRes] = await Promise.all([
         usuariosService.getAll({
           busqueda: busqueda || undefined,
           activo: filtroActivo,
           rol: filtroRol as RoleType || undefined,
         }),
         usuariosService.getRolesDisponibles(),
+        personalService.getAll({ activo: true, limit: 100 }),
       ])
 
       if (usuariosRes.success && usuariosRes.data) {
@@ -128,6 +134,10 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
 
       if (rolesRes.success && rolesRes.data) {
         setRolesDisponibles(rolesRes.data)
+      }
+
+      if (personalRes.success && personalRes.data) {
+        setPersonalList(personalRes.data)
       }
     } catch (error: any) {
       toast.error(error.message || 'Error al cargar usuarios')
@@ -151,6 +161,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
       apellidos: '',
       telefono: '',
       rol: (rolesDisponibles.find(r => r.codigo !== 'superadmin')?.codigo || 'vendedor') as Exclude<RoleType, 'superadmin'>,
+      personalId: '',
       activo: true,
     })
     setShowPassword(false)
@@ -167,6 +178,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
       apellidos: usuario.apellidos,
       telefono: usuario.telefono || '',
       rol: usuario.rol as Exclude<RoleType, 'superadmin'>,
+      personalId: usuario.personalId || '',
       activo: usuario.activo,
     })
     setShowDialog(true)
@@ -200,6 +212,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
           apellidos: formData.apellidos,
           telefono: formData.telefono || undefined,
           rol: formData.rol as Exclude<RoleType, 'superadmin'>,
+          personalId: formData.personalId || null,
           activo: formData.activo,
         }
         const response = await usuariosService.update(editingUsuario._id, updateData)
@@ -645,7 +658,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
                 value={formData.rol}
                 onValueChange={value => setFormData({ ...formData, rol: value as any })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Selecciona un rol" />
                 </SelectTrigger>
                 <SelectContent>
@@ -658,6 +671,27 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
               </Select>
               <p className="text-xs text-muted-foreground">
                 Solo puedes asignar roles de nivel igual o inferior al tuyo
+              </p>
+            </div>
+
+            {/* Personal vinculado (para fichaje) */}
+            <div className="space-y-2">
+              <Label htmlFor="personalId">Empleado vinculado</Label>
+              <SearchableSelect
+                value={formData.personalId || ''}
+                onValueChange={value => setFormData({ ...formData, personalId: value || undefined })}
+                placeholder="Sin vincular (no puede fichar)"
+                searchPlaceholder="Buscar empleado..."
+                emptyMessage="No se encontraron empleados"
+                allowClear
+                options={personalList.map(p => ({
+                  value: p._id,
+                  label: `${p.nombre} ${p.apellidos}`,
+                  description: p.codigo,
+                }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Vincula este usuario a un empleado para que pueda fichar
               </p>
             </div>
 

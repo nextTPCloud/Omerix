@@ -80,6 +80,19 @@ export const proyectosService = {
     return response.data;
   },
 
+  async searchCodigos(prefix: string): Promise<string[]> {
+    try {
+      const response = await api.get<ApiResponse<string[]>>(
+        `/proyectos/codigos`,
+        { params: { prefix } }
+      );
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Error al buscar códigos:', error);
+      return [];
+    }
+  },
+
   async getEstadisticas(): Promise<ApiResponse<ProyectoEstadisticas>> {
     const response = await api.get<ApiResponse<ProyectoEstadisticas>>('/proyectos/estadisticas');
     return response.data;

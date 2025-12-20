@@ -464,6 +464,24 @@ export class FamiliasService {
   }
 
   // ============================================
+  // BUSCAR CÓDIGOS (PARA AUTO-SUGERENCIA)
+  // ============================================
+
+  async searchCodigos(
+    empresaId: mongoose.Types.ObjectId,
+    prefix: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<string[]> {
+    const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
+    const familias = await FamiliaModel.find(
+      { codigo: { $regex: `^${prefix}`, $options: 'i' } },
+      { codigo: 1 }
+    ).lean();
+
+    return familias.map(f => f.codigo).filter(Boolean) as string[];
+  }
+
+  // ============================================
   // SUGERIR SIGUIENTE CÓDIGO
   // ============================================
 

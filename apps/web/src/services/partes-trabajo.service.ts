@@ -202,6 +202,29 @@ class PartesTrabajoService {
   async anular(id: string, observaciones?: string): Promise<ParteTrabajoResponse> {
     return this.cambiarEstado(id, { estado: 'anulado', observaciones });
   }
+
+  /**
+   * Enviar parte de trabajo por email
+   */
+  async enviarEmail(
+    id: string,
+    data: {
+      destinatarios: string[];
+      cc?: string[];
+      asunto?: string;
+      mensaje?: string;
+      urlParte?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    enviados?: number;
+    errores?: number;
+    detalles?: { email: string; success: boolean; message: string }[];
+  }> {
+    const response = await api.post(`${BASE_URL}/${id}/enviar-email`, data);
+    return response.data;
+  }
 }
 
 export const partesTrabajoService = new PartesTrabajoService();

@@ -11,8 +11,11 @@ import {
   DuplicarParteDTO,
   BulkDeletePartesDTO,
   BulkCambiarEstadoDTO,
+  EnviarEmailParteDTO,
 } from './partes-trabajo.dto';
 import { EstadoParteTrabajo } from './ParteTrabajo';
+import { sendEmail, emailTemplates } from '../../utils/email';
+import { getEmpresa } from '../../models/Empresa';
 
 // ============================================
 // CONTROLADORES
@@ -530,6 +533,161 @@ export const partesTrabajoController = {
       return res.status(500).json({
         success: false,
         error: error.message || 'Error al obtener partes del cliente',
+      });
+    }
+  },
+
+  /**
+   * Enviar parte de trabajo por email
+   */
+  async enviarEmail(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuracion de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const { id } = req.params;
+      const dto: EnviarEmailParteDTO = req.body;
+
+      // Validar que haya destinatarios
+      if (!dto.destinatarios || dto.destinatarios.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Se requiere al menos un destinatario',
+        });
+      }
+
+      // Obtener el parte
+      const parte = await partesTrabajoService.obtenerPorId(
+        id,
+        new mongoose.Types.ObjectId(empresaId),
+        req.empresaDbConfig
+      );
+
+      if (!parte) {
+        return res.status(404).json({
+          success: false,
+          error: 'Parte de trabajo no encontrado',
+        });
+      }
+
+      // Obtener datos de la empresa
+      const empresa = await getEmpresa(empresaId);
+      if (!empresa) {
+        return res.status(404).json({
+          success: false,
+          error: 'Empresa no encontrada',
+        });
+      }
+
+      // Formatear moneda
+      const formatCurrency = (value: number) => {
+        return (value || 0).toLocaleString('es-ES', {
+          style: 'currency',
+          currency: 'EUR',
+        });
+      };
+
+      // Mapeo de estados
+      const estadosLabel: Record<string, string> = {
+        borrador: 'Borrador',
+        planificado: 'Planificado',
+        en_curso: 'En Curso',
+        pausado: 'Pausado',
+        completado: 'Completado',
+        facturado: 'Facturado',
+        anulado: 'Anulado',
+      };
+
+      // Mapeo de tipos
+      const tiposLabel: Record<string, string> = {
+        mantenimiento: 'Mantenimiento',
+        instalacion: 'Instalación',
+        reparacion: 'Reparación',
+        servicio: 'Servicio',
+        proyecto: 'Proyecto',
+        otro: 'Otro',
+      };
+
+      // Generar HTML del email
+      const html = emailTemplates.parteTrabajo({
+        clienteNombre: parte.clienteNombre,
+        codigoParte: parte.codigo,
+        tituloParte: parte.titulo,
+        tipoParte: tiposLabel[parte.tipo] || parte.tipo,
+        fecha: new Date(parte.fecha).toLocaleDateString('es-ES'),
+        estado: estadosLabel[parte.estado] || parte.estado,
+        totalVenta: formatCurrency(parte.totales?.totalVenta || 0),
+        empresaNombre: empresa.nombre,
+        empresaEmail: empresa.email,
+        empresaTelefono: empresa.telefono,
+        urlParte: dto.urlParte,
+        mensaje: dto.mensaje,
+        trabajoRealizado: parte.trabajoRealizado,
+        lineasResumen: {
+          personal: parte.lineasPersonal?.length || 0,
+          material: parte.lineasMaterial?.length || 0,
+          maquinaria: parte.lineasMaquinaria?.length || 0,
+          transporte: parte.lineasTransporte?.length || 0,
+          gastos: parte.lineasGastos?.length || 0,
+        },
+      });
+
+      // Asunto del email
+      const asunto = dto.asunto || `Parte de Trabajo ${parte.codigo} - ${empresa.nombre}`;
+
+      // Enviar a todos los destinatarios
+      const resultados: { email: string; success: boolean; message: string }[] = [];
+
+      for (const destinatario of dto.destinatarios) {
+        const result = await sendEmail(destinatario, asunto, html);
+        resultados.push({
+          email: destinatario,
+          success: result.success,
+          message: result.message,
+        });
+      }
+
+      // Enviar copias CC si hay
+      if (dto.cc && dto.cc.length > 0) {
+        for (const ccEmail of dto.cc) {
+          const result = await sendEmail(ccEmail, asunto, html);
+          resultados.push({
+            email: ccEmail,
+            success: result.success,
+            message: result.message + ' (CC)',
+          });
+        }
+      }
+
+      // Verificar si hubo errores
+      const errores = resultados.filter(r => !r.success);
+      const exitos = resultados.filter(r => r.success);
+
+      if (errores.length === resultados.length) {
+        return res.status(500).json({
+          success: false,
+          error: 'No se pudo enviar ningún email',
+          detalles: errores,
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: `Email enviado a ${exitos.length} destinatario(s)`,
+        enviados: exitos.length,
+        errores: errores.length,
+        detalles: resultados,
+      });
+    } catch (error: any) {
+      console.error('Error al enviar email del parte:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al enviar el email',
       });
     }
   },

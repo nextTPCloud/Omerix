@@ -10,7 +10,7 @@ const CreateUsuarioSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio').max(100),
   apellidos: z.string().min(1, 'Los apellidos son obligatorios').max(100),
   telefono: z.string().max(20).optional().nullable(),
-  rol: z.enum(['admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador']),
+  rol: z.enum(['superadmin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador']),
   rolId: z.string().optional().nullable(),
   activo: z.boolean().optional(),
 });
@@ -19,8 +19,9 @@ const UpdateUsuarioSchema = z.object({
   nombre: z.string().min(1).max(100).optional(),
   apellidos: z.string().min(1).max(100).optional(),
   telefono: z.string().max(20).optional().nullable(),
-  rol: z.enum(['admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador']).optional(),
+  rol: z.enum(['superadmin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador']).optional(),
   rolId: z.string().optional().nullable(),
+  personalId: z.string().optional().nullable(),
   activo: z.boolean().optional(),
   avatar: z.string().optional().nullable(),
 });
@@ -304,6 +305,7 @@ class UsuariosController {
           ...validacion.data,
           telefono: validacion.data.telefono || undefined,
           rolId: validacion.data.rolId || undefined,
+          personalId: validacion.data.personalId,
           avatar: validacion.data.avatar || undefined,
         },
         userRol as Role,

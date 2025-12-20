@@ -47,6 +47,9 @@ import {
   UserCog,
   Star,
   FolderKanban,
+  CalendarDays,
+  Timer,
+  Fingerprint,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFavoritosContext } from '@/contexts/FavoritosContext'
@@ -70,7 +73,7 @@ const iconMap: { [key: string]: any } = {
   Building2, BookOpen, FolderTree, Warehouse, Percent, Tag, ListChecks,
   Layers, UtensilsCrossed, Printer, ChefHat, AlertTriangle, SlidersHorizontal,
   Grid3X3, Palette, Database, FileStack, CreditCard, Clock, Landmark,
-  Briefcase, UserCog, Star, FolderKanban,
+  Briefcase, UserCog, Star, FolderKanban, CalendarDays, Timer, Fingerprint,
 }
 
 // Tipo de permiso requerido para cada grupo
@@ -234,10 +237,41 @@ const menuGroups: MenuGroup[] = [
         href: '/personal',
         icon: Users,
       },
+      {
+        title: 'Departamentos',
+        href: '/departamentos',
+        icon: Building2,
+      },
+      {
+        title: 'Turnos',
+        href: '/turnos',
+        icon: Timer,
+      },
+      {
+        title: 'Calendarios',
+        href: '/calendarios',
+        icon: CalendarDays,
+      },
+      {
+        title: 'Mi Fichaje',
+        href: '/fichaje',
+        icon: Fingerprint,
+      },
+      {
+        title: 'Fichajes',
+        href: '/fichajes',
+        icon: Fingerprint,
+        adminOnly: true,
+      },
+      {
+        title: 'Terminales',
+        href: '/terminales',
+        icon: Fingerprint,
+      },
     ],
   },
   {
-    group: 'Catálogos',
+    group: 'Almacenes',
     icon: Package,
     permiso: 'accesoAlmacen',
     items: [

@@ -91,6 +91,14 @@ import tiposGastoRoutes from './modules/tipos-gasto/tipos-gasto.routes';
 import maquinariaRoutes from './modules/maquinaria/maquinaria.routes';
 import partesTrabajoRoutes from './modules/partes-trabajo/partes-trabajo.routes';
 
+// Importar rutas de planificación y RRHH
+import departamentosRoutes from './modules/departamentos/departamentos.routes';
+import calendariosRoutes from './modules/calendarios/calendarios.routes';
+import turnosRoutes from './modules/turnos/turnos.routes';
+import fichajesRoutes from './modules/fichajes/fichajes.routes';
+import terminalesRoutes from './modules/terminales/terminales.routes';
+import { terminalSyncScheduler } from './modules/terminales/terminal-sync.scheduler';
+
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
 import logger, { httpLoggerMiddleware, logStartup, logShutdown } from './utils/logger/winston.config'; // 🆕 NUEVO
@@ -344,6 +352,13 @@ app.use('/api/tipos-gasto', tiposGastoRoutes);
 app.use('/api/maquinaria', maquinariaRoutes);
 app.use('/api/partes-trabajo', partesTrabajoRoutes);
 
+// Rutas de planificación y RRHH
+app.use('/api/departamentos', departamentosRoutes);
+app.use('/api/calendarios', calendariosRoutes);
+app.use('/api/turnos', turnosRoutes);
+app.use('/api/fichajes', fichajesRoutes);
+app.use('/api/terminales', terminalesRoutes);
+
 // ============================================
 // MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS
 // ============================================
@@ -377,20 +392,27 @@ const startServer = async () => {
     await connectDB();
     
     // Iniciar servidor Express
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
       const environment = process.env.NODE_ENV || 'development';
-      
+
       logger.info(`🚀 Servidor backend corriendo en puerto ${PORT}`);
       logger.info(`📍 URL: http://localhost:${PORT}`);
       logger.info(`📚 Swagger Docs: http://localhost:${PORT}/api-docs`);
       logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
       logger.info(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
-      logger.info(`📋 Logs API: http://localhost:${PORT}/api/logs`); // 🆕 NUEVO
+      logger.info(`📋 Logs API: http://localhost:${PORT}/api/logs`);
       logger.info(`🧪 Test endpoint: http://localhost:${PORT}/api/test`);
       logger.info(`🌍 Entorno: ${environment}\n`);
-      
-      // 🆕 NUEVO: Log de inicio con Winston
+
+      // Log de inicio con Winston
       logStartup(Number(PORT), environment);
+
+      // Iniciar scheduler de sincronización de terminales
+      try {
+        await terminalSyncScheduler.start();
+      } catch (error: any) {
+        logger.error(`Error iniciando scheduler de terminales: ${error.message}`);
+      }
     });
   } catch (error) {
     console.error('❌ Error iniciando servidor:', error);
@@ -404,12 +426,14 @@ const startServer = async () => {
 // 🆕 NUEVO: Manejo de cierre del servidor
 process.on('SIGINT', async () => {
   console.log('\n⏸️  Señal SIGINT recibida: cerrando servidor...');
+  terminalSyncScheduler.stop();
   logShutdown('SIGINT signal received');
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('\n⏸️  Señal SIGTERM recibida: cerrando servidor...');
+  terminalSyncScheduler.stop();
   logShutdown('SIGTERM signal received');
   process.exit(0);
 });

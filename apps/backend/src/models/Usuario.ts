@@ -23,6 +23,9 @@ export interface IUsuario extends Document {
   rol: 'superadmin' | 'admin' | 'gerente' | 'vendedor' | 'tecnico' | 'almacenero' | 'visualizador';
   rolId?: Types.ObjectId;  // Referencia a rol personalizado (opcional)
   permisos: IPermisosUsuario;
+
+  // Vinculación con personal (empleado)
+  personalId?: Types.ObjectId;
   
   // 2FA
   twoFactorEnabled: boolean;
@@ -114,6 +117,13 @@ const UsuarioSchema = new Schema<IUsuario>(
         type: Schema.Types.Mixed,
         default: {},
       },
+    },
+
+    // Vinculación con personal (empleado)
+    personalId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Personal',
+      index: true,
     },
     
     // 2FA

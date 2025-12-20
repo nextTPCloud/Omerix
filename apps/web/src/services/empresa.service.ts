@@ -27,12 +27,18 @@ export interface TextosLegales {
   facturaIntroduccion?: string;
   facturaPiePagina?: string;
   facturaCondiciones?: string;
+  // Para partes de trabajo
+  parteTrabajoIntroduccion?: string;
+  parteTrabajoPiePagina?: string;
+  parteTrabajoConformidad?: string;
   // Para emails
   emailFirma?: string;
   emailDisclaimer?: string;
   // LOPD / RGPD
   textoLOPD?: string;
   textoRGPD?: string;
+  // Autorización comunicaciones WhatsApp/SMS
+  textoAutorizacionWhatsApp?: string;
   // Política de privacidad, cookies, etc.
   politicaPrivacidad?: string;
   condicionesVenta?: string;
@@ -101,6 +107,8 @@ export interface EmpresaInfo {
   // Configuración de decimales
   decimalesCantidad?: number;
   decimalesPrecios?: number;
+  // Intervalo de facturación para partes de trabajo (en minutos)
+  intervaloFacturacion?: number;
   // Configuración de IA
   aiConfig?: {
     provider?: 'openai' | 'anthropic' | 'gemini' | 'claude' | 'ollama';

@@ -173,6 +173,26 @@ router.get('/sugerir-codigo', proyectosController.sugerirCodigo.bind(proyectosCo
 
 /**
  * @swagger
+ * /api/proyectos/codigos:
+ *   get:
+ *     summary: Buscar códigos existentes por prefijo (para auto-sugerencia)
+ *     tags: [Proyectos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: prefix
+ *         schema:
+ *           type: string
+ *         description: Prefijo del código a buscar
+ *     responses:
+ *       200:
+ *         description: Lista de códigos que coinciden con el prefijo
+ */
+router.get('/codigos', proyectosController.searchCodigos.bind(proyectosController));
+
+/**
+ * @swagger
  * /api/proyectos/estadisticas:
  *   get:
  *     summary: Obtener estadísticas de proyectos

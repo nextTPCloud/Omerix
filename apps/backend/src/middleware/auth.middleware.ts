@@ -82,7 +82,7 @@ export const authMiddleware = async (
     }
 
     // 🔒 VALIDACIÓN ADICIONAL: Verificar que el usuario aún existe y está activo
-    const usuario = await Usuario.findById(payload.userId).select('activo rol empresaId email');
+    const usuario = await Usuario.findById(payload.userId).select('activo rol empresaId email personalId');
 
     if (!usuario) {
       return res.status(401).json({

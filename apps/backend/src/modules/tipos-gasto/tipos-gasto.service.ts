@@ -211,6 +211,19 @@ export class TiposGastoService {
   }
 
   /**
+   * Buscar codigos que empiecen con un prefijo (para auto-sugerencia)
+   */
+  async searchCodigos(empresaId: string, prefix: string, dbConfig: IDatabaseConfig): Promise<string[]> {
+    const TipoGastoModel = await this.getModelo(empresaId, dbConfig);
+    const tiposGasto = await TipoGastoModel.find(
+      { codigo: { $regex: `^${prefix}`, $options: 'i' } },
+      { codigo: 1 }
+    ).lean();
+
+    return tiposGasto.map(t => t.codigo);
+  }
+
+  /**
    * Duplicar un tipo de gasto
    */
   async duplicar(id: string, empresaId: string, usuarioId: string, dbConfig: IDatabaseConfig) {

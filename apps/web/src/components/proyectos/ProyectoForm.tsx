@@ -17,6 +17,7 @@ import {
 } from '@/types/proyecto.types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CodeInput } from '@/components/ui/code-input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -375,33 +376,16 @@ export function ProyectoForm({
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="codigo">Código {mode === 'create' && '(opcional)'}</Label>
-                <Input
+                <CodeInput
                   id="codigo"
-                  name="codigo"
                   value={formData.codigo || ''}
-                  onChange={handleChange}
-                  onKeyDown={async (e) => {
-                    if (e.key === 'ArrowDown' && mode === 'create') {
-                      e.preventDefault()
-                      try {
-                        const response = await proyectosService.sugerirCodigo()
-                        if (response.success && response.data) {
-                          setFormData((prev) => ({ ...prev, codigo: response.data!.codigo }))
-                        }
-                      } catch (error) {
-                        console.error('Error al sugerir código:', error)
-                      }
-                    }
-                  }}
-                  placeholder={mode === 'create' ? 'Ej: PRY-001 (vacío para autogenerar)' : 'Código del proyecto'}
+                  onChange={(value) => setFormData(prev => ({ ...prev, codigo: value }))}
+                  onSearchCodes={mode === 'create' ? proyectosService.searchCodigos : undefined}
                   disabled={mode === 'edit'}
+                  placeholder={mode === 'create' ? 'Ej: PRY-001 (vacío para autogenerar)' : 'Código del proyecto'}
+                  helperText={mode === 'create' ? "Pulsa ↓ para sugerir siguiente código" : undefined}
                   className={mode === 'edit' ? 'bg-muted' : ''}
                 />
-                {mode === 'create' && (
-                  <p className="text-xs text-muted-foreground">
-                    Presiona flecha abajo para sugerir el siguiente código
-                  </p>
-                )}
               </div>
 
               <div className="flex items-center justify-between p-3 border rounded-lg">

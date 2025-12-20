@@ -11,6 +11,7 @@ import { CreateMaquinariaDTO, TipoMaquinaria, EstadoMaquinaria, TIPOS_MAQUINARIA
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { CodeInput } from '@/components/ui/code-input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -106,11 +107,13 @@ export default function NuevaMaquinariaPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="codigo">Codigo *</Label>
-                  <Input
+                  <CodeInput
                     id="codigo"
                     placeholder="Ej: MAQ001, VEH001"
                     value={formData.codigo}
-                    onChange={(e) => setFormData({ ...formData, codigo: e.target.value.toUpperCase() })}
+                    onChange={(value) => setFormData({ ...formData, codigo: value.toUpperCase() })}
+                    onSearchCodes={maquinariaService.searchCodigos}
+                    helperText="Pulsa ↓ para sugerir siguiente codigo"
                   />
                 </div>
                 <div className="space-y-2">
