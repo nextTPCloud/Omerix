@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
-import Empresa from '../models/Empresa';
+import Empresa from '../modules/empresa/Empresa';
 
 /**
  * Middleware Multi-tenant con soporte para múltiples bases de datos

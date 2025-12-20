@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getModeloTerminal, ITerminal, IHistorialSync } from './Terminal';
 import { getPersonalModel } from '@/utils/dynamic-models.helper';
 import { getModeloFichaje } from '../fichajes/Fichaje';

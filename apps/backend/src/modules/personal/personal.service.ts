@@ -1,7 +1,7 @@
 import { Model } from 'mongoose';
 import { IPersonal } from './Personal';
 import { CreatePersonalDto, UpdatePersonalDto, GetPersonalQueryDto, RegistrarAusenciaDto, RegistrarVacacionesDto, RegistrarEvaluacionDto } from './personal.dto';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getPersonalModel } from '@/utils/dynamic-models.helper';
 
 // ============================================

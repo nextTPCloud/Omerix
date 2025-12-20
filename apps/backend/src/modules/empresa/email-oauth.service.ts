@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { ConfidentialClientApplication } from '@azure/msal-node';
-import Empresa, { IEmailConfig, encrypt, decrypt } from '../../models/Empresa';
+import Empresa, { IEmailConfig, encrypt, decrypt } from './Empresa';
 
 // Configuración de Google OAuth2
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';

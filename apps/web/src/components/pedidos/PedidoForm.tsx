@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
@@ -66,6 +67,7 @@ import {
   Check,
   AlignLeft,
   AlertTriangle,
+  Tag,
 } from 'lucide-react'
 
 // Components
@@ -739,14 +741,16 @@ export function PedidoForm({
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (activeTab !== 'lineas') return
 
-      // Ignorar si el foco está en un input (ya tienen sus propios handlers)
-      const target = e.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-
+      // Ctrl+Enter o Ctrl+N para añadir línea (funciona en cualquier campo)
       if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 'n')) {
         e.preventDefault()
         handleAddLinea(TipoLinea.PRODUCTO)
+        return
       }
+
+      // Para otras teclas, ignorar si el foco está en un input
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
     }
 
     window.addEventListener('keydown', handleGlobalKeyDown)
@@ -1434,14 +1438,65 @@ export function PedidoForm({
 
                       {/* Precio */}
                       <div className="col-span-6 md:col-span-1">
-                        <div className="flex items-center gap-1">
-                          <span className="md:hidden text-xs text-muted-foreground">Precio:</span>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="md:hidden text-xs text-muted-foreground self-start">Precio:</span>
+                          {/* Indicador de origen de precio (tarifa/oferta) */}
+                          {linea.origenPrecio && linea.origenPrecio !== 'producto' && linea.origenPrecio !== 'manual' && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1">
+                                    {linea.precioOriginal && linea.precioOriginal !== linea.precioUnitario && (
+                                      <span className="text-[10px] text-muted-foreground line-through">
+                                        {formatCurrency(linea.precioOriginal)}
+                                      </span>
+                                    )}
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[9px] px-1 py-0 h-4 ${
+                                        linea.origenPrecio === 'tarifa'
+                                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                          : linea.origenPrecio === 'oferta'
+                                          ? 'bg-green-50 text-green-700 border-green-200'
+                                          : 'bg-purple-50 text-purple-700 border-purple-200'
+                                      }`}
+                                    >
+                                      <Tag className="h-2.5 w-2.5 mr-0.5" />
+                                      {linea.origenPrecio === 'tarifa' ? 'Tarifa' :
+                                       linea.origenPrecio === 'oferta' ? 'Oferta' :
+                                       linea.origenPrecio === 'precio_cantidad' ? 'Precio x Cant.' : ''}
+                                      {linea.detalleOrigenPrecio?.descuentoAplicado && linea.detalleOrigenPrecio.descuentoAplicado > 0 && (
+                                        <span className="ml-0.5">-{linea.detalleOrigenPrecio.descuentoAplicado.toFixed(0)}%</span>
+                                      )}
+                                    </Badge>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">
+                                  <div className="space-y-1">
+                                    {linea.detalleOrigenPrecio?.tarifaNombre && (
+                                      <p><strong>Tarifa:</strong> {linea.detalleOrigenPrecio.tarifaNombre}</p>
+                                    )}
+                                    {linea.detalleOrigenPrecio?.ofertaNombre && (
+                                      <p><strong>Oferta:</strong> {linea.detalleOrigenPrecio.ofertaNombre}</p>
+                                    )}
+                                    {linea.precioOriginal && linea.precioOriginal !== linea.precioUnitario && (
+                                      <p>
+                                        <strong>Precio original:</strong> {formatCurrency(linea.precioOriginal)}
+                                        {' → '}
+                                        <strong>Aplicado:</strong> {formatCurrency(linea.precioUnitario)}
+                                      </p>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                           <Input
                             type="number"
                             min="0"
                             step="0.01"
                             value={linea.precioUnitario || 0}
-                            onChange={(e) => handleUpdateLinea(index, { precioUnitario: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => handleUpdateLinea(index, { precioUnitario: parseFloat(e.target.value) || 0, origenPrecio: 'manual' })}
                             className="h-9 text-right"
                             disabled={linea.tipo === TipoLinea.TEXTO || linea.tipo === TipoLinea.SUBTOTAL}
                           />

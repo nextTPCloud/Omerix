@@ -1,7 +1,7 @@
 import mongoose, { Model } from 'mongoose';
 import { CreateClasificacionDto, UpdateClasificacionDto, GetClasificacionesQueryDto } from './clasificaciones.dto';
 import { IClasificacion } from '@/modules/clasificaciones/Clasificacion';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getClasificacionModel } from '@/utils/dynamic-models.helper';
 
 // ============================================

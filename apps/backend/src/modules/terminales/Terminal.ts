@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { databaseManager } from '@/services/database-manager.service';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 
 // ============================================
 // TIPOS E INTERFACES

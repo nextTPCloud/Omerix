@@ -11,7 +11,7 @@
 
 import mongoose from 'mongoose';
 import { TipoCliente, FormaPago } from '../modules/clientes/Cliente';
-import Empresa from '../models/Empresa';
+import Empresa from '../modules/empresa/Empresa';
 import { databaseManager } from '../services/database-manager.service';
 import { getClienteModel } from '../utils/dynamic-models.helper';
 import { config } from '../config/env';

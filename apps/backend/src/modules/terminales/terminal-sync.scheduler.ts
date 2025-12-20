@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import Empresa, { IDatabaseConfig } from '@/models/Empresa';
+import Empresa, { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getModeloTerminal, ITerminal } from './Terminal';
 import { TerminalesService } from './terminales.service';
 import { logger } from '@/config/logger';

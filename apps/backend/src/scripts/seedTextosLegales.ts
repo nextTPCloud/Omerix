@@ -11,7 +11,7 @@
  */
 
 import mongoose from 'mongoose';
-import Empresa from '../models/Empresa';
+import Empresa from '../modules/empresa/Empresa';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
 

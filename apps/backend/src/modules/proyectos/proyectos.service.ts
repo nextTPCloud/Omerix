@@ -8,7 +8,7 @@ import {
   ActualizarHitoDTO,
   AgregarParticipanteDTO,
 } from './proyectos.dto';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getProyectoModel, getClienteModel, getAgenteComercialModel, getPersonalModel, getUserModel } from '@/utils/dynamic-models.helper';
 
 // ============================================

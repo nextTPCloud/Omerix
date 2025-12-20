@@ -1,6 +1,6 @@
 import mongoose, { Connection, Model } from 'mongoose';
 import { logger } from '../config/logger';
-import { IEmpresa, IDatabaseConfig } from '../models/Empresa';
+import { IEmpresa, IDatabaseConfig } from '../modules/empresa/Empresa';
 
 /**
  * Servicio para gestionar conexiones dinámicas a múltiples bases de datos

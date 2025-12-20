@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import Plan from '../models/Plan';
+import Plan from '../modules/licencias/Plan';
 import { config } from '../config/env';
 import { logger } from '../config/logger';
 

@@ -1,6 +1,6 @@
 import { StripeService } from './stripe/stripe.service';
-import Pago from '../../models/Pago';
-import MetodoPago from '../../models/MetodoPago';
+import Pago from './Pago';
+import MetodoPago from '../formas-pago/MetodoPago';
 
 export class PagosService {
   private stripeService: StripeService;

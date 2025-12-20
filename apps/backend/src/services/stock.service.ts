@@ -1,6 +1,6 @@
 import mongoose, { Model, ClientSession } from 'mongoose';
 import { MovimientoStock, IMovimientoStock, TipoMovimiento, OrigenMovimiento } from '@/models/MovimientoStock';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { databaseManager } from '@/services/database-manager.service';
 
 // ============================================

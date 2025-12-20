@@ -252,6 +252,38 @@ export interface IHistorialFactura {
   datosAnteriores?: Record<string, unknown>;
 }
 
+// Historial de acciones de factura electrónica
+export interface IHistorialFacturaElectronica {
+  fecha: Date;
+  accion: 'generada' | 'firmada' | 'enviada' | 'consultada' | 'rechazada' | 'anulada';
+  detalle?: string;
+  usuarioId: mongoose.Types.ObjectId;
+}
+
+// Datos de factura electrónica (FacturaE/FACE)
+export interface IFacturaElectronica {
+  // Generación
+  generada: boolean;
+  fechaGeneracion?: Date;
+  xmlGenerado?: string;              // Nombre del archivo o referencia
+
+  // Firma
+  firmada: boolean;
+  fechaFirma?: Date;
+  xmlFirmado?: string;               // Nombre del archivo firmado
+  certificadoId?: mongoose.Types.ObjectId;
+
+  // Estado FACE
+  enviadaFACE: boolean;
+  fechaEnvio?: Date;
+  numeroRegistroFACE?: string;       // Número de registro en FACE
+  estadoFACE?: string;               // Código de estado (1200, 1300, etc.)
+  ultimaConsulta?: Date;
+
+  // Historial de acciones
+  historial: IHistorialFacturaElectronica[];
+}
+
 // ============================================
 // INTERFACE PRINCIPAL
 // ============================================
@@ -341,6 +373,9 @@ export interface IFactura extends Document {
   verifactu?: IVeriFactu;
   ticketbai?: ITicketBAI;
   sii?: ISII;
+
+  // Factura electrónica (FacturaE/FACE)
+  facturaElectronica?: IFacturaElectronica;
 
   // Código QR y verificación
   codigoQR?: string;
@@ -597,6 +632,42 @@ const SIISchema = new Schema<ISII>({
   csv: { type: String },
 }, { _id: false });
 
+// Schema para historial de factura electrónica
+const HistorialFacturaElectronicaSchema = new Schema<IHistorialFacturaElectronica>({
+  fecha: { type: Date, default: Date.now },
+  accion: {
+    type: String,
+    enum: ['generada', 'firmada', 'enviada', 'consultada', 'rechazada', 'anulada'],
+    required: true,
+  },
+  detalle: { type: String },
+  usuarioId: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
+}, { _id: true });
+
+// Schema para factura electrónica (FacturaE/FACE)
+const FacturaElectronicaSchema = new Schema<IFacturaElectronica>({
+  // Generación
+  generada: { type: Boolean, default: false },
+  fechaGeneracion: { type: Date },
+  xmlGenerado: { type: String },
+
+  // Firma
+  firmada: { type: Boolean, default: false },
+  fechaFirma: { type: Date },
+  xmlFirmado: { type: String },
+  certificadoId: { type: Schema.Types.ObjectId, ref: 'Certificado' },
+
+  // Estado FACE
+  enviadaFACE: { type: Boolean, default: false },
+  fechaEnvio: { type: Date },
+  numeroRegistroFACE: { type: String, index: true },
+  estadoFACE: { type: String },
+  ultimaConsulta: { type: Date },
+
+  // Historial
+  historial: { type: [HistorialFacturaElectronicaSchema], default: [] },
+}, { _id: false });
+
 const DocumentoFacturaSchema = new Schema<IDocumentoFactura>({
   nombre: { type: String, required: true, trim: true },
   url: { type: String, required: true },
@@ -820,6 +891,9 @@ const FacturaSchema = new Schema<IFactura, IFacturaModel>({
   ticketbai: { type: TicketBAISchema },
   sii: { type: SIISchema },
 
+  // Factura electrónica (FacturaE/FACE)
+  facturaElectronica: { type: FacturaElectronicaSchema },
+
   // Código QR y verificación
   codigoQR: { type: String },
   urlVerificacion: { type: String },
@@ -934,6 +1008,8 @@ FacturaSchema.index({ 'verifactu.idFactura': 1 });
 FacturaSchema.index({ 'ticketbai.tbaiId': 1 });
 FacturaSchema.index({ inmutable: 1 });
 FacturaSchema.index({ importePendiente: 1 });
+FacturaSchema.index({ 'facturaElectronica.enviadaFACE': 1 });
+FacturaSchema.index({ 'facturaElectronica.estadoFACE': 1 });
 
 // ============================================
 // VIRTUALS

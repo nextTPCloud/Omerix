@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { Impresora, IImpresora } from '../../models/Impresora';
+import { Impresora, IImpresora } from './Impresora';
 import { CreateImpresoraDTO, UpdateImpresoraDTO, SearchImpresorasDTO } from './impresoras.dto';
 import { Types } from 'mongoose';
 import { IDatabaseConfig } from '../../types/express';

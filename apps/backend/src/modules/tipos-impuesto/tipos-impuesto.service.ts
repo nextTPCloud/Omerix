@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { TipoImpuesto, ITipoImpuesto } from '../../models/TipoImpuesto';
+import { TipoImpuesto, ITipoImpuesto } from './TipoImpuesto';
 import { CreateTipoImpuestoDTO, UpdateTipoImpuestoDTO, SearchTiposImpuestoDTO } from './tipos-impuesto.dto';
 import { Types } from 'mongoose';
 import { IDatabaseConfig } from '../../types/express';

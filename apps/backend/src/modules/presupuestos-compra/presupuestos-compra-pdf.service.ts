@@ -1,8 +1,8 @@
 import PDFDocument from 'pdfkit';
 import axios from 'axios';
 import { IPresupuestoCompra, TipoLineaPresupuestoCompra } from './PresupuestoCompra';
-import { IEmpresa } from '@/models/Empresa';
-import Empresa from '@/models/Empresa';
+import { IEmpresa } from '@/modules/empresa/Empresa';
+import Empresa from '@/modules/empresa/Empresa';
 
 /**
  * ============================================

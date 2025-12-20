@@ -15,7 +15,7 @@ import {
 } from './partes-trabajo.dto';
 import { EstadoParteTrabajo } from './ParteTrabajo';
 import { sendEmail, emailTemplates } from '../../utils/email';
-import { getEmpresa } from '../../models/Empresa';
+import { getEmpresa } from '../empresa/Empresa';
 
 // ============================================
 // CONTROLADORES

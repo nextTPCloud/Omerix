@@ -13,19 +13,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { CreditCard, Calendar, Percent, Loader2, ExternalLink } from 'lucide-react'
+import { CreditCard, Calendar, Percent, Loader2, ExternalLink, Tag } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 
 // Importar servicios
 import { terminosPagoService } from '@/services/terminos-pago.service'
 import { formasPagoService } from '@/services/formas-pago.service'
+import { tarifasService } from '@/services/tarifas.service'
 import { TerminoPago } from '@/types/termino-pago.types'
 import { FormaPago } from '@/types/forma-pago.types'
+import { ITarifa } from '@/types/tarifa.types'
+
+// Tipo para tarifas activas (subset de ITarifa devuelto por getActivas)
+type TarifaActiva = Pick<ITarifa, '_id' | 'codigo' | 'nombre' | 'tipo'>
 
 interface CondicionesPago {
   formaPagoId?: string
   terminoPagoId?: string
+  tarifaId?: string
   descuentoGeneral?: number
   limiteCredito?: number
 }
@@ -43,16 +49,18 @@ export function TabCondicionesPago({
 }: TabCondicionesPagoProps) {
   const [formasPago, setFormasPago] = useState<FormaPago[]>([])
   const [terminosPago, setTerminosPago] = useState<TerminoPago[]>([])
+  const [tarifas, setTarifas] = useState<TarifaActiva[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // Cargar datos de formas y terminos de pago
+  // Cargar datos de formas, terminos de pago y tarifas
   useEffect(() => {
     const cargarDatos = async () => {
       try {
         setIsLoading(true)
-        const [formasRes, terminosRes] = await Promise.all([
+        const [formasRes, terminosRes, tarifasRes] = await Promise.all([
           formasPagoService.getActivas(),
           terminosPagoService.getActivos(),
+          tarifasService.getActivas(),
         ])
 
         if (formasRes.success) {
@@ -60,6 +68,9 @@ export function TabCondicionesPago({
         }
         if (terminosRes.success) {
           setTerminosPago(terminosRes.data)
+        }
+        if (tarifasRes.success) {
+          setTarifas(tarifasRes.data || [])
         }
       } catch (error) {
         console.error('Error al cargar condiciones de pago:', error)
@@ -82,6 +93,7 @@ export function TabCondicionesPago({
   // Obtener forma de pago seleccionada
   const formaPagoSeleccionada = formasPago.find(f => f._id === condiciones.formaPagoId)
   const terminoPagoSeleccionado = terminosPago.find(t => t._id === condiciones.terminoPagoId)
+  const tarifaSeleccionada = tarifas.find(t => t._id === condiciones.tarifaId)
 
   if (isLoading) {
     return (
@@ -260,6 +272,86 @@ export function TabCondicionesPago({
         </CardContent>
       </Card>
 
+      {/* Tarifa de Precios */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Tag className="h-5 w-5" />
+            Tarifa de Precios
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Tarifa asignada al cliente</Label>
+            <Select
+              value={condiciones.tarifaId || ''}
+              onValueChange={(value) => handleChange('tarifaId', value || undefined)}
+              disabled={readOnly}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sin tarifa (precio de producto)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Sin tarifa (usar precio del producto)</SelectItem>
+                {tarifas.map((tarifa) => (
+                  <SelectItem key={tarifa._id} value={tarifa._id}>
+                    <div className="flex items-center gap-2">
+                      {tarifa.nombre}
+                      <span className="text-xs text-muted-foreground">
+                        ({tarifa.tipo === 'porcentaje' ? 'descuento %' : 'precios fijos'})
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              La tarifa define precios especiales para este cliente en presupuestos, pedidos y facturas
+            </p>
+          </div>
+
+          {/* Preview de tarifa seleccionada */}
+          {tarifaSeleccionada && (
+            <div className="p-3 border rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded flex items-center justify-center bg-primary/10">
+                    <Tag className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{tarifaSeleccionada.nombre}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {tarifaSeleccionada.tipo === 'porcentaje'
+                        ? 'Tarifa con descuento porcentual'
+                        : 'Tarifa con precios fijos'}
+                    </p>
+                  </div>
+                </div>
+                <Link href={`/tarifas/${tarifaSeleccionada._id}`} target="_blank">
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Ver detalle de la tarifa para más información
+              </p>
+            </div>
+          )}
+
+          {tarifas.length === 0 && (
+            <div className="text-center py-4 text-muted-foreground">
+              <p>No hay tarifas configuradas</p>
+              <Link href="/tarifas/nuevo">
+                <Button type="button" variant="link" size="sm">
+                  Crear tarifa
+                </Button>
+              </Link>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Descuento y Credito */}
       <Card>
         <CardHeader>
@@ -319,7 +411,7 @@ export function TabCondicionesPago({
       </Card>
 
       {/* Resumen */}
-      {(formaPagoSeleccionada || terminoPagoSeleccionado || condiciones.descuentoGeneral || condiciones.limiteCredito) && (
+      {(formaPagoSeleccionada || terminoPagoSeleccionado || tarifaSeleccionada || condiciones.descuentoGeneral || condiciones.limiteCredito) && (
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="pt-4">
             <p className="text-sm font-medium mb-2">Resumen de condiciones:</p>
@@ -329,6 +421,9 @@ export function TabCondicionesPago({
               )}
               {terminoPagoSeleccionado && (
                 <li>Termino: <span className="font-medium text-foreground">{terminoPagoSeleccionado.nombre}</span></li>
+              )}
+              {tarifaSeleccionada && (
+                <li>Tarifa: <span className="font-medium text-foreground">{tarifaSeleccionada.nombre}</span></li>
               )}
               {condiciones.descuentoGeneral && condiciones.descuentoGeneral > 0 && (
                 <li>Descuento: <span className="font-medium text-foreground">{condiciones.descuentoGeneral}%</span></li>

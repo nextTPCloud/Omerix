@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { IDatabaseConfig } from '../models/Empresa';
+import { IDatabaseConfig } from '../modules/empresa/Empresa';
 
 /**
  * Extensión del Request de Express para incluir usuario autenticado

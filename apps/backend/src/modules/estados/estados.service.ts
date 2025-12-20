@@ -1,7 +1,7 @@
 import mongoose, { Model } from 'mongoose';
 import { CreateEstadoDto, UpdateEstadoDto, GetEstadosQueryDto } from './estados.dto';
 import { IEstado } from '@/modules/estados/Estado';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getEstadoModel } from '@/utils/dynamic-models.helper';
 
 // ============================================

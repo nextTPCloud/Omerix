@@ -15,7 +15,18 @@ export enum EstadoVencimiento {
   COBRADO = 'cobrado',        // Para cobros
   PAGADO = 'pagado',          // Para pagos
   IMPAGADO = 'impagado',
+  DEVUELTO = 'devuelto',      // Devuelto por banco
   ANULADO = 'anulado',
+}
+
+export enum MetodoPagoVencimiento {
+  TRANSFERENCIA = 'transferencia',
+  DOMICILIACION = 'domiciliacion',
+  PAGARE = 'pagare',
+  CHEQUE = 'cheque',
+  EFECTIVO = 'efectivo',
+  TARJETA = 'tarjeta',
+  CONFIRMING = 'confirming',
 }
 
 export enum TipoDocumentoOrigen {
@@ -34,6 +45,14 @@ export interface ICobroParcial {
   formaPagoId?: Types.ObjectId;
   referencia?: string;          // Referencia del cobro/pago
   observaciones?: string;
+}
+
+export interface IDevolucionVencimiento {
+  fecha: Date;
+  motivo: string;
+  comision?: number;              // Comisión bancaria por devolución
+  reemitido: boolean;             // Si se ha reemitido el vencimiento
+  nuevoVencimientoId?: Types.ObjectId;  // ID del nuevo vencimiento si se reemitió
 }
 
 export interface IVencimiento extends Document {
@@ -79,6 +98,16 @@ export interface IVencimiento extends Document {
   estado: EstadoVencimiento;
   diasVencido: number;          // Virtual: días desde vencimiento
 
+  // Método de pago/cobro
+  metodoPago?: MetodoPagoVencimiento;
+
+  // Referencias a documentos relacionados
+  reciboId?: Types.ObjectId;    // Si se generó un recibo
+  pagareId?: Types.ObjectId;    // Si se paga/cobra con pagaré
+
+  // Devolución
+  devolucion?: IDevolucionVencimiento;
+
   // Cobros parciales
   cobrosParciales: ICobroParcial[];
 
@@ -116,6 +145,31 @@ const CobroParcialSchema = new Schema<ICobroParcial>({
     trim: true,
   },
 }, { _id: true });
+
+const DevolucionVencimientoSchema = new Schema<IDevolucionVencimiento>({
+  fecha: {
+    type: Date,
+    required: true,
+    default: Date.now,
+  },
+  motivo: {
+    type: String,
+    required: [true, 'El motivo de la devolución es obligatorio'],
+    trim: true,
+  },
+  comision: {
+    type: Number,
+    min: 0,
+  },
+  reemitido: {
+    type: Boolean,
+    default: false,
+  },
+  nuevoVencimientoId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Vencimiento',
+  },
+}, { _id: false });
 
 const VencimientoSchema = new Schema<IVencimiento>(
   {
@@ -239,6 +293,27 @@ const VencimientoSchema = new Schema<IVencimiento>(
       type: String,
       enum: Object.values(EstadoVencimiento),
       default: EstadoVencimiento.PENDIENTE,
+    },
+
+    // Método de pago/cobro
+    metodoPago: {
+      type: String,
+      enum: Object.values(MetodoPagoVencimiento),
+    },
+
+    // Referencias a documentos relacionados
+    reciboId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Recibo',
+    },
+    pagareId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Pagare',
+    },
+
+    // Devolución
+    devolucion: {
+      type: DevolucionVencimientoSchema,
     },
 
     // Cobros parciales

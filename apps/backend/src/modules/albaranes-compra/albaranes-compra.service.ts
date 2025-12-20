@@ -7,7 +7,7 @@ import {
   RegistrarRecepcionDTO,
   CrearDesdePedidoCompraDTO,
 } from './albaranes-compra.dto';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import {
   getProveedorModel,
   getProductoModel,

@@ -223,6 +223,16 @@ const menuGroups: MenuGroup[] = [
         ],
       },
       {
+        title: 'Pagarés',
+        href: '/tesoreria/pagares',
+        icon: FileText,
+      },
+      {
+        title: 'Recibos',
+        href: '/tesoreria/recibos',
+        icon: Receipt,
+      },
+      {
         title: 'Movimientos',
         href: '/tesoreria/movimientos',
         icon: Wallet,
@@ -333,6 +343,14 @@ const menuGroups: MenuGroup[] = [
     icon: Database,
     permiso: 'accederConfiguracion',
     items: [
+      {
+        title: 'Precios',
+        icon: Tag,
+        children: [
+          { title: 'Tarifas', href: '/tarifas' },
+          { title: 'Ofertas / Promociones', href: '/ofertas' },
+        ],
+      },
       {
         title: 'Ficheros',
         icon: FileStack,

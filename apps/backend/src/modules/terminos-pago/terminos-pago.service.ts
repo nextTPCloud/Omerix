@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { TerminoPago, ITerminoPago } from '../../models/TerminoPago';
+import { TerminoPago, ITerminoPago } from './TerminoPago';
 import {
   CreateTerminoPagoDTO,
   UpdateTerminoPagoDTO,

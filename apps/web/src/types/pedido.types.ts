@@ -28,6 +28,21 @@ export enum TipoLinea {
 }
 
 // ============================================
+// TIPOS DE ORIGEN DE PRECIO
+// ============================================
+
+export type OrigenPrecio = 'producto' | 'tarifa' | 'oferta' | 'precio_cantidad' | 'manual';
+
+export interface IDetalleOrigenPrecio {
+  tarifaId?: string;
+  tarifaNombre?: string;
+  ofertaId?: string;
+  ofertaNombre?: string;
+  ofertaTipo?: string;
+  descuentoAplicado?: number;
+}
+
+// ============================================
 // INTERFACES
 // ============================================
 
@@ -68,7 +83,11 @@ export interface ILineaPedido {
   cantidadServida: number;
   cantidadPendiente: number;
   unidad?: string;
+  // Precios: original (PVP) y aplicado (puede ser de tarifa/oferta)
+  precioOriginal?: number;
   precioUnitario: number;
+  origenPrecio?: OrigenPrecio;
+  detalleOrigenPrecio?: IDetalleOrigenPrecio;
   descuento: number;
   descuentoImporte: number;
   subtotal: number;

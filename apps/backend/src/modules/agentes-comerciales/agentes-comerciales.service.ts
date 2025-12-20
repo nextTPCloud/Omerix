@@ -1,7 +1,7 @@
 import { Model } from 'mongoose';
 import { IAgenteComercial } from './AgenteComercial';
 import { CreateAgenteComercialDto, UpdateAgenteComercialDto, GetAgentesQueryDto } from './agentes-comerciales.dto';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getAgenteComercialModel } from '@/utils/dynamic-models.helper';
 
 // ============================================

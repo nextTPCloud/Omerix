@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import config from '../../../config/env';
-import Pago from '../../../models/Pago';
-import Licencia from '../../../models/Licencia';
+import Pago from '../Pago';
+import Licencia from '../../licencias/Licencia';
 
 const stripe = new Stripe(config.stripe.secretKey, {
   apiVersion: '2025-10-29.clover',

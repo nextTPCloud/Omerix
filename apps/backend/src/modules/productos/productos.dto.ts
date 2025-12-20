@@ -165,7 +165,8 @@ export const UpdateProductoSchema = ProductoBaseSchema.partial();
 
 // Búsqueda y filtros
 export const SearchProductosSchema = z.object({
-  q: z.string().optional(), // Búsqueda de texto
+  q: z.string().optional(), // Búsqueda de texto (parámetro legacy)
+  search: z.string().optional(), // Búsqueda de texto (parámetro estándar)
   familiaId: z.string().optional(),
   marca: z.string().optional(),
   tipo: z.string().optional(),

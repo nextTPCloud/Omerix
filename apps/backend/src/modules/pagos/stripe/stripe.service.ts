@@ -1,10 +1,10 @@
 import Stripe from 'stripe';
 import config from '../../../config/env';
-import Pago from '../../../models/Pago';
-import MetodoPago from '../../../models/MetodoPago';
-import Empresa from '../../../models/Empresa';
-import Licencia from '../../../models/Licencia';
-import Plan from '../../../models/Plan';
+import Pago from '../Pago';
+import MetodoPago from '../../formas-pago/MetodoPago';
+import Empresa from '../../empresa/Empresa';
+import Licencia from '../../licencias/Licencia';
+import Plan from '../../licencias/Plan';
 import {
   CreatePaymentIntentDTO,
   CreateSubscriptionDTO,

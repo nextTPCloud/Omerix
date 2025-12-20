@@ -1,6 +1,6 @@
 import mongoose, { Model } from 'mongoose';
 import { Familia, IFamilia } from './Familia';
-import { Producto, IProducto } from '../../models/Producto';
+import { Producto, IProducto } from '../productos/Producto';
 import { CreateFamiliaDTO, UpdateFamiliaDTO, SearchFamiliasDTO } from './familias.dto';
 import { IDatabaseConfig } from '../../types/express';
 import { getFamiliaModel, getProductoModel } from '../../utils/dynamic-models.helper';

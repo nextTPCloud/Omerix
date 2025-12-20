@@ -1,7 +1,7 @@
 import mongoose, { Model } from 'mongoose';
 import { CreateClienteDto, UpdateClienteDto, GetClientesQueryDto } from './clientes.dto';
 import { Cliente, ICliente } from '@/modules/clientes/Cliente';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getClienteModel } from '@/utils/dynamic-models.helper';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 

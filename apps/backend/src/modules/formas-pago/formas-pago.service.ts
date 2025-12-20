@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { FormaPago, IFormaPago } from '../../models/FormaPago';
+import { FormaPago, IFormaPago } from './FormaPago';
 import {
   CreateFormaPagoDTO,
   UpdateFormaPagoDTO,

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getModeloTurno, getModeloHorarioPersonal, ITurno, IHorarioPersonal } from '../turnos/Turno';
 import { getModeloCalendarioLaboral, ICalendarioLaboral, IFestivo } from '../calendarios/CalendarioLaboral';
 import { getModeloDepartamento } from '../departamentos/Departamento';

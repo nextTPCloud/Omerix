@@ -115,6 +115,28 @@ export interface IArchivo {
   subidoPor: mongoose.Types.ObjectId;
 }
 
+// Tipo de entidad pública para facturación electrónica
+export enum TipoEntidadPublica {
+  AGE = 'AGE',       // Administración General del Estado
+  CCAA = 'CCAA',     // Comunidades Autónomas
+  LOCAL = 'LOCAL',   // Entidades Locales
+  OTRO = 'OTRO',     // Otras entidades públicas
+}
+
+// Datos para facturación electrónica a administraciones públicas (FACE)
+export interface IFacturacionElectronica {
+  activa: boolean;                       // Si está habilitada la facturación electrónica
+  codigoOrganoGestor: string;           // DIR3 - Código del Órgano Gestor
+  codigoUnidadTramitadora: string;      // DIR3 - Código de la Unidad Tramitadora
+  codigoOficinaContable: string;        // DIR3 - Código de la Oficina Contable
+  codigoPuntoEntrega?: string;          // DIR3 - Código del Punto de Entrega (opcional)
+  tipoEntidad: TipoEntidadPublica;      // Tipo de administración
+  nombreOrganoGestor?: string;          // Nombre descriptivo (para referencia)
+  nombreUnidadTramitadora?: string;     // Nombre descriptivo
+  nombreOficinaContable?: string;       // Nombre descriptivo
+  observaciones?: string;               // Notas adicionales
+}
+
 // Descuento por familia de productos
 export interface IDescuentoFamilia {
   familiaId: mongoose.Types.ObjectId;
@@ -222,6 +244,11 @@ export interface ICliente extends Document {
   fechaAutorizacionEmail?: Date;        // Fecha de autorización email
   autorizacionSMS?: boolean;            // Si autoriza comunicaciones por SMS
   fechaAutorizacionSMS?: Date;          // Fecha de autorización SMS
+
+  // ============================================
+  // FACTURACIÓN ELECTRÓNICA (FACE/DIR3)
+  // ============================================
+  facturacionElectronica?: IFacturacionElectronica;
 
   // Archivos
   archivos?: IArchivo[];
@@ -340,6 +367,25 @@ const ArchivoSchema = new Schema<IArchivo>({
   tamaño: { type: Number, required: true },
   fechaSubida: { type: Date, default: Date.now },
   subidoPor: { type: Schema.Types.ObjectId, ref: 'Usuario', required: true },
+}, { _id: false });
+
+// Schema para facturación electrónica a administraciones públicas (FACE)
+const FacturacionElectronicaSchema = new Schema<IFacturacionElectronica>({
+  activa: { type: Boolean, default: false },
+  codigoOrganoGestor: { type: String, required: true, trim: true, uppercase: true },
+  codigoUnidadTramitadora: { type: String, required: true, trim: true, uppercase: true },
+  codigoOficinaContable: { type: String, required: true, trim: true, uppercase: true },
+  codigoPuntoEntrega: { type: String, trim: true, uppercase: true },
+  tipoEntidad: {
+    type: String,
+    enum: Object.values(TipoEntidadPublica),
+    required: true,
+    default: TipoEntidadPublica.AGE,
+  },
+  nombreOrganoGestor: { type: String, trim: true },
+  nombreUnidadTramitadora: { type: String, trim: true },
+  nombreOficinaContable: { type: String, trim: true },
+  observaciones: { type: String },
 }, { _id: false });
 
 // ============================================
@@ -570,6 +616,13 @@ const ClienteSchema = new Schema<ICliente, IClienteModel>({
   autorizacionSMS: { type: Boolean, default: false },
   fechaAutorizacionSMS: { type: Date },
 
+  // ============================================
+  // FACTURACIÓN ELECTRÓNICA (FACE/DIR3)
+  // ============================================
+  facturacionElectronica: {
+    type: FacturacionElectronicaSchema,
+  },
+
   // Archivos
   archivos: [ArchivoSchema],
   
@@ -624,6 +677,9 @@ ClienteSchema.index({ agentesComerciales: 1 });
 ClienteSchema.index({ 'direcciones.ciudad': 1 });
 ClienteSchema.index({ 'direcciones.provincia': 1 });
 ClienteSchema.index({ 'direcciones.tipo': 1 });
+
+// Índice para facturación electrónica
+ClienteSchema.index({ 'facturacionElectronica.activa': 1 });
 
 // ============================================
 // VIRTUALS

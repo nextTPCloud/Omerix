@@ -13,7 +13,7 @@
 import mongoose from 'mongoose';
 import { AIService, createAIServiceWithConfig } from './ai.service';
 import { AIMessage, AIProvider } from './ai.types';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 
 // ============================================
 // TIPOS

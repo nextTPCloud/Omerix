@@ -1,7 +1,7 @@
 // backend/src/utils/jwt.ts
 
 import jwt from 'jsonwebtoken';
-import { IUsuario } from '../models/Usuario';
+import { IUsuario } from '../modules/usuarios/Usuario';
 import config from '@/config/env';
 
 const JWT_SECRET = config.jwt.secret;

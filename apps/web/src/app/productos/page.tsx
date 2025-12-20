@@ -60,6 +60,7 @@ import {
   XCircle,
   TrendingDown,
   Copy,
+  FilterX,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useModuleConfig } from '@/hooks/useModuleConfig'
@@ -220,6 +221,16 @@ export default function ProductosPage() {
 
   const densityClasses = useDensityClasses(densidad)
 
+  // Detectar si hay filtros de columna activos
+  const hasActiveColumnFilters = useMemo(() => {
+    if (!columnFilters) return false
+    return Object.entries(columnFilters).some(([key, value]) => {
+      if (value === undefined || value === null || value === '') return false
+      if (value === 'all') return false
+      return true
+    })
+  }, [columnFilters])
+
   // ============================================
   // ESTADÍSTICAS CALCULADAS
   // ============================================
@@ -266,14 +277,14 @@ export default function ProductosPage() {
         sortOrder: sortConfig.direction,
       }
 
-      // Combinar búsqueda general con filtros de texto de columnas
+      // Combinar búsqueda general con filtros de texto de columnas (solo campos de texto)
       const searchTerms: string[] = []
       if (searchTerm.trim()) {
         searchTerms.push(searchTerm.trim())
       }
 
-      // Añadir filtros de texto de columnas
-      const textFilterFields = ['sku', 'nombre', 'descripcion', 'codigoBarras', 'precioBase', 'precioVenta', 'stockCantidad', 'stockMinimo']
+      // Solo añadir filtros de columnas de TEXTO (no numéricas)
+      const textFilterFields = ['sku', 'nombre', 'descripcion', 'codigoBarras']
       textFilterFields.forEach(field => {
         if (columnFilters[field] && String(columnFilters[field]).trim()) {
           searchTerms.push(String(columnFilters[field]).trim())
@@ -366,6 +377,10 @@ export default function ProductosPage() {
         }
       } catch (error) {
         console.error('Error al cargar vista por defecto:', error)
+      } finally {
+        // Marcar como cargado y hacer fetch inicial
+        isInitialLoad.current = false
+        fetchProductos()
       }
     }
 
@@ -378,17 +393,11 @@ export default function ProductosPage() {
     updateAdvancedFilters(filtersToSaved(advancedFilters))
   }, [advancedFilters, updateAdvancedFilters])
 
+  // Refetch cuando cambian los filtros (después de la carga inicial)
   useEffect(() => {
-    if (isInitialLoad.current) {
-      isInitialLoad.current = false
-      return
-    }
+    if (isInitialLoad.current) return
     fetchProductos()
   }, [fetchProductos])
-
-  useEffect(() => {
-    fetchProductos()
-  }, [])
 
   // ============================================
   // HANDLERS
@@ -414,6 +423,12 @@ export default function ProductosPage() {
     updateColumnFilters(newFilters)
     setPagination(prev => ({ ...prev, page: 1 }))
   }
+
+  // Limpiar todos los filtros de columna
+  const handleClearAllColumnFilters = useCallback(() => {
+    updateColumnFilters({})
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [updateColumnFilters])
 
   const handleDelete = async (ids: string[]) => {
     try {
@@ -562,6 +577,7 @@ export default function ProductosPage() {
           searchValue={searchTerm}
           onSearchChange={handleSearch}
           searchPlaceholder="Buscar por nombre, SKU o código de barras..."
+          onClearAll={handleClearAllColumnFilters}
         />
 
         {/* Barra de herramientas */}
@@ -705,6 +721,24 @@ export default function ProductosPage() {
                   <RefreshCw className={`h-4 w-4 sm:mr-2 shrink-0 ${isLoading ? 'animate-spin' : ''}`} />
                   <span className="hidden sm:inline">Actualizar</span>
                 </Button>
+
+                {/* LIMPIAR FILTROS - visible cuando hay filtros activos */}
+                {(hasActiveColumnFilters || searchTerm || advancedFilters.length > 0) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      handleClearAllColumnFilters()
+                      setSearchTerm('')
+                      setAdvancedFilters([])
+                      toast.success('Filtros limpiados')
+                    }}
+                    className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                  >
+                    <FilterX className="h-4 w-4 sm:mr-2 shrink-0" />
+                    <span className="hidden sm:inline">Limpiar filtros</span>
+                  </Button>
+                )}
               </div>
             </div>
 

@@ -19,6 +19,7 @@ import type {
  */
 export interface SearchProductosParams {
   q?: string
+  search?: string // Alias de q, soportado en backend
   familiaId?: string
   marca?: string
   tipo?: 'simple' | 'variantes' | 'compuesto' | 'servicio' | 'materia_prima'

@@ -1,6 +1,6 @@
 import { Model } from 'mongoose';
-import { GrupoModificadores, IGrupoModificadores } from '../../models/GrupoModificadores';
-import { ModificadorProducto, IModificadorProducto } from '../../models/ModificadorProducto';
+import { GrupoModificadores, IGrupoModificadores } from './GrupoModificadores';
+import { ModificadorProducto, IModificadorProducto } from '../modificadores/ModificadorProducto';
 import { CreateGrupoModificadoresDTO, UpdateGrupoModificadoresDTO, SearchGruposModificadoresDTO } from './grupos-modificadores.dto';
 import { Types } from 'mongoose';
 import { IDatabaseConfig } from '../../types/express';

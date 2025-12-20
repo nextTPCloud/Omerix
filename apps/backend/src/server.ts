@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import { connectDB } from './config/database';
 import { swaggerSpec, serveSwaggerJSON } from './config/swagger';
-import Empresa from './models/Empresa';
+import Empresa from './modules/empresa/Empresa';
 
 // Importar rutas
 import authRoutes from './modules/auth/auth.routes';
@@ -38,6 +38,11 @@ import alergenosRoutes from './modules/alergenos/alergenos.routes';
 import terminosPagoRoutes from './modules/terminos-pago/terminos-pago.routes';
 import formasPagoRoutes from './modules/formas-pago/formas-pago.routes';
 import vencimientosRoutes from './modules/tesoreria/vencimientos.routes';
+import pagaresRoutes from './modules/tesoreria/pagares.routes';
+import recibosRoutes from './modules/tesoreria/recibos.routes';
+
+// Importar rutas de factura electrónica
+import facturaERoutes from './modules/facturae/facturae.routes';
 
 // Importar rutas de RRHH y comercial
 import agentesRoutes from './modules/agentes-comerciales/agentes-comerciales.routes';
@@ -90,6 +95,11 @@ import usuariosRoutes from './modules/usuarios/usuarios.routes';
 import tiposGastoRoutes from './modules/tipos-gasto/tipos-gasto.routes';
 import maquinariaRoutes from './modules/maquinaria/maquinaria.routes';
 import partesTrabajoRoutes from './modules/partes-trabajo/partes-trabajo.routes';
+
+// Importar rutas de tarifas, ofertas y precios
+import tarifasRoutes from './modules/tarifas/tarifas.routes';
+import ofertasRoutes from './modules/ofertas/ofertas.routes';
+import preciosRoutes from './modules/precios/precios.routes';
 
 // Importar rutas de planificación y RRHH
 import departamentosRoutes from './modules/departamentos/departamentos.routes';
@@ -300,6 +310,11 @@ app.use('/api/formas-pago', formasPagoRoutes);
 
 // Rutas de tesorería
 app.use('/api/vencimientos', vencimientosRoutes);
+app.use('/api/pagares', pagaresRoutes);
+app.use('/api/recibos', recibosRoutes);
+
+// Rutas de factura electrónica (FacturaE/FACE)
+app.use('/api/facturae', facturaERoutes);
 
 // Rutas de RRHH y comercial
 app.use('/api/agentes-comerciales', agentesRoutes);
@@ -351,6 +366,11 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/tipos-gasto', tiposGastoRoutes);
 app.use('/api/maquinaria', maquinariaRoutes);
 app.use('/api/partes-trabajo', partesTrabajoRoutes);
+
+// Rutas de tarifas, ofertas y precios
+app.use('/api/tarifas', tarifasRoutes);
+app.use('/api/ofertas', ofertasRoutes);
+app.use('/api/precios', preciosRoutes);
 
 // Rutas de planificación y RRHH
 app.use('/api/departamentos', departamentosRoutes);

@@ -8,12 +8,13 @@ import {
   ImportarLineasDTO,
   DuplicarPresupuestoDTO,
 } from './presupuestos.dto';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getPresupuestoModel, getProductoModel, getClienteModel, getProyectoModel, getAgenteComercialModel, getFormaPagoModel, getTerminoPagoModel, getUserModel } from '@/utils/dynamic-models.helper';
 import { presupuestosPDFService } from './presupuestos-pdf.service';
 import { empresaService } from '../empresa/empresa.service';
-import Empresa from '@/models/Empresa';
+import Empresa from '@/modules/empresa/Empresa';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
+import { preciosService } from '../precios/precios.service';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -177,6 +178,69 @@ export class PresupuestosService {
   }
 
   // ============================================
+  // PROCESAR LÍNEAS CON PRECIOS DE TARIFAS/OFERTAS
+  // ============================================
+
+  /**
+   * Procesa las líneas obteniendo precios de tarifas/ofertas cuando corresponde
+   */
+  private async procesarLineasConPrecios(
+    lineas: any[],
+    clienteId: string | undefined,
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any[]> {
+    const lineasProcesadas: any[] = [];
+
+    for (const linea of lineas) {
+      // Solo procesar líneas con producto y sin precio manual especificado
+      if (linea.productoId && (linea.precioUnitario === undefined || linea.precioUnitario === null || linea.precioUnitario === 0)) {
+        try {
+          const precioCalculado = await preciosService.obtenerPrecioProducto({
+            productoId: linea.productoId,
+            varianteId: linea.variante?.varianteId,
+            clienteId,
+            cantidad: linea.cantidad || 1,
+            empresaId,
+            dbConfig,
+          });
+
+          lineasProcesadas.push({
+            ...linea,
+            precioUnitario: precioCalculado.precioFinal,
+            infoPrecio: {
+              origen: precioCalculado.origen,
+              tarifaId: precioCalculado.detalleOrigen?.tarifaId,
+              tarifaNombre: precioCalculado.detalleOrigen?.tarifaNombre,
+              ofertaId: precioCalculado.detalleOrigen?.ofertaId,
+              ofertaNombre: precioCalculado.detalleOrigen?.ofertaNombre,
+              ofertaTipo: precioCalculado.detalleOrigen?.ofertaTipo,
+              etiquetaOferta: precioCalculado.etiquetaOferta,
+              precioOriginal: precioCalculado.precioBase,
+              unidadesGratis: precioCalculado.unidadesGratis,
+            },
+          });
+        } catch (error) {
+          // Si falla obtener precio, usar la línea original
+          lineasProcesadas.push(linea);
+        }
+      } else {
+        // Si tiene precio manual, marcar origen como manual
+        if (linea.precioUnitario !== undefined && linea.precioUnitario !== null && linea.precioUnitario > 0) {
+          lineasProcesadas.push({
+            ...linea,
+            infoPrecio: { origen: 'manual' },
+          });
+        } else {
+          lineasProcesadas.push(linea);
+        }
+      }
+    }
+
+    return lineasProcesadas;
+  }
+
+  // ============================================
   // CREAR PRESUPUESTO
   // ============================================
 
@@ -246,6 +310,14 @@ export class PresupuestosService {
         }
       }
     }
+
+    // Procesar líneas con precios de tarifas/ofertas
+    lineas = await this.procesarLineasConPrecios(
+      lineas,
+      createPresupuestoDto.clienteId,
+      String(empresaId),
+      dbConfig
+    );
 
     // Calcular líneas
     const lineasCalculadas = lineas.map((linea, index) =>

@@ -394,6 +394,7 @@ export function ClienteForm({
             condiciones={{
               formaPagoId: formData.formaPagoId,
               terminoPagoId: formData.terminoPagoId,
+              tarifaId: formData.tarifaId,
               descuentoGeneral: formData.descuentoGeneral,
               limiteCredito: formData.limiteCredito,
             }}
@@ -401,6 +402,7 @@ export function ClienteForm({
               ...prev,
               formaPagoId: condiciones.formaPagoId,
               terminoPagoId: condiciones.terminoPagoId,
+              tarifaId: condiciones.tarifaId,
               descuentoGeneral: condiciones.descuentoGeneral,
               limiteCredito: condiciones.limiteCredito,
             }))}

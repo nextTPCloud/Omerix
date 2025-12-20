@@ -36,6 +36,7 @@ export function AdvancedFilters({
   searchValue = '',
   onSearchChange,
   onSaveView,
+  onClearAll: onClearAllProp,
 }: AdvancedFiltersProps) {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [viewName, setViewName] = useState('');
@@ -60,7 +61,11 @@ export function AdvancedFilters({
     if (onSearchChange) {
       onSearchChange('');
     }
-  }, [onFiltersChange, onSearchChange]);
+    // Llamar al callback del padre para limpiar filtros de columna
+    if (onClearAllProp) {
+      onClearAllProp();
+    }
+  }, [onFiltersChange, onSearchChange, onClearAllProp]);
 
   // Guardar vista
   const handleSaveView = () => {

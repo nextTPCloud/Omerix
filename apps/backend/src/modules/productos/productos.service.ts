@@ -1,8 +1,8 @@
 import mongoose, { Model } from 'mongoose';
-import { Producto, IProducto } from '../../models/Producto';
+import { Producto, IProducto } from './Producto';
 import { Familia, IFamilia } from '../familias/Familia';
-import Licencia from '../../models/Licencia';
-import Plan from '../../models/Plan';
+import Licencia from '../licencias/Licencia';
+import Plan from '../licencias/Plan';
 import {
   CreateProductoDTO,
   UpdateProductoDTO,
@@ -297,6 +297,7 @@ export class ProductosService {
 
     const {
       q,
+      search,
       familiaId,
       marca,
       tipo,
@@ -317,15 +318,33 @@ export class ProductosService {
     // Construir query
     const query: any = { empresaId };
 
-    // Búsqueda de texto
-    if (q) {
-      query.$or = [
-        { nombre: { $regex: q, $options: 'i' } },
-        { sku: { $regex: q, $options: 'i' } },
-        { codigoBarras: { $regex: q, $options: 'i' } },
-        { marca: { $regex: q, $options: 'i' } },
-        { descripcion: { $regex: q, $options: 'i' } },
-      ];
+    // Búsqueda de texto (usar 'search' o 'q')
+    const searchTerm = search || q;
+    if (searchTerm) {
+      // Dividir el término de búsqueda en palabras para búsqueda AND
+      const palabras = searchTerm.trim().split(/\s+/).filter((p: string) => p.length > 0);
+
+      if (palabras.length > 1) {
+        // Búsqueda con múltiples palabras: todas deben coincidir (AND)
+        query.$and = palabras.map((palabra: string) => ({
+          $or: [
+            { nombre: { $regex: palabra, $options: 'i' } },
+            { sku: { $regex: palabra, $options: 'i' } },
+            { codigoBarras: { $regex: palabra, $options: 'i' } },
+            { marca: { $regex: palabra, $options: 'i' } },
+            { descripcion: { $regex: palabra, $options: 'i' } },
+          ],
+        }));
+      } else {
+        // Búsqueda con una sola palabra
+        query.$or = [
+          { nombre: { $regex: searchTerm, $options: 'i' } },
+          { sku: { $regex: searchTerm, $options: 'i' } },
+          { codigoBarras: { $regex: searchTerm, $options: 'i' } },
+          { marca: { $regex: searchTerm, $options: 'i' } },
+          { descripcion: { $regex: searchTerm, $options: 'i' } },
+        ];
+      }
     }
 
     // Filtros

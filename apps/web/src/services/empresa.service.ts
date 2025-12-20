@@ -158,6 +158,18 @@ export interface SendEmailParams {
   bcc?: string | string[];
 }
 
+// Preferencias de precios
+export type OrigenPrecio = 'tarifa' | 'oferta' | 'producto';
+
+export interface PreferenciasPrecios {
+  ordenBusqueda: OrigenPrecio[];
+  aplicarOfertasAutomaticamente: boolean;
+  aplicarTarifasAutomaticamente: boolean;
+  permitirAcumularOfertas: boolean;
+  permitirAcumularTarifaYOferta: boolean;
+  descuentoMaximoManual?: number;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -307,6 +319,26 @@ export const empresaService = {
    */
   sendEmail: async (params: SendEmailParams): Promise<ApiResponse<{ messageId?: string }>> => {
     const response = await api.post('/empresa/send-email', params);
+    return response.data;
+  },
+
+  // ============================================
+  // PREFERENCIAS DE PRECIOS
+  // ============================================
+
+  /**
+   * Obtener preferencias de precios
+   */
+  getPreferenciasPrecios: async (): Promise<ApiResponse<PreferenciasPrecios>> => {
+    const response = await api.get('/empresa/preferencias-precios');
+    return response.data;
+  },
+
+  /**
+   * Actualizar preferencias de precios
+   */
+  updatePreferenciasPrecios: async (preferencias: Partial<PreferenciasPrecios>): Promise<ApiResponse<PreferenciasPrecios>> => {
+    const response = await api.put('/empresa/preferencias-precios', preferencias);
     return response.data;
   },
 };

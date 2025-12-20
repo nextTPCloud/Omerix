@@ -1,5 +1,5 @@
-import Empresa, { IEmpresa } from '@/models/Empresa';
-import Usuario from '@/models/Usuario';
+import Empresa, { IEmpresa } from '@/modules/empresa/Empresa';
+import Usuario from '@/modules/usuarios/Usuario';
 import { GetEmpresasQueryDto, AdminUpdateEmpresaDto, UpdateEmpresaEstadoDto } from './admin.dto';
 import mongoose from 'mongoose';
 

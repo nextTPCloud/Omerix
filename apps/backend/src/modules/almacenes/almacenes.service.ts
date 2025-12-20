@@ -1,5 +1,5 @@
 import { Model, Types } from 'mongoose';
-import { Almacen, IAlmacen } from '../../models/Almacen';
+import { Almacen, IAlmacen } from './Almacen';
 import {
   CreateAlmacenDTO,
   UpdateAlmacenDTO,

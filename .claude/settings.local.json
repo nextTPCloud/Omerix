@@ -1,17 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run build:*)",
-      "Bash(npm run build:web:*)",
-      "mcp__ide__getDiagnostics",
       "Bash(npx tsc:*)",
-      "Bash(ls:*)",
-      "WebFetch(domain:github.com)",
-      "WebSearch",
-      "Bash(npm install:*)",
-      "Bash(npx ts-node:*)",
-      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npx ts-node:*)",
-      "Bash(npx tsx:*)"
+      "Bash(xargs:*)"
     ]
   }
 }

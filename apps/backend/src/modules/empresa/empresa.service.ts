@@ -1,4 +1,4 @@
-import Empresa, { IEmpresa, IEmailConfig, ICuentaBancariaEmpresa, ITextosLegales, IDatosRegistro, encrypt, decrypt } from '../../models/Empresa';
+import Empresa, { IEmpresa, IEmailConfig, ICuentaBancariaEmpresa, ITextosLegales, IDatosRegistro, IPreferenciasPrecios, encrypt, decrypt } from './Empresa';
 import nodemailer from 'nodemailer';
 import { google } from 'googleapis';
 import { Types } from 'mongoose';
@@ -411,6 +411,62 @@ class EmpresaService {
       { _id: empresaId },
       { $unset: { emailConfig: 1 } }
     );
+  }
+
+  /**
+   * Obtener preferencias de precios de la empresa
+   */
+  async getPreferenciasPrecios(empresaId: string): Promise<IPreferenciasPrecios | null> {
+    const empresa = await Empresa.findById(empresaId)
+      .select('preferenciasPrecios')
+      .lean();
+
+    if (!empresa) return null;
+
+    // Devolver las preferencias o los valores por defecto
+    return empresa.preferenciasPrecios || {
+      ordenBusqueda: ['tarifa', 'oferta', 'producto'],
+      aplicarOfertasAutomaticamente: true,
+      aplicarTarifasAutomaticamente: true,
+      permitirAcumularOfertas: false,
+      permitirAcumularTarifaYOferta: true,
+      descuentoMaximoManual: undefined,
+    };
+  }
+
+  /**
+   * Actualizar preferencias de precios de la empresa
+   */
+  async updatePreferenciasPrecios(
+    empresaId: string,
+    preferencias: Partial<IPreferenciasPrecios>
+  ): Promise<IPreferenciasPrecios | null> {
+    // Validar ordenBusqueda si se proporciona
+    if (preferencias.ordenBusqueda) {
+      const validos = ['tarifa', 'oferta', 'producto'];
+      const esValido = preferencias.ordenBusqueda.every(o => validos.includes(o));
+      if (!esValido) {
+        throw new Error('El orden de busqueda contiene valores invalidos');
+      }
+      // Asegurar que tiene los 3 elementos
+      if (preferencias.ordenBusqueda.length !== 3) {
+        throw new Error('El orden de busqueda debe contener exactamente 3 elementos');
+      }
+    }
+
+    // Validar descuentoMaximoManual
+    if (preferencias.descuentoMaximoManual !== undefined) {
+      if (preferencias.descuentoMaximoManual < 0 || preferencias.descuentoMaximoManual > 100) {
+        throw new Error('El descuento maximo debe estar entre 0 y 100');
+      }
+    }
+
+    await Empresa.updateOne(
+      { _id: empresaId },
+      { $set: { preferenciasPrecios: preferencias } }
+    );
+
+    return this.getPreferenciasPrecios(empresaId);
   }
 }
 

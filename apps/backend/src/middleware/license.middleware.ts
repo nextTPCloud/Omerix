@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import Licencia from '../models/Licencia';
+import Licencia from '../modules/licencias/Licencia';
 
 // Extender Request para incluir licencia
 declare global {

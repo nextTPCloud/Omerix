@@ -6,7 +6,7 @@ import verifactuService, { VeriFactuConfig } from './verifactu.service';
 import { getFacturaModel } from '@/utils/dynamic-models.helper';
 import certificadosService from '@/modules/certificados/certificados.service';
 import { UsosCertificado } from '@/modules/certificados/certificados.schema';
-import Empresa from '@/models/Empresa';
+import Empresa from '@/modules/empresa/Empresa';
 
 // ============================================
 // CONTROLADORES VERIFACTU

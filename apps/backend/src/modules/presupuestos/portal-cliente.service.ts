@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { IPresupuesto, EstadoPresupuesto, IRespuestaCliente } from './Presupuesto';
-import Empresa, { IDatabaseConfig } from '@/models/Empresa';
+import Empresa, { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getPresupuestoModel, getClienteModel } from '@/utils/dynamic-models.helper';
 
 // ============================================

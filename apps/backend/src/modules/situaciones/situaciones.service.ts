@@ -1,7 +1,7 @@
 import mongoose, { Model } from 'mongoose';
 import { CreateSituacionDto, UpdateSituacionDto, GetSituacionesQueryDto } from './situaciones.dto';
 import { ISituacion } from '@/modules/situaciones/Situacion';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getSituacionModel } from '@/utils/dynamic-models.helper';
 
 // ============================================

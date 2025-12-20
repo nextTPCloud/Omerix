@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { IPermisosEspeciales, PERMISOS_ESPECIALES_DEFAULT } from './Rol';
+import { IPermisosEspeciales, PERMISOS_ESPECIALES_DEFAULT } from '../roles/Rol';
 
 /**
  * Permisos personalizados del usuario (sobrescriben los del rol)

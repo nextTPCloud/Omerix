@@ -9,9 +9,9 @@ import {
   DuplicarPedidoDTO,
   CrearDesdePresupuestoDTO,
 } from './pedidos.dto';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getPedidoModel, getPresupuestoModel, getProductoModel, getClienteModel, getProyectoModel, getAgenteComercialModel, getFormaPagoModel, getTerminoPagoModel, getUserModel } from '@/utils/dynamic-models.helper';
-import Empresa from '@/models/Empresa';
+import Empresa from '@/modules/empresa/Empresa';
 import { empresaService } from '../empresa/empresa.service';
 import { EstadoPresupuesto } from '../presupuestos/Presupuesto';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';

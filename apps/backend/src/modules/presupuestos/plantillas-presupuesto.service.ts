@@ -1,5 +1,5 @@
 import mongoose, { Model } from 'mongoose';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getPlantillaPresupuestoModel } from '@/utils/dynamic-models.helper';
 import { IPlantillaPresupuesto, ILineaPlantilla } from './PlantillaPresupuesto';
 import { IPresupuesto, TipoLinea } from './Presupuesto';

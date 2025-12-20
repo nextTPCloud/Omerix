@@ -6,7 +6,7 @@ import {
   GetVistasGuardadasQueryDto,
 } from './vistas-guardadas.dto';
 import { getVistaGuardadaModel } from '@/utils/dynamic-models.helper';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 
 /**
  * ============================================

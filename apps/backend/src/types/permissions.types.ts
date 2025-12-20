@@ -9,7 +9,7 @@ import {
   PERMISOS_ESPECIALES_DEFAULT,
   PERMISOS_ESPECIALES_ADMIN,
   ROLES_SISTEMA,
-} from '../models/Rol';
+} from '../modules/roles/Rol';
 
 // Re-exportar tipos de permisos especiales para uso en toda la app
 export type { IPermisosEspeciales, IPermisos, AccionRecurso, RecursoSistema };

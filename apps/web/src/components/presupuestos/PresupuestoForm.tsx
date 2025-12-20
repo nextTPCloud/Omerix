@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
@@ -65,6 +66,7 @@ import {
   Layers,
   Check,
   AlignLeft,
+  Tag,
 } from 'lucide-react'
 
 // Components
@@ -81,6 +83,7 @@ import { presupuestosService } from '@/services/presupuestos.service'
 import { formasPagoService } from '@/services/formas-pago.service'
 import { terminosPagoService } from '@/services/terminos-pago.service'
 import { seriesDocumentosService } from '@/services/series-documentos.service'
+import { preciosService, IPrecioCalculado } from '@/services/precios.service'
 import { ISerieDocumento } from '@/types/serie-documento.types'
 
 // Types
@@ -535,7 +538,7 @@ export function PresupuestoForm({
   }
 
   // Aplicar producto a línea (usado directamente o después de seleccionar variante)
-  const aplicarProductoALinea = (
+  const aplicarProductoALinea = async (
     index: number,
     producto: Producto,
     variante?: {
@@ -580,12 +583,64 @@ export function PresupuestoForm({
       nombre = `${producto.nombre} (${combinacionStr})`
     }
 
+    // Precio base del producto (PVP)
+    const precioBase = variante?.precioUnitario ?? producto.precios?.venta ?? 0
+    // Obtener precio calculado considerando tarifas y ofertas del cliente
+    let precioUnitario = precioBase
+    let origenPrecio: 'producto' | 'tarifa' | 'oferta' | 'precio_cantidad' | 'manual' = 'producto'
+    let detalleOrigenPrecio: {
+      tarifaId?: string
+      tarifaNombre?: string
+      ofertaId?: string
+      ofertaNombre?: string
+      ofertaTipo?: string
+      descuentoAplicado?: number
+    } | undefined = undefined
+
+    try {
+      const precioResponse = await preciosService.calcularPrecio({
+        productoId: producto._id,
+        varianteId: variante?.varianteId,
+        clienteId: formData.clienteId || undefined,
+        cantidad: 1,
+      })
+
+      if (precioResponse.success && precioResponse.data) {
+        const precioCalculado = precioResponse.data
+        // Siempre usar el precio calculado
+        precioUnitario = precioCalculado.precioFinal
+        origenPrecio = precioCalculado.origen as typeof origenPrecio
+
+        // Guardar detalle del origen
+        if (precioCalculado.detalleOrigen) {
+          detalleOrigenPrecio = {
+            ...precioCalculado.detalleOrigen,
+            descuentoAplicado: precioCalculado.descuentoAplicado,
+          }
+        }
+
+        // Notificar al usuario de la tarifa/oferta aplicada
+        if (precioCalculado.origen === 'tarifa' && precioCalculado.detalleOrigen?.tarifaNombre) {
+          toast.info(`Tarifa "${precioCalculado.detalleOrigen.tarifaNombre}" aplicada: ${precioCalculado.precioFinal.toFixed(2)} EUR (-${precioCalculado.descuentoAplicado?.toFixed(1) || 0}%)`)
+        } else if (precioCalculado.origen === 'oferta' && precioCalculado.detalleOrigen?.ofertaNombre) {
+          toast.info(`Oferta "${precioCalculado.detalleOrigen.ofertaNombre}" aplicada: ${precioCalculado.precioFinal.toFixed(2)} EUR (-${precioCalculado.descuentoAplicado?.toFixed(1) || 0}%)`)
+        }
+      }
+    } catch (error) {
+      // En caso de error, usar el precio base del producto
+      console.warn('Error al obtener precio calculado, usando precio base:', error)
+    }
+
     handleUpdateLinea(index, {
       productoId: producto._id,
       codigo: variante?.sku || producto.sku || '',
       nombre,
       descripcion: producto.descripcionCorta || producto.descripcion || '',
-      precioUnitario: variante?.precioUnitario ?? producto.precios?.venta ?? 0,
+      // Precios: guardar el original y el aplicado
+      precioOriginal: precioBase,
+      precioUnitario,
+      origenPrecio,
+      detalleOrigenPrecio,
       costeUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? 0,
       iva: producto.iva || 21,
       unidad: 'ud',
@@ -788,15 +843,16 @@ export function PresupuestoForm({
       // Solo en la pestaña de líneas
       if (activeTab !== 'lineas') return
 
-      // Ignorar si el foco está en un input (ya tienen sus propios handlers)
-      const target = e.target as HTMLElement
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-
-      // Ctrl+Enter o Ctrl+N para añadir línea
+      // Ctrl+Enter o Ctrl+N para añadir línea (funciona en cualquier campo)
       if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 'n')) {
         e.preventDefault()
         handleAddLinea(TipoLinea.PRODUCTO)
+        return
       }
+
+      // Para otras teclas, ignorar si el foco está en un input
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
     }
 
     window.addEventListener('keydown', handleGlobalKeyDown)
@@ -1510,15 +1566,68 @@ export function PresupuestoForm({
                           </td>
                         )}
                         <td className="px-1 py-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={linea.precioUnitario || 0}
-                            onChange={(e) => handleUpdateLinea(index, { precioUnitario: parseFloat(e.target.value) || 0 })}
-                            className="h-7 text-xs text-right px-1"
-                            disabled={!canModificarPVP()}
-                          />
+                          <div className="flex flex-col items-end gap-0.5">
+                            {/* Indicador de origen de precio (tarifa/oferta) */}
+                            {linea.origenPrecio && linea.origenPrecio !== 'producto' && linea.origenPrecio !== 'manual' && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1">
+                                      {linea.precioOriginal && linea.precioOriginal !== linea.precioUnitario && (
+                                        <span className="text-[10px] text-muted-foreground line-through">
+                                          {formatCurrency(linea.precioOriginal)}
+                                        </span>
+                                      )}
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-[9px] px-1 py-0 h-4 ${
+                                          linea.origenPrecio === 'tarifa'
+                                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                            : linea.origenPrecio === 'oferta'
+                                            ? 'bg-green-50 text-green-700 border-green-200'
+                                            : 'bg-purple-50 text-purple-700 border-purple-200'
+                                        }`}
+                                      >
+                                        <Tag className="h-2.5 w-2.5 mr-0.5" />
+                                        {linea.origenPrecio === 'tarifa' ? 'Tarifa' :
+                                         linea.origenPrecio === 'oferta' ? 'Oferta' :
+                                         linea.origenPrecio === 'precio_cantidad' ? 'Precio x Cant.' : ''}
+                                        {linea.detalleOrigenPrecio?.descuentoAplicado && linea.detalleOrigenPrecio.descuentoAplicado > 0 && (
+                                          <span className="ml-0.5">-{linea.detalleOrigenPrecio.descuentoAplicado.toFixed(0)}%</span>
+                                        )}
+                                      </Badge>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">
+                                    <div className="space-y-1">
+                                      {linea.detalleOrigenPrecio?.tarifaNombre && (
+                                        <p><strong>Tarifa:</strong> {linea.detalleOrigenPrecio.tarifaNombre}</p>
+                                      )}
+                                      {linea.detalleOrigenPrecio?.ofertaNombre && (
+                                        <p><strong>Oferta:</strong> {linea.detalleOrigenPrecio.ofertaNombre}</p>
+                                      )}
+                                      {linea.precioOriginal && linea.precioOriginal !== linea.precioUnitario && (
+                                        <p>
+                                          <strong>Precio original:</strong> {formatCurrency(linea.precioOriginal)}
+                                          {' → '}
+                                          <strong>Aplicado:</strong> {formatCurrency(linea.precioUnitario)}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={linea.precioUnitario || 0}
+                              onChange={(e) => handleUpdateLinea(index, { precioUnitario: parseFloat(e.target.value) || 0, origenPrecio: 'manual' })}
+                              className="h-7 text-xs text-right px-1"
+                              disabled={!canModificarPVP()}
+                            />
+                          </div>
                         </td>
                         <td className="px-1 py-2">
                           <Input

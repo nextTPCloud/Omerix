@@ -53,6 +53,8 @@ export interface AdvancedFiltersProps {
   onSearchChange?: (value: string) => void;
   // Callback para guardar vista
   onSaveView?: (name: string, filters: ActiveFilter[]) => void;
+  // Callback cuando se limpian todos los filtros (para limpiar también filtros de columna del padre)
+  onClearAll?: () => void;
 }
 
 // ============================================

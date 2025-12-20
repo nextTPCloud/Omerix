@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
-import Plan from '../models/Plan';
-import AddOn from '../models/AddOn';
+import Plan from '../modules/licencias/Plan';
+import AddOn from '../modules/licencias/AddOn';
 import dotenv from 'dotenv';
 import path from 'path';
 

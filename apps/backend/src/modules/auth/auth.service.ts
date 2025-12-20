@@ -1,10 +1,10 @@
 // apps/backend/src/modules/auth/auth.service.ts
 
-import Usuario, { IUsuario } from '../../models/Usuario';
-import Empresa from '../../models/Empresa';
-import Plan from '../../models/Plan';
-import Licencia from '../../models/Licencia';
-import RefreshToken from '../../models/RefreshToken';
+import Usuario, { IUsuario } from '../usuarios/Usuario';
+import Empresa from '../empresa/Empresa';
+import Plan from '../licencias/Plan';
+import Licencia from '../licencias/Licencia';
+import RefreshToken from './RefreshToken';
 import { generateAccessToken, generateRefreshToken } from '../../utils/jwt';
 import crypto from 'crypto';
 import {
@@ -26,6 +26,7 @@ import {
 } from './auth.dto';
 import { databaseManager } from '../../services/database-manager.service';
 import { DatabaseManagerService } from '../../services/database-manager.service';
+import mongoose from 'mongoose';
 
 export class AuthService {
   

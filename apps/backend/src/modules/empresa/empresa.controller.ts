@@ -364,6 +364,83 @@ class EmpresaController {
       });
     }
   }
+
+  /**
+   * GET /empresa/preferencias-precios
+   * Obtener preferencias de precios (solo admin/gerente)
+   */
+  async getPreferenciasPrecios(req: Request, res: Response) {
+    try {
+      const empresaId = req.empresaId;
+      const userRol = req.userRole;
+
+      if (!empresaId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No se encontro informacion de la empresa',
+        });
+      }
+
+      if (!userRol || !this.hasGestionRole(userRol)) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permisos para ver la configuracion de precios',
+        });
+      }
+
+      const preferencias = await empresaService.getPreferenciasPrecios(empresaId);
+
+      res.json({
+        success: true,
+        data: preferencias,
+      });
+    } catch (error: any) {
+      console.error('Error al obtener preferencias de precios:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al obtener preferencias de precios',
+      });
+    }
+  }
+
+  /**
+   * PUT /empresa/preferencias-precios
+   * Actualizar preferencias de precios (solo admin/gerente)
+   */
+  async updatePreferenciasPrecios(req: Request, res: Response) {
+    try {
+      const empresaId = req.empresaId;
+      const userRol = req.userRole;
+
+      if (!empresaId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No se encontro informacion de la empresa',
+        });
+      }
+
+      if (!userRol || !this.hasGestionRole(userRol)) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permisos para modificar la configuracion de precios',
+        });
+      }
+
+      const preferencias = await empresaService.updatePreferenciasPrecios(empresaId, req.body);
+
+      res.json({
+        success: true,
+        data: preferencias,
+        message: 'Preferencias de precios actualizadas correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al actualizar preferencias de precios:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al actualizar preferencias de precios',
+      });
+    }
+  }
 }
 
 export const empresaController = new EmpresaController();

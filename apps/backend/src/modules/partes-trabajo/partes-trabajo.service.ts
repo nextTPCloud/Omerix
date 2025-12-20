@@ -26,7 +26,7 @@ import {
   LineaTransporteDTO,
   LineaGastoDTO,
 } from './partes-trabajo.dto';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import {
   getParteTrabajoModel,
   getClienteModel,

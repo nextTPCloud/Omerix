@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import Empresa from '../models/Empresa';
+import Empresa from '../modules/empresa/Empresa';
 import { Cliente } from '../modules/clientes/Cliente';
 import { databaseManager } from '../services/database-manager.service';
 import { DatabaseManagerService } from '../services/database-manager.service';

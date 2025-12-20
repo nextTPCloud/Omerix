@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { Variante, IVariante } from '../../models/Variante';
+import { Variante, IVariante } from './Variante';
 import { CreateVarianteDTO, UpdateVarianteDTO, SearchVariantesDTO } from './variantes.dto';
 import { Types } from 'mongoose';
 import { IDatabaseConfig } from '../../types/express';

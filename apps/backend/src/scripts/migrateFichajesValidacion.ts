@@ -24,7 +24,7 @@ import path from 'path';
 // Cargar variables de entorno
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-import Empresa, { IDatabaseConfig } from '../models/Empresa';
+import Empresa, { IDatabaseConfig } from '../modules/empresa/Empresa';
 import { getModeloFichaje, IFichaje } from '../modules/fichajes/Fichaje';
 import { ValidacionFichajeService } from '../modules/fichajes/validacion-fichaje.service';
 import { getModeloTurno } from '../modules/turnos/Turno';

@@ -8,7 +8,7 @@ import {
   SincronizarEmpleadosSchema,
   SincronizarAsistenciaSchema,
 } from './terminales.dto';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { terminalSyncScheduler } from './terminal-sync.scheduler';
 
 // ============================================

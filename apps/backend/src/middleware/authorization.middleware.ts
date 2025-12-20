@@ -13,8 +13,8 @@ import {
   getPermisosEspecialesEfectivos,
   getDescuentoMaximoUsuario,
 } from '../types/permissions.types';
-import Usuario from '../models/Usuario';
-import Rol from '../models/Rol';
+import Usuario from '../modules/usuarios/Usuario';
+import Rol from '../modules/roles/Rol';
 import mongoose from 'mongoose';
 
 /**
@@ -352,7 +352,7 @@ export const requireSpecialPermission = (permiso: keyof IPermisosEspeciales) => 
       if (usuario.rolId) {
         const rolCustom = await Rol.findById(usuario.rolId).lean();
         if (rolCustom) {
-          usuarioPermisos.rolCustom = rolCustom;
+          usuarioPermisos.rolCustom = rolCustom as unknown as typeof usuarioPermisos.rolCustom;
         }
       }
 
@@ -415,7 +415,7 @@ export const loadUserPermissions = async (
     if (usuario.rolId) {
       const rolCustom = await Rol.findById(usuario.rolId).lean();
       if (rolCustom) {
-        usuarioPermisos.rolCustom = rolCustom;
+        usuarioPermisos.rolCustom = rolCustom as unknown as typeof usuarioPermisos.rolCustom;
       }
     }
 
@@ -462,7 +462,7 @@ export const requireDescuentoPermitido = (fieldPath: string = 'descuento') => {
           if (usuario.rolId) {
             const rolCustom = await Rol.findById(usuario.rolId).lean();
             if (rolCustom) {
-              usuarioPermisos.rolCustom = rolCustom;
+              usuarioPermisos.rolCustom = rolCustom as unknown as typeof usuarioPermisos.rolCustom;
             }
           }
 

@@ -10,7 +10,7 @@ import {
   OCRResult,
 } from './ai.types';
 import { databaseManager, IDatabaseConfig } from '@/services/database-manager.service';
-import Empresa, { decrypt } from '@/models/Empresa';
+import Empresa, { decrypt } from '@/modules/empresa/Empresa';
 
 // Prompt del sistema para extracción de datos de documentos de compra
 const SYSTEM_PROMPT = `Eres un experto en OCR y extracción de datos de documentos comerciales españoles.

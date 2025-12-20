@@ -7,7 +7,7 @@ import {
   RegistrarEntregaDTO,
   CrearDesdePedidoDTO,
 } from './albaranes.dto';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getAlbaranModel, getPedidoModel, getProductoModel, getClienteModel, getProyectoModel, getAgenteComercialModel, getAlmacenModel, getUserModel, getPresupuestoModel, getMovimientoStockModel } from '@/utils/dynamic-models.helper';
 import { EstadoPedido } from '../pedidos/Pedido';
 import { EstadoPresupuesto } from '../presupuestos/Presupuesto';

@@ -1,9 +1,9 @@
 import mongoose, { Model } from 'mongoose';
 import { IPresupuesto, EstadoPresupuesto, IRecordatorioEnviado } from './Presupuesto';
 import { sendEmail, emailTemplates } from '@/utils/email';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getPresupuestoModel, getAgenteComercialModel } from '@/utils/dynamic-models.helper';
-import Empresa from '@/models/Empresa';
+import Empresa from '@/modules/empresa/Empresa';
 
 // Configuración por defecto para recordatorios
 const DEFAULT_CONFIG = {

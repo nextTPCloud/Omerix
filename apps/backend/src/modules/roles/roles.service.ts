@@ -8,7 +8,7 @@ import Rol, {
   ROLES_SISTEMA,
   PERMISOS_ESPECIALES_DEFAULT,
   PERMISOS_ESPECIALES_ADMIN,
-} from '../../models/Rol';
+} from './Rol';
 
 // Roles permitidos para gestionar roles
 export const ROLES_GESTION_ROLES = ['superadmin', 'admin'];

@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { ModificadorProducto, IModificadorProducto } from '../../models/ModificadorProducto';
+import { ModificadorProducto, IModificadorProducto } from './ModificadorProducto';
 import { CreateModificadorDTO, UpdateModificadorDTO, SearchModificadoresDTO } from './modificadores.dto';
 import { Types } from 'mongoose';
 import { IDatabaseConfig } from '../../types/express';

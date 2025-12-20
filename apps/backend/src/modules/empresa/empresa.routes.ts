@@ -310,4 +310,60 @@ router.post('/email-config/test', empresaController.testEmailConfig.bind(empresa
  */
 router.post('/send-email', empresaController.sendEmail.bind(empresaController));
 
+/**
+ * @swagger
+ * /api/empresa/preferencias-precios:
+ *   get:
+ *     summary: Obtener preferencias de precios
+ *     tags: [Empresa]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Solo usuarios con rol admin, gerente o superadmin
+ *     responses:
+ *       200:
+ *         description: Preferencias de precios
+ *       403:
+ *         description: Sin permisos
+ */
+router.get('/preferencias-precios', empresaController.getPreferenciasPrecios.bind(empresaController));
+
+/**
+ * @swagger
+ * /api/empresa/preferencias-precios:
+ *   put:
+ *     summary: Actualizar preferencias de precios
+ *     tags: [Empresa]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Solo usuarios con rol admin, gerente o superadmin
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               ordenBusqueda:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [tarifa, oferta, producto]
+ *               aplicarOfertasAutomaticamente:
+ *                 type: boolean
+ *               aplicarTarifasAutomaticamente:
+ *                 type: boolean
+ *               permitirAcumularOfertas:
+ *                 type: boolean
+ *               permitirAcumularTarifaYOferta:
+ *                 type: boolean
+ *               descuentoMaximoManual:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Preferencias actualizadas
+ *       403:
+ *         description: Sin permisos
+ */
+router.put('/preferencias-precios', empresaController.updatePreferenciasPrecios.bind(empresaController));
+
 export default router;

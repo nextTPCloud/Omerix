@@ -1,24 +1,26 @@
 import { Model } from 'mongoose';
 import { databaseManager } from '../services/database-manager.service';
-import { IDatabaseConfig } from '../models/Empresa';
+import { IDatabaseConfig } from '../modules/empresa/Empresa';
 import { Cliente, ICliente } from '../modules/clientes/Cliente';
 import VistaGuardada, { IVistaGuardada } from '../modules/vistasGuardadas/VistaGuardada';
-import { Producto, IProducto } from '../models/Producto';
+import { Producto, IProducto } from '../modules/productos/Producto';
 import { Familia, IFamilia } from '../modules/familias/Familia';
 import { Estado, IEstado } from '../modules/estados/Estado';
 import { Situacion, ISituacion } from '../modules/situaciones/Situacion';
 import { Clasificacion, IClasificacion } from '../modules/clasificaciones/Clasificacion';
-import { TipoImpuesto, ITipoImpuesto } from '../models/TipoImpuesto';
-import { Variante, IVariante } from '../models/Variante';
-import { Almacen, IAlmacen } from '../models/Almacen';
-import { Impresora, IImpresora } from '../models/Impresora';
-import { ZonaPreparacion, IZonaPreparacion } from '../models/ZonaPreparacion';
-import { ModificadorProducto, IModificadorProducto } from '../models/ModificadorProducto';
-import { GrupoModificadores, IGrupoModificadores } from '../models/GrupoModificadores';
-import { Alergeno, IAlergeno } from '../models/Alergeno';
-import { TerminoPago, ITerminoPago } from '../models/TerminoPago';
-import { FormaPago, IFormaPago } from '../models/FormaPago';
+import { TipoImpuesto, ITipoImpuesto } from '../modules/tipos-impuesto/TipoImpuesto';
+import { Variante, IVariante } from '../modules/variantes/Variante';
+import { Almacen, IAlmacen } from '../modules/almacenes/Almacen';
+import { Impresora, IImpresora } from '../modules/impresoras/Impresora';
+import { ZonaPreparacion, IZonaPreparacion } from '../modules/zonas-preparacion/ZonaPreparacion';
+import { ModificadorProducto, IModificadorProducto } from '../modules/modificadores/ModificadorProducto';
+import { GrupoModificadores, IGrupoModificadores } from '../modules/grupos-modificadores/GrupoModificadores';
+import { Alergeno, IAlergeno } from '../modules/alergenos/Alergeno';
+import { TerminoPago, ITerminoPago } from '../modules/terminos-pago/TerminoPago';
+import { FormaPago, IFormaPago } from '../modules/formas-pago/FormaPago';
 import { Vencimiento, IVencimiento } from '../models/Vencimiento';
+import { Pagare, IPagare } from '../modules/tesoreria/Pagare';
+import { Recibo, IRecibo } from '../modules/tesoreria/Recibo';
 import { Personal, IPersonal } from '../modules/personal/Personal';
 import { AgenteComercial, IAgenteComercial } from '../modules/agentes-comerciales/AgenteComercial';
 import { Proyecto, IProyecto } from '../modules/proyectos/Proyecto';
@@ -27,7 +29,7 @@ import { Pedido, IPedido } from '../modules/pedidos/Pedido';
 import { Albaran, IAlbaran } from '../modules/albaranes/Albaran';
 import { Factura, IFactura } from '../modules/facturas/Factura';
 import { Proveedor, IProveedor } from '../modules/proveedores/Proveedor';
-import Usuario, { IUsuario } from '../models/Usuario';
+import Usuario, { IUsuario } from '../modules/usuarios/Usuario';
 import { MovimientoStock, IMovimientoStock } from '../models/MovimientoStock';
 import { PedidoCompra, IPedidoCompra } from '../modules/pedidos-compra/PedidoCompra';
 import { AlbaranCompra, IAlbaranCompra } from '../modules/albaranes-compra/AlbaranCompra';
@@ -35,6 +37,8 @@ import { FacturaCompra, IFacturaCompra } from '../modules/facturas-compra/Factur
 import { TipoGasto, ITipoGasto } from '../modules/tipos-gasto/TipoGasto';
 import { Maquinaria, IMaquinaria } from '../modules/maquinaria/Maquinaria';
 import { ParteTrabajo, IParteTrabajo } from '../modules/partes-trabajo/ParteTrabajo';
+import { Tarifa, ITarifa } from '../modules/tarifas/Tarifa';
+import { Oferta, IOferta } from '../modules/ofertas/Oferta';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -330,6 +334,38 @@ export const getVencimientoModel = async (
 };
 
 /**
+ * Obtener modelo de Pagaré para una empresa específica
+ */
+export const getPagareModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IPagare>> => {
+  const PagareSchema = Pagare.schema;
+  return databaseManager.getModel<IPagare>(
+    empresaId,
+    dbConfig,
+    'Pagare',
+    PagareSchema
+  );
+};
+
+/**
+ * Obtener modelo de Recibo para una empresa específica
+ */
+export const getReciboModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IRecibo>> => {
+  const ReciboSchema = Recibo.schema;
+  return databaseManager.getModel<IRecibo>(
+    empresaId,
+    dbConfig,
+    'Recibo',
+    ReciboSchema
+  );
+};
+
+/**
  * Obtener modelo de Personal para una empresa específica
  */
 export const getPersonalModel = async (
@@ -621,6 +657,38 @@ export const getParteTrabajoModel = async (
 };
 
 /**
+ * Obtener modelo de Tarifa para una empresa específica
+ */
+export const getTarifaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ITarifa>> => {
+  const TarifaSchema = Tarifa.schema;
+  return databaseManager.getModel<ITarifa>(
+    empresaId,
+    dbConfig,
+    'Tarifa',
+    TarifaSchema
+  );
+};
+
+/**
+ * Obtener modelo de Oferta para una empresa específica
+ */
+export const getOfertaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IOferta>> => {
+  const OfertaSchema = Oferta.schema;
+  return databaseManager.getModel<IOferta>(
+    empresaId,
+    dbConfig,
+    'Oferta',
+    OfertaSchema
+  );
+};
+
+/**
  * Objeto con todos los modelos por empresa
  * Se puede extender con más modelos según sea necesario
  */
@@ -643,6 +711,8 @@ export const EmpresaModels = {
   TerminoPago: getTerminoPagoModel,
   FormaPago: getFormaPagoModel,
   Vencimiento: getVencimientoModel,
+  Pagare: getPagareModel,
+  Recibo: getReciboModel,
   Personal: getPersonalModel,
   AgenteComercial: getAgenteComercialModel,
   Proyecto: getProyectoModel,
@@ -660,6 +730,8 @@ export const EmpresaModels = {
   TipoGasto: getTipoGastoModel,
   Maquinaria: getMaquinariaModel,
   ParteTrabajo: getParteTrabajoModel,
+  Tarifa: getTarifaModel,
+  Oferta: getOfertaModel,
 };
 
 /**

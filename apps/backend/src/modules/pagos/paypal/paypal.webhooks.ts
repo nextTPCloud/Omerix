@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import config from '../../../config/env';
-import Pago from '../../../models/Pago';
-import Licencia from '../../../models/Licencia';
+import Pago from '../Pago';
+import Licencia from '../../licencias/Licencia';
 
 /**
  * Webhook de PayPal

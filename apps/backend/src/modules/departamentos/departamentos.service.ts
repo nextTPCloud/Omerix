@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getModeloDepartamento, IDepartamento } from './Departamento';
 import {
   CreateDepartamentoDTO,

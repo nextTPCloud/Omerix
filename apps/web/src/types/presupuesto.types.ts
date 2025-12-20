@@ -47,6 +47,18 @@ export interface IVarianteSeleccionada {
   costeAdicional: number;
 }
 
+// Origen del precio aplicado
+export type OrigenPrecio = 'producto' | 'tarifa' | 'oferta' | 'precio_cantidad' | 'manual';
+
+export interface IDetalleOrigenPrecio {
+  tarifaId?: string;
+  tarifaNombre?: string;
+  ofertaId?: string;
+  ofertaNombre?: string;
+  ofertaTipo?: string;
+  descuentoAplicado?: number; // % de descuento calculado
+}
+
 export interface ILineaPresupuesto {
   _id?: string;
   orden: number;
@@ -60,9 +72,15 @@ export interface ILineaPresupuesto {
   variante?: IVarianteSeleccionada;
   cantidad: number;
   unidad?: string;
-  precioUnitario: number;
+  // Precios
+  precioOriginal: number; // Precio base del producto (PVP)
+  precioUnitario: number; // Precio aplicado (puede ser de tarifa/oferta)
+  origenPrecio?: OrigenPrecio; // De donde viene el precio
+  detalleOrigenPrecio?: IDetalleOrigenPrecio; // Detalle de tarifa/oferta
+  // Descuentos
   descuento: number;
   descuentoImporte: number;
+  // Calculos
   subtotal: number;
   iva: number;
   ivaImporte: number;
@@ -377,7 +395,9 @@ export const crearLineaVacia = (orden: number): Omit<ILineaPresupuesto, '_id'> =
   nombre: '',
   cantidad: 1,
   unidad: 'ud',
+  precioOriginal: 0,
   precioUnitario: 0,
+  origenPrecio: 'producto',
   costeUnitario: 0,
   descuento: 0,
   descuentoImporte: 0,
@@ -397,10 +417,19 @@ export const crearLineaVacia = (orden: number): Omit<ILineaPresupuesto, '_id'> =
 // Función para calcular una línea
 export const calcularLinea = (linea: Partial<ILineaPresupuesto>): ILineaPresupuesto => {
   const cantidad = linea.cantidad || 0;
+  const precioOriginal = linea.precioOriginal || linea.precioUnitario || 0;
   const precioUnitario = linea.precioUnitario || 0;
   const costeUnitario = linea.costeUnitario || 0;
-  const descuento = linea.descuento || 0;
   const iva = linea.iva || 21;
+
+  // Calcular descuento: puede venir del campo descuento o del diferencial precio original vs unitario
+  let descuento = linea.descuento || 0;
+
+  // Si hay precio original mayor que el unitario y no hay descuento manual,
+  // calcular el descuento automatico basado en tarifa/oferta
+  if (precioOriginal > 0 && precioUnitario > 0 && precioOriginal > precioUnitario && descuento === 0) {
+    descuento = ((precioOriginal - precioUnitario) / precioOriginal) * 100;
+  }
 
   const subtotalBruto = cantidad * precioUnitario;
   const descuentoImporte = subtotalBruto * (descuento / 100);
@@ -416,9 +445,10 @@ export const calcularLinea = (linea: Partial<ILineaPresupuesto>): ILineaPresupue
   return {
     ...linea,
     cantidad,
+    precioOriginal: Math.round(precioOriginal * 100) / 100,
     precioUnitario,
     costeUnitario,
-    descuento,
+    descuento: Math.round(descuento * 100) / 100,
     descuentoImporte: Math.round(descuentoImporte * 100) / 100,
     subtotal: Math.round(subtotal * 100) / 100,
     iva,

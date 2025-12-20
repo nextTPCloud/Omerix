@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getModeloFichaje, IFichaje } from './Fichaje';
 import { getPersonalModel } from '@/utils/dynamic-models.helper';
 import { getModeloDepartamento } from '../departamentos/Departamento';

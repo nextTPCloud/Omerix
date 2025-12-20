@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { ZonaPreparacion, IZonaPreparacion } from '../../models/ZonaPreparacion';
+import { ZonaPreparacion, IZonaPreparacion } from './ZonaPreparacion';
 import { CreateZonaPreparacionDTO, UpdateZonaPreparacionDTO, SearchZonasPreparacionDTO } from './zonas-preparacion.dto';
 import { Types } from 'mongoose';
 import { IDatabaseConfig } from '../../types/express';

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken, JWTPayload } from '../utils/jwt';
 import { AuthorizationHelper } from '../utils/authorization.helper';
-import Usuario from '../models/Usuario';
+import Usuario from '../modules/usuarios/Usuario';
 
 // Extender el tipo Request para incluir datos del usuario autenticado
 declare global {

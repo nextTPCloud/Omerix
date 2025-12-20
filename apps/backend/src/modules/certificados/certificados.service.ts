@@ -15,7 +15,7 @@ import { logError, logInfo, logWarn } from '@/utils/logger/winston.config';
 import windowsStoreService, { WindowsCertificateInfo } from './windows-store.service';
 
 // Importar modelo Usuario para que Mongoose lo registre antes del populate
-import '@/models/Usuario';
+import '@/modules/usuarios/Usuario';
 
 // ============================================
 // INTERFACES

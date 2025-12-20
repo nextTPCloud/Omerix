@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import Usuario, { IUsuario } from '../../models/Usuario';
+import Usuario, { IUsuario } from './Usuario';
 import { ROLE_HIERARCHY, Role } from '../../types/permissions.types';
 
 // Roles que pueden gestionar usuarios

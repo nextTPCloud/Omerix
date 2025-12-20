@@ -100,6 +100,19 @@ export interface ILineaPresupuesto {
 
   // Notas internas (no visibles en impresión cliente)
   notasInternas?: string;
+
+  // Información del origen del precio (tarifas/ofertas)
+  infoPrecio?: {
+    origen: 'producto' | 'tarifa' | 'oferta' | 'precio_cantidad' | 'manual';
+    tarifaId?: mongoose.Types.ObjectId;
+    tarifaNombre?: string;
+    ofertaId?: mongoose.Types.ObjectId;
+    ofertaNombre?: string;
+    ofertaTipo?: string;
+    etiquetaOferta?: string;
+    precioOriginal?: number;
+    unidadesGratis?: number;
+  };
 }
 
 // Dirección de entrega
@@ -444,6 +457,19 @@ const LineaPresupuestoSchema = new Schema<ILineaPresupuesto>({
 
   // Notas
   notasInternas: { type: String },
+
+  // Información del origen del precio (tarifas/ofertas)
+  infoPrecio: {
+    origen: { type: String, enum: ['producto', 'tarifa', 'oferta', 'precio_cantidad', 'manual'] },
+    tarifaId: { type: Schema.Types.ObjectId, ref: 'Tarifa' },
+    tarifaNombre: { type: String },
+    ofertaId: { type: Schema.Types.ObjectId, ref: 'Oferta' },
+    ofertaNombre: { type: String },
+    ofertaTipo: { type: String },
+    etiquetaOferta: { type: String },
+    precioOriginal: { type: Number },
+    unidadesGratis: { type: Number },
+  },
 }, { _id: true });
 
 const DireccionEntregaSchema = new Schema<IDireccionEntrega>({

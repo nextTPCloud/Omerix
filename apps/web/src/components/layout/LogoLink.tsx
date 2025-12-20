@@ -32,6 +32,15 @@ export function LogoLink() {
         xmlns="http://www.w3.org/2000/svg"
         className="h-8 w-auto"
       >
+         <style>{`
+          @font-face {
+            font-family: 'GameOfSquids';
+            src: url('/fonts/GameOfSquids.woff2') format('woff2'),
+                url('/fonts/GameOfSquids.woff') format('woff');
+            font-weight: 700;
+            font-style: bold;
+          }
+        `}</style>
         {/* Anillo exterior - O estilizada */}
         <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2.5" fill="none" opacity="0.15"/>
         <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2.5" fill="none" strokeDasharray="95 31" strokeLinecap="round"/>
@@ -45,7 +54,7 @@ export function LogoLink() {
         <circle cx="34" cy="15" r="3" fill="currentColor"/>
 
         {/* Texto OMERIX */}
-        <text x="56" y="32" fontFamily="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" fontSize="24" fontWeight="700" fill="currentColor" letterSpacing="1">OMERIX</text>
+        <text x="56" y="40" fontFamily="GameOfSquids" fontSize="24" fontWeight="700" fill="currentColor" letterSpacing="1">Tralok</text>
       </svg>
     </a>
   )

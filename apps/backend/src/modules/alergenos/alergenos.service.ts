@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { Alergeno, IAlergeno, ALERGENOS_UE } from '../../models/Alergeno';
+import { Alergeno, IAlergeno, ALERGENOS_UE } from './Alergeno';
 import { CreateAlergenoDTO, UpdateAlergenoDTO, SearchAlergenosDTO } from './alergenos.dto';
 import { Types } from 'mongoose';
 import { IDatabaseConfig } from '../../types/express';

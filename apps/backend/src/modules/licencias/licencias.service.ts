@@ -1,6 +1,6 @@
-import Licencia from '../../models/Licencia';
-import Plan from '../../models/Plan';
-import AddOn from '../../models/AddOn';
+import Licencia from './Licencia';
+import Plan from './Plan';
+import AddOn from './AddOn';
 
 export class LicenciasService {
   

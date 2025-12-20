@@ -1,7 +1,7 @@
 import mongoose, { Model } from 'mongoose';
 import { CreateProveedorDTO, UpdateProveedorDTO, GetProveedoresQuery } from './proveedores.dto';
 import { Proveedor, IProveedor } from '@/modules/proveedores/Proveedor';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getProveedorModel, getFormaPagoModel, getTerminoPagoModel } from '@/utils/dynamic-models.helper';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 

@@ -62,11 +62,13 @@ import {
   Sparkles,
   Cpu,
   Users,
+  Tag,
 } from 'lucide-react'
 import { CertificadoConfig } from '@/components/configuracion/CertificadoConfig'
 import { VerifactuConfig } from '@/components/configuracion/VerifactuConfig'
 import { RolesConfig } from '@/components/configuracion/RolesConfig'
 import { UsuariosConfig } from '@/components/configuracion/UsuariosConfig'
+import { PreciosConfig } from '@/components/configuracion/PreciosConfig'
 
 // Roles permitidos para acceder a esta página
 const ROLES_PERMITIDOS = ['superadmin', 'admin', 'gerente']
@@ -655,6 +657,10 @@ export default function ConfiguracionEmpresaPage() {
             <TabsTrigger value="ia" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               IA
+            </TabsTrigger>
+            <TabsTrigger value="precios" className="flex items-center gap-2">
+              <Tag className="h-4 w-4" />
+              Precios
             </TabsTrigger>
             <TabsTrigger value="roles" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
@@ -2173,6 +2179,13 @@ export default function ConfiguracionEmpresaPage() {
           {/* ============================================ */}
           <TabsContent value="usuarios" className="space-y-6 mt-6">
             <UsuariosConfig />
+          </TabsContent>
+
+          {/* ============================================ */}
+          {/* TAB: PRECIOS */}
+          {/* ============================================ */}
+          <TabsContent value="precios" className="space-y-6 mt-6">
+            <PreciosConfig />
           </TabsContent>
         </Tabs>
 

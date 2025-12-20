@@ -147,6 +147,25 @@ export interface IVerifactuConfig {
   firmaDigital: boolean;
 }
 
+// Preferencias de precios (tarifas, ofertas, orden de busqueda)
+export type OrigenPrecio = 'tarifa' | 'oferta' | 'producto';
+
+export interface IPreferenciasPrecios {
+  // Orden de busqueda de precio (array ordenado)
+  // Por defecto: primero tarifa del cliente, luego ofertas, luego precio del producto
+  ordenBusqueda: OrigenPrecio[];
+  // Aplicar ofertas automaticamente al crear documentos de venta
+  aplicarOfertasAutomaticamente: boolean;
+  // Aplicar tarifa del cliente automaticamente
+  aplicarTarifasAutomaticamente: boolean;
+  // Permitir acumular varias ofertas en un mismo producto
+  permitirAcumularOfertas: boolean;
+  // Permitir acumular tarifa y oferta en un mismo producto
+  permitirAcumularTarifaYOferta: boolean;
+  // Descuento maximo que un usuario puede aplicar manualmente (%)
+  descuentoMaximoManual?: number;
+}
+
 export interface IEmpresa extends Document {
   _id: Types.ObjectId;
   nombre: string;
@@ -220,6 +239,9 @@ export interface IEmpresa extends Document {
 
   // Configuración de IA (API keys propias de la empresa)
   aiConfig?: IAIConfig;
+
+  // Preferencias de precios (tarifas, ofertas, orden de busqueda)
+  preferenciasPrecios?: IPreferenciasPrecios;
 
   // IDs de pasarelas de pago
   stripeCustomerId?: string;
@@ -321,6 +343,18 @@ const AIConfigSchema = new Schema<IAIConfig>({
   provider: { type: String, enum: ['gemini', 'openai', 'claude', 'ollama'], default: 'gemini' },
   apiKey: { type: String, select: false }, // Encriptado, no se devuelve por defecto
   model: { type: String, default: 'gemini-2.0-flash' },
+}, { _id: false });
+
+const PreferenciasPreciosSchema = new Schema<IPreferenciasPrecios>({
+  ordenBusqueda: {
+    type: [{ type: String, enum: ['tarifa', 'oferta', 'producto'] }],
+    default: ['tarifa', 'oferta', 'producto'],
+  },
+  aplicarOfertasAutomaticamente: { type: Boolean, default: true },
+  aplicarTarifasAutomaticamente: { type: Boolean, default: true },
+  permitirAcumularOfertas: { type: Boolean, default: false },
+  permitirAcumularTarifaYOferta: { type: Boolean, default: true },
+  descuentoMaximoManual: { type: Number, min: 0, max: 100 },
 }, { _id: false });
 
 const EmpresaSchema = new Schema<IEmpresa>(
@@ -477,6 +511,18 @@ const EmpresaSchema = new Schema<IEmpresa>(
       default: {
         provider: 'gemini',
         model: 'gemini-2.0-flash',
+      },
+    },
+
+    // Preferencias de precios (tarifas, ofertas, orden de busqueda)
+    preferenciasPrecios: {
+      type: PreferenciasPreciosSchema,
+      default: {
+        ordenBusqueda: ['tarifa', 'oferta', 'producto'],
+        aplicarOfertasAutomaticamente: true,
+        aplicarTarifasAutomaticamente: true,
+        permitirAcumularOfertas: false,
+        permitirAcumularTarifaYOferta: true,
       },
     },
 

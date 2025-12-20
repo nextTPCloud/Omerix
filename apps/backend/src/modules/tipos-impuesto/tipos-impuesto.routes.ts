@@ -7,7 +7,7 @@ import {
   requireOwnership,
   requireAuth,
 } from '../../middleware/authorization.middleware';
-import { TipoImpuesto } from '../../models/TipoImpuesto';
+import { TipoImpuesto } from './TipoImpuesto';
 
 const router = Router();
 

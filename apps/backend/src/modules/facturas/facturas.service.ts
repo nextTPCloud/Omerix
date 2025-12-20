@@ -21,7 +21,7 @@ import {
   EmitirFacturaDTO,
   AnularFacturaDTO,
 } from './facturas.dto';
-import { IDatabaseConfig } from '@/models/Empresa';
+import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import {
   getFacturaModel,
   getAlbaranModel,
@@ -47,7 +47,7 @@ import {
 import QRCode from 'qrcode';
 import { logError, logInfo, logWarn } from '@/utils/logger/winston.config';
 import { verifactuService } from '@/modules/verifactu/verifactu.service';
-import Empresa from '@/models/Empresa';
+import Empresa from '@/modules/empresa/Empresa';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 
 // ============================================

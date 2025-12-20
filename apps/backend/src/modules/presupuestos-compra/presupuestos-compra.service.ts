@@ -12,7 +12,7 @@ import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.hel
 import { getProveedorModel, getProductoModel, getUserModel } from '@/utils/dynamic-models.helper';
 import { presupuestosCompraPDFService, PDFOptions } from './presupuestos-compra-pdf.service';
 import { empresaService } from '@/modules/empresa/empresa.service';
-import Empresa from '@/models/Empresa';
+import Empresa from '@/modules/empresa/Empresa';
 
 // ============================================
 // HELPER PARA OBTENER MODELO DINAMICO
