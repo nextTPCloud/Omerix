@@ -1,29 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Generator: Adobe Illustrator 21.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
-<svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 242.6 67.7" style="enable-background:new 0 0 242.6 67.7;" xml:space="preserve">
-<style type="text/css">
-	.st0{fill:url(#SVGID_1_);}
-	.st1{fill:none;stroke:#FFFFFF;stroke-width:3;}
-	.st2{fill:#FFFFFF;}
-	.st3{fill:#211915;}
-	.st4{font-family:'CopperplateGothic-Bold';}
-	.st5{font-size:62.4523px;}
-</style>
-<linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="-1438.8898" y1="369.6599" x2="-1437.6351" y2="368.4053" gradientTransform="matrix(46 0 0 -46 66188 17009.9648)">
-	<stop  offset="0" style="stop-color:#3B82F6"/>
-	<stop  offset="1" style="stop-color:#1E40AF"/>
-</linearGradient>
-<ellipse class="st0" cx="27.9" cy="34.4" rx="27.9" ry="29.7"/>
-<ellipse class="st1" cx="27.9" cy="34.4" rx="18.2" ry="19.4"/>
-<path class="st2" d="M20,40.9h1.8c0.4,0,0.6,0.3,1.2,0.6v11.6c-0.6,0.4-0.9,0.6-1.2,0.6H20c-0.4,0-0.6-0.3-0.6-0.6V41.5
-	C19.4,41.2,19.6,40.9,20,40.9z"/>
-<path class="st2" d="M24.8,37h1.8c0.4,0,0.6,0.3,1.2,0.6v15.5c-0.6,0.4-0.9,0.6-1.2,0.6h-1.8c-0.4,0-0.6-0.3-0.6-0.6V37.7
-	C24.2,37.3,24.5,37,24.8,37z"/>
-<path class="st2" d="M29.7,33.1h1.8c0.4,0,0.6,0.3,1.2,0.6v19.4c-0.6,0.4-0.9,0.6-1.2,0.6h-1.8c-0.4,0-0.6-0.3-0.6-0.6V33.8
-	C29.1,33.4,29.3,33.1,29.7,33.1z"/>
-<path class="st2" d="M34.6,29.3h1.8c0.4,0,0.6,0.3,1.2,0.6v23.3c-0.6,0.4-0.9,0.6-1.2,0.6h-1.8c-0.4,0-0.6-0.3-0.6-0.6V29.9
-	C33.9,29.5,34.2,29.3,34.6,29.3z"/>
-<ellipse class="st2" cx="27.9" cy="18.9" rx="2.4" ry="2.6"/>
-<text transform="matrix(0.6472 0 0 1 61.9583 52.0537)" class="st3 st4 st5">OMERIX</text>
+<svg width="180" height="48" viewBox="0 0 180 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icono: Anillo exterior - O estilizada -->
+  <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2.5" fill="none" opacity="0.15"/>
+  <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-dasharray="95 31" stroke-linecap="round"/>
+
+  <!-- Icono: Barras de datos ascendentes -->
+  <rect x="14" y="28" width="4" height="10" rx="1.5" fill="currentColor"/>
+  <rect x="20" y="23" width="4" height="15" rx="1.5" fill="currentColor"/>
+  <rect x="26" y="18" width="4" height="20" rx="1.5" fill="currentColor"/>
+
+  <!-- Icono: Punto destacado (metrica/KPI) -->
+  <circle cx="34" cy="15" r="3" fill="currentColor"/>
+
+  <!-- Texto OMERIX -->
+  <text x="56" y="32" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="700" fill="currentColor" letter-spacing="1">OMERIX</text>
 </svg>

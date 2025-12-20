@@ -70,7 +70,13 @@ export type RecursoSistema =
   | 'tipos-impuesto'
   | 'partes-trabajo'
   | 'maquinaria'
-  | 'tipos-gasto';
+  | 'tipos-gasto'
+  | 'personal'
+  | 'departamentos'
+  | 'calendarios'
+  | 'turnos'
+  | 'fichajes'
+  | 'terminales';
 
 /**
  * Permisos por recurso
@@ -239,6 +245,12 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
       maquinaria: ['create', 'read', 'update', 'delete'],
       'tipos-gasto': ['create', 'read', 'update', 'delete'],
+      personal: ['create', 'read', 'update', 'delete', 'export', 'import'],
+      departamentos: ['create', 'read', 'update', 'delete'],
+      calendarios: ['create', 'read', 'update', 'delete'],
+      turnos: ['create', 'read', 'update', 'delete'],
+      fichajes: ['create', 'read', 'update', 'delete', 'export'],
+      terminales: ['create', 'read', 'update', 'delete'],
     },
   },
   admin: {
@@ -267,6 +279,12 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
       maquinaria: ['create', 'read', 'update', 'delete'],
       'tipos-gasto': ['create', 'read', 'update', 'delete'],
+      personal: ['create', 'read', 'update', 'delete', 'export', 'import'],
+      departamentos: ['create', 'read', 'update', 'delete'],
+      calendarios: ['create', 'read', 'update', 'delete'],
+      turnos: ['create', 'read', 'update', 'delete'],
+      fichajes: ['create', 'read', 'update', 'delete', 'export'],
+      terminales: ['create', 'read', 'update', 'delete'],
     },
   },
   gerente: {
@@ -294,6 +312,12 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
       maquinaria: ['create', 'read', 'update', 'delete'],
       'tipos-gasto': ['create', 'read', 'update', 'delete'],
+      personal: ['create', 'read', 'update', 'export'],
+      departamentos: ['create', 'read', 'update'],
+      calendarios: ['read', 'update'],
+      turnos: ['read', 'update'],
+      fichajes: ['create', 'read', 'update', 'delete', 'export'],
+      terminales: ['read'],
     },
   },
   vendedor: {
@@ -318,6 +342,8 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       'formas-pago': ['read'],
       'tipos-impuesto': ['read'],
       'partes-trabajo': ['read'],
+      personal: ['read'],
+      fichajes: ['read'],
     },
   },
   tecnico: {
@@ -342,6 +368,8 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       'partes-trabajo': ['create', 'read', 'update'],
       maquinaria: ['read'],
       'tipos-gasto': ['read'],
+      personal: ['read'],
+      fichajes: ['create', 'read'],
     },
   },
   almacenero: {
@@ -366,6 +394,8 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       'partes-trabajo': ['read'],
       maquinaria: ['read'],
       'tipos-gasto': ['read'],
+      personal: ['read'],
+      fichajes: ['create', 'read'],
     },
   },
   visualizador: {
@@ -392,6 +422,12 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       'partes-trabajo': ['read'],
       maquinaria: ['read'],
       'tipos-gasto': ['read'],
+      personal: ['read'],
+      departamentos: ['read'],
+      calendarios: ['read'],
+      turnos: ['read'],
+      fichajes: ['read'],
+      terminales: ['read'],
     },
   },
 };

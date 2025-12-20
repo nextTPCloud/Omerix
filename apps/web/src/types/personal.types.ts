@@ -98,6 +98,11 @@ export interface DatosLaborales {
   // Configuración de fichaje
   ubicacionObligatoria?: boolean;
   fotoObligatoria?: boolean;
+  // Control horario
+  turnoDefectoId?: string;
+  calendarioLaboralId?: string;
+  toleranciaRetrasoMinutos?: number;
+  requiereAprobacionFichaje?: boolean;
 }
 
 export interface DatosEconomicos {
@@ -255,6 +260,11 @@ export interface CreatePersonalDTO {
     fechaFinPrueba?: string;
     ubicacionObligatoria?: boolean;
     fotoObligatoria?: boolean;
+    // Control horario
+    turnoDefectoId?: string;
+    calendarioLaboralId?: string;
+    toleranciaRetrasoMinutos?: number;
+    requiereAprobacionFichaje?: boolean;
   };
   datosEconomicos?: DatosEconomicos;
   responsableId?: string;

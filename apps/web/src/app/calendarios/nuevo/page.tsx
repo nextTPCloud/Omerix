@@ -23,6 +23,14 @@ import {
 import { ArrowLeft, Save, CalendarDays, Plus, Trash2, Download } from 'lucide-react'
 import { toast } from 'sonner'
 
+// Helper para parsear fecha de festivo correctamente
+const parseFechaFestivo = (fecha: string): Date => {
+  if (fecha.includes('T')) {
+    return new Date(fecha)
+  }
+  return new Date(fecha + 'T00:00:00')
+}
+
 export default function NuevoCalendarioPage() {
   const router = useRouter()
   const [isSaving, setIsSaving] = useState(false)
@@ -212,8 +220,8 @@ export default function NuevoCalendarioPage() {
                     <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50">
                       <div className="flex items-center gap-4">
                         <div className="text-center min-w-[60px]">
-                          <div className="text-lg font-bold">{new Date(festivo.fecha + 'T00:00:00').getDate()}</div>
-                          <div className="text-xs text-muted-foreground">{new Date(festivo.fecha + 'T00:00:00').toLocaleDateString('es-ES', { month: 'short' })}</div>
+                          <div className="text-lg font-bold">{parseFechaFestivo(festivo.fecha).getDate()}</div>
+                          <div className="text-xs text-muted-foreground">{parseFechaFestivo(festivo.fecha).toLocaleDateString('es-ES', { month: 'short' })}</div>
                         </div>
                         <div>
                           <p className="font-medium">{festivo.nombre}</p>

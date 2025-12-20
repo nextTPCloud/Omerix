@@ -110,6 +110,22 @@ class FichajesService {
   }
 
   /**
+   * Aprobar fichaje
+   */
+  async aprobar(id: string): Promise<FichajeResponse> {
+    const response = await api.put(`${BASE_URL}/${id}/aprobar`);
+    return response.data;
+  }
+
+  /**
+   * Rechazar fichaje
+   */
+  async rechazar(id: string, motivo?: string): Promise<FichajeResponse> {
+    const response = await api.put(`${BASE_URL}/${id}/rechazar`, { motivo });
+    return response.data;
+  }
+
+  /**
    * Obtener resumen mensual
    */
   async getResumen(

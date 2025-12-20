@@ -19,7 +19,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 export default function DepartamentoDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { canEdit, canDelete } = usePermissions()
+  const { canUpdate, canDelete } = usePermissions()
   const [departamento, setDepartamento] = useState<Departamento | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState(false)
@@ -99,7 +99,7 @@ export default function DepartamentoDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            {canEdit('departamentos') && (
+            {canUpdate('departamentos') && (
               <Button variant="outline" asChild>
                 <Link href={`/departamentos/${departamento._id}/editar`}>
                   <Edit className="h-4 w-4 mr-2" />Editar

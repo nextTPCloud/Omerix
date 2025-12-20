@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { personalService } from '@/services/personal.service'
+import { turnosService } from '@/services/turnos.service'
+import { calendariosService } from '@/services/calendarios.service'
+import { Turno } from '@/types/turno.types'
+import { CalendarioLaboral } from '@/types/calendario.types'
 import {
   Personal,
   CreatePersonalDTO,
@@ -26,7 +30,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft, Save, RefreshCw, Users, Mail, MapPin, CreditCard, Briefcase, Wallet } from 'lucide-react'
+import { ArrowLeft, Save, RefreshCw, Users, Mail, MapPin, CreditCard, Briefcase, Wallet, Clock } from 'lucide-react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { toast } from 'sonner'
 import { CodeInput } from '@/components/ui/code-input'
 
@@ -61,6 +66,44 @@ export default function EditarPersonalPage() {
     observaciones: '',
     tags: [],
   })
+  const [turnos, setTurnos] = useState<Turno[]>([])
+  const [calendarios, setCalendarios] = useState<CalendarioLaboral[]>([])
+
+  // Opciones para SearchableSelect
+  const turnosOptions = useMemo(() => [
+    { value: '', label: 'Heredar del departamento', description: 'Usará el turno asignado al departamento' },
+    ...turnos.map(t => ({
+      value: t._id,
+      label: t.nombre,
+      description: `${t.horaEntrada} - ${t.horaSalida} (${t.horasTeoricas}h)`
+    }))
+  ], [turnos])
+
+  const calendariosOptions = useMemo(() => [
+    { value: '', label: 'Heredar del departamento', description: 'Usará el calendario del departamento o el por defecto' },
+    ...calendarios.map(c => ({
+      value: c._id,
+      label: c.nombre,
+      description: `Año ${c.anio} - ${c.festivos?.length || 0} festivos`
+    }))
+  ], [calendarios])
+
+  // Cargar turnos y calendarios
+  useEffect(() => {
+    const loadSelectData = async () => {
+      try {
+        const [turnosRes, calendariosRes] = await Promise.all([
+          turnosService.getActivos(),
+          calendariosService.getActivos()
+        ])
+        if (turnosRes.success) setTurnos(turnosRes.data)
+        if (calendariosRes.success) setCalendarios(calendariosRes.data)
+      } catch (err) {
+        console.error('Error cargando datos de selects:', err)
+      }
+    }
+    loadSelectData()
+  }, [])
 
   useEffect(() => {
     const loadEmpleado = async () => {
@@ -96,6 +139,11 @@ export default function EditarPersonalPage() {
               fechaFinPrueba: emp.datosLaborales?.fechaFinPrueba,
               ubicacionObligatoria: emp.datosLaborales?.ubicacionObligatoria,
               fotoObligatoria: emp.datosLaborales?.fotoObligatoria,
+              // Control horario
+              turnoDefectoId: emp.datosLaborales?.turnoDefectoId,
+              calendarioLaboralId: emp.datosLaborales?.calendarioLaboralId,
+              toleranciaRetrasoMinutos: emp.datosLaborales?.toleranciaRetrasoMinutos,
+              requiereAprobacionFichaje: emp.datosLaborales?.requiereAprobacionFichaje,
             },
             datosEconomicos: emp.datosEconomicos || { numPagas: 14 },
             responsableId: emp.responsableId,
@@ -637,6 +685,65 @@ export default function EditarPersonalPage() {
                       />
                       <Label htmlFor="fotoObligatoria" className="text-sm">
                         Foto obligatoria para terminal biométrico
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Control Horario */}
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Control Horario
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="turnoDefecto">Turno por defecto</Label>
+                      <SearchableSelect
+                        options={turnosOptions}
+                        value={formData.datosLaborales?.turnoDefectoId || ''}
+                        onValueChange={(value) => updateNestedField('datosLaborales', 'turnoDefectoId', value || undefined)}
+                        placeholder="Heredar del departamento"
+                        searchPlaceholder="Buscar turno..."
+                        emptyMessage="No se encontraron turnos"
+                      />
+                      <p className="text-xs text-muted-foreground">Si no se asigna, hereda del departamento</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="calendarioLaboral">Calendario laboral</Label>
+                      <SearchableSelect
+                        options={calendariosOptions}
+                        value={formData.datosLaborales?.calendarioLaboralId || ''}
+                        onValueChange={(value) => updateNestedField('datosLaborales', 'calendarioLaboralId', value || undefined)}
+                        placeholder="Heredar del departamento"
+                        searchPlaceholder="Buscar calendario..."
+                        emptyMessage="No se encontraron calendarios"
+                      />
+                      <p className="text-xs text-muted-foreground">Si no se asigna, hereda del departamento o usa el por defecto</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="toleranciaRetraso">Tolerancia retraso (minutos)</Label>
+                      <Input
+                        id="toleranciaRetraso"
+                        type="number"
+                        min="0"
+                        max="60"
+                        value={formData.datosLaborales?.toleranciaRetrasoMinutos ?? ''}
+                        onChange={(e) => updateNestedField('datosLaborales', 'toleranciaRetrasoMinutos', e.target.value ? parseInt(e.target.value) : undefined)}
+                        placeholder="5 (heredar)"
+                      />
+                      <p className="text-xs text-muted-foreground">Minutos permitidos de retraso. Vacío = heredar (5 min por defecto)</p>
+                    </div>
+                    <div className="flex items-center space-x-2 pt-8">
+                      <Checkbox
+                        id="requiereAprobacion"
+                        checked={formData.datosLaborales?.requiereAprobacionFichaje ?? true}
+                        onCheckedChange={(checked) => updateNestedField('datosLaborales', 'requiereAprobacionFichaje', !!checked)}
+                      />
+                      <Label htmlFor="requiereAprobacion" className="text-sm">
+                        Fichajes requieren aprobación
                       </Label>
                     </div>
                   </div>

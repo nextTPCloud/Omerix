@@ -96,10 +96,10 @@ export default function EditarParteTrabajoPage() {
     try {
       const [parteRes, clientesRes, proyectosRes, personalRes, productosRes, maquinariasRes, tiposGastoRes, empresaRes] = await Promise.all([
         partesTrabajoService.getById(id),
-        clientesService.getAll({ limit: 100, activo: 'true' }),
+        clientesService.getAll({ limit: 100, activo: true }),
         proyectosService.getAll({ limit: 100, activo: 'true' }),
-        personalService.getAll({ limit: 100, activo: 'true' }),
-        productosService.getAll({ limit: 100, activo: 'true' }),
+        personalService.getAll({ limit: 100, activo: true }),
+        productosService.getAll({ limit: 100, activo: true }),
         maquinariaService.getAll({ limit: 100, activo: 'true' }),
         tiposGastoService.getActivos(),
         empresaService.getMiEmpresa(),
@@ -195,12 +195,12 @@ export default function EditarParteTrabajoPage() {
         router.push('/partes-trabajo')
       }
 
-      if (clientesRes.success) setClientes(clientesRes.data)
-      if (proyectosRes.success) setProyectos(proyectosRes.data)
-      if (personalRes.success) setPersonal(personalRes.data)
-      if (productosRes.success) setProductos(productosRes.data)
-      if (maquinariasRes.success) setMaquinarias(maquinariasRes.data)
-      if (tiposGastoRes.success) setTiposGasto(tiposGastoRes.data)
+      if (clientesRes.success) setClientes(clientesRes.data || [])
+      if (proyectosRes.success) setProyectos(proyectosRes.data || [])
+      if (personalRes.success) setPersonal(personalRes.data || [])
+      if (productosRes.success) setProductos(productosRes.data || [])
+      if (maquinariasRes.success) setMaquinarias(maquinariasRes.data || [])
+      if (tiposGastoRes.success) setTiposGasto(tiposGastoRes.data || [])
     } catch (error) {
       console.error('Error cargando datos:', error)
       toast.error('Error al cargar los datos')

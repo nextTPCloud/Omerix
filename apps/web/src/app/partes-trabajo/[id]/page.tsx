@@ -154,9 +154,7 @@ export default function ParteTrabajoDetallePage() {
 
   const handleAbrirEmailDialog = () => {
     // Obtener email del cliente
-    const clienteEmail = typeof parte?.clienteId === 'object'
-      ? parte.clienteId?.email
-      : parte?.clienteEmail
+    const clienteEmail = parte?.clienteEmail
 
     // Inicializar formulario con valores por defecto
     setEmailForm({
@@ -220,22 +218,11 @@ export default function ParteTrabajoDetallePage() {
 
   const handleEnviarWhatsApp = async () => {
     // Obtener teléfono del cliente
-    const clienteTelefono = typeof parte?.clienteId === 'object'
-      ? parte.clienteId?.movil || parte.clienteId?.telefono
-      : parte?.clienteTelefono
+    const clienteTelefono = parte?.clienteTelefono
 
     if (!clienteTelefono) {
       toast.error('El cliente no tiene teléfono configurado')
       return
-    }
-
-    // Verificar autorización WhatsApp del cliente
-    const autorizadoWhatsApp = typeof parte?.clienteId === 'object'
-      ? parte.clienteId?.autorizacionWhatsApp
-      : false
-
-    if (!autorizadoWhatsApp) {
-      toast.warning('El cliente no ha autorizado comunicaciones por WhatsApp. Verifique los permisos LOPD.')
     }
 
     // Limpiar número de teléfono (quitar espacios, guiones, etc.)
@@ -578,7 +565,7 @@ export default function ParteTrabajoDetallePage() {
                                   </td>
                                   <td className="p-2 text-right">{linea.horasTrabajadas}h</td>
                                   <td className="p-2 text-right">
-                                    {linea.horasExtras > 0 && (
+                                    {(linea.horasExtras ?? 0) > 0 && (
                                       <span className="text-orange-600">+{linea.horasExtras}h</span>
                                     )}
                                   </td>

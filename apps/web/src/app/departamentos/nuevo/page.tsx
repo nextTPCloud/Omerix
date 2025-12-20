@@ -49,12 +49,12 @@ export default function NuevoDepartamentoPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.codigo.trim()) {
+    if (!formData.codigo?.trim()) {
       toast.error('El codigo es obligatorio')
       return
     }
 
-    if (!formData.nombre.trim()) {
+    if (!formData.nombre?.trim()) {
       toast.error('El nombre es obligatorio')
       return
     }

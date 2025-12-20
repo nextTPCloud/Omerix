@@ -92,7 +92,12 @@ export const DatosLaboralesSchema = z.object({
   fechaFinPrueba: z.string().optional(),
   // Configuración de fichaje
   ubicacionObligatoria: z.boolean().optional(),
-  fotoObligatoria: z.boolean().optional()
+  fotoObligatoria: z.boolean().optional(),
+  // Control horario - turnos y calendarios
+  turnoDefectoId: z.string().optional(),
+  calendarioLaboralId: z.string().optional(),
+  toleranciaRetrasoMinutos: z.number().int().min(0).max(60).optional(),
+  requiereAprobacionFichaje: z.boolean().optional()
 });
 
 export const DatosEconomicosSchema = z.object({

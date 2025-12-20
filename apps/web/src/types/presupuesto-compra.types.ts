@@ -193,6 +193,7 @@ export interface PresupuestoCompra {
   proveedorNif: string
   proveedorEmail?: string
   proveedorTelefono?: string
+  proveedorDireccion?: string
 
   // Referencias
   referencia?: string

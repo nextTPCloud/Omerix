@@ -17,10 +17,20 @@ import {
 import { Input } from '@/components/ui/input'
 import { usePermissions } from '@/hooks/usePermissions'
 
+// Helper para parsear fecha de festivo correctamente
+const parseFechaFestivo = (fecha: string): Date => {
+  // Si la fecha ya es un ISO string completo, usarlo directamente
+  if (fecha.includes('T')) {
+    return new Date(fecha)
+  }
+  // Si es solo YYYY-MM-DD, añadir la hora para evitar problemas de timezone
+  return new Date(fecha + 'T00:00:00')
+}
+
 export default function CalendarioDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { canEdit, canDelete } = usePermissions()
+  const { canUpdate, canDelete } = usePermissions()
   const [calendario, setCalendario] = useState<CalendarioLaboral | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState(false)
@@ -100,11 +110,11 @@ export default function CalendarioDetailPage() {
     return null
   }
 
-  const festivosOrdenados = [...(calendario.festivos || [])].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+  const festivosOrdenados = [...(calendario.festivos || [])].sort((a, b) => parseFechaFestivo(a.fecha).getTime() - parseFechaFestivo(b.fecha).getTime())
 
   // Agrupar festivos por mes
   const festivosPorMes = festivosOrdenados.reduce((acc, festivo) => {
-    const mes = new Date(festivo.fecha + 'T00:00:00').toLocaleDateString('es-ES', { month: 'long' })
+    const mes = parseFechaFestivo(festivo.fecha).toLocaleDateString('es-ES', { month: 'long' })
     if (!acc[mes]) acc[mes] = []
     acc[mes].push(festivo)
     return acc
@@ -141,7 +151,7 @@ export default function CalendarioDetailPage() {
             <Button variant="outline" onClick={() => setCopiarDialog({ open: true, nuevoAnio: calendario.anio + 1 })}>
               <Copy className="h-4 w-4 mr-2" />Copiar
             </Button>
-            {canEdit('calendarios') && (
+            {canUpdate('calendarios') && (
               <Button variant="outline" asChild>
                 <Link href={`/calendarios/${calendario._id}/editar`}>
                   <Edit className="h-4 w-4 mr-2" />Editar
@@ -176,9 +186,9 @@ export default function CalendarioDetailPage() {
                           <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                             <div className="flex items-center gap-4">
                               <div className="text-center min-w-[50px]">
-                                <div className="text-lg font-bold">{new Date(festivo.fecha + 'T00:00:00').getDate()}</div>
+                                <div className="text-lg font-bold">{parseFechaFestivo(festivo.fecha).getDate()}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  {new Date(festivo.fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short' })}
+                                  {parseFechaFestivo(festivo.fecha).toLocaleDateString('es-ES', { weekday: 'short' })}
                                 </div>
                               </div>
                               <div>

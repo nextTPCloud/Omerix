@@ -56,14 +56,14 @@ export default function NuevoParteTrabajoPage() {
       setIsLoading(true)
       try {
         const [clientesRes, proyectosRes, personalRes] = await Promise.all([
-          clientesService.getAll({ limit: 100, activo: 'true' }),
+          clientesService.getAll({ limit: 100, activo: true }),
           proyectosService.getAll({ limit: 100, activo: 'true' }),
-          personalService.getAll({ limit: 100, activo: 'true' }),
+          personalService.getAll({ limit: 100, activo: true }),
         ])
 
-        if (clientesRes.success) setClientes(clientesRes.data)
-        if (proyectosRes.success) setProyectos(proyectosRes.data)
-        if (personalRes.success) setPersonal(personalRes.data)
+        if (clientesRes.success) setClientes(clientesRes.data || [])
+        if (proyectosRes.success) setProyectos(proyectosRes.data || [])
+        if (personalRes.success) setPersonal(personalRes.data || [])
       } catch (error) {
         console.error('Error cargando datos:', error)
         toast.error('Error al cargar los datos')

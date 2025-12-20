@@ -286,6 +286,63 @@ export class FichajesController {
   }
 
   /**
+   * Aprobar fichaje
+   */
+  static async aprobar(req: Request, res: Response) {
+    try {
+      const service = new FichajesService(
+        req.user!.empresaId,
+        req.dbConfig!
+      );
+
+      const fichaje = await service.aprobar(
+        req.params.id,
+        req.user!._id
+      );
+
+      res.json({
+        success: true,
+        data: fichaje,
+        message: 'Fichaje aprobado correctamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message || 'Error al aprobar fichaje',
+      });
+    }
+  }
+
+  /**
+   * Rechazar fichaje
+   */
+  static async rechazar(req: Request, res: Response) {
+    try {
+      const service = new FichajesService(
+        req.user!.empresaId,
+        req.dbConfig!
+      );
+
+      const fichaje = await service.rechazar(
+        req.params.id,
+        req.user!._id,
+        req.body.motivo
+      );
+
+      res.json({
+        success: true,
+        data: fichaje,
+        message: 'Fichaje rechazado correctamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message || 'Error al rechazar fichaje',
+      });
+    }
+  }
+
+  /**
    * Obtener resumen mensual del empleado
    */
   static async getResumenEmpleado(req: Request, res: Response) {

@@ -1,18 +1,23 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { departamentosService } from '@/services/departamentos.service'
+import { turnosService } from '@/services/turnos.service'
+import { calendariosService } from '@/services/calendarios.service'
 import { Departamento, UpdateDepartamentoDTO, COLORES_DEPARTAMENTO } from '@/types/departamento.types'
+import { Turno } from '@/types/turno.types'
+import { CalendarioLaboral } from '@/types/calendario.types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import { ArrowLeft, Save, Building2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Save, Building2, RefreshCw, Clock } from 'lucide-react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { toast } from 'sonner'
 
 export default function EditarDepartamentoPage() {
@@ -29,7 +34,49 @@ export default function EditarDepartamentoPage() {
     color: '#3B82F6',
     orden: 0,
     activo: true,
+    // Control horario
+    turnoDefectoId: '',
+    calendarioLaboralId: '',
+    toleranciaRetrasoMinutos: undefined,
   })
+  const [turnos, setTurnos] = useState<Turno[]>([])
+  const [calendarios, setCalendarios] = useState<CalendarioLaboral[]>([])
+
+  // Opciones para SearchableSelect
+  const turnosOptions = useMemo(() => [
+    { value: '', label: 'Sin asignar', description: 'Los empleados no heredarán turno' },
+    ...turnos.map(t => ({
+      value: t._id,
+      label: t.nombre,
+      description: `${t.horaEntrada} - ${t.horaSalida} (${t.horasTeoricas}h)`
+    }))
+  ], [turnos])
+
+  const calendariosOptions = useMemo(() => [
+    { value: '', label: 'Usar por defecto', description: 'Usar el calendario por defecto del año' },
+    ...calendarios.map(c => ({
+      value: c._id,
+      label: c.nombre,
+      description: `Año ${c.anio} - ${c.festivos?.length || 0} festivos`
+    }))
+  ], [calendarios])
+
+  // Cargar turnos y calendarios
+  useEffect(() => {
+    const loadSelectData = async () => {
+      try {
+        const [turnosRes, calendariosRes] = await Promise.all([
+          turnosService.getActivos(),
+          calendariosService.getActivos()
+        ])
+        if (turnosRes.success) setTurnos(turnosRes.data)
+        if (calendariosRes.success) setCalendarios(calendariosRes.data)
+      } catch (err) {
+        console.error('Error cargando datos de selects:', err)
+      }
+    }
+    loadSelectData()
+  }, [])
 
   useEffect(() => {
     const cargarDepartamento = async () => {
@@ -47,6 +94,10 @@ export default function EditarDepartamentoPage() {
             color: dept.color || '#3B82F6',
             orden: dept.orden,
             activo: dept.activo,
+            // Control horario
+            turnoDefectoId: dept.turnoDefectoId || '',
+            calendarioLaboralId: dept.calendarioLaboralId || '',
+            toleranciaRetrasoMinutos: dept.toleranciaRetrasoMinutos,
           })
         } else {
           toast.error('Departamento no encontrado')
@@ -195,6 +246,60 @@ export default function EditarDepartamentoPage() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">Color seleccionado: {COLORES_DEPARTAMENTO.find(c => c.value === formData.color)?.label || formData.color}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Control Horario */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Control Horario (Heredable)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Estos valores serán heredados por los empleados del departamento que no tengan configuración propia.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="turnoDefecto">Turno por defecto</Label>
+                  <SearchableSelect
+                    options={turnosOptions}
+                    value={formData.turnoDefectoId || ''}
+                    onValueChange={(value) => setFormData({ ...formData, turnoDefectoId: value || undefined })}
+                    placeholder="Sin asignar"
+                    searchPlaceholder="Buscar turno..."
+                    emptyMessage="No se encontraron turnos"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="calendarioLaboral">Calendario laboral</Label>
+                  <SearchableSelect
+                    options={calendariosOptions}
+                    value={formData.calendarioLaboralId || ''}
+                    onValueChange={(value) => setFormData({ ...formData, calendarioLaboralId: value || undefined })}
+                    placeholder="Usar por defecto"
+                    searchPlaceholder="Buscar calendario..."
+                    emptyMessage="No se encontraron calendarios"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="toleranciaRetraso">Tolerancia retraso (minutos)</Label>
+                  <Input
+                    id="toleranciaRetraso"
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={formData.toleranciaRetrasoMinutos ?? ''}
+                    onChange={(e) => setFormData({ ...formData, toleranciaRetrasoMinutos: e.target.value ? parseInt(e.target.value) : undefined })}
+                    placeholder="5 (por defecto)"
+                  />
+                  <p className="text-xs text-muted-foreground">Minutos de tolerancia para retrasos. Vacío = 5 min por defecto</p>
+                </div>
               </div>
             </CardContent>
           </Card>

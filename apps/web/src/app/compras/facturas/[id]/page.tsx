@@ -58,7 +58,6 @@ import {
   AlertTriangle,
   Truck,
   ChevronRight,
-  ChevronDown,
   Layers,
 } from 'lucide-react'
 import { toast } from 'sonner'

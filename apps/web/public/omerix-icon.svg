@@ -1,23 +1,13 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  
-  <!-- Fondo circular -->
-  <circle cx="32" cy="32" r="30" fill="url(#bgGrad)"/>
-  
-  <!-- Anillo O -->
-  <circle cx="32" cy="32" r="19" fill="none" stroke="white" stroke-width="4"/>
-  
-  <!-- Barras de gráfico -->
-  <rect x="22" y="38" width="3" height="13" fill="white" rx="0.5"/>
-  <rect x="27" y="35" width="3" height="16" fill="white" rx="0.5"/>
-  <rect x="32" y="32" width="3" height="19" fill="white" rx="0.5"/>
-  <rect x="37" y="29" width="3" height="22" fill="white" rx="0.5"/>
-  
-  <!-- Punto -->
-  <circle cx="32" cy="17" r="2.5" fill="white"/>
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Anillo exterior - O estilizada -->
+  <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="3" fill="none" opacity="0.2"/>
+  <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="95 31" stroke-linecap="round"/>
+
+  <!-- Barras de datos ascendentes -->
+  <rect x="14" y="28" width="4" height="10" rx="1.5" fill="currentColor"/>
+  <rect x="20" y="23" width="4" height="15" rx="1.5" fill="currentColor"/>
+  <rect x="26" y="18" width="4" height="20" rx="1.5" fill="currentColor"/>
+
+  <!-- Punto destacado (métrica/KPI) -->
+  <circle cx="34" cy="15" r="3.5" fill="currentColor"/>
 </svg>

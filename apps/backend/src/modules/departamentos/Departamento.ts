@@ -16,6 +16,10 @@ export interface IDepartamento extends Document {
   color?: string;
   orden: number;
   activo: boolean;
+  // Control horario (heredable por empleados)
+  turnoDefectoId?: mongoose.Types.ObjectId;
+  calendarioLaboralId?: mongoose.Types.ObjectId;
+  toleranciaRetrasoMinutos?: number;
   // Auditoría
   creadoPor?: mongoose.Types.ObjectId;
   modificadoPor?: mongoose.Types.ObjectId;
@@ -63,6 +67,21 @@ const DepartamentoSchema = new Schema<IDepartamento>(
     activo: {
       type: Boolean,
       default: true,
+    },
+    // Control horario (heredable por empleados)
+    turnoDefectoId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Turno',
+    },
+    calendarioLaboralId: {
+      type: Schema.Types.ObjectId,
+      ref: 'CalendarioLaboral',
+    },
+    toleranciaRetrasoMinutos: {
+      type: Number,
+      min: 0,
+      max: 60,
+      default: 5,
     },
     // Auditoría
     creadoPor: {

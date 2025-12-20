@@ -40,6 +40,14 @@ export interface IFichaje extends Document {
   incidencia?: string;
   aprobadoPor?: mongoose.Types.ObjectId;
   fechaAprobacion?: Date;
+  // Validación contra turno/calendario
+  horasTeoricas?: number;              // Horas según turno
+  minutosRetraso?: number;             // Retraso vs hora teórica entrada
+  minutosAnticipacion?: number;        // Salida anticipada vs hora teórica
+  esFestivoTrabajado?: boolean;        // Si trabajó en día festivo
+  festivoNombre?: string;              // Nombre del festivo trabajado
+  validado?: boolean;                  // Si fue validado contra turno/calendario
+  incidenciaTipo?: 'retraso' | 'salida_anticipada' | 'sin_salida' | 'festivo' | 'otro';
   // Auditoria
   creadoPor?: mongoose.Types.ObjectId;
   modificadoPor?: mongoose.Types.ObjectId;
@@ -140,6 +148,35 @@ const FichajeSchema = new Schema<IFichaje>(
     incidencia: {
       type: String,
       trim: true,
+    },
+    // Validación contra turno/calendario
+    horasTeoricas: {
+      type: Number,
+      min: 0,
+    },
+    minutosRetraso: {
+      type: Number,
+      default: 0,
+    },
+    minutosAnticipacion: {
+      type: Number,
+      default: 0,
+    },
+    esFestivoTrabajado: {
+      type: Boolean,
+      default: false,
+    },
+    festivoNombre: {
+      type: String,
+      trim: true,
+    },
+    validado: {
+      type: Boolean,
+      default: false,
+    },
+    incidenciaTipo: {
+      type: String,
+      enum: ['retraso', 'salida_anticipada', 'sin_salida', 'festivo', 'otro'],
     },
     aprobadoPor: {
       type: Schema.Types.ObjectId,

@@ -12,6 +12,11 @@ export interface Departamento {
   color?: string;
   orden: number;
   activo: boolean;
+  // Control horario (heredable por empleados)
+  turnoDefectoId?: string;
+  calendarioLaboralId?: string;
+  toleranciaRetrasoMinutos?: number;
+  // Auditoría
   fechaCreacion: string;
   fechaModificacion: string;
 }
@@ -28,6 +33,10 @@ export interface CreateDepartamentoDTO {
   responsableNombre?: string;
   color?: string;
   orden?: number;
+  // Control horario (heredable por empleados)
+  turnoDefectoId?: string;
+  calendarioLaboralId?: string;
+  toleranciaRetrasoMinutos?: number;
 }
 
 export interface UpdateDepartamentoDTO extends Partial<CreateDepartamentoDTO> {

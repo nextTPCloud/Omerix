@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * ============================================
@@ -46,21 +45,16 @@ interface FormatNumberResult {
 }
 
 export function useFormatNumber(options: UseFormatNumberOptions = {}): FormatNumberResult {
-  const { user } = useAuth();
-
-  // Obtener configuracion de la empresa del usuario
+  // TODO: Cargar configuración de empresa cuando esté disponible
+  // Por ahora usamos valores por defecto
   const empresaConfig = useMemo(() => {
     return {
-      decimalesCantidad: options.decimalesCantidadOverride ?? user?.empresa?.decimalesCantidad ?? 2,
-      decimalesPrecios: options.decimalesPreciosOverride ?? user?.empresa?.decimalesPrecios ?? 2,
-      moneda: user?.empresa?.moneda ?? 'EUR',
-      formatoNumero: user?.empresa?.formatoNumero ?? 'es-ES',
+      decimalesCantidad: options.decimalesCantidadOverride ?? 2,
+      decimalesPrecios: options.decimalesPreciosOverride ?? 2,
+      moneda: 'EUR',
+      formatoNumero: 'es-ES',
     };
   }, [
-    user?.empresa?.decimalesCantidad,
-    user?.empresa?.decimalesPrecios,
-    user?.empresa?.moneda,
-    user?.empresa?.formatoNumero,
     options.decimalesCantidadOverride,
     options.decimalesPreciosOverride,
   ]);

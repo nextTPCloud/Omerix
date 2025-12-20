@@ -771,7 +771,7 @@ export default function PartesTrabajoPage() {
               <RefreshCw className="h-4 w-4 mr-2" />
               Actualizar
             </Button>
-            {canCreate && (
+            {canCreate('partes-trabajo') && (
               <Button asChild>
                 <Link href="/partes-trabajo/nuevo">
                   <Plus className="h-4 w-4 mr-2" />
@@ -906,7 +906,7 @@ export default function PartesTrabajoPage() {
                     <MessageCircle className="h-4 w-4 mr-2" />
                     WhatsApp
                   </Button>
-                  {canDelete && (
+                  {canDelete('partes-trabajo') && (
                     <Button
                       variant="destructive"
                       size="sm"
@@ -944,6 +944,8 @@ export default function PartesTrabajoPage() {
               }}
               modulo="partes-trabajo"
               configuracionActual={config}
+              onAplicarVista={() => {}}
+              onGuardarVista={async () => {}}
               onRestablecer={async () => {
                 await resetConfig()
                 toast.success('Configuracion restablecida')
@@ -1125,7 +1127,7 @@ export default function PartesTrabajoPage() {
                       <p className="mt-2 text-muted-foreground">
                         No se encontraron partes de trabajo
                       </p>
-                      {canCreate && (
+                      {canCreate('partes-trabajo') && (
                         <Button asChild className="mt-4" variant="outline">
                           <Link href="/partes-trabajo/nuevo">
                             <Plus className="h-4 w-4 mr-2" />
@@ -1236,7 +1238,7 @@ export default function PartesTrabajoPage() {
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
-                            {canDelete && (
+                            {canDelete('partes-trabajo') && (
                               <DropdownMenuItem
                                 onClick={() => {
                                   setParteToDelete(parte._id)

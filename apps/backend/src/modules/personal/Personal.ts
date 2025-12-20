@@ -93,6 +93,11 @@ export interface IDatosLaborales {
   // Configuración de fichaje
   ubicacionObligatoria?: boolean;  // Si requiere ubicación al fichar
   fotoObligatoria?: boolean;       // Si requiere foto para sincronizar con terminal
+  // Control horario - turnos y calendarios
+  turnoDefectoId?: mongoose.Types.ObjectId;      // Turno asignado al empleado
+  calendarioLaboralId?: mongoose.Types.ObjectId; // Calendario laboral asignado
+  toleranciaRetrasoMinutos?: number;             // Minutos de tolerancia (default: 5)
+  requiereAprobacionFichaje?: boolean;           // Si fichajes requieren aprobación
 }
 
 export interface IDatosEconomicos {
@@ -305,7 +310,12 @@ const DatosLaboralesSchema = new Schema<IDatosLaborales>({
   fechaFinPrueba: { type: Date },
   // Configuración de fichaje
   ubicacionObligatoria: { type: Boolean, default: false },
-  fotoObligatoria: { type: Boolean, default: false }
+  fotoObligatoria: { type: Boolean, default: false },
+  // Control horario - turnos y calendarios
+  turnoDefectoId: { type: Schema.Types.ObjectId, ref: 'Turno' },
+  calendarioLaboralId: { type: Schema.Types.ObjectId, ref: 'CalendarioLaboral' },
+  toleranciaRetrasoMinutos: { type: Number, min: 0, max: 60, default: 5 },
+  requiereAprobacionFichaje: { type: Boolean, default: true }
 }, { _id: false });
 
 const DatosEconomicosSchema = new Schema<IDatosEconomicos>({

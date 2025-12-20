@@ -264,6 +264,54 @@ router.post('/:id/pausa', FichajesController.registrarPausa);
 
 /**
  * @swagger
+ * /api/fichajes/{id}/aprobar:
+ *   put:
+ *     summary: Aprobar fichaje
+ *     tags: [Fichajes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Fichaje aprobado
+ */
+router.put('/:id/aprobar', FichajesController.aprobar);
+
+/**
+ * @swagger
+ * /api/fichajes/{id}/rechazar:
+ *   put:
+ *     summary: Rechazar fichaje
+ *     tags: [Fichajes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               motivo:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Fichaje rechazado
+ */
+router.put('/:id/rechazar', FichajesController.rechazar);
+
+/**
+ * @swagger
  * /api/fichajes/{id}:
  *   put:
  *     summary: Actualizar fichaje

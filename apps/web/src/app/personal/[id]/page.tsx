@@ -5,6 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { personalService } from '@/services/personal.service'
+import { turnosService } from '@/services/turnos.service'
+import { calendariosService } from '@/services/calendarios.service'
+import { Turno } from '@/types/turno.types'
+import { CalendarioLaboral } from '@/types/calendario.types'
 import { Personal, TIPOS_CONTRATO, ESTADOS_EMPLEADO, TIPOS_JORNADA, GENEROS, TIPOS_AUSENCIA } from '@/types/personal.types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -58,17 +62,25 @@ export default function PersonalDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [turnos, setTurnos] = useState<Turno[]>([])
+  const [calendarios, setCalendarios] = useState<CalendarioLaboral[]>([])
 
   useEffect(() => {
     const loadEmpleado = async () => {
       try {
         setLoading(true)
-        const response = await personalService.getById(id)
-        if (response.success) {
-          setEmpleado(response.data)
+        const [empResponse, turnosRes, calendariosRes] = await Promise.all([
+          personalService.getById(id),
+          turnosService.getActivos(),
+          calendariosService.getActivos()
+        ])
+        if (empResponse.success) {
+          setEmpleado(empResponse.data)
         } else {
           throw new Error('Empleado no encontrado')
         }
+        if (turnosRes.success) setTurnos(turnosRes.data)
+        if (calendariosRes.success) setCalendarios(calendariosRes.data)
       } catch (err: any) {
         setError(err.message || 'Error al cargar el empleado')
         toast.error('Error al cargar los datos del empleado')
@@ -370,6 +382,64 @@ export default function PersonalDetailPage() {
 
           <TabsContent value="laboral" className="mt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Control Horario */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Control Horario
+                  </CardTitle>
+                  <CardDescription>Configuración de turno y calendario para fichajes</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-1">
+                      <span className="text-sm text-muted-foreground">Turno asignado</span>
+                      <p className="font-medium">
+                        {empleado.datosLaborales?.turnoDefectoId
+                          ? turnos.find(t => t._id === empleado.datosLaborales?.turnoDefectoId)?.nombre || 'Turno no encontrado'
+                          : <span className="text-muted-foreground italic">Heredado del departamento</span>
+                        }
+                      </p>
+                      {empleado.datosLaborales?.turnoDefectoId && (
+                        <p className="text-xs text-muted-foreground">
+                          {(() => {
+                            const turno = turnos.find(t => t._id === empleado.datosLaborales?.turnoDefectoId)
+                            return turno ? `${turno.horaEntrada} - ${turno.horaSalida} (${turno.horasTeoricas}h)` : ''
+                          })()}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-sm text-muted-foreground">Calendario laboral</span>
+                      <p className="font-medium">
+                        {empleado.datosLaborales?.calendarioLaboralId
+                          ? calendarios.find(c => c._id === empleado.datosLaborales?.calendarioLaboralId)?.nombre || 'Calendario no encontrado'
+                          : <span className="text-muted-foreground italic">Heredado del departamento</span>
+                        }
+                      </p>
+                      {empleado.datosLaborales?.calendarioLaboralId && (
+                        <p className="text-xs text-muted-foreground">
+                          {(() => {
+                            const cal = calendarios.find(c => c._id === empleado.datosLaborales?.calendarioLaboralId)
+                            return cal ? `Año ${cal.anio} - ${cal.festivos?.length || 0} festivos` : ''
+                          })()}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-sm text-muted-foreground">Tolerancia retraso</span>
+                      <p className="font-medium">
+                        {empleado.datosLaborales?.toleranciaRetrasoMinutos !== undefined
+                          ? `${empleado.datosLaborales.toleranciaRetrasoMinutos} minutos`
+                          : <span className="text-muted-foreground italic">Por defecto (5 min)</span>
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">

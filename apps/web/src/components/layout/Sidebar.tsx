@@ -60,6 +60,7 @@ interface MenuItem {
   title: string
   href?: string
   icon: any
+  adminOnly?: boolean
   children?: {
     title: string
     href: string

@@ -3,6 +3,8 @@ import { IDatabaseConfig } from '@/models/Empresa';
 import { getModeloFichaje, IFichaje } from './Fichaje';
 import { getPersonalModel } from '@/utils/dynamic-models.helper';
 import { getModeloDepartamento } from '../departamentos/Departamento';
+import { getModeloTurno } from '../turnos/Turno';
+import { ValidacionFichajeService } from './validacion-fichaje.service';
 import {
   CreateFichajeDTO,
   RegistrarEntradaDTO,
@@ -20,10 +22,21 @@ export class FichajesService {
   private empresaId: mongoose.Types.ObjectId;
   private dbConfig: IDatabaseConfig;
   private _fichaje: mongoose.Model<IFichaje> | null = null;
+  private _validacionService: ValidacionFichajeService | null = null;
 
   constructor(empresaId: mongoose.Types.ObjectId, dbConfig: IDatabaseConfig) {
     this.empresaId = empresaId;
     this.dbConfig = dbConfig;
+  }
+
+  /**
+   * Obtener el servicio de validación (lazy loading)
+   */
+  private getValidacionService(): ValidacionFichajeService {
+    if (!this._validacionService) {
+      this._validacionService = new ValidacionFichajeService(this.empresaId, this.dbConfig);
+    }
+    return this._validacionService;
   }
 
   /**
@@ -159,12 +172,40 @@ export class FichajesService {
     }
 
     const ahora = new Date();
+    const validacionService = this.getValidacionService();
+
+    // Obtener turno aplicable
+    const { turno, origen: turnoOrigen } = await validacionService.obtenerTurnoAplicable(
+      data.personalId,
+      ahora
+    );
+
+    // Verificar si es festivo
+    const festivoInfo = await validacionService.esFestivoParaEmpleado(data.personalId, ahora);
+
+    // Calcular retraso si hay turno
+    let minutosRetraso = 0;
+    let horasTeoricas = 0;
+    if (turno) {
+      const esDiaLaboral = validacionService.esDiaLaboral(turno, ahora);
+      if (!festivoInfo.esFestivo && esDiaLaboral) {
+        horasTeoricas = turno.horasTeoricas;
+        const tolerancia = await validacionService.obtenerToleranciaRetraso(data.personalId);
+        minutosRetraso = validacionService.calcularRetraso(ahora, turno.horaEntrada, tolerancia);
+      }
+    }
+
+    const Turno = await getModeloTurno(this.empresaId, this.dbConfig);
+    const turnoDoc = turno ? await Turno.findById(turno._id) : null;
+
     const fichaje = new Fichaje({
       personalId: new mongoose.Types.ObjectId(data.personalId),
       personalNombre: `${personal.nombre} ${personal.apellidos}`,
       personalCodigo: personal.codigo,
       departamentoId: departamentoId,
       departamentoNombre: departamentoNombre,
+      turnoId: turnoDoc?._id,
+      turnoNombre: turnoDoc?.nombre,
       fecha: new Date(ahora.toDateString()),
       horaEntrada: ahora,
       tipo: data.tipo || 'normal',
@@ -172,6 +213,13 @@ export class FichajesService {
       ubicacionEntrada: data.ubicacion,
       ipEntrada: ip,
       observaciones: data.observaciones,
+      // Campos de validación
+      horasTeoricas,
+      minutosRetraso,
+      esFestivoTrabajado: festivoInfo.esFestivo,
+      festivoNombre: festivoInfo.festivo?.nombre,
+      validado: !!turno,
+      incidenciaTipo: minutosRetraso > 0 ? 'retraso' : (festivoInfo.esFestivo ? 'festivo' : undefined),
       creadoPor: usuarioId,
     });
 
@@ -218,6 +266,37 @@ export class FichajesService {
       }
 
       fichaje.horasTrabajadas = Math.max(0, Math.round(minutos / 60 * 100) / 100);
+    }
+
+    // Validar salida y calcular horas extra
+    const validacionService = this.getValidacionService();
+
+    // Calcular anticipación en salida si hay turno
+    if (fichaje.turnoId) {
+      const Turno = await getModeloTurno(this.empresaId, this.dbConfig);
+      const turno = await Turno.findById(fichaje.turnoId);
+      if (turno) {
+        fichaje.minutosAnticipacion = validacionService.calcularAnticipacion(ahora, turno.horaSalida);
+
+        // Actualizar tipo de incidencia si hay salida anticipada y no había retraso
+        if (fichaje.minutosAnticipacion > 0 && !fichaje.incidenciaTipo) {
+          fichaje.incidenciaTipo = 'salida_anticipada';
+        }
+      }
+    }
+
+    // Calcular horas extra
+    // Si es festivo, 100% de las horas son extra
+    // Si no, solo el exceso sobre las teóricas
+    if (fichaje.horasTrabajadas) {
+      if (fichaje.esFestivoTrabajado) {
+        // Festivo: todas las horas son extra
+        fichaje.horasExtra = fichaje.horasTrabajadas;
+      } else if (fichaje.horasTeoricas && fichaje.horasTeoricas > 0) {
+        // Normal: solo el exceso
+        const diferencia = fichaje.horasTrabajadas - fichaje.horasTeoricas;
+        fichaje.horasExtra = diferencia > 0 ? Math.round(diferencia * 100) / 100 : 0;
+      }
     }
 
     return fichaje.save();
@@ -325,6 +404,59 @@ export class FichajesService {
   }
 
   /**
+   * Aprobar fichaje
+   */
+  async aprobar(id: string, usuarioId: mongoose.Types.ObjectId) {
+    const Fichaje = await this.getFichajeModel();
+    const fichaje = await Fichaje.findById(id);
+    if (!fichaje) {
+      throw new Error('Fichaje no encontrado');
+    }
+
+    if (fichaje.estado === 'abierto') {
+      throw new Error('No se puede aprobar un fichaje abierto. Debe estar cerrado primero.');
+    }
+
+    if (fichaje.estado === 'aprobado') {
+      throw new Error('El fichaje ya está aprobado');
+    }
+
+    fichaje.estado = 'aprobado';
+    fichaje.aprobadoPor = usuarioId;
+    fichaje.fechaAprobacion = new Date();
+    fichaje.modificadoPor = usuarioId;
+
+    return fichaje.save();
+  }
+
+  /**
+   * Rechazar fichaje
+   */
+  async rechazar(id: string, usuarioId: mongoose.Types.ObjectId, motivo?: string) {
+    const Fichaje = await this.getFichajeModel();
+    const fichaje = await Fichaje.findById(id);
+    if (!fichaje) {
+      throw new Error('Fichaje no encontrado');
+    }
+
+    if (fichaje.estado === 'abierto') {
+      throw new Error('No se puede rechazar un fichaje abierto. Debe estar cerrado primero.');
+    }
+
+    if (fichaje.estado === 'rechazado') {
+      throw new Error('El fichaje ya está rechazado');
+    }
+
+    fichaje.estado = 'rechazado';
+    fichaje.modificadoPor = usuarioId;
+    if (motivo) {
+      fichaje.incidencia = motivo;
+    }
+
+    return fichaje.save();
+  }
+
+  /**
    * Obtener resumen de fichajes de un empleado
    */
   async getResumenEmpleado(personalId: string, mes?: number, anio?: number) {
@@ -341,16 +473,83 @@ export class FichajesService {
       fecha: { $gte: inicio, $lte: fin },
     }).sort({ fecha: 1 });
 
+    // Horas trabajadas totales
     const totalHoras = fichajes.reduce((sum, f) => sum + (f.horasTrabajadas || 0), 0);
-    const diasTrabajados = fichajes.filter(f => f.estado === 'cerrado' || f.estado === 'aprobado').length;
+
+    // Corregido: contar fechas únicas en vez de documentos
+    const fechasUnicas = new Set(
+      fichajes
+        .filter(f => f.estado === 'cerrado' || f.estado === 'aprobado')
+        .map(f => new Date(f.fecha).toISOString().split('T')[0])
+    );
+    const diasTrabajados = fechasUnicas.size;
+
+    // Horas extra
     const horasExtra = fichajes.reduce((sum, f) => sum + (f.horasExtra || 0), 0);
+
+    // Horas teóricas (suma de los fichajes validados)
+    const horasTeoricas = fichajes.reduce((sum, f) => sum + (f.horasTeoricas || 0), 0);
+
+    // Festivos trabajados (contar fechas únicas con esFestivoTrabajado)
+    const festivosTrabajadosSet = new Set(
+      fichajes
+        .filter(f => f.esFestivoTrabajado)
+        .map(f => new Date(f.fecha).toISOString().split('T')[0])
+    );
+    const festivosTrabajados = festivosTrabajadosSet.size;
+
+    // Calcular estadísticas del período usando el servicio de validación
+    const validacionService = this.getValidacionService();
+    const estadisticasPeriodo = await validacionService.calcularEstadisticasPeriodo(
+      personalId,
+      inicio,
+      fin
+    );
+
+    // Ausencias: días laborables sin fichaje
+    const fechasFichaje = new Set(
+      fichajes.map(f => new Date(f.fecha).toISOString().split('T')[0])
+    );
+
+    // Contar ausencias (días laborables sin ningún fichaje)
+    let ausencias = 0;
+    const fechaActual = new Date(inicio);
+    const hoy = new Date();
+    hoy.setHours(23, 59, 59, 999);
+
+    while (fechaActual <= fin && fechaActual <= hoy) {
+      const fechaStr = fechaActual.toISOString().split('T')[0];
+      const { turno } = await validacionService.obtenerTurnoAplicable(personalId, fechaActual);
+      const festivoInfo = await validacionService.esFestivoParaEmpleado(personalId, fechaActual);
+
+      // Es día laborable si hay turno, es día del turno y no es festivo
+      if (turno && validacionService.esDiaLaboral(turno, fechaActual) && !festivoInfo.esFestivo) {
+        if (!fechasFichaje.has(fechaStr)) {
+          ausencias++;
+        }
+      }
+
+      fechaActual.setDate(fechaActual.getDate() + 1);
+    }
+
+    // Diferencia entre horas reales y teóricas
+    const diferencia = totalHoras - estadisticasPeriodo.horasTeoricas;
 
     return {
       mes: mesActual,
       anio: anioActual,
+      // Horas
       totalHoras: Math.round(totalHoras * 100) / 100,
-      diasTrabajados,
+      horasTeoricas: Math.round(estadisticasPeriodo.horasTeoricas * 100) / 100,
+      diferencia: Math.round(diferencia * 100) / 100,
       horasExtra: Math.round(horasExtra * 100) / 100,
+      // Días
+      diasTrabajados,
+      diasLaborables: estadisticasPeriodo.diasLaborables,
+      festivosEnPeriodo: estadisticasPeriodo.festivosEnPeriodo,
+      festivosTrabajados,
+      ausencias,
+      // Detalle
       fichajes,
     };
   }

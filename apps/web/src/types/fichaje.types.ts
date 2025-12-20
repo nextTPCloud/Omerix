@@ -8,6 +8,8 @@ export interface Ubicacion {
   direccion?: string;
 }
 
+export type IncidenciaTipo = 'retraso' | 'salida_anticipada' | 'sin_salida' | 'festivo' | 'otro';
+
 export interface Fichaje {
   _id: string;
   personalId: string;
@@ -32,6 +34,15 @@ export interface Fichaje {
   ipSalida?: string;
   observaciones?: string;
   incidencia?: string;
+  // Campos de validación contra turno/calendario
+  horasTeoricas?: number;
+  minutosRetraso?: number;
+  minutosAnticipacion?: number;
+  esFestivoTrabajado?: boolean;
+  festivoNombre?: string;
+  validado?: boolean;
+  incidenciaTipo?: IncidenciaTipo;
+  // Auditoría
   fechaCreacion: string;
   fechaModificacion: string;
 }
@@ -93,9 +104,18 @@ export interface ResumenFichajeResponse {
   data: {
     mes: number;
     anio: number;
+    // Horas
     totalHoras: number;
-    diasTrabajados: number;
+    horasTeoricas: number;
+    diferencia: number;
     horasExtra: number;
+    // Días
+    diasTrabajados: number;
+    diasLaborables: number;
+    festivosEnPeriodo: number;
+    festivosTrabajados: number;
+    ausencias: number;
+    // Detalle
     fichajes: Fichaje[];
   };
 }

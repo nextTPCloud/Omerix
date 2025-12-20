@@ -19,7 +19,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 export default function TurnoDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { canEdit, canDelete } = usePermissions()
+  const { canUpdate, canDelete } = usePermissions()
   const [turno, setTurno] = useState<Turno | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [deleteDialog, setDeleteDialog] = useState(false)
@@ -100,7 +100,7 @@ export default function TurnoDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            {canEdit('turnos') && (
+            {canUpdate('turnos') && (
               <Button variant="outline" asChild>
                 <Link href={`/turnos/${turno._id}/editar`}>
                   <Edit className="h-4 w-4 mr-2" />Editar

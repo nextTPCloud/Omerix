@@ -331,7 +331,7 @@ export default function MaquinariaPage() {
                   <tr key={m._id} className="hover:bg-muted/30 transition-colors group">
                     <td className={`${densityClasses.cell} sticky left-0 z-20 bg-card group-hover:bg-muted/50`}><Checkbox checked={selectedItems.includes(m._id)} onCheckedChange={() => handleSelectItem(m._id)} /></td>
                     {columnasVisibles.includes('codigo') && <td className={`${densityClasses.cell} font-mono font-medium`}>{m.codigo}</td>}
-                    {columnasVisibles.includes('nombre') && <td className={`${densityClasses.cell} font-medium`}><Link href={`/maquinaria/${m._id}`} className="hover:text-primary hover:underline">{m.nombre}</Link>{m.necesitaMantenimiento && <AlertTriangle className="inline ml-2 h-4 w-4 text-yellow-500" title="Requiere mantenimiento" />}</td>}
+                    {columnasVisibles.includes('nombre') && <td className={`${densityClasses.cell} font-medium`}><Link href={`/maquinaria/${m._id}`} className="hover:text-primary hover:underline">{m.nombre}</Link>{m.necesitaMantenimiento && <span title="Requiere mantenimiento"><AlertTriangle className="inline ml-2 h-4 w-4 text-yellow-500" /></span>}</td>}
                     {columnasVisibles.includes('tipo') && <td className={`${densityClasses.cell}`}><Badge variant="outline" className="font-normal">{TIPOS_MAQUINARIA.find(t => t.value === m.tipo)?.label || m.tipo}</Badge></td>}
                     {columnasVisibles.includes('matricula') && <td className={`${densityClasses.cell} font-mono`}>{m.matricula || '-'}</td>}
                     {columnasVisibles.includes('estado') && <td className={`${densityClasses.cell}`}>{getEstadoBadge(m.estado)}</td>}

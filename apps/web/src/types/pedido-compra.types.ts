@@ -237,6 +237,7 @@ export interface PedidoCompra {
   proveedorNif: string
   proveedorEmail?: string
   proveedorTelefono?: string
+  proveedorDireccion?: string
 
   // Recepcion
   direccionRecepcion?: DireccionRecepcion
