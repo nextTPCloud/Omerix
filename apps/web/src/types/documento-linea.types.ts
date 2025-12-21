@@ -59,6 +59,9 @@ export interface ILineaDocumentoBase {
   variante?: IVarianteSeleccionada;
   cantidad: number;
   unidad?: string;
+  // Peso
+  peso?: number; // Peso unitario en kg
+  pesoTotal?: number; // Peso total de la línea (peso * cantidad)
   precioUnitario: number;
   descuento: number;
   descuentoImporte: number;
@@ -154,6 +157,9 @@ export function calcularLinea<T extends ILineaDocumentoBase>(linea: T): T {
   const ivaImporte = subtotal * (linea.iva / 100);
   const total = subtotal + ivaImporte;
 
+  // Peso total
+  const pesoTotal = (linea.peso || 0) * linea.cantidad;
+
   // Costes
   const costeTotalLinea = linea.cantidad * linea.costeUnitario;
 
@@ -179,6 +185,7 @@ export function calcularLinea<T extends ILineaDocumentoBase>(linea: T): T {
     subtotal,
     ivaImporte,
     total,
+    pesoTotal,
     costeTotalLinea,
     margenUnitario,
     margenPorcentaje,

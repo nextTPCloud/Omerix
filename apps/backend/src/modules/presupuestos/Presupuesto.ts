@@ -72,6 +72,10 @@ export interface ILineaPresupuesto {
   cantidad: number;
   unidad?: string;
 
+  // Peso
+  peso?: number; // Peso unitario en kg
+  pesoTotal?: number; // Peso total de la línea (peso * cantidad)
+
   // PRECIOS (lo que ve el cliente)
   precioUnitario: number;
   descuento: number; // Porcentaje
@@ -172,6 +176,9 @@ export interface ITotalesPresupuesto {
   // MÁRGENES TOTALES
   margenBruto: number; // totalPresupuesto - costeTotal
   margenPorcentaje: number; // (margenBruto / costeTotal) * 100
+
+  // PESO TOTAL
+  pesoTotal?: number; // Suma de todos los pesos de las líneas
 }
 
 // Documento adjunto
@@ -429,6 +436,10 @@ const LineaPresupuestoSchema = new Schema<ILineaPresupuesto>({
   cantidad: { type: Number, required: true, min: 0, default: 1 },
   unidad: { type: String, trim: true, default: 'ud' },
 
+  // Peso
+  peso: { type: Number, min: 0, default: 0 }, // Peso unitario en kg
+  pesoTotal: { type: Number, min: 0, default: 0 }, // Peso total de la línea (peso * cantidad)
+
   // Precios
   precioUnitario: { type: Number, required: true, min: 0, default: 0 },
   descuento: { type: Number, default: 0, min: 0, max: 100 },
@@ -523,6 +534,7 @@ const TotalesPresupuestoSchema = new Schema<ITotalesPresupuesto>({
   costeTotal: { type: Number, default: 0, min: 0 },
   margenBruto: { type: Number, default: 0 },
   margenPorcentaje: { type: Number, default: 0 },
+  pesoTotal: { type: Number, default: 0, min: 0 }, // Suma de todos los pesos de las líneas
 }, { _id: false });
 
 const DocumentoPresupuestoSchema = new Schema<IDocumentoPresupuesto>({

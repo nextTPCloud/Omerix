@@ -6,13 +6,15 @@ import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { proveedoresService } from '@/services/proveedores.service'
 import { Proveedor, TIPOS_PROVEEDOR } from '@/types/proveedor.types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { TabDocumentos, TabEstadisticas, TabActividad, TabArchivos } from '@/components/proveedores/tabs'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   ArrowLeft,
-  Edit,
+  Pencil,
   Trash2,
   Truck,
   Mail,
@@ -31,8 +33,27 @@ import {
   Package,
   Receipt,
   RefreshCw,
+  MoreVertical,
+  Plus,
+  ChevronDown,
+  Download,
+  TrendingUp,
+  DollarSign,
+  ShoppingCart,
+  BarChart3,
+  FileUp,
+  ExternalLink,
+  Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +72,7 @@ export default function ProveedorDetallePage() {
 
   const [proveedor, setProveedor] = useState<Proveedor | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('general')
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   useEffect(() => {
@@ -100,7 +122,23 @@ export default function ProveedorDetallePage() {
     }
   }
 
-  // Renderizar calificacion con estrellas
+  const handleCreateDocument = (tipo: string) => {
+    if (!proveedor) return
+
+    const rutas: Record<string, string> = {
+      pedido: `/compras/pedidos/nuevo?proveedorId=${proveedor._id}`,
+      albaran: `/compras/albaranes/nuevo?proveedorId=${proveedor._id}`,
+      factura: `/compras/facturas/nuevo?proveedorId=${proveedor._id}`,
+    }
+
+    if (rutas[tipo]) {
+      router.push(rutas[tipo])
+    } else {
+      toast.info(`Función "${tipo}" en desarrollo`)
+    }
+  }
+
+  // Renderizar calificación con estrellas
   const renderCalificacion = (calificacion?: number) => {
     if (!calificacion) return <span className="text-muted-foreground">Sin calificar</span>
     return (
@@ -120,7 +158,7 @@ export default function ProveedorDetallePage() {
     )
   }
 
-  // Icono segun tipo
+  // Icono según tipo
   const getTipoIcon = () => {
     switch (proveedor?.tipoProveedor) {
       case 'empresa':
@@ -135,10 +173,10 @@ export default function ProveedorDetallePage() {
   if (isLoading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+        <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Cargando proveedor...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Cargando proveedor...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -148,14 +186,8 @@ export default function ProveedorDetallePage() {
   if (!proveedor) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
-          <div className="text-center">
-            <Truck className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-            <p className="text-lg font-medium">Proveedor no encontrado</p>
-            <Button asChild className="mt-4">
-              <Link href="/proveedores">Volver al listado</Link>
-            </Button>
-          </div>
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Proveedor no encontrado</p>
         </div>
       </DashboardLayout>
     )
@@ -163,101 +195,273 @@ export default function ProveedorDetallePage() {
 
   return (
     <DashboardLayout>
-      <div className="w-full space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/proveedores">
+      <div className="space-y-6">
+        {/* ========================================== */}
+        {/* CABECERA CON INFORMACIÓN CLAVE Y ACCIONES */}
+        {/* ========================================== */}
+        <div className="flex flex-col gap-4">
+          {/* Navegación y título con Toolbar */}
+          <div className="flex items-start gap-3">
+            <Link href="/proveedores">
+              <Button variant="ghost" size="icon" className="mt-1">
                 <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                  <Truck className="h-7 w-7 text-primary" />
-                  {proveedor.nombre}
-                </h1>
-                <Badge variant={proveedor.activo ? 'default' : 'secondary'}>
-                  {proveedor.activo ? 'Activo' : 'Inactivo'}
-                </Badge>
+              </Button>
+            </Link>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                {/* Título y badges */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="text-3xl font-bold tracking-tight">{proveedor.nombre}</h1>
+                    <Badge variant={proveedor.activo ? 'default' : 'secondary'} className={
+                      proveedor.activo
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                    }>
+                      {proveedor.activo ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                    <Badge variant="outline">
+                      {getTipoIcon()}
+                      <span className="ml-1">
+                        {TIPOS_PROVEEDOR.find(t => t.value === proveedor.tipoProveedor)?.label || proveedor.tipoProveedor}
+                      </span>
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                    <span className="font-mono">{proveedor.codigo}</span>
+                    <span>•</span>
+                    <span className="font-mono">{proveedor.nif}</span>
+                  </div>
+                </div>
+
+                {/* Toolbar de acciones */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/proveedores/${proveedor._id}/editar`)}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar
+                  </Button>
+
+                  <Separator orientation="vertical" className="h-8" />
+
+                  {/* Dropdown: Nuevo Documento */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nuevo Documento
+                        <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuLabel>Crear documento</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleCreateDocument('pedido')}>
+                        <Package className="mr-2 h-4 w-4" />
+                        Pedido de Compra
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleCreateDocument('albaran')}>
+                        <Truck className="mr-2 h-4 w-4" />
+                        Albarán de Compra
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleCreateDocument('factura')}>
+                        <Receipt className="mr-2 h-4 w-4" />
+                        Factura de Compra
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Separator orientation="vertical" className="h-8" />
+
+                  {/* Dropdown: Más acciones */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => toast.info('Exportar a PDF - En desarrollo')}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Exportar a PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toast.info('Enviar email - En desarrollo')}>
+                        <Mail className="mr-2 h-4 w-4" />
+                        Enviar email
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleToggleEstado}>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        {proveedor.activo ? 'Desactivar' : 'Activar'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setShowDeleteDialog(true)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Eliminar proveedor
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                {proveedor.codigo} | {proveedor.nif}
-              </p>
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleToggleEstado}>
-              {proveedor.activo ? 'Desactivar' : 'Activar'}
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href={`/proveedores/${proveedorId}/editar`}>
-                <Edit className="h-4 w-4 mr-2" />
-                Editar
-              </Link>
-            </Button>
-            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Eliminar
-            </Button>
+          {/* KPIs Rápidos */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <Card className="border-l-4 border-l-blue-500">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Total Compras</p>
+                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                      {(proveedor.totalCompras || 0).toLocaleString('es-ES', {
+                        style: 'currency',
+                        currency: 'EUR',
+                      })}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                    <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-green-500">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Fiabilidad</p>
+                    <p className="text-xl font-bold text-green-600 dark:text-green-400">
+                      {proveedor.fiabilidad !== undefined ? `${proveedor.fiabilidad}%` : 'Sin datos'}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-purple-500">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Días de Pago</p>
+                    <p className="text-lg font-bold">
+                      {proveedor.diasPago || 0} días
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Descuento: {proveedor.descuentoGeneral || 0}%
+                    </p>
+                  </div>
+                  <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                    <CreditCard className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-orange-500">
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Calificación</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`h-4 w-4 ${
+                            star <= (proveedor.calificacion || 0)
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                    <Star className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
-        {/* Contenido Principal */}
-        <Tabs defaultValue="general" className="w-full">
-          <TabsList>
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="direcciones">Direcciones</TabsTrigger>
-            <TabsTrigger value="bancarios">Datos Bancarios</TabsTrigger>
-            <TabsTrigger value="documentos">Documentos</TabsTrigger>
+        {/* ========================================== */}
+        {/* PESTAÑAS DE CONTENIDO */}
+        {/* ========================================== */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto">
+            <TabsTrigger value="general" className="gap-2">
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline">General</span>
+            </TabsTrigger>
+            <TabsTrigger value="documentos" className="gap-2">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Documentos</span>
+            </TabsTrigger>
+            <TabsTrigger value="actividad" className="gap-2">
+              <Clock className="h-4 w-4" />
+              <span className="hidden sm:inline">Actividad</span>
+            </TabsTrigger>
+            <TabsTrigger value="estadisticas" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Estadísticas</span>
+            </TabsTrigger>
+            <TabsTrigger value="archivos" className="gap-2">
+              <FileUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Archivos</span>
+            </TabsTrigger>
           </TabsList>
 
-          {/* Tab General */}
-          <TabsContent value="general" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Datos Basicos */}
+          {/* ========================================== */}
+          {/* PESTAÑA: INFORMACIÓN GENERAL */}
+          {/* ========================================== */}
+          <TabsContent value="general" className="space-y-4 mt-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Datos Básicos */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     {getTipoIcon()}
-                    Datos Basicos
+                    Datos Básicos
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xs text-muted-foreground">Codigo</p>
-                      <p className="font-mono font-medium">{proveedor.codigo}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Código</p>
+                      <p className="text-sm font-mono">{proveedor.codigo}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">NIF/CIF</p>
-                      <p className="font-mono font-medium">{proveedor.nif}</p>
+                      <p className="text-sm font-medium text-muted-foreground">NIF/CIF</p>
+                      <p className="text-sm font-mono">{proveedor.nif}</p>
                     </div>
                   </div>
 
                   <div>
-                    <p className="text-xs text-muted-foreground">Nombre / Razon Social</p>
-                    <p className="font-medium">{proveedor.nombre}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Razón Social</p>
+                    <p className="text-sm">{proveedor.nombre}</p>
                   </div>
 
                   {proveedor.nombreComercial && (
                     <div>
-                      <p className="text-xs text-muted-foreground">Nombre Comercial</p>
-                      <p className="font-medium">{proveedor.nombreComercial}</p>
+                      <p className="text-sm font-medium text-muted-foreground">Nombre Comercial</p>
+                      <p className="text-sm">{proveedor.nombreComercial}</p>
                     </div>
                   )}
 
                   <div>
-                    <p className="text-xs text-muted-foreground">Tipo</p>
-                    <Badge variant="outline">
-                      {TIPOS_PROVEEDOR.find(t => t.value === proveedor.tipoProveedor)?.label || proveedor.tipoProveedor}
-                    </Badge>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Calificacion</p>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Calificación</p>
                     {renderCalificacion(proveedor.calificacion)}
                   </div>
                 </CardContent>
@@ -275,7 +479,7 @@ export default function ProveedorDetallePage() {
                   {proveedor.email && (
                     <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-muted-foreground" />
-                      <a href={`mailto:${proveedor.email}`} className="text-blue-600 hover:underline">
+                      <a href={`mailto:${proveedor.email}`} className="text-sm text-blue-600 hover:underline">
                         {proveedor.email}
                       </a>
                     </div>
@@ -284,7 +488,7 @@ export default function ProveedorDetallePage() {
                   {proveedor.telefono && (
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      <a href={`tel:${proveedor.telefono}`} className="hover:text-primary">
+                      <a href={`tel:${proveedor.telefono}`} className="text-sm hover:text-primary">
                         {proveedor.telefono}
                       </a>
                     </div>
@@ -293,8 +497,8 @@ export default function ProveedorDetallePage() {
                   {proveedor.movil && (
                     <div className="flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      <a href={`tel:${proveedor.movil}`} className="hover:text-primary">
-                        {proveedor.movil} (Movil)
+                      <a href={`tel:${proveedor.movil}`} className="text-sm hover:text-primary">
+                        {proveedor.movil} <span className="text-muted-foreground">(Móvil)</span>
                       </a>
                     </div>
                   )}
@@ -302,26 +506,110 @@ export default function ProveedorDetallePage() {
                   {proveedor.web && (
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4 text-muted-foreground" />
-                      <a href={proveedor.web} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      <a
+                        href={proveedor.web}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:underline truncate"
+                      >
                         {proveedor.web}
                       </a>
                     </div>
                   )}
 
                   {proveedor.personaContacto?.nombre && (
-                    <div className="pt-4 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">Persona de Contacto</p>
-                      <p className="font-medium">{proveedor.personaContacto.nombre}</p>
-                      {proveedor.personaContacto.cargo && (
-                        <p className="text-sm text-muted-foreground">{proveedor.personaContacto.cargo}</p>
-                      )}
-                      {proveedor.personaContacto.email && (
-                        <p className="text-sm">{proveedor.personaContacto.email}</p>
-                      )}
-                      {proveedor.personaContacto.telefono && (
-                        <p className="text-sm">{proveedor.personaContacto.telefono}</p>
-                      )}
+                    <>
+                      <Separator />
+                      <div>
+                        <p className="text-sm font-medium mb-2">Persona de Contacto</p>
+                        <div className="space-y-2 pl-2 border-l-2 border-muted">
+                          <p className="text-sm">
+                            <span className="font-medium">{proveedor.personaContacto.nombre}</span>
+                            {proveedor.personaContacto.cargo && (
+                              <span className="text-muted-foreground"> - {proveedor.personaContacto.cargo}</span>
+                            )}
+                          </p>
+                          {proveedor.personaContacto.telefono && (
+                            <p className="text-sm text-muted-foreground">
+                              Tel: {proveedor.personaContacto.telefono}
+                            </p>
+                          )}
+                          {proveedor.personaContacto.email && (
+                            <p className="text-sm text-blue-600">
+                              {proveedor.personaContacto.email}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Direcciones */}
+              <Card className="md:col-span-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Direcciones
+                    {proveedor.direcciones && proveedor.direcciones.length > 0 && (
+                      <Badge variant="secondary">{proveedor.direcciones.length}</Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {proveedor.direcciones && proveedor.direcciones.length > 0 ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {proveedor.direcciones.map((dir, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-4 border rounded-lg ${dir.predeterminada ? 'border-primary bg-primary/5' : ''}`}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium">{dir.nombre || dir.tipo}</span>
+                              {dir.predeterminada && (
+                                <Badge variant="default" className="text-xs">
+                                  <Star className="h-3 w-3 mr-1" />
+                                  Principal
+                                </Badge>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                const address = `${dir.calle}${dir.numero ? ' ' + dir.numero : ''}, ${dir.codigoPostal} ${dir.ciudad}, ${dir.provincia}, ${dir.pais}`
+                                window.open(
+                                  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+                                  '_blank'
+                                )
+                              }}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="space-y-1 text-sm">
+                            <p>{dir.calle}{dir.numero && `, ${dir.numero}`}</p>
+                            <p>{dir.codigoPostal} {dir.ciudad}</p>
+                            <p className="text-muted-foreground">{dir.provincia}, {dir.pais}</p>
+                            {dir.personaContacto && (
+                              <p className="text-muted-foreground pt-1">
+                                Contacto: {dir.personaContacto}
+                                {dir.telefonoContacto && ` - ${dir.telefonoContacto}`}
+                              </p>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="mt-2 text-xs">{dir.tipo}</Badge>
+                        </div>
+                      ))}
                     </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No hay direcciones registradas
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -334,283 +622,247 @@ export default function ProveedorDetallePage() {
                     Condiciones Comerciales
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {proveedor.diasPago && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Dias de Pago</span>
-                      <span className="font-medium">{proveedor.diasPago} dias</span>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Días de Pago</p>
+                      <p className="text-sm">{proveedor.diasPago || 0} días</p>
                     </div>
-                  )}
-
-                  {proveedor.descuentoGeneral !== undefined && proveedor.descuentoGeneral > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Descuento General</span>
-                      <span className="font-medium">{proveedor.descuentoGeneral}%</span>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Descuento General</p>
+                      <p className="text-sm">{proveedor.descuentoGeneral || 0}%</p>
                     </div>
-                  )}
+                  </div>
 
                   {proveedor.portesMinimosPedido !== undefined && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Minimo sin Portes</span>
-                      <span className="font-medium">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Mínimo sin Portes</p>
+                      <p className="text-sm font-bold">
                         {proveedor.portesMinimosPedido.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                      </span>
+                      </p>
                     </div>
                   )}
 
                   {proveedor.portesImporte !== undefined && proveedor.portesImporte > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Importe Portes</span>
-                      <span className="font-medium">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Importe Portes</p>
+                      <p className="text-sm">
                         {proveedor.portesImporte.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                      </span>
+                      </p>
                     </div>
                   )}
-                </CardContent>
-              </Card>
 
-              {/* Evaluacion */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Star className="h-5 w-5" />
-                    Evaluacion
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+                  <Separator />
+
                   {proveedor.tiempoEntregaPromedio && (
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Tiempo Entrega Promedio</span>
-                      <span className="font-medium">{proveedor.tiempoEntregaPromedio} dias</span>
-                    </div>
-                  )}
-
-                  {proveedor.fiabilidad !== undefined && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Fiabilidad</span>
-                      <span className="font-medium">{proveedor.fiabilidad}%</span>
-                    </div>
-                  )}
-
-                  {proveedor.certificaciones && proveedor.certificaciones.length > 0 && (
-                    <div>
-                      <p className="text-muted-foreground mb-2">Certificaciones</p>
-                      <div className="flex flex-wrap gap-2">
-                        {proveedor.certificaciones.map((cert, idx) => (
-                          <Badge key={idx} variant="outline">{cert}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {proveedor.totalCompras !== undefined && proveedor.totalCompras > 0 && (
-                    <div className="flex items-center justify-between pt-4 border-t">
-                      <span className="text-muted-foreground">Total Compras</span>
-                      <span className="font-bold text-lg">
-                        {proveedor.totalCompras.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                      </span>
+                      <span className="text-sm text-muted-foreground">Tiempo Entrega Promedio</span>
+                      <span className="text-sm font-medium">{proveedor.tiempoEntregaPromedio} días</span>
                     </div>
                   )}
 
                   {proveedor.ultimaCompra && (
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Ultima Compra</span>
-                      <span className="font-medium">
+                      <span className="text-sm text-muted-foreground">Última Compra</span>
+                      <span className="text-sm font-medium">
                         {new Date(proveedor.ultimaCompra).toLocaleDateString('es-ES')}
                       </span>
                     </div>
                   )}
                 </CardContent>
               </Card>
-            </div>
 
-            {/* Tags y Observaciones */}
-            {(proveedor.tags?.length || proveedor.observaciones) && (
+              {/* Cuentas Bancarias */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Informacion Adicional</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Landmark className="h-5 w-5" />
+                    Cuentas Bancarias
+                    {proveedor.cuentasBancarias && proveedor.cuentasBancarias.length > 0 && (
+                      <Badge variant="secondary">{proveedor.cuentasBancarias.length}</Badge>
+                    )}
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {proveedor.tags && proveedor.tags.length > 0 && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-2">Etiquetas</p>
-                      <div className="flex flex-wrap gap-2">
-                        {proveedor.tags.map((tag, idx) => (
-                          <Badge key={idx} variant="secondary">{tag}</Badge>
-                        ))}
+                <CardContent>
+                  {proveedor.cuentasBancarias && proveedor.cuentasBancarias.length > 0 ? (
+                    <div className="space-y-4">
+                      {proveedor.cuentasBancarias.map((cuenta, idx) => {
+                        const ibanFormateado = cuenta.iban?.replace(/(.{4})/g, '$1 ').trim()
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-4 border rounded-lg ${cuenta.predeterminada ? 'border-primary bg-primary/5' : ''}`}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Landmark className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{cuenta.banco || cuenta.alias || 'Cuenta bancaria'}</span>
+                                {cuenta.predeterminada && (
+                                  <Badge variant="default" className="text-xs">
+                                    <Star className="h-3 w-3 mr-1" />
+                                    Principal
+                                  </Badge>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(cuenta.iban)
+                                  toast.success('IBAN copiado al portapapeles')
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div>
+                                <p className="text-xs text-muted-foreground">IBAN</p>
+                                <p className="font-mono">{ibanFormateado}</p>
+                              </div>
+                              {cuenta.swift && (
+                                <div>
+                                  <p className="text-xs text-muted-foreground">SWIFT/BIC</p>
+                                  <p className="font-mono">{cuenta.swift}</p>
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-xs text-muted-foreground">Titular</p>
+                                <p>{cuenta.titular}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No hay cuentas bancarias registradas
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Certificaciones y Tags */}
+              {(proveedor.certificaciones?.length || proveedor.tags?.length || proveedor.observaciones) && (
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle>Información Adicional</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {proveedor.certificaciones && proveedor.certificaciones.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-2">Certificaciones</p>
+                        <div className="flex flex-wrap gap-2">
+                          {proveedor.certificaciones.map((cert, idx) => (
+                            <Badge key={idx} variant="outline">{cert}</Badge>
+                          ))}
+                        </div>
                       </div>
+                    )}
+
+                    {proveedor.tags && proveedor.tags.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-2">Etiquetas</p>
+                        <div className="flex flex-wrap gap-2">
+                          {proveedor.tags.map((tag, idx) => (
+                            <Badge key={idx} variant="secondary">{tag}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {proveedor.observaciones && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-2">Observaciones</p>
+                        <p className="text-sm whitespace-pre-wrap">{proveedor.observaciones}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Información del Sistema */}
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>Información del Sistema</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Fecha de Creación</p>
+                    <p className="text-sm">
+                      {new Date(proveedor.fechaCreacion).toLocaleString('es-ES')}
+                    </p>
+                  </div>
+                  {proveedor.fechaModificacion && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Última Actualización</p>
+                      <p className="text-sm">
+                        {new Date(proveedor.fechaModificacion).toLocaleString('es-ES')}
+                      </p>
                     </div>
                   )}
-
-                  {proveedor.observaciones && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-2">Observaciones</p>
-                      <p className="text-sm whitespace-pre-wrap">{proveedor.observaciones}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* Tab Direcciones */}
-          <TabsContent value="direcciones" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Direcciones
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {proveedor.direcciones && proveedor.direcciones.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {proveedor.direcciones.map((dir, idx) => (
-                      <div key={idx} className="p-4 border rounded-lg space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Badge variant={dir.predeterminada ? 'default' : 'outline'}>
-                            {dir.tipo}
-                          </Badge>
-                          {dir.predeterminada && (
-                            <Badge variant="secondary">Predeterminada</Badge>
-                          )}
-                        </div>
-                        {dir.nombre && <p className="font-medium">{dir.nombre}</p>}
-                        <p>{dir.calle}{dir.numero && `, ${dir.numero}`}</p>
-                        <p>{dir.codigoPostal} {dir.ciudad}</p>
-                        <p className="text-muted-foreground">{dir.provincia}, {dir.pais}</p>
-                        {dir.personaContacto && (
-                          <p className="text-sm text-muted-foreground">
-                            Contacto: {dir.personaContacto}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">
-                    No hay direcciones registradas
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab Bancarios */}
-          <TabsContent value="bancarios" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Landmark className="h-5 w-5" />
-                  Cuentas Bancarias
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {proveedor.cuentasBancarias && proveedor.cuentasBancarias.length > 0 ? (
-                  <div className="space-y-4">
-                    {proveedor.cuentasBancarias.map((cuenta, idx) => (
-                      <div key={idx} className="p-4 border rounded-lg space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{cuenta.alias || `Cuenta ${idx + 1}`}</p>
-                          {cuenta.predeterminada && (
-                            <Badge variant="secondary">Predeterminada</Badge>
-                          )}
-                        </div>
-                        <p className="font-mono">{cuenta.iban}</p>
-                        {cuenta.swift && <p className="text-sm">SWIFT: {cuenta.swift}</p>}
-                        {cuenta.banco && <p className="text-sm text-muted-foreground">{cuenta.banco}</p>}
-                        <p className="text-sm text-muted-foreground">Titular: {cuenta.titular}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">
-                    No hay cuentas bancarias registradas
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab Documentos */}
-          <TabsContent value="documentos" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/compras/pedidos?proveedorId=${proveedorId}`)}>
-                <CardContent className="p-6 flex items-center gap-4">
-                  <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                    <Package className="h-6 w-6 text-blue-600" />
-                  </div>
                   <div>
-                    <p className="font-medium">Pedidos de Compra</p>
-                    <p className="text-sm text-muted-foreground">Ver pedidos</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/compras/albaranes?proveedorId=${proveedorId}`)}>
-                <CardContent className="p-6 flex items-center gap-4">
-                  <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                    <Truck className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Albaranes de Compra</p>
-                    <p className="text-sm text-muted-foreground">Ver albaranes</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/compras/facturas?proveedorId=${proveedorId}`)}>
-                <CardContent className="p-6 flex items-center gap-4">
-                  <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                    <Receipt className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Facturas de Compra</p>
-                    <p className="text-sm text-muted-foreground">Ver facturas</p>
+                    <p className="text-sm font-medium text-muted-foreground">ID del Sistema</p>
+                    <p className="text-xs font-mono text-muted-foreground">{proveedor._id}</p>
                   </div>
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* ========================================== */}
+          {/* PESTAÑA: DOCUMENTOS */}
+          {/* ========================================== */}
+          <TabsContent value="documentos" className="mt-4">
+            <TabDocumentos proveedorId={proveedor._id} proveedorNombre={proveedor.nombre} />
+          </TabsContent>
+
+          {/* ========================================== */}
+          {/* PESTAÑA: ACTIVIDAD */}
+          {/* ========================================== */}
+          <TabsContent value="actividad" className="mt-4">
+            <TabActividad proveedorId={proveedor._id} proveedorNombre={proveedor.nombre} />
+          </TabsContent>
+
+          {/* ========================================== */}
+          {/* PESTAÑA: ESTADÍSTICAS */}
+          {/* ========================================== */}
+          <TabsContent value="estadisticas" className="mt-4">
+            <TabEstadisticas proveedorId={proveedor._id} proveedorNombre={proveedor.nombre} />
+          </TabsContent>
+
+          {/* ========================================== */}
+          {/* PESTAÑA: ARCHIVOS */}
+          {/* ========================================== */}
+          <TabsContent value="archivos" className="mt-4">
+            <TabArchivos proveedorId={proveedor._id} proveedorNombre={proveedor.nombre} />
           </TabsContent>
         </Tabs>
-
-        {/* Auditoria */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                <span>Creado: {new Date(proveedor.fechaCreacion).toLocaleDateString('es-ES')}</span>
-              </div>
-              {proveedor.fechaModificacion && (
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  <span>Modificado: {new Date(proveedor.fechaModificacion).toLocaleDateString('es-ES')}</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dialog de confirmacion de eliminacion */}
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Eliminar proveedor?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta accion no se puede deshacer. Se eliminara permanentemente el proveedor
-                <strong> {proveedor.nombre}</strong> y todos sus datos asociados.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-                Eliminar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
+
+      {/* Diálogo de confirmación para eliminar proveedor */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar proveedor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente el proveedor
+              <span className="font-semibold"> {proveedor.nombre}</span> y todos sus datos asociados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar proveedor
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   )
 }

@@ -48,6 +48,8 @@ import QRCode from 'qrcode';
 import { logError, logInfo, logWarn } from '@/utils/logger/winston.config';
 import { verifactuService } from '@/modules/verifactu/verifactu.service';
 import Empresa from '@/modules/empresa/Empresa';
+import { vencimientosService } from '@/modules/tesoreria/vencimientos.service';
+import { TipoVencimiento } from '@/models/Vencimiento';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 
 // ============================================
@@ -792,6 +794,43 @@ export class FacturasService {
     await factura.save();
 
     logInfo('Factura emitida', { codigo: factura.codigo, sistemaFiscal });
+
+    // ============================================
+    // CREAR VENCIMIENTOS EN TESORERÍA
+    // ============================================
+    try {
+      if (factura.vencimientos && factura.vencimientos.length > 0) {
+        const vencimientosData = factura.vencimientos.map(v => ({
+          tipo: TipoVencimiento.COBRO,
+          documentoOrigen: 'factura_venta' as const,
+          documentoId: factura._id.toString(),
+          documentoNumero: factura.codigo,
+          fechaEmision: factura.fecha,
+          fechaVencimiento: new Date(v.fecha),
+          importe: v.importe,
+          clienteId: factura.clienteId.toString(),
+          terceroNombre: factura.clienteNombre,
+          terceroNif: factura.clienteNif || '',
+          formaPagoId: factura.formaPagoId?.toString(),
+          observaciones: `Vencimiento ${v.numero} de factura ${factura.codigo}`,
+        }));
+
+        await vencimientosService.createMultiple(
+          String(empresaId),
+          vencimientosData,
+          dbConfig
+        );
+
+        logInfo('Vencimientos creados en tesorería', {
+          facturaId: factura._id,
+          codigo: factura.codigo,
+          numVencimientos: vencimientosData.length,
+        });
+      }
+    } catch (error) {
+      logError('Error creando vencimientos en tesorería', error as Error);
+      // No lanzamos error para no bloquear la emisión de la factura
+    }
 
     // ============================================
     // ENVÍO AUTOMÁTICO A AEAT (VeriFactu)

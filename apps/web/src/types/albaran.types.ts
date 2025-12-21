@@ -86,6 +86,9 @@ export interface ILineaAlbaran {
   cantidadEntregada: number;
   cantidadPendiente: number;
   unidad?: string;
+  // Peso
+  peso?: number; // Peso unitario en kg
+  pesoTotal?: number; // Peso total de la línea (peso * cantidadEntregada)
   lote?: string;
   numeroSerie?: string;
   fechaCaducidad?: string | Date;
@@ -459,6 +462,7 @@ export const calcularLinea = (linea: Partial<ILineaAlbaran>): ILineaAlbaran => {
   const costeUnitario = linea.costeUnitario || 0;
   const descuento = linea.descuento || 0;
   const iva = linea.iva || 21;
+  const peso = linea.peso || 0;
 
   const subtotalBruto = cantidadEntregada * precioUnitario;
   const descuentoImporte = subtotalBruto * (descuento / 100);
@@ -472,6 +476,9 @@ export const calcularLinea = (linea: Partial<ILineaAlbaran>): ILineaAlbaran => {
   const margenTotalLinea = subtotal - costeTotalLinea;
 
   const cantidadPendiente = Math.max(0, cantidadSolicitada - cantidadEntregada);
+
+  // Calcular peso total de la línea (peso * cantidad entregada)
+  const pesoTotal = peso * cantidadEntregada;
 
   return {
     ...linea,
@@ -490,6 +497,8 @@ export const calcularLinea = (linea: Partial<ILineaAlbaran>): ILineaAlbaran => {
     margenUnitario: Math.round(margenUnitario * 100) / 100,
     margenPorcentaje: Math.round(margenPorcentaje * 100) / 100,
     margenTotalLinea: Math.round(margenTotalLinea * 100) / 100,
+    peso,
+    pesoTotal: Math.round(pesoTotal * 1000) / 1000, // 3 decimales para peso
   } as ILineaAlbaran;
 };
 

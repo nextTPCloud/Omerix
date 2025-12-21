@@ -267,7 +267,7 @@ export default function EditarPersonalPage() {
 
         {/* Formulario */}
         <Tabs defaultValue="personal" className="w-full">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="personal">Datos Personales</TabsTrigger>
             <TabsTrigger value="contacto">Contacto</TabsTrigger>
             <TabsTrigger value="laboral">Datos Laborales</TabsTrigger>

@@ -52,6 +52,7 @@ import {
   Building2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { TabCalendario } from '@/components/personal/tabs'
 
 export default function PersonalDetailPage() {
   const params = useParams()
@@ -230,12 +231,13 @@ export default function PersonalDetailPage() {
 
         {/* Contenido */}
         <Tabs defaultValue="general" className="w-full">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="laboral">Datos Laborales</TabsTrigger>
-            <TabsTrigger value="economicos">Económicos</TabsTrigger>
+            <TabsTrigger value="laboral">Laboral</TabsTrigger>
+            <TabsTrigger value="economicos">Económico</TabsTrigger>
             <TabsTrigger value="formacion">Formación</TabsTrigger>
             <TabsTrigger value="vacaciones">Vacaciones</TabsTrigger>
+            <TabsTrigger value="calendario">Calendario</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
           </TabsList>
 
@@ -704,6 +706,10 @@ export default function PersonalDetailPage() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="calendario" className="mt-4">
+            <TabCalendario empleado={empleado} />
           </TabsContent>
 
           <TabsContent value="documentos" className="mt-4">

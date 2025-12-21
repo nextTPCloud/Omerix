@@ -83,6 +83,9 @@ export interface ILineaPedido {
   cantidadServida: number;
   cantidadPendiente: number;
   unidad?: string;
+  // Peso
+  peso?: number; // Peso unitario en kg
+  pesoTotal?: number; // Peso total de la línea (peso * cantidad)
   // Precios: original (PVP) y aplicado (puede ser de tarifa/oferta)
   precioOriginal?: number;
   precioUnitario: number;
@@ -422,6 +425,7 @@ export const calcularLinea = (linea: Partial<ILineaPedido>): ILineaPedido => {
   const costeUnitario = linea.costeUnitario || 0;
   const descuento = linea.descuento || 0;
   const iva = linea.iva || 21;
+  const peso = linea.peso || 0;
 
   const subtotalBruto = cantidad * precioUnitario;
   const descuentoImporte = subtotalBruto * (descuento / 100);
@@ -435,6 +439,9 @@ export const calcularLinea = (linea: Partial<ILineaPedido>): ILineaPedido => {
   const margenTotalLinea = subtotal - costeTotalLinea;
 
   const cantidadPendiente = Math.max(0, cantidad - cantidadServida);
+
+  // Calcular peso total de la línea
+  const pesoTotal = peso * cantidad;
 
   return {
     ...linea,
@@ -453,6 +460,8 @@ export const calcularLinea = (linea: Partial<ILineaPedido>): ILineaPedido => {
     margenUnitario: Math.round(margenUnitario * 100) / 100,
     margenPorcentaje: Math.round(margenPorcentaje * 100) / 100,
     margenTotalLinea: Math.round(margenTotalLinea * 100) / 100,
+    peso,
+    pesoTotal: Math.round(pesoTotal * 1000) / 1000, // 3 decimales para peso
   } as ILineaPedido;
 };
 

@@ -68,6 +68,10 @@ export interface ILineaPedidoCompra {
   cantidadPendiente: number;
   unidad?: string;
 
+  // Peso
+  peso?: number; // Peso unitario en kg
+  pesoTotal?: number; // Peso total de la línea (peso * cantidad)
+
   // Precios
   precioUnitario: number;
   descuento: number;
@@ -285,6 +289,10 @@ const LineaPedidoCompraSchema = new Schema<ILineaPedidoCompra>({
   cantidadRecibida: { type: Number, default: 0, min: 0 },
   cantidadPendiente: { type: Number, default: 0, min: 0 },
   unidad: { type: String, trim: true, default: 'ud' },
+
+  // Peso
+  peso: { type: Number, min: 0, default: 0 },
+  pesoTotal: { type: Number, min: 0, default: 0 },
 
   // Precios
   precioUnitario: { type: Number, required: true, min: 0, default: 0 },

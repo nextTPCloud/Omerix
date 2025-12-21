@@ -93,6 +93,7 @@ import { productosService } from '@/services/productos.service'
 import { seriesDocumentosService } from '@/services/series-documentos.service'
 import { formasPagoService } from '@/services/formas-pago.service'
 import { terminosPagoService } from '@/services/terminos-pago.service'
+import { empresaService } from '@/services/empresa.service'
 import { ISerieDocumento } from '@/types/serie-documento.types'
 
 // Types
@@ -186,6 +187,18 @@ export function FacturaForm({
     sobreCoste: true,
   })
 
+  // Configuración de decimales de la empresa
+  const [decimalesConfig, setDecimalesConfig] = useState({
+    precios: 2,
+    cantidad: 2,
+  })
+
+  // Función helper para redondear precios según configuración de empresa
+  const redondearPrecio = useCallback((valor: number): number => {
+    const factor = Math.pow(10, decimalesConfig.precios)
+    return Math.round(valor * factor) / factor
+  }, [decimalesConfig.precios])
+
   // Estado de nuevo vencimiento
   const [nuevoVencimiento, setNuevoVencimiento] = useState<Omit<IVencimiento, '_id'>>({
     numero: 1,
@@ -243,7 +256,7 @@ export function FacturaForm({
     const loadOptions = async () => {
       try {
         setLoadingOptions(true)
-        const [clientesRes, agentesRes, proyectosRes, productosRes, seriesRes, formasPagoRes, terminosPagoRes] = await Promise.all([
+        const [clientesRes, agentesRes, proyectosRes, productosRes, seriesRes, formasPagoRes, terminosPagoRes, empresaRes] = await Promise.all([
           clientesService.getAll({ activo: true, limit: 100 }),
           agentesService.getAll({ activo: true, limit: 100 }),
           proyectosService.getAll({ activo: 'true', limit: 100 }),
@@ -251,6 +264,7 @@ export function FacturaForm({
           seriesDocumentosService.getByTipoDocumento('factura', true).catch(() => ({ success: true, data: [] })),
           formasPagoService.getActivas().catch(() => ({ success: true, data: [] })),
           terminosPagoService.getAll({ activo: 'true', limit: 100 }).catch(() => ({ success: true, data: [] })),
+          empresaService.getMiEmpresa().catch(() => ({ success: false, data: undefined })),
         ])
 
         if (clientesRes.success) setClientes(clientesRes.data || [])
@@ -259,6 +273,14 @@ export function FacturaForm({
         if (productosRes.success) setProductos(productosRes.data || [])
         if (formasPagoRes.success) setFormasPago(formasPagoRes.data || [])
         if (terminosPagoRes.success) setTerminosPago(terminosPagoRes.data || [])
+
+        // Cargar configuración de decimales de la empresa
+        if (empresaRes.success && empresaRes.data) {
+          setDecimalesConfig({
+            precios: empresaRes.data.decimalesPrecios ?? 2,
+            cantidad: empresaRes.data.decimalesCantidad ?? 2,
+          })
+        }
         if (seriesRes.success) {
           setSeriesDocumentos(seriesRes.data || [])
           // Si hay una serie predeterminada y es modo creación, seleccionarla automáticamente
@@ -445,6 +467,50 @@ export function FacturaForm({
       margenPorcentaje: Math.round(margenPorcentaje * 100) / 100,
     })
   }, [formData.lineas, formData.descuentoGlobalPorcentaje, formData.recargoEquivalencia])
+
+  // Regenerar vencimientos automáticamente cuando cambia el término de pago
+  const prevTerminoPagoRef = React.useRef<string | undefined>(undefined)
+  useEffect(() => {
+    const currentTerminoPagoId = formData.condiciones?.terminoPagoId
+
+    // Solo regenerar si:
+    // 1. El término de pago ha cambiado
+    // 2. Hay un término de pago seleccionado
+    // 3. No es la carga inicial (prevTerminoPagoRef está definido)
+    // 4. No es modo edición con datos iniciales
+    if (
+      prevTerminoPagoRef.current !== undefined &&
+      currentTerminoPagoId &&
+      currentTerminoPagoId !== prevTerminoPagoRef.current &&
+      !initialData?._id
+    ) {
+      const terminoPago = terminosPago.find(tp => tp._id === currentTerminoPagoId)
+
+      if (terminoPago?.vencimientos && terminoPago.vencimientos.length > 0 && formData.fecha && totales.totalFactura > 0) {
+        const fechaBase = new Date(formData.fecha)
+        const nuevosVencimientos = terminoPago.vencimientos.map((v, index) => {
+          const fechaVencimiento = new Date(fechaBase)
+          fechaVencimiento.setDate(fechaVencimiento.getDate() + v.dias)
+
+          return {
+            numero: index + 1,
+            fecha: fechaVencimiento.toISOString().split('T')[0],
+            importe: Math.round((totales.totalFactura * v.porcentaje / 100) * 100) / 100,
+            metodoPago: MetodoPago.TRANSFERENCIA,
+            cobrado: false,
+          }
+        })
+
+        setFormData(prev => ({
+          ...prev,
+          vencimientos: nuevosVencimientos,
+        }))
+        toast.info(`${nuevosVencimientos.length} vencimiento(s) generado(s) automáticamente`)
+      }
+    }
+
+    prevTerminoPagoRef.current = currentTerminoPagoId
+  }, [formData.condiciones?.terminoPagoId, terminosPago, formData.fecha, totales.totalFactura, initialData?._id])
 
   // Opciones para SearchableSelect
   const clientesOptions = React.useMemo(() => {
@@ -671,6 +737,8 @@ export function FacturaForm({
       costeUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? 0,
       iva: producto.iva || 21,
       unidad: 'ud',
+      // Peso del producto
+      peso: producto.peso || 0,
       tipo: esKit ? TipoLinea.KIT : TipoLinea.PRODUCTO,
       componentesKit,
       mostrarComponentes: esKit,
@@ -981,6 +1049,9 @@ export function FacturaForm({
         } else {
           nuevoPrecio = linea.costeUnitario + margenConfig.valor
         }
+
+        // Redondear el precio según la configuración de decimales de la empresa
+        nuevoPrecio = redondearPrecio(nuevoPrecio)
 
         return calcularLinea({ ...linea, precioUnitario: nuevoPrecio }, prev.recargoEquivalencia)
       })
@@ -1689,29 +1760,58 @@ export function FacturaForm({
                         ) : (
                           <div className="space-y-1">
                             <div className="flex items-center gap-1">
-                              <EditableSearchableSelect
-                                inputRef={(el: HTMLInputElement | null) => {
-                                  if (el) productoRefs.current.set(index, el)
-                                }}
-                                options={productosOptions}
-                                value={linea.productoId || ''}
-                                displayValue={linea.nombre}
-                                onValueChange={(value) => handleProductoSelect(index, value)}
-                                onDisplayValueChange={(value) => handleNombreChange(index, value)}
-                                onEnterPress={() => handleProductEnterPress(index)}
-                                placeholder="Buscar producto..."
-                                className="flex-1"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 flex-shrink-0"
-                                onClick={() => handleOpenDescripcionDialog(index)}
-                                title="Editar descripciones"
-                              >
-                                <AlignLeft className="h-4 w-4 text-muted-foreground" />
-                              </Button>
+                              <TooltipProvider>
+                                <Tooltip delayDuration={500}>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex-1">
+                                      <EditableSearchableSelect
+                                        inputRef={(el: HTMLInputElement | null) => {
+                                          if (el) productoRefs.current.set(index, el)
+                                        }}
+                                        options={productosOptions}
+                                        value={linea.productoId || ''}
+                                        displayValue={linea.nombre}
+                                        onValueChange={(value) => handleProductoSelect(index, value)}
+                                        onDisplayValueChange={(value) => handleNombreChange(index, value)}
+                                        onEnterPress={() => handleProductEnterPress(index)}
+                                        placeholder="Buscar producto..."
+                                        className="w-full"
+                                      />
+                                    </div>
+                                  </TooltipTrigger>
+                                  {linea.nombre && linea.nombre.length > 30 && (
+                                    <TooltipContent side="top" className="max-w-md">
+                                      <p className="text-sm font-medium">{linea.nombre}</p>
+                                      {linea.codigo && <p className="text-xs text-muted-foreground">Ref: {linea.codigo}</p>}
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              </TooltipProvider>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 flex-shrink-0"
+                                      onClick={() => handleOpenDescripcionDialog(index)}
+                                    >
+                                      <AlignLeft className={`h-4 w-4 ${linea.descripcionLarga ? 'text-primary' : 'text-muted-foreground'}`} />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="max-w-sm">
+                                    {linea.descripcionLarga ? (
+                                      <div className="space-y-1">
+                                        <p className="font-medium text-xs">Descripción:</p>
+                                        <p className="text-xs whitespace-pre-wrap">{linea.descripcionLarga}</p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground">Click para añadir descripción</p>
+                                    )}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </div>
                             {linea.descripcion && (
                               <p className="text-xs text-muted-foreground truncate">{linea.descripcion}</p>
@@ -1762,7 +1862,7 @@ export function FacturaForm({
                             }}
                             type="number"
                             min="0"
-                            step="0.01"
+                            step="1"
                             value={linea.cantidad}
                             onChange={(e) => handleUpdateLinea(index, { cantidad: parseFloat(e.target.value) || 0 })}
                             onKeyDown={(e) => handleCantidadKeyDown(e, index)}

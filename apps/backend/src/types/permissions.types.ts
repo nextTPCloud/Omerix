@@ -19,21 +19,66 @@ export { PERMISOS_ESPECIALES_DEFAULT, PERMISOS_ESPECIALES_ADMIN };
  * Recursos del sistema que pueden tener permisos
  */
 export type Resource =
+  // Maestros
   | 'clientes'
+  | 'proveedores'
   | 'productos'
   | 'familias'
   | 'almacenes'
   | 'tipos-impuesto'
+  | 'formas-pago'
+  | 'terminos-pago'
+  | 'agentes-comerciales'
+  | 'estados'
+  | 'situaciones'
+  | 'clasificaciones'
+  // Documentos de venta
   | 'facturas'
   | 'presupuestos'
   | 'pedidos'
+  | 'albaranes'
+  // Documentos de compra
+  | 'facturas-compra'
+  | 'presupuestos-compra'
+  | 'pedidos-compra'
+  | 'albaranes-compra'
+  // Tesorería
+  | 'vencimientos'
+  | 'pagares'
+  | 'recibos'
+  | 'tesoreria'
+  // RRHH
+  | 'personal'
+  | 'fichajes'
+  | 'turnos'
+  | 'partes-trabajo'
+  | 'calendarios'
+  | 'departamentos'
+  // Proyectos
+  | 'proyectos'
+  // Comerciales
+  | 'ofertas'
+  | 'tarifas'
+  | 'precios'
+  // Facturación electrónica
+  | 'facturae'
+  | 'verifactu'
+  | 'certificados'
+  // TPV/Hostelería
+  | 'terminales'
+  | 'zonas-preparacion'
+  | 'impresoras'
+  | 'modificadores'
+  | 'grupos-modificadores'
+  | 'alergenos'
+  | 'comandas-cocina'
+  // Sistema
   | 'usuarios'
+  | 'roles'
   | 'configuracion'
   | 'reportes'
   | 'licencias'
-  | 'estados'
-  | 'situaciones'
-  | 'clasificaciones';
+  | 'dashboard';
 
 /**
  * Acciones posibles sobre un recurso
@@ -64,6 +109,12 @@ export interface RolePermissions {
   };
 }
 
+// Acciones completas para superadmin
+const ALL_ACTIONS: Action[] = ['create', 'read', 'update', 'delete', 'export', 'import'];
+const CRUD_ACTIONS: Action[] = ['create', 'read', 'update', 'delete'];
+const READ_ONLY: Action[] = ['read'];
+const READ_EXPORT: Action[] = ['read', 'export'];
+
 /**
  * Matriz de permisos del sistema
  * Define qué acciones puede realizar cada rol sobre cada recurso
@@ -72,129 +123,312 @@ export const ROLE_PERMISSIONS: RolePermissions = {
   superadmin: {
     description: 'Acceso total al sistema',
     resources: {
-      clientes: ['create', 'read', 'update', 'delete', 'export', 'import'],
-      productos: ['create', 'read', 'update', 'delete', 'export', 'import'],
-      familias: ['create', 'read', 'update', 'delete', 'export', 'import'],
-      almacenes: ['create', 'read', 'update', 'delete', 'export', 'import'],
-      'tipos-impuesto': ['create', 'read', 'update', 'delete'],
-      facturas: ['create', 'read', 'update', 'delete', 'export'],
-      presupuestos: ['create', 'read', 'update', 'delete', 'export'],
-      pedidos: ['create', 'read', 'update', 'delete', 'export'],
-      usuarios: ['create', 'read', 'update', 'delete'],
-      configuracion: ['create', 'read', 'update', 'delete'],
-      reportes: ['read', 'export'],
-      licencias: ['create', 'read', 'update', 'delete'],
-      estados: ['create', 'read', 'update', 'delete'],
-      situaciones: ['create', 'read', 'update', 'delete'],
-      clasificaciones: ['create', 'read', 'update', 'delete'],
+      // Maestros
+      clientes: ALL_ACTIONS,
+      proveedores: ALL_ACTIONS,
+      productos: ALL_ACTIONS,
+      familias: ALL_ACTIONS,
+      almacenes: ALL_ACTIONS,
+      'tipos-impuesto': CRUD_ACTIONS,
+      'formas-pago': CRUD_ACTIONS,
+      'terminos-pago': CRUD_ACTIONS,
+      'agentes-comerciales': ALL_ACTIONS,
+      estados: CRUD_ACTIONS,
+      situaciones: CRUD_ACTIONS,
+      clasificaciones: CRUD_ACTIONS,
+      // Documentos de venta
+      facturas: ALL_ACTIONS,
+      presupuestos: ALL_ACTIONS,
+      pedidos: ALL_ACTIONS,
+      albaranes: ALL_ACTIONS,
+      // Documentos de compra
+      'facturas-compra': ALL_ACTIONS,
+      'presupuestos-compra': ALL_ACTIONS,
+      'pedidos-compra': ALL_ACTIONS,
+      'albaranes-compra': ALL_ACTIONS,
+      // Tesorería
+      vencimientos: ALL_ACTIONS,
+      pagares: ALL_ACTIONS,
+      recibos: ALL_ACTIONS,
+      tesoreria: ALL_ACTIONS,
+      // RRHH
+      personal: ALL_ACTIONS,
+      fichajes: ALL_ACTIONS,
+      turnos: ALL_ACTIONS,
+      'partes-trabajo': ALL_ACTIONS,
+      calendarios: CRUD_ACTIONS,
+      departamentos: CRUD_ACTIONS,
+      // Proyectos
+      proyectos: ALL_ACTIONS,
+      // Comerciales
+      ofertas: ALL_ACTIONS,
+      tarifas: CRUD_ACTIONS,
+      precios: CRUD_ACTIONS,
+      // Facturación electrónica
+      facturae: ALL_ACTIONS,
+      verifactu: ALL_ACTIONS,
+      certificados: CRUD_ACTIONS,
+      // TPV/Hostelería
+      terminales: CRUD_ACTIONS,
+      'zonas-preparacion': CRUD_ACTIONS,
+      impresoras: CRUD_ACTIONS,
+      modificadores: CRUD_ACTIONS,
+      'grupos-modificadores': CRUD_ACTIONS,
+      alergenos: CRUD_ACTIONS,
+      'comandas-cocina': CRUD_ACTIONS,
+      // Sistema
+      usuarios: CRUD_ACTIONS,
+      roles: CRUD_ACTIONS,
+      configuracion: CRUD_ACTIONS,
+      reportes: READ_EXPORT,
+      licencias: CRUD_ACTIONS,
+      dashboard: CRUD_ACTIONS,
     },
   },
 
   admin: {
     description: 'Administrador de empresa con acceso completo',
     resources: {
-      clientes: ['create', 'read', 'update', 'delete', 'export', 'import'],
-      productos: ['create', 'read', 'update', 'delete', 'export', 'import'],
-      familias: ['create', 'read', 'update', 'delete', 'export', 'import'],
-      almacenes: ['create', 'read', 'update', 'delete', 'export', 'import'],
-      'tipos-impuesto': ['create', 'read', 'update', 'delete'],
-      facturas: ['create', 'read', 'update', 'delete', 'export'],
-      presupuestos: ['create', 'read', 'update', 'delete', 'export'],
-      pedidos: ['create', 'read', 'update', 'delete', 'export'],
-      usuarios: ['create', 'read', 'update', 'delete'],
+      // Maestros
+      clientes: ALL_ACTIONS,
+      proveedores: ALL_ACTIONS,
+      productos: ALL_ACTIONS,
+      familias: ALL_ACTIONS,
+      almacenes: ALL_ACTIONS,
+      'tipos-impuesto': CRUD_ACTIONS,
+      'formas-pago': CRUD_ACTIONS,
+      'terminos-pago': CRUD_ACTIONS,
+      'agentes-comerciales': ALL_ACTIONS,
+      estados: CRUD_ACTIONS,
+      situaciones: CRUD_ACTIONS,
+      clasificaciones: CRUD_ACTIONS,
+      // Documentos de venta
+      facturas: ALL_ACTIONS,
+      presupuestos: ALL_ACTIONS,
+      pedidos: ALL_ACTIONS,
+      albaranes: ALL_ACTIONS,
+      // Documentos de compra
+      'facturas-compra': ALL_ACTIONS,
+      'presupuestos-compra': ALL_ACTIONS,
+      'pedidos-compra': ALL_ACTIONS,
+      'albaranes-compra': ALL_ACTIONS,
+      // Tesorería
+      vencimientos: ALL_ACTIONS,
+      pagares: ALL_ACTIONS,
+      recibos: ALL_ACTIONS,
+      tesoreria: ALL_ACTIONS,
+      // RRHH
+      personal: ALL_ACTIONS,
+      fichajes: ALL_ACTIONS,
+      turnos: ALL_ACTIONS,
+      'partes-trabajo': ALL_ACTIONS,
+      calendarios: CRUD_ACTIONS,
+      departamentos: CRUD_ACTIONS,
+      // Proyectos
+      proyectos: ALL_ACTIONS,
+      // Comerciales
+      ofertas: ALL_ACTIONS,
+      tarifas: CRUD_ACTIONS,
+      precios: CRUD_ACTIONS,
+      // Facturación electrónica
+      facturae: ALL_ACTIONS,
+      verifactu: ALL_ACTIONS,
+      certificados: CRUD_ACTIONS,
+      // TPV/Hostelería
+      terminales: CRUD_ACTIONS,
+      'zonas-preparacion': CRUD_ACTIONS,
+      impresoras: CRUD_ACTIONS,
+      modificadores: CRUD_ACTIONS,
+      'grupos-modificadores': CRUD_ACTIONS,
+      alergenos: CRUD_ACTIONS,
+      'comandas-cocina': CRUD_ACTIONS,
+      // Sistema
+      usuarios: CRUD_ACTIONS,
+      roles: ['read', 'update'],
       configuracion: ['read', 'update'],
-      reportes: ['read', 'export'],
-      estados: ['create', 'read', 'update', 'delete'],
-      situaciones: ['create', 'read', 'update', 'delete'],
-      clasificaciones: ['create', 'read', 'update', 'delete'],
+      reportes: READ_EXPORT,
+      dashboard: CRUD_ACTIONS,
     },
   },
 
   gerente: {
     description: 'Gerente con permisos amplios de gestión',
     resources: {
+      // Maestros
       clientes: ['create', 'read', 'update', 'export'],
+      proveedores: ['create', 'read', 'update', 'export'],
       productos: ['create', 'read', 'update', 'export'],
       familias: ['create', 'read', 'update', 'export'],
-      almacenes: ['read', 'update', 'export'],
-      'tipos-impuesto': ['read'],
+      almacenes: READ_EXPORT,
+      'tipos-impuesto': READ_ONLY,
+      'formas-pago': READ_ONLY,
+      'terminos-pago': READ_ONLY,
+      'agentes-comerciales': ['read', 'update'],
+      estados: READ_ONLY,
+      situaciones: READ_ONLY,
+      clasificaciones: READ_ONLY,
+      // Documentos de venta
       facturas: ['create', 'read', 'update', 'delete', 'export'],
       presupuestos: ['create', 'read', 'update', 'delete', 'export'],
       pedidos: ['create', 'read', 'update', 'delete', 'export'],
-      usuarios: ['read'],
-      configuracion: ['read'],
-      reportes: ['read', 'export'],
-      estados: ['read'],
-      situaciones: ['read'],
-      clasificaciones: ['read'],
+      albaranes: ['create', 'read', 'update', 'delete', 'export'],
+      // Documentos de compra
+      'facturas-compra': ['create', 'read', 'update', 'delete', 'export'],
+      'presupuestos-compra': ['create', 'read', 'update', 'delete', 'export'],
+      'pedidos-compra': ['create', 'read', 'update', 'delete', 'export'],
+      'albaranes-compra': ['create', 'read', 'update', 'delete', 'export'],
+      // Tesorería
+      vencimientos: ['create', 'read', 'update', 'export'],
+      pagares: ['create', 'read', 'update', 'export'],
+      recibos: ['create', 'read', 'update', 'export'],
+      tesoreria: READ_EXPORT,
+      // RRHH
+      personal: ['read', 'update', 'export'],
+      fichajes: ['read', 'update', 'export'],
+      turnos: ['read', 'update'],
+      'partes-trabajo': ['create', 'read', 'update', 'export'],
+      calendarios: READ_ONLY,
+      departamentos: READ_ONLY,
+      // Proyectos
+      proyectos: ['create', 'read', 'update', 'export'],
+      // Comerciales
+      ofertas: ['create', 'read', 'update', 'export'],
+      tarifas: READ_ONLY,
+      precios: READ_ONLY,
+      // Facturación electrónica
+      facturae: ['create', 'read', 'export'],
+      verifactu: ['read'],
+      certificados: READ_ONLY,
+      // Sistema
+      usuarios: READ_ONLY,
+      roles: READ_ONLY,
+      configuracion: READ_ONLY,
+      reportes: READ_EXPORT,
+      dashboard: ['read', 'update'],
     },
   },
 
   vendedor: {
     description: 'Vendedor con permisos de ventas',
     resources: {
+      // Maestros
       clientes: ['create', 'read', 'update'],
-      productos: ['read'],
-      familias: ['read'],
-      almacenes: ['read'],
-      'tipos-impuesto': ['read'],
-      facturas: ['create', 'read'],
+      proveedores: READ_ONLY,
+      productos: READ_ONLY,
+      familias: READ_ONLY,
+      almacenes: READ_ONLY,
+      'tipos-impuesto': READ_ONLY,
+      'formas-pago': READ_ONLY,
+      'terminos-pago': READ_ONLY,
+      'agentes-comerciales': READ_ONLY,
+      estados: READ_ONLY,
+      situaciones: READ_ONLY,
+      clasificaciones: READ_ONLY,
+      // Documentos de venta
+      facturas: ['create', 'read', 'update'],
       presupuestos: ['create', 'read', 'update'],
       pedidos: ['create', 'read', 'update'],
-      configuracion: ['read'],
-      reportes: ['read'],
-      estados: ['read'],
-      situaciones: ['read'],
-      clasificaciones: ['read'],
+      albaranes: ['create', 'read', 'update'],
+      // Tesorería
+      vencimientos: READ_ONLY,
+      tesoreria: READ_ONLY,
+      // Comerciales
+      ofertas: ['create', 'read', 'update'],
+      tarifas: READ_ONLY,
+      precios: READ_ONLY,
+      // Sistema
+      configuracion: READ_ONLY,
+      reportes: READ_ONLY,
+      dashboard: READ_ONLY,
     },
   },
 
   tecnico: {
     description: 'Técnico con permisos específicos',
     resources: {
-      clientes: ['read'],
+      // Maestros
+      clientes: READ_ONLY,
       productos: ['read', 'update'],
-      familias: ['read'],
+      familias: READ_ONLY,
       almacenes: ['read', 'update'],
-      'tipos-impuesto': ['read'],
-      pedidos: ['read'],
-      reportes: ['read'],
-      estados: ['read'],
-      situaciones: ['read'],
-      clasificaciones: ['read'],
+      estados: READ_ONLY,
+      situaciones: READ_ONLY,
+      clasificaciones: READ_ONLY,
+      // Documentos
+      pedidos: READ_ONLY,
+      albaranes: ['read', 'update'],
+      // RRHH
+      fichajes: ['create', 'read'],
+      turnos: READ_ONLY,
+      'partes-trabajo': ['create', 'read', 'update'],
+      // Proyectos
+      proyectos: ['read', 'update'],
+      // Sistema
+      reportes: READ_ONLY,
+      dashboard: READ_ONLY,
     },
   },
 
   almacenero: {
     description: 'Gestión de almacén e inventario',
     resources: {
+      // Maestros
       productos: ['read', 'update'],
-      familias: ['read'],
+      familias: READ_ONLY,
       almacenes: ['read', 'update', 'export'],
+      proveedores: READ_ONLY,
+      estados: READ_ONLY,
+      situaciones: READ_ONLY,
+      clasificaciones: READ_ONLY,
+      // Documentos
       pedidos: ['read', 'update'],
-      reportes: ['read'],
-      estados: ['read'],
-      situaciones: ['read'],
-      clasificaciones: ['read'],
+      albaranes: ['read', 'update'],
+      'pedidos-compra': ['read', 'update'],
+      'albaranes-compra': ['create', 'read', 'update'],
+      // Sistema
+      reportes: READ_ONLY,
+      dashboard: READ_ONLY,
     },
   },
 
   visualizador: {
     description: 'Solo lectura en todos los recursos',
     resources: {
-      clientes: ['read'],
-      productos: ['read'],
-      familias: ['read'],
-      almacenes: ['read'],
-      'tipos-impuesto': ['read'],
-      facturas: ['read'],
-      presupuestos: ['read'],
-      pedidos: ['read'],
-      configuracion: ['read'],
-      reportes: ['read'],
-      estados: ['read'],
-      situaciones: ['read'],
-      clasificaciones: ['read'],
+      clientes: READ_ONLY,
+      proveedores: READ_ONLY,
+      productos: READ_ONLY,
+      familias: READ_ONLY,
+      almacenes: READ_ONLY,
+      'tipos-impuesto': READ_ONLY,
+      'formas-pago': READ_ONLY,
+      'terminos-pago': READ_ONLY,
+      'agentes-comerciales': READ_ONLY,
+      estados: READ_ONLY,
+      situaciones: READ_ONLY,
+      clasificaciones: READ_ONLY,
+      facturas: READ_ONLY,
+      presupuestos: READ_ONLY,
+      pedidos: READ_ONLY,
+      albaranes: READ_ONLY,
+      'facturas-compra': READ_ONLY,
+      'presupuestos-compra': READ_ONLY,
+      'pedidos-compra': READ_ONLY,
+      'albaranes-compra': READ_ONLY,
+      vencimientos: READ_ONLY,
+      pagares: READ_ONLY,
+      recibos: READ_ONLY,
+      tesoreria: READ_ONLY,
+      personal: READ_ONLY,
+      fichajes: READ_ONLY,
+      turnos: READ_ONLY,
+      'partes-trabajo': READ_ONLY,
+      proyectos: READ_ONLY,
+      ofertas: READ_ONLY,
+      tarifas: READ_ONLY,
+      precios: READ_ONLY,
+      configuracion: READ_ONLY,
+      reportes: READ_ONLY,
+      dashboard: READ_ONLY,
     },
   },
 };

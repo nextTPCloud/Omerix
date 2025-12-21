@@ -80,6 +80,10 @@ export interface ILineaAlbaran {
   cantidadPendiente: number; // Cantidad que queda por entregar
   unidad?: string;
 
+  // Peso
+  peso?: number; // Peso unitario en kg
+  pesoTotal?: number; // Peso total de la línea (peso * cantidadEntregada)
+
   // Lote y número de serie (para trazabilidad)
   lote?: string;
   numeroSerie?: string;
@@ -382,6 +386,10 @@ const LineaAlbaranSchema = new Schema<ILineaAlbaran>({
   cantidadEntregada: { type: Number, required: true, min: 0, default: 0 },
   cantidadPendiente: { type: Number, default: 0, min: 0 },
   unidad: { type: String, trim: true, default: 'ud' },
+
+  // Peso
+  peso: { type: Number, min: 0, default: 0 },
+  pesoTotal: { type: Number, min: 0, default: 0 },
 
   // Trazabilidad
   lote: { type: String, trim: true },

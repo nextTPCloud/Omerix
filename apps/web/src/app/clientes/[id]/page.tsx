@@ -56,6 +56,7 @@ import {
   Percent,
 } from 'lucide-react'
 import { DescuentosClienteCard } from '@/components/clientes/DescuentosClienteCard'
+import { TabDocumentos, TabEstadisticas, TabActividad, TabArchivos } from '@/components/clientes/tabs'
 import { TIPOS_DIRECCION, TIPOS_MANDATO_SEPA } from '@/types/cliente.types'
 import {
   DropdownMenu,
@@ -951,161 +952,29 @@ export default function ClienteDetailPage() {
           {/* ========================================== */}
           {/* PESTAÑA: DOCUMENTOS */}
           {/* ========================================== */}
-          <TabsContent value="documentos" className="space-y-4 mt-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {/* Presupuestos */}
-              <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-blue-500"
-                onClick={() => router.push(`/presupuestos?clienteId=${cliente._id}`)}
-              >
-                <CardContent className="p-6 flex items-center gap-4">
-                  <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                    <FileText className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Presupuestos</p>
-                    <p className="text-sm text-muted-foreground">Ver presupuestos</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Pedidos */}
-              <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-green-500"
-                onClick={() => router.push(`/pedidos?clienteId=${cliente._id}`)}
-              >
-                <CardContent className="p-6 flex items-center gap-4">
-                  <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                    <Package className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Pedidos</p>
-                    <p className="text-sm text-muted-foreground">Ver pedidos</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Albaranes */}
-              <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-purple-500"
-                onClick={() => router.push(`/albaranes?clienteId=${cliente._id}`)}
-              >
-                <CardContent className="p-6 flex items-center gap-4">
-                  <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                    <Truck className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Albaranes</p>
-                    <p className="text-sm text-muted-foreground">Ver albaranes</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Facturas */}
-              <Card
-                className="hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-orange-500"
-                onClick={() => router.push(`/facturas?clienteId=${cliente._id}`)}
-              >
-                <CardContent className="p-6 flex items-center gap-4">
-                  <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
-                    <Receipt className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Facturas</p>
-                    <p className="text-sm text-muted-foreground">Ver facturas</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+          <TabsContent value="documentos" className="mt-4">
+            <TabDocumentos clienteId={cliente._id} clienteNombre={cliente.nombre} />
           </TabsContent>
 
           {/* ========================================== */}
           {/* PESTAÑA: ACTIVIDAD */}
           {/* ========================================== */}
-          <TabsContent value="actividad" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Historial de Actividad</CardTitle>
-                <CardDescription>Últimas interacciones y movimientos con este cliente</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-20" />
-                  <h3 className="text-lg font-semibold mb-2">Historial en desarrollo</h3>
-                  <p className="text-sm text-muted-foreground">
-                    El sistema de seguimiento de actividad estará disponible próximamente
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="actividad" className="mt-4">
+            <TabActividad clienteId={cliente._id} clienteNombre={cliente.nombre} />
           </TabsContent>
 
           {/* ========================================== */}
           {/* PESTAÑA: ESTADÍSTICAS */}
           {/* ========================================== */}
-          <TabsContent value="estadisticas" className="space-y-4 mt-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Ventas */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5" />
-                    Resumen de Ventas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <BarChart3 className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-20" />
-                    <p className="text-sm text-muted-foreground">
-                      Estadísticas de ventas en desarrollo
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Productos más vendidos */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    Productos Más Vendidos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <Package className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-20" />
-                    <p className="text-sm text-muted-foreground">
-                      Análisis de productos en desarrollo
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+          <TabsContent value="estadisticas" className="mt-4">
+            <TabEstadisticas clienteId={cliente._id} clienteNombre={cliente.nombre} />
           </TabsContent>
 
           {/* ========================================== */}
           {/* PESTAÑA: ARCHIVOS */}
           {/* ========================================== */}
-          <TabsContent value="archivos" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Archivos y Documentos</CardTitle>
-                <CardDescription>Documentos adjuntos relacionados con este cliente</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <FileUp className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-20" />
-                  <h3 className="text-lg font-semibold mb-2">Gestión de archivos en desarrollo</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Pronto podrás subir y gestionar documentos relacionados con este cliente
-                  </p>
-                  <Button variant="outline" disabled>
-                    <FileUp className="mr-2 h-4 w-4" />
-                    Subir archivo
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="archivos" className="mt-4">
+            <TabArchivos clienteId={cliente._id} clienteNombre={cliente.nombre} />
           </TabsContent>
         </Tabs>
       </div>

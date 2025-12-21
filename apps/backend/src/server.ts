@@ -109,6 +109,9 @@ import fichajesRoutes from './modules/fichajes/fichajes.routes';
 import terminalesRoutes from './modules/terminales/terminales.routes';
 import { terminalSyncScheduler } from './modules/terminales/terminal-sync.scheduler';
 
+// Dashboard personalizable
+import dashboardRoutes from './modules/dashboard/dashboard.routes';
+
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
 import logger, { httpLoggerMiddleware, logStartup, logShutdown } from './utils/logger/winston.config'; // 🆕 NUEVO
@@ -378,6 +381,9 @@ app.use('/api/calendarios', calendariosRoutes);
 app.use('/api/turnos', turnosRoutes);
 app.use('/api/fichajes', fichajesRoutes);
 app.use('/api/terminales', terminalesRoutes);
+
+// Dashboard personalizable por usuario
+app.use('/api/dashboard', dashboardRoutes);
 
 // ============================================
 // MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS

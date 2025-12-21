@@ -69,6 +69,7 @@ import { VerifactuConfig } from '@/components/configuracion/VerifactuConfig'
 import { RolesConfig } from '@/components/configuracion/RolesConfig'
 import { UsuariosConfig } from '@/components/configuracion/UsuariosConfig'
 import { PreciosConfig } from '@/components/configuracion/PreciosConfig'
+import AddressAutocomplete from '@/components/ui/AddressAutocomplete'
 
 // Roles permitidos para acceder a esta página
 const ROLES_PERMITIDOS = ['superadmin', 'admin', 'gerente']
@@ -836,6 +837,27 @@ export default function ConfiguracionEmpresaPage() {
                 <div>
                   <h3 className="text-lg font-medium mb-4">Dirección</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Buscador de dirección con OpenStreetMap */}
+                    <div className="md:col-span-2">
+                      <AddressAutocomplete
+                        label="Buscar dirección"
+                        placeholder="Escribe una dirección para buscar..."
+                        onAddressSelect={(addr) => {
+                          setEmpresa({
+                            ...empresa,
+                            direccion: {
+                              ...empresa.direccion,
+                              calle: addr.numero ? `${addr.calle}, ${addr.numero}` : addr.calle,
+                              codigoPostal: addr.codigoPostal,
+                              ciudad: addr.ciudad,
+                              provincia: addr.provincia,
+                              pais: addr.pais,
+                            }
+                          })
+                        }}
+                      />
+                    </div>
+
                     <div className="md:col-span-2 space-y-2">
                       <Label htmlFor="calle">Calle y número</Label>
                       <Input

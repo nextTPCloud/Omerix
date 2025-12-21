@@ -51,6 +51,10 @@ export interface ILineaAlbaranCompra {
   cantidadPendiente: number;
   unidad?: string;
 
+  // Peso
+  peso?: number; // Peso unitario en kg
+  pesoTotal?: number; // Peso total de la línea (peso * cantidadRecibida)
+
   // Precios
   precioUnitario: number;
   descuento: number;
@@ -231,6 +235,10 @@ const LineaAlbaranCompraSchema = new Schema({
   cantidadRecibida: { type: Number, default: 0, min: 0 },
   cantidadPendiente: { type: Number, default: 0, min: 0 },
   unidad: { type: String, default: 'unidades' },
+
+  // Peso
+  peso: { type: Number, min: 0, default: 0 },
+  pesoTotal: { type: Number, min: 0, default: 0 },
 
   // Precios
   precioUnitario: { type: Number, required: true, min: 0 },

@@ -55,6 +55,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 
 // Components
 import { SearchableSelect, EditableSearchableSelect } from '@/components/ui/searchable-select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { DateInput } from '@/components/ui/date-picker'
 import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
 
@@ -130,6 +136,9 @@ const calcularLinea = (linea: LineaFormulario): LineaFormulario => {
   const ivaImporte = subtotal * (linea.iva / 100)
   const total = subtotal + ivaImporte
 
+  // Calcular peso total de la línea
+  const pesoTotal = (linea.peso || 0) * linea.cantidad
+
   // Calcular margen si hay precio de venta
   let precioVenta = linea.precioVenta || 0
   let margenPorcentaje = linea.margenPorcentaje || 0
@@ -148,6 +157,7 @@ const calcularLinea = (linea: LineaFormulario): LineaFormulario => {
     subtotal,
     ivaImporte,
     total,
+    pesoTotal: Math.round(pesoTotal * 1000) / 1000, // 3 decimales para peso
     precioVenta: Math.round(precioVenta * 100) / 100,
     margenPorcentaje: Math.round(margenPorcentaje * 100) / 100,
     margenImporte: Math.round(margenImporte * 100) / 100,
@@ -433,6 +443,8 @@ export function PresupuestoCompraForm({
       margenPorcentaje: 0,
       margenImporte: 0,
       iva: producto.iva || 21,
+      // Peso del producto
+      peso: producto.peso || 0,
       tipo: esKit ? 'kit' : 'producto',
       componentesKit,
       mostrarComponentes: true,
@@ -984,23 +996,37 @@ export function PresupuestoCompraForm({
                         </td>
                         <td className="px-2 py-2">
                           <div className="space-y-1">
-                            <EditableSearchableSelect
-                              options={productos.map(p => ({
-                                value: p._id,
-                                label: p.nombre,
-                                description: p.sku,
-                              }))}
-                              value={linea.productoId || ''}
-                              onValueChange={(value) => handleProductoChange(index, value)}
-                              placeholder="Buscar producto..."
-                              displayValue={linea.nombre || ''}
-                              onDisplayValueChange={(value) => handleLineaChange(index, 'nombre', value)}
-                              onCtrlEnterPress={handleAddLinea}
-                              inputRef={(el) => {
-                                if (el) productoRefs.current.set(index, el)
-                                else productoRefs.current.delete(index)
-                              }}
-                            />
+                            <TooltipProvider>
+                              <Tooltip delayDuration={500}>
+                                <TooltipTrigger asChild>
+                                  <div className="w-full">
+                                    <EditableSearchableSelect
+                                      options={productos.map(p => ({
+                                        value: p._id,
+                                        label: p.nombre,
+                                        description: p.sku,
+                                      }))}
+                                      value={linea.productoId || ''}
+                                      onValueChange={(value) => handleProductoChange(index, value)}
+                                      placeholder="Buscar producto..."
+                                      displayValue={linea.nombre || ''}
+                                      onDisplayValueChange={(value) => handleLineaChange(index, 'nombre', value)}
+                                      onCtrlEnterPress={handleAddLinea}
+                                      inputRef={(el) => {
+                                        if (el) productoRefs.current.set(index, el)
+                                        else productoRefs.current.delete(index)
+                                      }}
+                                    />
+                                  </div>
+                                </TooltipTrigger>
+                                {linea.nombre && linea.nombre.length > 30 && (
+                                  <TooltipContent side="top" className="max-w-md">
+                                    <p className="text-sm font-medium">{linea.nombre}</p>
+                                    {linea.codigo && <p className="text-xs text-muted-foreground">Ref: {linea.codigo}</p>}
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            </TooltipProvider>
                             {/* Indicador de kit */}
                             {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 && (
                               <Badge variant="secondary" className="text-xs">
@@ -1052,7 +1078,7 @@ export function PresupuestoCompraForm({
                             }}
                             type="number"
                             min="0"
-                            step="0.01"
+                            step="1"
                             value={linea.cantidad}
                             onChange={(e) => handleLineaChange(index, 'cantidad', parseFloat(e.target.value) || 0)}
                             onKeyDown={(e) => handleCantidadKeyDown(e, index)}

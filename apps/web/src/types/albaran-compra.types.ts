@@ -61,6 +61,10 @@ export interface LineaAlbaranCompra {
   cantidadPendiente: number
   unidad?: string
 
+  // Peso
+  peso?: number // Peso unitario en kg
+  pesoTotal?: number // Peso total de la línea (peso * cantidadRecibida)
+
   // Precios
   precioUnitario: number
   descuento: number

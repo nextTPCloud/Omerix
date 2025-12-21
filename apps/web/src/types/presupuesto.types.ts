@@ -72,6 +72,9 @@ export interface ILineaPresupuesto {
   variante?: IVarianteSeleccionada;
   cantidad: number;
   unidad?: string;
+  // Peso
+  peso?: number; // Peso unitario en kg
+  pesoTotal?: number; // Peso total de la línea (peso * cantidad)
   // Precios
   precioOriginal: number; // Precio base del producto (PVP)
   precioUnitario: number; // Precio aplicado (puede ser de tarifa/oferta)
@@ -421,6 +424,7 @@ export const calcularLinea = (linea: Partial<ILineaPresupuesto>): ILineaPresupue
   const precioUnitario = linea.precioUnitario || 0;
   const costeUnitario = linea.costeUnitario || 0;
   const iva = linea.iva || 21;
+  const peso = linea.peso || 0;
 
   // Calcular descuento: puede venir del campo descuento o del diferencial precio original vs unitario
   let descuento = linea.descuento || 0;
@@ -442,6 +446,9 @@ export const calcularLinea = (linea: Partial<ILineaPresupuesto>): ILineaPresupue
   const margenPorcentaje = costeUnitario > 0 ? ((precioUnitario - costeUnitario) / costeUnitario) * 100 : 0;
   const margenTotalLinea = subtotal - costeTotalLinea;
 
+  // Calcular peso total de la línea
+  const pesoTotal = peso * cantidad;
+
   return {
     ...linea,
     cantidad,
@@ -458,5 +465,7 @@ export const calcularLinea = (linea: Partial<ILineaPresupuesto>): ILineaPresupue
     margenUnitario: Math.round(margenUnitario * 100) / 100,
     margenPorcentaje: Math.round(margenPorcentaje * 100) / 100,
     margenTotalLinea: Math.round(margenTotalLinea * 100) / 100,
+    peso,
+    pesoTotal: Math.round(pesoTotal * 1000) / 1000, // 3 decimales para peso
   } as ILineaPresupuesto;
 };

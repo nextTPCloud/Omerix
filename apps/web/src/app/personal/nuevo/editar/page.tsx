@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowLeft, Save, RefreshCw, Users, Mail, MapPin, CreditCard, Briefcase, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { CodeInput } from '@/components/ui/code-input'
+import AddressAutocomplete from '@/components/ui/AddressAutocomplete'
 
 export default function NuevoPersonalEditarPage() {
   const router = useRouter()
@@ -142,7 +143,7 @@ export default function NuevoPersonalEditarPage() {
 
         {/* Formulario */}
         <Tabs defaultValue="personal" className="w-full">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="personal">Datos Personales</TabsTrigger>
             <TabsTrigger value="contacto">Contacto</TabsTrigger>
             <TabsTrigger value="laboral">Datos Laborales</TabsTrigger>
@@ -345,6 +346,27 @@ export default function NuevoPersonalEditarPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Buscador de dirección con OpenStreetMap */}
+                  <AddressAutocomplete
+                    label="Buscar dirección"
+                    placeholder="Escribe una dirección para buscar..."
+                    onAddressSelect={(addr) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        direccion: {
+                          direccion: addr.numero ? `${addr.calle}, ${addr.numero}` : addr.calle,
+                          codigoPostal: addr.codigoPostal,
+                          ciudad: addr.ciudad,
+                          provincia: addr.provincia,
+                          pais: addr.pais,
+                          latitud: addr.latitud,
+                          longitud: addr.longitud,
+                        }
+                      }))
+                    }}
+                  />
+
+                  {/* Campos manuales */}
                   <div className="space-y-2">
                     <Label htmlFor="direccion">Dirección</Label>
                     <Input

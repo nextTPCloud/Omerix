@@ -84,6 +84,7 @@ import { formasPagoService } from '@/services/formas-pago.service'
 import { terminosPagoService } from '@/services/terminos-pago.service'
 import { seriesDocumentosService } from '@/services/series-documentos.service'
 import { preciosService, IPrecioCalculado } from '@/services/precios.service'
+import { empresaService } from '@/services/empresa.service'
 import { ISerieDocumento } from '@/types/serie-documento.types'
 
 // Types
@@ -166,6 +167,18 @@ export function PresupuestoForm({
     sobreCoste: true,
   })
 
+  // Configuración de decimales de la empresa
+  const [decimalesConfig, setDecimalesConfig] = useState({
+    precios: 2,
+    cantidad: 2,
+  })
+
+  // Función helper para redondear precios según configuración de empresa
+  const redondearPrecio = useCallback((valor: number): number => {
+    const factor = Math.pow(10, decimalesConfig.precios)
+    return Math.round(valor * factor) / factor
+  }, [decimalesConfig.precios])
+
   // Estado para selector de variantes
   const [varianteSelectorOpen, setVarianteSelectorOpen] = useState(false)
   const [productoConVariantes, setProductoConVariantes] = useState<Producto | null>(null)
@@ -207,7 +220,7 @@ export function PresupuestoForm({
     const loadOptions = async () => {
       try {
         setLoadingOptions(true)
-        const [clientesRes, agentesRes, proyectosRes, productosRes, formasPagoRes, terminosPagoRes, seriesRes] = await Promise.all([
+        const [clientesRes, agentesRes, proyectosRes, productosRes, formasPagoRes, terminosPagoRes, seriesRes, empresaRes] = await Promise.all([
           clientesService.getAll({ activo: true, limit: 100 }),
           agentesService.getAll({ activo: true, limit: 100 }),
           proyectosService.getAll({ activo: 'true', limit: 100 }),
@@ -215,6 +228,7 @@ export function PresupuestoForm({
           formasPagoService.getActivas().catch(() => ({ success: true, data: [] })),
           terminosPagoService.getAll({ activo: 'true', limit: 100 }).catch(() => ({ success: true, data: [] })),
           seriesDocumentosService.getByTipoDocumento('presupuesto', true).catch(() => ({ success: true, data: [] })),
+          empresaService.getMiEmpresa().catch(() => ({ success: false, data: undefined })),
         ])
 
         console.log('Respuestas cargadas:', { clientesRes, agentesRes, proyectosRes, productosRes })
@@ -225,6 +239,14 @@ export function PresupuestoForm({
         if (productosRes.success) setProductos(productosRes.data || [])
         if (formasPagoRes.success) setFormasPago(formasPagoRes.data || [])
         if (terminosPagoRes.success) setTerminosPago(terminosPagoRes.data || [])
+
+        // Cargar configuración de decimales de la empresa
+        if (empresaRes.success && empresaRes.data) {
+          setDecimalesConfig({
+            precios: empresaRes.data.decimalesPrecios ?? 2,
+            cantidad: empresaRes.data.decimalesCantidad ?? 2,
+          })
+        }
         if (seriesRes.success) {
           setSeriesDocumentos(seriesRes.data || [])
           // Si hay una serie predeterminada y es modo creación, seleccionarla automáticamente
@@ -644,6 +666,8 @@ export function PresupuestoForm({
       costeUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? 0,
       iva: producto.iva || 21,
       unidad: 'ud',
+      // Peso del producto
+      peso: producto.peso || 0,
       tipo: esKit ? TipoLinea.KIT : TipoLinea.PRODUCTO,
       componentesKit,
       mostrarComponentes: esKit,
@@ -980,6 +1004,9 @@ export function PresupuestoForm({
         } else {
           nuevoPrecio = linea.costeUnitario + margenConfig.valor
         }
+
+        // Redondear el precio según la configuración de decimales de la empresa
+        nuevoPrecio = redondearPrecio(nuevoPrecio)
 
         return calcularLinea({ ...linea, precioUnitario: nuevoPrecio })
       })
@@ -1451,36 +1478,65 @@ export function PresupuestoForm({
                                     )}
                                   </Button>
                                 )}
-                                {/* Input editable con búsqueda integrada */}
-                                <EditableSearchableSelect
-                                  options={productosOptions}
-                                  value={linea.productoId || ''}
-                                  displayValue={linea.nombre || ''}
-                                  onValueChange={(value) => handleProductoSelect(index, value)}
-                                  onDisplayValueChange={(nombre) => handleNombreChange(index, nombre)}
-                                  placeholder="Buscar o escribir producto..."
-                                  emptyMessage={loadingOptions ? "Cargando..." : "No encontrado"}
-                                  loading={loadingOptions}
-                                  className="flex-1"
-                                  inputClassName="text-xs"
-                                  onEnterPress={() => handleProductEnterPress(index)}
-                                  onArrowDownPress={() => focusCantidad(index)}
-                                  inputRef={(el) => {
-                                    if (el) productoRefs.current.set(index, el)
-                                    else productoRefs.current.delete(index)
-                                  }}
-                                />
-                                {/* Botón editar descripciones */}
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 flex-shrink-0"
-                                  onClick={() => handleOpenDescripcionDialog(index)}
-                                  title="Editar descripciones"
-                                >
-                                  <AlignLeft className="h-3.5 w-3.5 text-muted-foreground" />
-                                </Button>
+                                {/* Input editable con búsqueda integrada y tooltip para nombre completo */}
+                                <TooltipProvider>
+                                  <Tooltip delayDuration={500}>
+                                    <TooltipTrigger asChild>
+                                      <div className="flex-1">
+                                        <EditableSearchableSelect
+                                          options={productosOptions}
+                                          value={linea.productoId || ''}
+                                          displayValue={linea.nombre || ''}
+                                          onValueChange={(value) => handleProductoSelect(index, value)}
+                                          onDisplayValueChange={(nombre) => handleNombreChange(index, nombre)}
+                                          placeholder="Buscar o escribir producto..."
+                                          emptyMessage={loadingOptions ? "Cargando..." : "No encontrado"}
+                                          loading={loadingOptions}
+                                          className="w-full"
+                                          inputClassName="text-xs"
+                                          onEnterPress={() => handleProductEnterPress(index)}
+                                          onArrowDownPress={() => focusCantidad(index)}
+                                          inputRef={(el) => {
+                                            if (el) productoRefs.current.set(index, el)
+                                            else productoRefs.current.delete(index)
+                                          }}
+                                        />
+                                      </div>
+                                    </TooltipTrigger>
+                                    {linea.nombre && linea.nombre.length > 30 && (
+                                      <TooltipContent side="top" className="max-w-md">
+                                        <p className="text-sm font-medium">{linea.nombre}</p>
+                                        {linea.codigo && <p className="text-xs text-muted-foreground">Ref: {linea.codigo}</p>}
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
+                                </TooltipProvider>
+                                {/* Botón editar descripciones con tooltip para ver descripción */}
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 flex-shrink-0"
+                                        onClick={() => handleOpenDescripcionDialog(index)}
+                                      >
+                                        <AlignLeft className={`h-3.5 w-3.5 ${linea.descripcionLarga ? 'text-primary' : 'text-muted-foreground'}`} />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="max-w-sm">
+                                      {linea.descripcionLarga ? (
+                                        <div className="space-y-1">
+                                          <p className="font-medium text-xs">Descripción:</p>
+                                          <p className="text-xs whitespace-pre-wrap">{linea.descripcionLarga}</p>
+                                        </div>
+                                      ) : (
+                                        <p className="text-xs text-muted-foreground">Click para añadir descripción</p>
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                                 {/* Indicador de kit */}
                                 {linea.tipo === TipoLinea.KIT && (
                                   <Badge variant="secondary" className="flex-shrink-0 gap-1">
@@ -1533,7 +1589,7 @@ export function PresupuestoForm({
                             }}
                             type="number"
                             min="0"
-                            step="0.01"
+                            step="1"
                             value={linea.cantidad || 0}
                             onChange={(e) => handleUpdateLinea(index, { cantidad: parseFloat(e.target.value) || 0 })}
                             onKeyDown={(e) => handleCantidadKeyDown(e, index)}

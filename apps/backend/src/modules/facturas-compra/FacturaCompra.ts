@@ -49,6 +49,10 @@ export interface ILineaFacturaCompra {
   cantidad: number;
   unidad?: string;
 
+  // Peso
+  peso?: number; // Peso unitario en kg
+  pesoTotal?: number; // Peso total de la línea (peso * cantidad)
+
   // Precios
   precioUnitario: number;
   descuento: number;
@@ -225,6 +229,10 @@ const LineaFacturaCompraSchema = new Schema({
   // Cantidades
   cantidad: { type: Number, default: 1, min: 0 },
   unidad: { type: String, default: 'unidades' },
+
+  // Peso
+  peso: { type: Number, min: 0, default: 0 },
+  pesoTotal: { type: Number, min: 0, default: 0 },
 
   // Precios
   precioUnitario: { type: Number, required: true, min: 0 },

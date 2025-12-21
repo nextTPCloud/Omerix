@@ -50,6 +50,10 @@ export interface ILineaPresupuestoCompra {
   cantidad: number;
   unidad?: string;
 
+  // Peso
+  peso?: number; // Peso unitario en kg
+  pesoTotal?: number; // Peso total de la línea (peso * cantidad)
+
   // Precios de compra
   precioUnitario: number; // Precio de compra unitario
   descuento: number;
@@ -260,6 +264,10 @@ const LineaPresupuestoCompraSchema = new Schema<ILineaPresupuestoCompra>({
   // Cantidades
   cantidad: { type: Number, required: true, min: 0, default: 1 },
   unidad: { type: String, trim: true, default: 'ud' },
+
+  // Peso
+  peso: { type: Number, min: 0, default: 0 },
+  pesoTotal: { type: Number, min: 0, default: 0 },
 
   // Precios de compra
   precioUnitario: { type: Number, required: true, min: 0, default: 0 },

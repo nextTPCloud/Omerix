@@ -219,11 +219,11 @@ export default function AgenteDetailPage() {
 
         {/* Contenido */}
         <Tabs defaultValue="general" className="w-full">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="comisiones">Comisiones</TabsTrigger>
             <TabsTrigger value="zonas">Zonas</TabsTrigger>
-            <TabsTrigger value="clientes">Clientes Asignados</TabsTrigger>
+            <TabsTrigger value="clientes">Clientes</TabsTrigger>
             <TabsTrigger value="objetivos">Objetivos</TabsTrigger>
           </TabsList>
 
@@ -459,16 +459,52 @@ export default function AgenteDetailPage() {
                   Clientes Asignados
                 </CardTitle>
                 <CardDescription>
-                  {agente.clientesAsignados?.length || 0} cliente(s) asignado(s)
+                  {agente.clientesAsignados?.length || 0} cliente(s) asignado(s) a este agente
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {agente.clientesAsignados && agente.clientesAsignados.length > 0 ? (
-                  <p className="text-muted-foreground">
-                    {agente.clientesAsignados.length} clientes asignados
-                  </p>
+                  <div className="space-y-3">
+                    {agente.clientesAsignados.map((clienteId: any, index: number) => {
+                      const cliente = typeof clienteId === 'object' ? clienteId : null
+                      return (
+                        <div
+                          key={cliente?._id || clienteId || index}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => cliente?._id && router.push(`/clientes/${cliente._id}`)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-full">
+                              <Users className="h-4 w-4 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium">
+                                {cliente?.nombre || cliente?.nombreComercial || `Cliente ${index + 1}`}
+                              </p>
+                              {cliente?.codigo && (
+                                <p className="text-sm text-muted-foreground font-mono">
+                                  {cliente.codigo}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          {cliente?.activo !== undefined && (
+                            <Badge variant={cliente.activo ? 'default' : 'secondary'}>
+                              {cliente.activo ? 'Activo' : 'Inactivo'}
+                            </Badge>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 ) : (
-                  <p className="text-muted-foreground">No hay clientes asignados</p>
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-20" />
+                    <p className="text-muted-foreground">No hay clientes asignados</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Asigna clientes desde la ficha del cliente
+                    </p>
+                  </div>
                 )}
               </CardContent>
             </Card>

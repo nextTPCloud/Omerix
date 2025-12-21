@@ -9,22 +9,22 @@ import { CalendarioLaboral, REGIONES_ESPANA, TIPOS_FESTIVO } from '@/types/calen
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Edit, Trash2, CalendarDays, RefreshCw, Star, Calendar, MapPin, Copy } from 'lucide-react'
+import { ArrowLeft, Edit, Trash2, CalendarDays, RefreshCw, Star, Calendar, MapPin, Copy, List } from 'lucide-react'
 import { toast } from 'sonner'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { CalendarView, EventoCalendario } from '@/components/calendarios'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { usePermissions } from '@/hooks/usePermissions'
 
-// Helper para parsear fecha de festivo correctamente
+// Helper para parsear fecha de festivo correctamente (evita desplazamiento por timezone)
 const parseFechaFestivo = (fecha: string): Date => {
-  // Si la fecha ya es un ISO string completo, usarlo directamente
-  if (fecha.includes('T')) {
-    return new Date(fecha)
-  }
-  // Si es solo YYYY-MM-DD, añadir la hora para evitar problemas de timezone
-  return new Date(fecha + 'T00:00:00')
+  // Extraer solo la parte de fecha YYYY-MM-DD para evitar problemas de timezone
+  const fechaStr = fecha.split('T')[0]
+  const [year, month, day] = fechaStr.split('-').map(Number)
+  return new Date(year, month - 1, day)
 }
 
 export default function CalendarioDetailPage() {
@@ -120,6 +120,14 @@ export default function CalendarioDetailPage() {
     return acc
   }, {} as Record<string, typeof festivosOrdenados>)
 
+  // Convertir festivos a eventos para el CalendarView
+  const eventosCalendario: EventoCalendario[] = festivosOrdenados.map(festivo => ({
+    fecha: festivo.fecha.split('T')[0],
+    nombre: festivo.nombre,
+    tipo: festivo.tipo,
+    meta: { sustituible: festivo.sustituible }
+  }))
+
   return (
     <DashboardLayout>
       <div className="w-full max-w-5xl mx-auto space-y-6">
@@ -166,140 +174,182 @@ export default function CalendarioDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Informacion Principal */}
-          <Card className="md:col-span-2">
-            <CardHeader><CardTitle>Festivos del Año {calendario.anio}</CardTitle></CardHeader>
-            <CardContent>
-              {festivosOrdenados.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CalendarDays className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                  <p>No hay festivos configurados</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {Object.entries(festivosPorMes).map(([mes, festivos]) => (
-                    <div key={mes}>
-                      <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 capitalize">{mes}</h3>
-                      <div className="space-y-2">
-                        {festivos.map((festivo, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                            <div className="flex items-center gap-4">
-                              <div className="text-center min-w-[50px]">
-                                <div className="text-lg font-bold">{parseFechaFestivo(festivo.fecha).getDate()}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {parseFechaFestivo(festivo.fecha).toLocaleDateString('es-ES', { weekday: 'short' })}
-                                </div>
-                              </div>
-                              <div>
-                                <p className="font-medium">{festivo.nombre}</p>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="outline" className="text-xs">
-                                    {TIPOS_FESTIVO.find(t => t.value === festivo.tipo)?.label || festivo.tipo}
-                                  </Badge>
-                                  {festivo.sustituible && <Badge variant="secondary" className="text-xs">Sustituible</Badge>}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+        {/* Pestañas: Calendario / Lista */}
+        <Tabs defaultValue="calendario" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="calendario" className="gap-2">
+              <CalendarDays className="h-4 w-4" />
+              Vista Calendario
+            </TabsTrigger>
+            <TabsTrigger value="lista" className="gap-2">
+              <List className="h-4 w-4" />
+              Vista Lista
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="calendario" className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle>Calendario {calendario.anio}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CalendarView
+                    anio={calendario.anio}
+                    eventos={eventosCalendario}
+                    vistaInicial="anual"
+                    mostrarControlesVista={true}
+                    mostrarNavegacion={true}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Panel lateral - Resumen */}
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader><CardTitle>Estado</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Estado</span>
+                      <Badge
+                        variant={calendario.activo ? 'default' : 'secondary'}
+                        className={calendario.activo ? 'bg-green-100 text-green-800' : ''}
+                      >
+                        {calendario.activo ? 'Activo' : 'Inactivo'}
+                      </Badge>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    {calendario.esDefecto && (
+                      <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                        <span className="text-sm font-medium">Calendario por defecto</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
-          {/* Panel lateral */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader><CardTitle>Estado</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Estado</span>
-                  <Badge
-                    variant={calendario.activo ? 'default' : 'secondary'}
-                    className={calendario.activo ? 'bg-green-100 text-green-800' : ''}
-                  >
-                    {calendario.activo ? 'Activo' : 'Inactivo'}
-                  </Badge>
-                </div>
-                {calendario.esDefecto && (
-                  <div className="flex items-center gap-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                    <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                    <span className="text-sm font-medium">Calendario por defecto</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                <Card>
+                  <CardHeader><CardTitle>Resumen</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total festivos</span>
+                      <span className="font-medium">{calendario.festivos?.length || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Nacionales</span>
+                      <span className="font-medium">{calendario.festivos?.filter(f => f.tipo === 'nacional').length || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Autonómicos</span>
+                      <span className="font-medium">{calendario.festivos?.filter(f => f.tipo === 'autonomico').length || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Locales</span>
+                      <span className="font-medium">{calendario.festivos?.filter(f => f.tipo === 'local').length || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Empresa</span>
+                      <span className="font-medium">{calendario.festivos?.filter(f => f.tipo === 'empresa').length || 0}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
 
-            <Card>
-              <CardHeader><CardTitle>Ubicacion</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {calendario.region && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span>{REGIONES_ESPANA.find(r => r.value === calendario.region)?.label || calendario.region}</span>
-                  </div>
-                )}
-                {calendario.provincia && (
-                  <div className="flex items-center gap-2 ml-6">
-                    <span className="text-muted-foreground">Provincia:</span>
-                    <span>{calendario.provincia}</span>
-                  </div>
-                )}
-                {calendario.localidad && (
-                  <div className="flex items-center gap-2 ml-6">
-                    <span className="text-muted-foreground">Localidad:</span>
-                    <span>{calendario.localidad}</span>
-                  </div>
-                )}
-                {!calendario.region && !calendario.provincia && !calendario.localidad && (
-                  <p className="text-muted-foreground text-sm">Sin ubicacion especifica</p>
-                )}
-              </CardContent>
-            </Card>
+          <TabsContent value="lista" className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Lista de Festivos */}
+              <Card className="md:col-span-2">
+                <CardHeader><CardTitle>Festivos del Año {calendario.anio}</CardTitle></CardHeader>
+                <CardContent>
+                  {festivosOrdenados.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <CalendarDays className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                      <p>No hay festivos configurados</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {Object.entries(festivosPorMes).map(([mes, festivos]) => (
+                        <div key={mes}>
+                          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2 capitalize">{mes}</h3>
+                          <div className="space-y-2">
+                            {festivos.map((festivo, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div className="flex items-center gap-4">
+                                  <div className="text-center min-w-[50px]">
+                                    <div className="text-lg font-bold">{parseFechaFestivo(festivo.fecha).getDate()}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {parseFechaFestivo(festivo.fecha).toLocaleDateString('es-ES', { weekday: 'short' })}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">{festivo.nombre}</p>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="text-xs">
+                                        {TIPOS_FESTIVO.find(t => t.value === festivo.tipo)?.label || festivo.tipo}
+                                      </Badge>
+                                      {festivo.sustituible && <Badge variant="secondary" className="text-xs">Sustituible</Badge>}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader><CardTitle>Resumen</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total festivos</span>
-                  <span className="font-medium">{calendario.festivos?.length || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Nacionales</span>
-                  <span className="font-medium">{calendario.festivos?.filter(f => f.tipo === 'nacional').length || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Autonomicos</span>
-                  <span className="font-medium">{calendario.festivos?.filter(f => f.tipo === 'autonomico').length || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Locales</span>
-                  <span className="font-medium">{calendario.festivos?.filter(f => f.tipo === 'local').length || 0}</span>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Panel lateral para vista lista */}
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader><CardTitle>Ubicación</CardTitle></CardHeader>
+                  <CardContent className="space-y-3">
+                    {calendario.region && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span>{REGIONES_ESPANA.find(r => r.value === calendario.region)?.label || calendario.region}</span>
+                      </div>
+                    )}
+                    {calendario.provincia && (
+                      <div className="flex items-center gap-2 ml-6">
+                        <span className="text-muted-foreground">Provincia:</span>
+                        <span>{calendario.provincia}</span>
+                      </div>
+                    )}
+                    {calendario.localidad && (
+                      <div className="flex items-center gap-2 ml-6">
+                        <span className="text-muted-foreground">Localidad:</span>
+                        <span>{calendario.localidad}</span>
+                      </div>
+                    )}
+                    {!calendario.region && !calendario.provincia && !calendario.localidad && (
+                      <p className="text-muted-foreground text-sm">Sin ubicación específica</p>
+                    )}
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader><CardTitle>Fechas</CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Creado:</span>
-                  <span>{new Date(calendario.fechaCreacion).toLocaleDateString('es-ES')}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Modificado:</span>
-                  <span>{new Date(calendario.fechaModificacion).toLocaleDateString('es-ES')}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+                <Card>
+                  <CardHeader><CardTitle>Fechas</CardTitle></CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Creado:</span>
+                      <span>{new Date(calendario.fechaCreacion).toLocaleDateString('es-ES')}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Modificado:</span>
+                      <span>{new Date(calendario.fechaModificacion).toLocaleDateString('es-ES')}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {/* Delete Dialog */}
         <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>

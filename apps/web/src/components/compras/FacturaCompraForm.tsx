@@ -369,12 +369,16 @@ export function FacturaCompraForm({
     const ivaImporte = subtotal * (linea.iva / 100)
     const total = subtotal + ivaImporte
 
+    // Calcular peso total de la línea
+    const pesoTotal = (linea.peso || 0) * linea.cantidad
+
     return {
       ...linea,
       descuentoImporte: Math.round(descuentoImporte * 100) / 100,
       subtotal: Math.round(subtotal * 100) / 100,
       ivaImporte: Math.round(ivaImporte * 100) / 100,
       total: Math.round(total * 100) / 100,
+      pesoTotal: Math.round(pesoTotal * 1000) / 1000, // 3 decimales para peso
     }
   }
 
@@ -536,6 +540,8 @@ export function FacturaCompraForm({
       precioUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? producto.precioCompra ?? 0,
       iva: producto.iva || 21,
       unidad: producto.unidad || 'ud.',
+      // Peso del producto
+      peso: producto.peso || 0,
       tipo: esKit ? 'kit' : 'producto',
       componentesKit,
       mostrarComponentes: true,

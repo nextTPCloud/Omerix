@@ -591,6 +591,7 @@ export function EditableSearchableSelect({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled || loading}
+          title={inputValue || placeholder}
           className={cn(
             'flex h-8 w-full rounded-md border border-input bg-background pl-8 pr-8 py-1 text-sm shadow-sm transition-colors',
             'placeholder:text-muted-foreground',

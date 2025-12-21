@@ -39,6 +39,7 @@ import { Maquinaria, IMaquinaria } from '../modules/maquinaria/Maquinaria';
 import { ParteTrabajo, IParteTrabajo } from '../modules/partes-trabajo/ParteTrabajo';
 import { Tarifa, ITarifa } from '../modules/tarifas/Tarifa';
 import { Oferta, IOferta } from '../modules/ofertas/Oferta';
+import { Dashboard, IDashboard } from '../modules/dashboard/Dashboard';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -685,6 +686,22 @@ export const getOfertaModel = async (
     dbConfig,
     'Oferta',
     OfertaSchema
+  );
+};
+
+/**
+ * Obtener modelo de Dashboard para una empresa específica
+ */
+export const getDashboardModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IDashboard>> => {
+  const DashboardSchema = Dashboard.schema;
+  return databaseManager.getModel<IDashboard>(
+    empresaId,
+    dbConfig,
+    'Dashboard',
+    DashboardSchema
   );
 };
 
