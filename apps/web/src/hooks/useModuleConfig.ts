@@ -65,9 +65,9 @@ export function useModuleConfig(
 
       hasLoadedRef.current = true;
     } catch (err: any) {
-      console.error(`Error al cargar configuración de ${moduloNombre}:`, err);
+      console.error(`[useModuleConfig] Error al cargar configuración de ${moduloNombre}:`, err);
       setError(err.message);
-      
+
       // Si falla, usar configuración por defecto
       if (defaultConfig) {
         setConfig({
@@ -93,7 +93,7 @@ export function useModuleConfig(
       try {
         setIsSaving(true);
         await configuracionService.updateModuleConfig(moduloNombre, newConfig);
-        
+
         if (showToast) {
           toast.success('Configuración guardada');
         }
@@ -171,6 +171,31 @@ export function useModuleConfig(
       updateConfig({ columnas });
     },
     [updateConfig]
+  );
+
+  /**
+   * Guardar columnas directamente al servidor (sin esperar debounce)
+   * Útil para cambios que deben persistir inmediatamente
+   */
+  const saveColumnasDirectly = useCallback(
+    async (columnas: ColumnaConfig[]) => {
+      try {
+        setIsSaving(true);
+        const newConfig: ModuleConfig = {
+          ...(config || { columnas: [] }),
+          columnas,
+        };
+        await configuracionService.updateModuleConfig(moduloNombre, newConfig);
+        // También actualizar el estado local
+        setConfig(newConfig);
+      } catch (err: any) {
+        console.error(`Error al guardar columnas:`, err);
+        toast.error('Error al guardar las columnas');
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [config, moduloNombre]
   );
 
   /**
@@ -288,6 +313,7 @@ export function useModuleConfig(
     // Métodos de actualización
     updateConfig,
     updateColumnas,
+    saveColumnasDirectly,
     updateSortConfig,
     updateColumnFilters,
     updateAdvancedFilters,

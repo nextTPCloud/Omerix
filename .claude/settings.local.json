@@ -5,7 +5,8 @@
       "Bash(xargs:*)",
       "Bash(npm install:*)",
       "Bash(cat:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

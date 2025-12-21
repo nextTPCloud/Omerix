@@ -69,6 +69,7 @@ import { almacenesService } from '@/services/almacenes.service'
 import { SearchableSelect, EditableSearchableSelect } from '@/components/ui/searchable-select'
 import { DateInput } from '@/components/ui/date-picker'
 import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
+import { DocumentoLineasGrid } from '@/components/documentos/DocumentoLineasGrid'
 import { Producto, Variante } from '@/types/producto.types'
 
 // ============================================
@@ -114,6 +115,8 @@ interface LineaFormulario {
   cantidad: number
   cantidadRecibida: number
   unidad?: string
+  peso?: number
+  pesoTotal?: number
   precioUnitario: number
   descuento: number
   descuentoImporte: number
@@ -456,6 +459,27 @@ export function AlbaranCompraForm({
     nuevasLineas[index] = calcularLinea(nuevasLineas[index])
     setLineas(nuevasLineas)
   }
+
+  // Wrapper para adaptar a la interfaz de DocumentoLineasGrid
+  const handleUpdateLinea = useCallback((index: number, updates: Partial<LineaFormulario>) => {
+    const nuevasLineas = [...lineas]
+    nuevasLineas[index] = { ...nuevasLineas[index], ...updates }
+    nuevasLineas[index] = calcularLinea(nuevasLineas[index])
+    setLineas(nuevasLineas)
+  }, [lineas])
+
+  const handleMoveLinea = useCallback((index: number, direction: 'up' | 'down') => {
+    moverLinea(index, direction === 'up' ? 'arriba' : 'abajo')
+  }, [moverLinea])
+
+  const handleDuplicateLinea = useCallback((index: number) => {
+    const lineaDuplicada = { ...lineas[index], orden: lineas.length + 1 }
+    setLineas([...lineas, lineaDuplicada])
+  }, [lineas])
+
+  const handleNombreChange = useCallback((index: number, nombre: string) => {
+    actualizarLinea(index, 'nombre', nombre)
+  }, [])
 
   const seleccionarProducto = (index: number, productoId: string) => {
     const producto = productos.find(p => p._id === productoId) as any
@@ -1030,254 +1054,24 @@ export function AlbaranCompraForm({
         {/* TAB LINEAS */}
         {/* ============================================ */}
         <TabsContent value="lineas" className="space-y-4">
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                Lineas del Albaran
-              </h3>
-              <Button onClick={agregarLinea} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Agregar Linea
-              </Button>
-            </div>
-
-            {lineas.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Package className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                <p>No hay lineas en el albaran</p>
-                <Button onClick={agregarLinea} variant="outline" className="mt-4">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar primera linea
-                </Button>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[50px]">#</TableHead>
-                      <TableHead className="min-w-[250px]">Producto</TableHead>
-                      <TableHead className="w-[100px] text-right">Cantidad</TableHead>
-                      <TableHead className="w-[120px] text-right">Precio</TableHead>
-                      <TableHead className="w-[80px] text-right">Dto %</TableHead>
-                      <TableHead className="w-[80px] text-right">IVA %</TableHead>
-                      <TableHead className="w-[120px] text-right">Total</TableHead>
-                      <TableHead className="w-[100px]">Almacen</TableHead>
-                      <TableHead className="w-[100px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lineas.map((linea, index) => (
-                      <React.Fragment key={index}>
-                        <TableRow>
-                          <TableCell className="text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              {/* Botón para expandir/colapsar componentes del kit */}
-                              {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleComponentesKit(index)}
-                                  className="p-0.5 hover:bg-muted rounded"
-                                >
-                                  {linea.mostrarComponentes ? (
-                                    <ChevronDown className="h-3 w-3" />
-                                  ) : (
-                                    <ChevronRight className="h-3 w-3" />
-                                  )}
-                                </button>
-                              )}
-                              {index + 1}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <EditableSearchableSelect
-                                options={productos.map(p => ({
-                                  value: p._id,
-                                  label: p.nombre,
-                                  sublabel: p.sku,
-                                }))}
-                                value={linea.productoId || ''}
-                                displayValue={linea.nombre}
-                                onValueChange={(value) => {
-                                  if (value) seleccionarProducto(index, value)
-                                }}
-                                onDisplayValueChange={(value) => actualizarLinea(index, 'nombre', value)}
-                                placeholder="Buscar producto..."
-                                loading={loadingProductos}
-                                onCtrlEnterPress={agregarLinea}
-                                inputRef={(el) => {
-                                  if (el) productoRefs.current.set(index, el)
-                                  else productoRefs.current.delete(index)
-                                }}
-                              />
-                              {/* Indicador de kit */}
-                              {linea.tipo === 'kit' && (
-                                <Badge variant="secondary" className="text-xs">
-                                  <Layers className="h-3 w-3 mr-1" />
-                                  Kit
-                                </Badge>
-                              )}
-                              {/* Indicador de variante */}
-                              {linea.variante && (
-                                <div className="flex flex-wrap gap-1">
-                                  {Object.entries(linea.variante.combinacion).map(([key, value]) => (
-                                    <Badge key={key} variant="outline" className="text-xs">
-                                      {key}: {value}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              ref={(el) => {
-                                if (el) cantidadRefs.current.set(index, el)
-                              }}
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={linea.cantidad}
-                              onChange={(e) => actualizarLinea(index, 'cantidad', parseFloat(e.target.value) || 0)}
-                              onKeyDown={(e) => handleCantidadKeyDown(e, index)}
-                              className="w-[80px] text-right"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={linea.precioUnitario}
-                              onChange={(e) => actualizarLinea(index, 'precioUnitario', parseFloat(e.target.value) || 0)}
-                              className="w-[100px] text-right"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="1"
-                              value={linea.descuento}
-                              onChange={(e) => actualizarLinea(index, 'descuento', parseFloat(e.target.value) || 0)}
-                              className="w-[60px] text-right"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={linea.iva.toString()}
-                              onValueChange={(v) => actualizarLinea(index, 'iva', parseFloat(v))}
-                            >
-                              <SelectTrigger className="w-[70px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="0">0%</SelectItem>
-                                <SelectItem value="4">4%</SelectItem>
-                                <SelectItem value="10">10%</SelectItem>
-                                <SelectItem value="21">21%</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {formatCurrency(linea.total)}
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={linea.almacenId || almacenDefaultId}
-                              onValueChange={(v) => actualizarLinea(index, 'almacenId', v)}
-                            >
-                              <SelectTrigger className="w-[100px]">
-                                <SelectValue placeholder="Almacen" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {almacenes.map(a => (
-                                  <SelectItem key={a._id} value={a._id}>{a.nombre}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => moverLinea(index, 'arriba')}
-                                disabled={index === 0}
-                                className="h-7 w-7 p-0"
-                              >
-                                <ArrowUp className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => moverLinea(index, 'abajo')}
-                                disabled={index === lineas.length - 1}
-                                className="h-7 w-7 p-0"
-                              >
-                                <ArrowDown className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => eliminarLinea(index)}
-                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        {/* Componentes del kit expandidos */}
-                        {linea.tipo === 'kit' && linea.mostrarComponentes && linea.componentesKit && linea.componentesKit.length > 0 && (
-                          <TableRow className="bg-muted/20">
-                            <TableCell colSpan={9} className="px-8 py-2">
-                              <div className="text-xs text-muted-foreground mb-2">
-                                Componentes del kit ({linea.componentesKit.length}):
-                              </div>
-                              <div className="space-y-1">
-                                {linea.componentesKit.map((comp, compIdx) => (
-                                  <div
-                                    key={compIdx}
-                                    className={`flex items-center justify-between px-2 py-1 rounded ${
-                                      comp.seleccionado ? 'bg-background' : 'bg-muted/50 opacity-60'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      {comp.opcional && (
-                                        <input
-                                          type="checkbox"
-                                          checked={comp.seleccionado}
-                                          onChange={() => handleToggleComponenteKit(index, compIdx)}
-                                          className="h-3 w-3"
-                                        />
-                                      )}
-                                      <span className="font-mono text-xs text-muted-foreground">{comp.sku}</span>
-                                      <span>{comp.nombre}</span>
-                                      {comp.opcional && (
-                                        <Badge variant="outline" className="text-xs">Opcional</Badge>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-4 text-xs">
-                                      <span>{comp.cantidad} x {formatCurrency(comp.costeUnitario)}</span>
-                                      <span className="font-medium">{formatCurrency(comp.cantidad * comp.costeUnitario)}</span>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </Card>
+          <DocumentoLineasGrid
+            moduloNombre="albaranes-compra-lineas"
+            lineas={lineas as any || []}
+            esVenta={false}
+            esAlbaran={true}
+            mostrarCostes={false}
+            mostrarMargenes={false}
+            productosOptions={productos.map(p => ({ value: p._id, label: p.nombre }))}
+            onAddLinea={agregarLinea}
+            onUpdateLinea={handleUpdateLinea as any}
+            onRemoveLinea={eliminarLinea}
+            onDuplicateLinea={handleDuplicateLinea}
+            onMoveLinea={handleMoveLinea}
+            onProductoSelect={seleccionarProducto}
+            onNombreChange={handleNombreChange}
+            productoRefs={productoRefs}
+            cantidadRefs={cantidadRefs}
+          />
 
           {/* Resumen rapido */}
           {lineas.length > 0 && (

@@ -106,6 +106,8 @@ interface LineaFormulario {
   cantidad: number
   cantidadRecibida: number
   unidad?: string
+  peso?: number
+  pesoTotal?: number
   precioUnitario: number
   costeUnitario?: number
   descuento: number

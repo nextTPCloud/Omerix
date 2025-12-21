@@ -28,11 +28,20 @@ export const ColumnFiltersSchema = z.record(
 
 export type ColumnFilters = z.infer<typeof ColumnFiltersSchema>;
 
+// Schema para filtros avanzados guardados
+export const SavedAdvancedFilterSchema = z.object({
+  field: z.string(),
+  operator: z.string(),
+  value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+  valueTo: z.union([z.string(), z.number()]).optional(),
+});
+
 // 🔧 CORREGIDO: Usar z.union con z.literal para números
 export const ModuleConfigSchema = z.object({
   columnas: z.array(ColumnaConfigSchema),
   sortConfig: SortConfigSchema.optional(),
   columnFilters: ColumnFiltersSchema.optional(),
+  advancedFilters: z.array(SavedAdvancedFilterSchema).optional(),
   paginacion: z
     .object({
       limit: z.union([

@@ -33,13 +33,7 @@ import {
   Settings,
   Calculator,
   Plus,
-  Trash2,
-  ArrowUp,
-  ArrowDown,
   Percent,
-  Layers,
-  ChevronDown,
-  ChevronRight,
   RefreshCw,
   AlertCircle,
 } from 'lucide-react'
@@ -54,15 +48,11 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 
 // Components
-import { SearchableSelect, EditableSearchableSelect } from '@/components/ui/searchable-select'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { DateInput } from '@/components/ui/date-picker'
 import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
+import { DocumentoLineasGrid } from '@/components/documentos'
+import { useLineasConfig } from '@/hooks/useLineasConfig'
 
 // Services
 import { proveedoresService } from '@/services/proveedores.service'
@@ -116,6 +106,8 @@ interface LineaFormulario {
   // Cantidades
   cantidad: number
   unidad?: string
+  peso?: number
+  pesoTotal?: number
   precioUnitario: number
   descuento: number
   iva: number
@@ -194,6 +186,18 @@ export function PresupuestoCompraForm({
   const [productos, setProductos] = useState<Producto[]>([])
   const [seriesDocumentos, setSeriesDocumentos] = useState<ISerieDocumento[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
+
+  // Configuración de columnas visibles (no se usa directamente, DocumentoLineasGrid lo maneja internamente)
+  const { esColumnaVisible } = useLineasConfig('presupuestos-compra-lineas', { esVenta: false })
+
+  // Opciones de productos formateadas para DocumentoLineasGrid
+  const productosOptions = React.useMemo(() => {
+    return productos.map(p => ({
+      value: p._id,
+      label: p.nombre,
+      description: p.sku || '',
+    }))
+  }, [productos])
 
   // Referencias para inputs (navegación con teclado)
   const cantidadRefs = useRef<Map<number, HTMLInputElement>>(new Map())
@@ -657,6 +661,45 @@ export function PresupuestoCompraForm({
     setLineas(nuevasLineas.map((l, i) => ({ ...l, orden: i })))
   }
 
+  // Handler para actualizar línea (compatible con DocumentoLineasGrid)
+  const handleUpdateLinea = (index: number, updates: Partial<LineaFormulario>) => {
+    const nuevasLineas = [...lineas]
+    nuevasLineas[index] = { ...nuevasLineas[index], ...updates }
+
+    // Si cambia el PVP, resetear margen para que se recalcule
+    if ('precioVenta' in updates) {
+      nuevasLineas[index].margenPorcentaje = 0
+      nuevasLineas[index].margenImporte = 0
+    }
+    // Si cambia el margen %, resetear PVP para que se recalcule
+    if ('margenPorcentaje' in updates) {
+      nuevasLineas[index].precioVenta = 0
+    }
+
+    // Recalcular si es un campo que afecta al total o margen
+    const camposRecalculo = ['cantidad', 'precioUnitario', 'descuento', 'iva', 'precioVenta', 'margenPorcentaje']
+    if (Object.keys(updates).some(key => camposRecalculo.includes(key))) {
+      nuevasLineas[index] = calcularLinea(nuevasLineas[index])
+    }
+    setLineas(nuevasLineas)
+  }
+
+  // Handler para cambiar nombre de línea (compatible con DocumentoLineasGrid)
+  const handleNombreChange = (index: number, nombre: string) => {
+    handleUpdateLinea(index, { nombre })
+  }
+
+  // Handler para duplicar línea (compatible con DocumentoLineasGrid)
+  const handleDuplicateLinea = (index: number) => {
+    const lineaOriginal = lineas[index]
+    const lineaDuplicada: LineaFormulario = {
+      ...lineaOriginal,
+      _id: undefined,
+      orden: lineas.length,
+    }
+    setLineas([...lineas, lineaDuplicada])
+  }
+
   // Preparar datos para enviar
   const prepareSubmitData = (): CreatePresupuestoCompraDTO => {
     return {
@@ -945,249 +988,24 @@ export function PresupuestoCompraForm({
 
         {/* Tab Lineas */}
         <TabsContent value="lineas" className="space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Lineas del Presupuesto</CardTitle>
-                <CardDescription>{lineas.length} lineas</CardDescription>
-              </div>
-              <Button type="button" onClick={handleAddLinea} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Agregar Linea
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="px-2 py-2 text-left w-8">#</th>
-                      <th className="px-2 py-2 text-left min-w-[200px]">Producto</th>
-                      <th className="px-2 py-2 text-right w-20">Cant.</th>
-                      <th className="px-2 py-2 text-right w-24">P.Compra</th>
-                      <th className="px-2 py-2 text-right w-16">Dto%</th>
-                      <th className="px-2 py-2 text-right w-24">PVP</th>
-                      <th className="px-2 py-2 text-right w-16">Margen%</th>
-                      <th className="px-2 py-2 text-right w-16">IVA%</th>
-                      <th className="px-2 py-2 text-right w-24">Subtotal</th>
-                      <th className="px-2 py-2 text-center w-24">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lineas.map((linea, index) => (
-                      <tr key={index} className="border-b hover:bg-muted/30">
-                        <td className="px-2 py-2 text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleToggleComponentesKit(index)}
-                                className="p-0.5 hover:bg-muted rounded"
-                              >
-                                {linea.mostrarComponentes ? (
-                                  <ChevronDown className="h-3 w-3" />
-                                ) : (
-                                  <ChevronRight className="h-3 w-3" />
-                                )}
-                              </button>
-                            )}
-                            {index + 1}
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="space-y-1">
-                            <TooltipProvider>
-                              <Tooltip delayDuration={500}>
-                                <TooltipTrigger asChild>
-                                  <div className="w-full">
-                                    <EditableSearchableSelect
-                                      options={productos.map(p => ({
-                                        value: p._id,
-                                        label: p.nombre,
-                                        description: p.sku,
-                                      }))}
-                                      value={linea.productoId || ''}
-                                      onValueChange={(value) => handleProductoChange(index, value)}
-                                      placeholder="Buscar producto..."
-                                      displayValue={linea.nombre || ''}
-                                      onDisplayValueChange={(value) => handleLineaChange(index, 'nombre', value)}
-                                      onCtrlEnterPress={handleAddLinea}
-                                      inputRef={(el) => {
-                                        if (el) productoRefs.current.set(index, el)
-                                        else productoRefs.current.delete(index)
-                                      }}
-                                    />
-                                  </div>
-                                </TooltipTrigger>
-                                {linea.nombre && linea.nombre.length > 30 && (
-                                  <TooltipContent side="top" className="max-w-md">
-                                    <p className="text-sm font-medium">{linea.nombre}</p>
-                                    {linea.codigo && <p className="text-xs text-muted-foreground">Ref: {linea.codigo}</p>}
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
-                            {/* Indicador de kit */}
-                            {linea.tipo === 'kit' && linea.componentesKit && linea.componentesKit.length > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                <Layers className="h-3 w-3 mr-1" />
-                                Kit
-                              </Badge>
-                            )}
-                            {/* Indicador de variante */}
-                            {linea.variante && (
-                              <div className="flex flex-wrap gap-1">
-                                {Object.entries(linea.variante.combinacion).map(([key, value]) => (
-                                  <Badge key={key} variant="outline" className="text-xs">
-                                    {value}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                            {/* Componentes del kit expandidos */}
-                            {linea.tipo === 'kit' && linea.mostrarComponentes && linea.componentesKit && linea.componentesKit.length > 0 && (
-                              <div className="ml-2 mt-2 space-y-1 border-l-2 border-primary/20 pl-3">
-                                <div className="text-xs font-medium text-muted-foreground mb-1">
-                                  Componentes del kit ({linea.componentesKit.length}):
-                                </div>
-                                {linea.componentesKit.map((comp, compIdx) => (
-                                  <div
-                                    key={compIdx}
-                                    className={`flex items-center gap-2 text-xs py-1 px-2 rounded ${
-                                      comp.opcional ? 'bg-amber-50 border border-amber-200' : 'bg-muted/50'
-                                    }`}
-                                  >
-                                    <span className="font-medium">{comp.cantidad}x</span>
-                                    <span className="flex-1">{comp.nombre}</span>
-                                    {comp.sku && (
-                                      <span className="text-muted-foreground">({comp.sku})</span>
-                                    )}
-                                    {comp.opcional && (
-                                      <Badge variant="outline" className="text-xs">Opcional</Badge>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <Input
-                            ref={(el) => {
-                              if (el) cantidadRefs.current.set(index, el)
-                            }}
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={linea.cantidad}
-                            onChange={(e) => handleLineaChange(index, 'cantidad', parseFloat(e.target.value) || 0)}
-                            onKeyDown={(e) => handleCantidadKeyDown(e, index)}
-                            className="w-20 text-right"
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={linea.precioUnitario}
-                            onChange={(e) => handleLineaChange(index, 'precioUnitario', parseFloat(e.target.value) || 0)}
-                            className="w-24 text-right"
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            value={linea.descuento}
-                            onChange={(e) => handleLineaChange(index, 'descuento', parseFloat(e.target.value) || 0)}
-                            className="w-16 text-right"
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={linea.precioVenta}
-                            onChange={(e) => handleLineaChange(index, 'precioVenta', parseFloat(e.target.value) || 0)}
-                            className="w-24 text-right"
-                            placeholder="PVP"
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={linea.margenPorcentaje}
-                            onChange={(e) => handleLineaChange(index, 'margenPorcentaje', parseFloat(e.target.value) || 0)}
-                            className="w-16 text-right"
-                            placeholder="%"
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <Select
-                            value={linea.iva.toString()}
-                            onValueChange={(value) => handleLineaChange(index, 'iva', parseFloat(value))}
-                          >
-                            <SelectTrigger className="w-16">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0">0%</SelectItem>
-                              <SelectItem value="4">4%</SelectItem>
-                              <SelectItem value="10">10%</SelectItem>
-                              <SelectItem value="21">21%</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="px-2 py-2 text-right font-medium">
-                          {formatCurrency(linea.subtotal)}
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleMoveLinea(index, 'up')}
-                              disabled={index === 0}
-                            >
-                              <ArrowUp className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleMoveLinea(index, 'down')}
-                              disabled={index === lineas.length - 1}
-                            >
-                              <ArrowDown className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive"
-                              onClick={() => handleRemoveLinea(index)}
-                              disabled={lineas.length === 1}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <DocumentoLineasGrid
+            moduloNombre="presupuestos-compra-lineas"
+            lineas={lineas as any}
+            esVenta={false}
+            mostrarCostes={false}
+            mostrarMargenes={false}
+            productosOptions={productosOptions}
+            onAddLinea={handleAddLinea}
+            onUpdateLinea={handleUpdateLinea as any}
+            onRemoveLinea={handleRemoveLinea}
+            onDuplicateLinea={handleDuplicateLinea}
+            onMoveLinea={handleMoveLinea}
+            onProductoSelect={handleProductoChange}
+            onNombreChange={handleNombreChange}
+            cantidadRefs={cantidadRefs}
+            productoRefs={productoRefs}
+            onCantidadKeyDown={handleCantidadKeyDown as any}
+          />
         </TabsContent>
 
         {/* Tab Condiciones */}

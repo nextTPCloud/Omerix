@@ -73,6 +73,7 @@ import {
 import { SearchableSelect, EditableSearchableSelect } from '@/components/ui/searchable-select'
 import { FullCreateCliente, FullCreateAgenteComercial, FullCreateProyecto } from '@/components/full-create'
 import { DateInput } from '@/components/ui/date-picker'
+import { DocumentoLineasGrid } from '@/components/documentos'
 
 // Services
 import { clientesService } from '@/services/clientes.service'
@@ -1385,402 +1386,35 @@ export function PresupuestoForm({
         {/* TAB: LINEAS DEL PRESUPUESTO */}
         {/* ============================================ */}
         <TabsContent value="lineas" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Líneas del Presupuesto</CardTitle>
-                  <CardDescription>
-                    {numLineas} línea{numLineas !== 1 ? 's' : ''} · Total: {formatCurrency(totales.totalPresupuesto)}
-                  </CardDescription>
-                </div>
-                <Button type="button" onClick={() => handleAddLinea(TipoLinea.PRODUCTO)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Añadir Línea
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Tabla de líneas */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm table-fixed" style={{ minWidth: mostrarCostes ? '1200px' : '900px' }}>
-                  <colgroup>
-                    <col style={{ width: '32px' }} />
-                    <col style={{ width: '90px' }} />
-                    <col style={{ width: 'auto', minWidth: '200px' }} />
-                    <col style={{ width: '70px' }} />
-                    {mostrarCostes && <col style={{ width: '85px' }} />}
-                    {mostrarMargenes && <col style={{ width: '75px' }} />}
-                    <col style={{ width: '85px' }} />
-                    <col style={{ width: '65px' }} />
-                    <col style={{ width: '70px' }} />
-                    <col style={{ width: '95px' }} />
-                    {mostrarMargenes && <col style={{ width: '90px' }} />}
-                    <col style={{ width: '120px' }} />
-                  </colgroup>
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="px-1 py-3"></th>
-                      <th className="px-1 py-3 text-left text-xs">Tipo</th>
-                      <th className="px-2 py-3 text-left">Descripción</th>
-                      <th className="px-1 py-3 text-right text-xs">Cant.</th>
-                      {mostrarCostes && (
-                        <th className="px-1 py-3 text-right text-xs text-blue-600">Coste</th>
-                      )}
-                      {mostrarMargenes && (
-                        <th className="px-1 py-3 text-right text-xs text-green-600" title="Edita el margen para recalcular el precio">Margen%</th>
-                      )}
-                      <th className="px-1 py-3 text-right text-xs">Precio</th>
-                      <th className="px-1 py-3 text-right text-xs">Dto%</th>
-                      <th className="px-1 py-3 text-right text-xs">IVA%</th>
-                      <th className="px-1 py-3 text-right text-xs">Subtotal</th>
-                      {mostrarMargenes && (
-                        <th className="px-1 py-3 text-right text-xs text-green-600">Margen€</th>
-                      )}
-                      <th className="px-1 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(formData.lineas || []).map((linea, index) => (
-                      <tr key={index} className="border-b hover:bg-muted/30">
-                        <td className="px-1 py-2">
-                          <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                        </td>
-                        <td className="px-1 py-2">
-                          <select
-                            value={linea.tipo}
-                            onChange={(e) => handleUpdateLinea(index, { tipo: e.target.value as TipoLinea })}
-                            className="h-8 w-full text-[11px] rounded border border-input bg-background px-1"
-                          >
-                            {TIPOS_LINEA.map(tipo => (
-                              <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-2 py-2">
-                          {(linea.tipo === TipoLinea.PRODUCTO || linea.tipo === TipoLinea.KIT) ? (
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1">
-                                {/* Botón para expandir/colapsar componentes del kit */}
-                                {linea.tipo === TipoLinea.KIT && linea.componentesKit && linea.componentesKit.length > 0 && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 flex-shrink-0"
-                                    onClick={() => handleToggleComponentes(index)}
-                                    title={linea.mostrarComponentes ? 'Ocultar componentes' : 'Mostrar componentes'}
-                                  >
-                                    {linea.mostrarComponentes ? (
-                                      <ChevronDown className="h-4 w-4" />
-                                    ) : (
-                                      <ChevronRight className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                )}
-                                {/* Input editable con búsqueda integrada y tooltip para nombre completo */}
-                                <TooltipProvider>
-                                  <Tooltip delayDuration={500}>
-                                    <TooltipTrigger asChild>
-                                      <div className="flex-1">
-                                        <EditableSearchableSelect
-                                          options={productosOptions}
-                                          value={linea.productoId || ''}
-                                          displayValue={linea.nombre || ''}
-                                          onValueChange={(value) => handleProductoSelect(index, value)}
-                                          onDisplayValueChange={(nombre) => handleNombreChange(index, nombre)}
-                                          placeholder="Buscar o escribir producto..."
-                                          emptyMessage={loadingOptions ? "Cargando..." : "No encontrado"}
-                                          loading={loadingOptions}
-                                          className="w-full"
-                                          inputClassName="text-xs"
-                                          onEnterPress={() => handleProductEnterPress(index)}
-                                          onArrowDownPress={() => focusCantidad(index)}
-                                          inputRef={(el) => {
-                                            if (el) productoRefs.current.set(index, el)
-                                            else productoRefs.current.delete(index)
-                                          }}
-                                        />
-                                      </div>
-                                    </TooltipTrigger>
-                                    {linea.nombre && linea.nombre.length > 30 && (
-                                      <TooltipContent side="top" className="max-w-md">
-                                        <p className="text-sm font-medium">{linea.nombre}</p>
-                                        {linea.codigo && <p className="text-xs text-muted-foreground">Ref: {linea.codigo}</p>}
-                                      </TooltipContent>
-                                    )}
-                                  </Tooltip>
-                                </TooltipProvider>
-                                {/* Botón editar descripciones con tooltip para ver descripción */}
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7 flex-shrink-0"
-                                        onClick={() => handleOpenDescripcionDialog(index)}
-                                      >
-                                        <AlignLeft className={`h-3.5 w-3.5 ${linea.descripcionLarga ? 'text-primary' : 'text-muted-foreground'}`} />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom" className="max-w-sm">
-                                      {linea.descripcionLarga ? (
-                                        <div className="space-y-1">
-                                          <p className="font-medium text-xs">Descripción:</p>
-                                          <p className="text-xs whitespace-pre-wrap">{linea.descripcionLarga}</p>
-                                        </div>
-                                      ) : (
-                                        <p className="text-xs text-muted-foreground">Click para añadir descripción</p>
-                                      )}
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                                {/* Indicador de kit */}
-                                {linea.tipo === TipoLinea.KIT && (
-                                  <Badge variant="secondary" className="flex-shrink-0 gap-1">
-                                    <Layers className="h-3 w-3" />
-                                    Kit
-                                  </Badge>
-                                )}
-                              </div>
-                              {/* Componentes del kit expandidos */}
-                              {linea.tipo === TipoLinea.KIT && linea.mostrarComponentes && linea.componentesKit && linea.componentesKit.length > 0 && (
-                                <div className="ml-6 mt-2 space-y-1 border-l-2 border-primary/20 pl-3">
-                                  <div className="text-xs font-medium text-muted-foreground mb-1">
-                                    Componentes del kit ({linea.componentesKit.length}):
-                                  </div>
-                                  {linea.componentesKit.map((comp, compIndex) => (
-                                    <div
-                                      key={compIndex}
-                                      className={`flex items-center gap-2 text-xs py-1 px-2 rounded ${
-                                        comp.opcional ? 'bg-amber-50 border border-amber-200' : 'bg-muted/50'
-                                      }`}
-                                    >
-                                      <Package className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                      <span className="flex-1 truncate">{comp.nombre}</span>
-                                      <span className="text-muted-foreground">x{comp.cantidad}</span>
-                                      {comp.opcional && (
-                                        <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                          Opcional
-                                        </Badge>
-                                      )}
-                                      <span className="font-medium">{formatCurrency(comp.subtotal)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <Input
-                              value={linea.nombre || ''}
-                              onChange={(e) => handleUpdateLinea(index, { nombre: e.target.value })}
-                              placeholder={linea.tipo === TipoLinea.TEXTO ? "Texto o comentario..." : "Descripción..."}
-                              className="h-8 text-sm"
-                            />
-                          )}
-                        </td>
-                        <td className="px-1 py-2">
-                          <Input
-                            ref={(el) => {
-                              if (el) cantidadRefs.current.set(index, el)
-                              else cantidadRefs.current.delete(index)
-                            }}
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={linea.cantidad || 0}
-                            onChange={(e) => handleUpdateLinea(index, { cantidad: parseFloat(e.target.value) || 0 })}
-                            onKeyDown={(e) => handleCantidadKeyDown(e, index)}
-                            className="h-7 text-xs text-right px-1"
-                          />
-                        </td>
-                        {mostrarCostes && (
-                          <td className="px-1 py-2">
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={linea.costeUnitario || 0}
-                              onChange={(e) => handleUpdateLinea(index, { costeUnitario: parseFloat(e.target.value) || 0 })}
-                              className="h-7 text-xs text-right text-blue-600 px-1"
-                            />
-                          </td>
-                        )}
-                        {mostrarMargenes && (
-                          <td className="px-1 py-2">
-                            <Input
-                              type="number"
-                              step="0.1"
-                              value={linea.margenPorcentaje || 0}
-                              onChange={(e) => handleUpdateMargen(index, parseFloat(e.target.value) || 0)}
-                              className="h-7 text-xs text-right text-green-600 px-1"
-                              title="Editar margen recalcula precio"
-                              disabled={!canModificarPVP()}
-                            />
-                          </td>
-                        )}
-                        <td className="px-1 py-2">
-                          <div className="flex flex-col items-end gap-0.5">
-                            {/* Indicador de origen de precio (tarifa/oferta) */}
-                            {linea.origenPrecio && linea.origenPrecio !== 'producto' && linea.origenPrecio !== 'manual' && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-1">
-                                      {linea.precioOriginal && linea.precioOriginal !== linea.precioUnitario && (
-                                        <span className="text-[10px] text-muted-foreground line-through">
-                                          {formatCurrency(linea.precioOriginal)}
-                                        </span>
-                                      )}
-                                      <Badge
-                                        variant="outline"
-                                        className={`text-[9px] px-1 py-0 h-4 ${
-                                          linea.origenPrecio === 'tarifa'
-                                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                            : linea.origenPrecio === 'oferta'
-                                            ? 'bg-green-50 text-green-700 border-green-200'
-                                            : 'bg-purple-50 text-purple-700 border-purple-200'
-                                        }`}
-                                      >
-                                        <Tag className="h-2.5 w-2.5 mr-0.5" />
-                                        {linea.origenPrecio === 'tarifa' ? 'Tarifa' :
-                                         linea.origenPrecio === 'oferta' ? 'Oferta' :
-                                         linea.origenPrecio === 'precio_cantidad' ? 'Precio x Cant.' : ''}
-                                        {linea.detalleOrigenPrecio?.descuentoAplicado && linea.detalleOrigenPrecio.descuentoAplicado > 0 && (
-                                          <span className="ml-0.5">-{linea.detalleOrigenPrecio.descuentoAplicado.toFixed(0)}%</span>
-                                        )}
-                                      </Badge>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="text-xs">
-                                    <div className="space-y-1">
-                                      {linea.detalleOrigenPrecio?.tarifaNombre && (
-                                        <p><strong>Tarifa:</strong> {linea.detalleOrigenPrecio.tarifaNombre}</p>
-                                      )}
-                                      {linea.detalleOrigenPrecio?.ofertaNombre && (
-                                        <p><strong>Oferta:</strong> {linea.detalleOrigenPrecio.ofertaNombre}</p>
-                                      )}
-                                      {linea.precioOriginal && linea.precioOriginal !== linea.precioUnitario && (
-                                        <p>
-                                          <strong>Precio original:</strong> {formatCurrency(linea.precioOriginal)}
-                                          {' → '}
-                                          <strong>Aplicado:</strong> {formatCurrency(linea.precioUnitario)}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={linea.precioUnitario || 0}
-                              onChange={(e) => handleUpdateLinea(index, { precioUnitario: parseFloat(e.target.value) || 0, origenPrecio: 'manual' })}
-                              className="h-7 text-xs text-right px-1"
-                              disabled={!canModificarPVP()}
-                            />
-                          </div>
-                        </td>
-                        <td className="px-1 py-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            max={canAplicarDescuentos() ? getDescuentoMaximo() : 0}
-                            step="0.1"
-                            value={linea.descuento || 0}
-                            onChange={(e) => {
-                              const valor = parseFloat(e.target.value) || 0
-                              const max = getDescuentoMaximo()
-                              handleUpdateLinea(index, { descuento: Math.min(valor, max) })
-                            }}
-                            className="h-7 text-xs text-right px-1"
-                            disabled={!canAplicarDescuentos()}
-                          />
-                        </td>
-                        <td className="px-1 py-2">
-                          <select
-                            value={linea.iva || 21}
-                            onChange={(e) => handleUpdateLinea(index, { iva: parseInt(e.target.value) })}
-                            className="h-7 w-full text-[11px] rounded border border-input bg-background px-1"
-                          >
-                            {TIPOS_IVA.map(tipo => (
-                              <option key={tipo.value} value={tipo.value}>{tipo.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-1 py-2 text-right font-medium text-xs whitespace-nowrap">
-                          {formatCurrency(linea.subtotal || 0)}
-                        </td>
-                        {mostrarMargenes && (
-                          <td className="px-1 py-2 text-right text-xs whitespace-nowrap">
-                            <span className={linea.margenTotalLinea >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              {formatCurrency(linea.margenTotalLinea || 0)}
-                            </span>
-                          </td>
-                        )}
-                        <td className="px-1 py-2">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleMoveLinea(index, 'up')}
-                              disabled={index === 0}
-                            >
-                              <ArrowUp className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleMoveLinea(index, 'down')}
-                              disabled={index === (formData.lineas?.length || 0) - 1}
-                            >
-                              <ArrowDown className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleDuplicateLinea(index)}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => handleRemoveLinea(index)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <DocumentoLineasGrid
+            moduloNombre="presupuestos-lineas"
+            lineas={formData.lineas as any || []}
+            esVenta={true}
+            mostrarCostes={mostrarCostes}
+            mostrarMargenes={mostrarMargenes}
+            productosOptions={productosOptions}
+            onAddLinea={handleAddLinea}
+            onUpdateLinea={handleUpdateLinea as any}
+            onRemoveLinea={handleRemoveLinea}
+            onDuplicateLinea={handleDuplicateLinea}
+            onMoveLinea={handleMoveLinea}
+            onProductoSelect={handleProductoSelect}
+            onNombreChange={handleNombreChange}
+            onOpenDescripcionDialog={handleOpenDescripcionDialog}
+            onProductEnterPress={handleProductEnterPress}
+            cantidadRefs={cantidadRefs}
+            productoRefs={productoRefs}
+            onCantidadKeyDown={handleCantidadKeyDown as any}
+            canModificarPVP={canModificarPVP}
+            canAplicarDescuentos={canAplicarDescuentos}
+            getDescuentoMaximo={getDescuentoMaximo}
+          />
 
-                {numLineas === 0 && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No hay líneas en el presupuesto</p>
-                    <p className="text-sm">Haz clic en "Añadir Línea" para comenzar</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Totales */}
-              {numLineas > 0 && (
-                <div className="mt-6 flex justify-end">
+          {/* Totales */}
+          {numLineas > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex justify-end">
                   <div className="w-full max-w-md space-y-2">
                     <div className="flex justify-between py-1">
                       <span className="text-muted-foreground">Subtotal Bruto:</span>
@@ -1855,9 +1489,9 @@ export function PresupuestoForm({
                     )}
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* ============================================ */}
