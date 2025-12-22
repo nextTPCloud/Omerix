@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { Badge } from '@/components/ui/badge'
 import {
   Tooltip,
@@ -103,7 +104,7 @@ export function FacturaEStatusBadge({ facturaElectronica, compact = false }: Fac
 export function FACEStatusIcon({ estado }: { estado?: EstadoFACE }) {
   if (!estado) return null
 
-  const iconMap: Record<EstadoFACE, JSX.Element> = {
+  const iconMap: Record<EstadoFACE, React.ReactElement> = {
     [EstadoFACE.REGISTRADA_REC]: <Clock className="h-4 w-4 text-blue-600" />,
     [EstadoFACE.REGISTRADA_RCF]: <Clock className="h-4 w-4 text-blue-600" />,
     [EstadoFACE.CONTABILIZADA]: <FileCheck className="h-4 w-4 text-indigo-600" />,

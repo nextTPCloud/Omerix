@@ -25,12 +25,12 @@ export function LogoLink() {
     >
       {/* Logo SVG inline para que currentColor se adapte al tema */}
       <svg
-        width="140"
-        height="40"
-        viewBox="0 0 180 48"
+        width="180"
+        height="48"
+        viewBox="0 0 200 48"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="h-8 w-auto"
+        className="h-10 w-auto"
       >
          <style>{`
           @font-face {
@@ -53,8 +53,8 @@ export function LogoLink() {
         {/* Punto destacado (metrica/KPI) */}
         <circle cx="34" cy="15" r="3" fill="currentColor"/>
 
-        {/* Texto OMERIX */}
-        <text x="56" y="40" fontFamily="GameOfSquids" fontSize="24" fontWeight="700" fill="currentColor" letterSpacing="1">Tralok</text>
+        {/* Texto Tralok - mismo alto que el icono */}
+        <text x="54" y="38" fontFamily="GameOfSquids" fontSize="36" fontWeight="700" fill="currentColor" letterSpacing="1">Tralok</text>
       </svg>
     </a>
   )

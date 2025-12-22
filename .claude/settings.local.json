@@ -6,7 +6,8 @@
       "Bash(npm install:*)",
       "Bash(cat:*)",
       "Bash(ls:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npx tsc:*)"
     ]
   }
 }

@@ -50,6 +50,10 @@ import {
   CalendarDays,
   Timer,
   Fingerprint,
+  ArrowRightLeft,
+  ClipboardList,
+  Edit,
+  CheckSquare,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFavoritosContext } from '@/contexts/FavoritosContext'
@@ -75,6 +79,7 @@ const iconMap: { [key: string]: any } = {
   Layers, UtensilsCrossed, Printer, ChefHat, AlertTriangle, SlidersHorizontal,
   Grid3X3, Palette, Database, FileStack, CreditCard, Clock, Landmark,
   Briefcase, UserCog, Star, FolderKanban, CalendarDays, Timer, Fingerprint,
+  ArrowRightLeft, ClipboardList, Edit, CheckSquare,
 }
 
 // Tipo de permiso requerido para cada grupo
@@ -282,6 +287,25 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    group: 'Tareas',
+    icon: CheckSquare,
+    items: [
+      {
+        title: 'Tareas',
+        icon: CheckSquare,
+        children: [
+          { title: 'Listado tareas', href: '/tareas' },
+          { title: 'Nueva tarea', href: '/tareas/nuevo' },
+        ],
+      },
+      {
+        title: 'Planificacion',
+        href: '/planificacion',
+        icon: CalendarDays,
+      },
+    ],
+  },
+  {
     group: 'Almacenes',
     icon: Package,
     permiso: 'accesoAlmacen',
@@ -300,6 +324,37 @@ const menuGroups: MenuGroup[] = [
         title: 'Almacenes',
         href: '/almacenes',
         icon: Warehouse,
+      },
+      {
+        title: 'Stock Actual',
+        href: '/almacenes/stock',
+        icon: BarChart3,
+      },
+      {
+        title: 'Movimientos',
+        href: '/almacenes/movimientos',
+        icon: ArrowRightLeft,
+      },
+      {
+        title: 'Traspasos',
+        icon: Truck,
+        children: [
+          { title: 'Listado traspasos', href: '/almacenes/traspasos' },
+          { title: 'Nuevo traspaso', href: '/almacenes/traspasos/nuevo' },
+        ],
+      },
+      {
+        title: 'Inventarios',
+        icon: ClipboardList,
+        children: [
+          { title: 'Listado inventarios', href: '/almacenes/inventarios' },
+          { title: 'Nuevo inventario', href: '/almacenes/inventarios/nuevo' },
+        ],
+      },
+      {
+        title: 'Ajustes',
+        href: '/almacenes/ajustes/nuevo',
+        icon: Edit,
       },
       {
         title: 'Variantes',

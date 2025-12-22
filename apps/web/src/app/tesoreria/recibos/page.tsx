@@ -525,8 +525,8 @@ export default function RecibosPage() {
                       <TableCell>
                         <div>
                           <p className="font-medium">{recibo.clienteNombre}</p>
-                          {recibo.clienteNif && (
-                            <p className="text-sm text-muted-foreground">{recibo.clienteNif}</p>
+                          {recibo.clienteNIF && (
+                            <p className="text-sm text-muted-foreground">{recibo.clienteNIF}</p>
                           )}
                         </div>
                       </TableCell>

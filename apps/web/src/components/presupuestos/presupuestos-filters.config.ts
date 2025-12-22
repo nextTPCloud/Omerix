@@ -897,3 +897,141 @@ export const FICHAJES_FILTERABLE_FIELDS: FilterableField[] = [
     type: 'boolean',
   },
 ];
+
+// ============================================
+// MÓDULOS DE TESORERÍA
+// ============================================
+
+// Campos filtrables para el módulo de cobros (vencimientos tipo cobro)
+export const COBROS_FILTERABLE_FIELDS: FilterableField[] = [
+  {
+    key: 'numero',
+    label: 'Número',
+    type: 'text',
+    placeholder: 'Ej: VEN-C-24-00001',
+  },
+  {
+    key: 'terceroNombre',
+    label: 'Cliente',
+    type: 'text',
+    placeholder: 'Nombre del cliente',
+  },
+  {
+    key: 'terceroNif',
+    label: 'NIF Cliente',
+    type: 'text',
+    placeholder: 'Ej: B12345678',
+  },
+  {
+    key: 'documentoNumero',
+    label: 'Nº Factura',
+    type: 'text',
+    placeholder: 'Ej: FAC-2024-001',
+  },
+  {
+    key: 'estado',
+    label: 'Estado',
+    type: 'select',
+    options: [
+      { value: 'pendiente', label: 'Pendiente' },
+      { value: 'parcial', label: 'Parcial' },
+      { value: 'cobrado', label: 'Cobrado' },
+      { value: 'impagado', label: 'Impagado' },
+      { value: 'anulado', label: 'Anulado' },
+    ],
+  },
+  {
+    key: 'fechaVencimiento',
+    label: 'Fecha Vencimiento',
+    type: 'date',
+  },
+  {
+    key: 'fechaEmision',
+    label: 'Fecha Emisión',
+    type: 'date',
+  },
+  {
+    key: 'importe',
+    label: 'Importe',
+    type: 'currency',
+    placeholder: 'Ej: 1000',
+  },
+  {
+    key: 'importePendiente',
+    label: 'Pendiente',
+    type: 'currency',
+    placeholder: 'Ej: 500',
+  },
+  {
+    key: 'vencido',
+    label: 'Vencido',
+    type: 'boolean',
+  },
+];
+
+// Campos filtrables para el módulo de pagos (vencimientos tipo pago)
+export const PAGOS_FILTERABLE_FIELDS: FilterableField[] = [
+  {
+    key: 'numero',
+    label: 'Número',
+    type: 'text',
+    placeholder: 'Ej: VEN-P-24-00001',
+  },
+  {
+    key: 'terceroNombre',
+    label: 'Proveedor',
+    type: 'text',
+    placeholder: 'Nombre del proveedor',
+  },
+  {
+    key: 'terceroNif',
+    label: 'NIF Proveedor',
+    type: 'text',
+    placeholder: 'Ej: B12345678',
+  },
+  {
+    key: 'documentoNumero',
+    label: 'Nº Factura',
+    type: 'text',
+    placeholder: 'Ej: FC-2024-001',
+  },
+  {
+    key: 'estado',
+    label: 'Estado',
+    type: 'select',
+    options: [
+      { value: 'pendiente', label: 'Pendiente' },
+      { value: 'parcial', label: 'Parcial' },
+      { value: 'pagado', label: 'Pagado' },
+      { value: 'impagado', label: 'Impagado' },
+      { value: 'anulado', label: 'Anulado' },
+    ],
+  },
+  {
+    key: 'fechaVencimiento',
+    label: 'Fecha Vencimiento',
+    type: 'date',
+  },
+  {
+    key: 'fechaEmision',
+    label: 'Fecha Emisión',
+    type: 'date',
+  },
+  {
+    key: 'importe',
+    label: 'Importe',
+    type: 'currency',
+    placeholder: 'Ej: 1000',
+  },
+  {
+    key: 'importePendiente',
+    label: 'Pendiente',
+    type: 'currency',
+    placeholder: 'Ej: 500',
+  },
+  {
+    key: 'vencido',
+    label: 'Vencido',
+    type: 'boolean',
+  },
+];

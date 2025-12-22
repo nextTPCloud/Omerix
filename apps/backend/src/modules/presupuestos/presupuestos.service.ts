@@ -422,6 +422,7 @@ export class PresupuestosService {
       importeMax,
       vigentes,
       caducados,
+      porCaducar,
       tags,
     } = query;
 
@@ -505,6 +506,14 @@ export class PresupuestosService {
         { estado: EstadoPresupuesto.CADUCADO },
         { fechaValidez: { $lt: hoy }, estado: { $in: [EstadoPresupuesto.ENVIADO, EstadoPresupuesto.PENDIENTE] } },
       ];
+    }
+
+    // Proximos a caducar (en los proximos 7 dias)
+    if (porCaducar === 'true') {
+      const en7Dias = new Date();
+      en7Dias.setDate(en7Dias.getDate() + 7);
+      filter.fechaValidez = { $gte: hoy, $lte: en7Dias };
+      filter.estado = { $in: [EstadoPresupuesto.ENVIADO, EstadoPresupuesto.PENDIENTE] };
     }
 
     // Tags

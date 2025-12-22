@@ -1,19 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { CreditCard, Calendar, Percent, Loader2, ExternalLink, Tag } from 'lucide-react'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { toast } from 'sonner'
 import Link from 'next/link'
 
@@ -95,6 +89,33 @@ export function TabCondicionesPago({
   const terminoPagoSeleccionado = terminosPago.find(t => t._id === condiciones.terminoPagoId)
   const tarifaSeleccionada = tarifas.find(t => t._id === condiciones.tarifaId)
 
+  // Opciones para SearchableSelect
+  const formasPagoOptions = useMemo(() => {
+    return formasPago.map(forma => ({
+      value: forma._id,
+      label: forma.nombre,
+      description: forma.comision && forma.comision > 0 ? `${forma.comision}% comisión` : forma.tipo,
+    }))
+  }, [formasPago])
+
+  const terminosPagoOptions = useMemo(() => {
+    return terminosPago.map(termino => ({
+      value: termino._id,
+      label: termino.nombre,
+      description: termino.vencimientos.length === 1
+        ? `${termino.vencimientos[0].porcentaje}% a ${termino.vencimientos[0].dias === 0 ? 'contado' : `${termino.vencimientos[0].dias} días`}`
+        : `${termino.vencimientos.length} vencimientos`,
+    }))
+  }, [terminosPago])
+
+  const tarifasOptions = useMemo(() => {
+    return tarifas.map(tarifa => ({
+      value: tarifa._id,
+      label: tarifa.nombre,
+      description: tarifa.tipo === 'porcentaje' ? 'Descuento %' : 'Precios fijos',
+    }))
+  }, [tarifas])
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -116,34 +137,15 @@ export function TabCondicionesPago({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Forma de pago preferida</Label>
-            <Select
+            <SearchableSelect
+              options={formasPagoOptions}
               value={condiciones.formaPagoId || ''}
               onValueChange={(value) => handleChange('formaPagoId', value || undefined)}
+              placeholder="Selecciona una forma de pago"
+              emptyMessage="No hay formas de pago"
               disabled={readOnly}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona una forma de pago" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Sin especificar</SelectItem>
-                {formasPago.map((forma) => (
-                  <SelectItem key={forma._id} value={forma._id}>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: forma.color || '#3B82F6' }}
-                      />
-                      {forma.nombre}
-                      {forma.comision && forma.comision > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          ({forma.comision}% comision)
-                        </span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              allowClear
+            />
           </div>
 
           {/* Preview de forma de pago seleccionada */}
@@ -207,28 +209,15 @@ export function TabCondicionesPago({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Condiciones de vencimiento</Label>
-            <Select
+            <SearchableSelect
+              options={terminosPagoOptions}
               value={condiciones.terminoPagoId || ''}
               onValueChange={(value) => handleChange('terminoPagoId', value || undefined)}
+              placeholder="Selecciona un término de pago"
+              emptyMessage="No hay términos de pago"
               disabled={readOnly}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona un termino de pago" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Sin especificar</SelectItem>
-                {terminosPago.map((termino) => (
-                  <SelectItem key={termino._id} value={termino._id}>
-                    <div className="flex items-center gap-2">
-                      {termino.nombre}
-                      <span className="text-xs text-muted-foreground">
-                        ({termino.vencimientos.length} vencimiento{termino.vencimientos.length !== 1 ? 's' : ''})
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              allowClear
+            />
           </div>
 
           {/* Preview de termino de pago seleccionado */}
@@ -283,28 +272,15 @@ export function TabCondicionesPago({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Tarifa asignada al cliente</Label>
-            <Select
+            <SearchableSelect
+              options={tarifasOptions}
               value={condiciones.tarifaId || ''}
               onValueChange={(value) => handleChange('tarifaId', value || undefined)}
+              placeholder="Sin tarifa (precio de producto)"
+              emptyMessage="No hay tarifas"
               disabled={readOnly}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sin tarifa (precio de producto)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Sin tarifa (usar precio del producto)</SelectItem>
-                {tarifas.map((tarifa) => (
-                  <SelectItem key={tarifa._id} value={tarifa._id}>
-                    <div className="flex items-center gap-2">
-                      {tarifa.nombre}
-                      <span className="text-xs text-muted-foreground">
-                        ({tarifa.tipo === 'porcentaje' ? 'descuento %' : 'precios fijos'})
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              allowClear
+            />
             <p className="text-xs text-muted-foreground">
               La tarifa define precios especiales para este cliente en presupuestos, pedidos y facturas
             </p>

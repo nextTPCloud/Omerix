@@ -21,6 +21,11 @@ import productosRoutes from './modules/productos/productos.routes';
 import familiasRoutes from './modules/familias/familias.routes';
 import tiposImpuestoRoutes from './modules/tipos-impuesto/tipos-impuesto.routes';
 import almacenesRoutes from './modules/almacenes/almacenes.routes';
+import stockRoutes from './modules/stock/stock.routes';
+import traspasosRoutes from './modules/traspasos/traspasos.routes';
+import inventariosRoutes from './modules/inventarios/inventarios.routes';
+import tareasRoutes from './modules/tareas/tareas.routes';
+import planificacionRoutes from './modules/planificacion/planificacion.routes';
 import configuracionUsuarioRoutes from './modules/configuracion-usuario/configuracion-usuario.routes';
 import vistas from './modules/vistasGuardadas/vistas-guardadas.routes';
 import exportRoutes from './modules/export/export.routes';
@@ -293,6 +298,11 @@ app.use('/api/productos', productosRoutes);
 app.use('/api/familias', familiasRoutes);
 app.use('/api/tipos-impuesto', tiposImpuestoRoutes);
 app.use('/api/almacenes', almacenesRoutes);
+app.use('/api/stock', stockRoutes);
+app.use('/api/traspasos', traspasosRoutes);
+app.use('/api/inventarios', inventariosRoutes);
+app.use('/api/tareas', tareasRoutes);
+app.use('/api/planificacion', planificacionRoutes);
 app.use('/api/pagos', pagosRoutes); // ← AÑADIR
 app.use('/api/configuraciones', configuracionUsuarioRoutes);
 app.use('/api/vistas-guardadas',vistas)

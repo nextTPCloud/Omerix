@@ -5,6 +5,10 @@ import { Toaster } from "@/components/ui/sonner";
 import { SkinProvider } from "@/contexts/SkinContext";
 import { PermissionsProvider } from "@/contexts/PermissionsContext";
 
+// Forzar renderizado dinamico para toda la aplicacion
+// ya que es un SaaS que siempre requiere datos de servidor
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {

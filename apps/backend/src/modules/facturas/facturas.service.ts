@@ -33,6 +33,7 @@ import {
   getUserModel,
   getSerieDocumentoModel,
   getPresupuestoModel,
+  getTerminoPagoModel,
 } from '@/utils/dynamic-models.helper';
 import { EstadoAlbaran, TipoAlbaran } from '../albaranes/Albaran';
 import { EstadoPresupuesto } from '../presupuestos/Presupuesto';
@@ -292,26 +293,39 @@ export class FacturasService {
       direccionFacturacion: createFacturaDto.direccionFacturacion,
     };
 
-    if (createFacturaDto.clienteId && (!clienteData.clienteNombre || !clienteData.clienteNif)) {
+    // Variable para almacenar el término de pago del cliente
+    let terminoPagoCliente: any = null;
+
+    // Cargar cliente para obtener datos y término de pago
+    if (createFacturaDto.clienteId) {
       const cliente = await ClienteModel.findById(createFacturaDto.clienteId).lean();
       if (cliente) {
-        const direccionFiscal = (cliente as any).direcciones?.find((d: any) => d.tipo === 'fiscal') || (cliente as any).direccion;
-        clienteData = {
-          clienteNombre: clienteData.clienteNombre || (cliente as any).nombre,
-          clienteNif: clienteData.clienteNif || (cliente as any).nif,
-          clienteEmail: clienteData.clienteEmail || (cliente as any).email,
-          clienteTelefono: clienteData.clienteTelefono || (cliente as any).telefono,
-          direccionFacturacion: clienteData.direccionFacturacion || {
-            nombre: (cliente as any).nombre,
-            calle: direccionFiscal?.calle,
-            numero: direccionFiscal?.numero,
-            piso: direccionFiscal?.piso,
-            codigoPostal: direccionFiscal?.codigoPostal,
-            ciudad: direccionFiscal?.ciudad,
-            provincia: direccionFiscal?.provincia,
-            pais: direccionFiscal?.pais || 'España',
-          },
-        };
+        // Completar datos del cliente si faltan
+        if (!clienteData.clienteNombre || !clienteData.clienteNif) {
+          const direccionFiscal = (cliente as any).direcciones?.find((d: any) => d.tipo === 'fiscal') || (cliente as any).direccion;
+          clienteData = {
+            clienteNombre: clienteData.clienteNombre || (cliente as any).nombre,
+            clienteNif: clienteData.clienteNif || (cliente as any).nif,
+            clienteEmail: clienteData.clienteEmail || (cliente as any).email,
+            clienteTelefono: clienteData.clienteTelefono || (cliente as any).telefono,
+            direccionFacturacion: clienteData.direccionFacturacion || {
+              nombre: (cliente as any).nombre,
+              calle: direccionFiscal?.calle,
+              numero: direccionFiscal?.numero,
+              piso: direccionFiscal?.piso,
+              codigoPostal: direccionFiscal?.codigoPostal,
+              ciudad: direccionFiscal?.ciudad,
+              provincia: direccionFiscal?.provincia,
+              pais: direccionFiscal?.pais || 'España',
+            },
+          };
+        }
+
+        // Cargar término de pago del cliente si existe
+        if ((cliente as any).terminoPagoId) {
+          const TerminoPagoModel = await getTerminoPagoModel(String(empresaId), dbConfig);
+          terminoPagoCliente = await TerminoPagoModel.findById((cliente as any).terminoPagoId).lean();
+        }
       }
     }
 
@@ -340,25 +354,49 @@ export class FacturasService {
       createFacturaDto.retencionIRPF || 0
     );
 
-    // Calcular fecha de vencimiento por defecto (30 días)
-    const fechaVencimiento = createFacturaDto.fechaVencimiento
-      ? new Date(createFacturaDto.fechaVencimiento)
-      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    // Generar vencimientos según el término de pago o por defecto
+    let vencimientos: any[] = [];
+    let fechaVencimiento: Date;
+    const fechaFactura = createFacturaDto.fecha ? new Date(createFacturaDto.fecha) : new Date();
 
-    // Crear vencimientos si no vienen
-    const vencimientos = createFacturaDto.vencimientos?.length
-      ? createFacturaDto.vencimientos.map((v, i) => ({
-          ...v,
+    if (createFacturaDto.vencimientos?.length) {
+      // Si vienen vencimientos explícitos, usarlos
+      vencimientos = createFacturaDto.vencimientos.map((v, i) => ({
+        ...v,
+        numero: i + 1,
+        cobrado: false,
+      }));
+      fechaVencimiento = new Date(vencimientos[0].fecha);
+    } else if (terminoPagoCliente && terminoPagoCliente.vencimientos?.length) {
+      // Generar vencimientos según el término de pago del cliente
+      vencimientos = terminoPagoCliente.vencimientos.map((v: any, i: number) => {
+        const fechaVenc = new Date(fechaFactura);
+        fechaVenc.setDate(fechaVenc.getDate() + v.dias);
+        const importe = Math.round((totales.totalFactura * v.porcentaje / 100) * 100) / 100;
+
+        return {
           numero: i + 1,
-          cobrado: false,
-        }))
-      : [{
-          numero: 1,
-          fecha: fechaVencimiento,
-          importe: totales.totalFactura,
+          fecha: fechaVenc,
+          importe,
           metodoPago: MetodoPago.TRANSFERENCIA,
           cobrado: false,
-        }];
+        };
+      });
+      fechaVencimiento = new Date(vencimientos[0].fecha);
+    } else {
+      // Por defecto: un único vencimiento a 30 días
+      fechaVencimiento = createFacturaDto.fechaVencimiento
+        ? new Date(createFacturaDto.fechaVencimiento)
+        : new Date(fechaFactura.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      vencimientos = [{
+        numero: 1,
+        fecha: fechaVencimiento,
+        importe: totales.totalFactura,
+        metodoPago: MetodoPago.TRANSFERENCIA,
+        cobrado: false,
+      }];
+    }
 
     // Crear factura
     const factura = new FacturaModel({

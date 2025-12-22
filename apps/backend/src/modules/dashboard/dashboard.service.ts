@@ -1069,7 +1069,7 @@ export class DashboardService {
         descripcion: `${presupuestosCaducados} presupuesto(s) han caducado`,
         prioridad: 'urgente',
         tipo: 'ventas',
-        url: '/ventas/presupuestos',
+        url: '/presupuestos?caducado=si',
       });
     }
 
@@ -1086,7 +1086,7 @@ export class DashboardService {
         descripcion: `${presupuestosPorCaducar} presupuesto(s) caducan pronto`,
         prioridad: 'media',
         tipo: 'ventas',
-        url: '/ventas/presupuestos',
+        url: '/presupuestos?caducado=pronto',
       });
     }
 
@@ -1112,7 +1112,7 @@ export class DashboardService {
       })
         .sort({ createdAt: -1 })
         .limit(10)
-        .select('codigo personalNombre proyectoNombre horasTrabajadas estado')
+        .select('codigo titulo tipo estado prioridad clienteNombre proyectoNombre responsableNombre horasTrabajadas totales.ventaTotal')
         .lean(),
       ParteTrabajo.aggregate([
         {

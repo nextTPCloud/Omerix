@@ -251,6 +251,7 @@ export const SearchPresupuestosSchema = z.object({
   // Filtro de vigentes
   vigentes: z.enum(['true', 'false']).optional(),
   caducados: z.enum(['true', 'false']).optional(),
+  porCaducar: z.enum(['true', 'false']).optional(),
 
   // Tags
   tags: z.string().optional(),

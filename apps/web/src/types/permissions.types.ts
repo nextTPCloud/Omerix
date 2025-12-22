@@ -56,6 +56,7 @@ export type RecursoSistema =
   | 'pedidos'
   | 'albaranes'
   | 'facturas'
+  | 'ofertas'
   | 'presupuestos-compra'
   | 'pedidos-compra'
   | 'albaranes-compra'
@@ -76,7 +77,13 @@ export type RecursoSistema =
   | 'calendarios'
   | 'turnos'
   | 'fichajes'
-  | 'terminales';
+  | 'terminales'
+  | 'tareas'
+  | 'planificacion'
+  | 'traspasos'
+  | 'inventarios'
+  | 'ajustes-stock'
+  | 'tarifas';
 
 /**
  * Permisos por recurso
@@ -230,6 +237,7 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       pedidos: ['create', 'read', 'update', 'delete', 'export'],
       albaranes: ['create', 'read', 'update', 'delete', 'export'],
       facturas: ['create', 'read', 'update', 'delete', 'export'],
+      ofertas: ['create', 'read', 'update', 'delete', 'export'],
       'presupuestos-compra': ['create', 'read', 'update', 'delete', 'export'],
       'pedidos-compra': ['create', 'read', 'update', 'delete', 'export'],
       'albaranes-compra': ['create', 'read', 'update', 'delete', 'export'],
@@ -251,6 +259,12 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       turnos: ['create', 'read', 'update', 'delete'],
       fichajes: ['create', 'read', 'update', 'delete', 'export'],
       terminales: ['create', 'read', 'update', 'delete'],
+      tareas: ['create', 'read', 'update', 'delete', 'export'],
+      planificacion: ['create', 'read', 'update', 'delete', 'export'],
+      traspasos: ['create', 'read', 'update', 'delete', 'export'],
+      inventarios: ['create', 'read', 'update', 'delete', 'export'],
+      'ajustes-stock': ['create', 'read', 'update', 'delete', 'export'],
+      tarifas: ['create', 'read', 'update', 'delete', 'export'],
     },
   },
   admin: {
@@ -264,6 +278,7 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       pedidos: ['create', 'read', 'update', 'delete', 'export'],
       albaranes: ['create', 'read', 'update', 'delete', 'export'],
       facturas: ['create', 'read', 'update', 'delete', 'export'],
+      ofertas: ['create', 'read', 'update', 'delete', 'export'],
       'presupuestos-compra': ['create', 'read', 'update', 'delete', 'export'],
       'pedidos-compra': ['create', 'read', 'update', 'delete', 'export'],
       'albaranes-compra': ['create', 'read', 'update', 'delete', 'export'],
@@ -285,6 +300,12 @@ export const ROLE_PERMISSIONS: Record<string, { resources: Partial<Record<Recurs
       turnos: ['create', 'read', 'update', 'delete'],
       fichajes: ['create', 'read', 'update', 'delete', 'export'],
       terminales: ['create', 'read', 'update', 'delete'],
+      tareas: ['create', 'read', 'update', 'delete', 'export'],
+      planificacion: ['create', 'read', 'update', 'delete', 'export'],
+      traspasos: ['create', 'read', 'update', 'delete', 'export'],
+      inventarios: ['create', 'read', 'update', 'delete', 'export'],
+      'ajustes-stock': ['create', 'read', 'update', 'delete', 'export'],
+      tarifas: ['create', 'read', 'update', 'delete', 'export'],
     },
   },
   gerente: {

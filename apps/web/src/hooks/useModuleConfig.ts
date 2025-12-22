@@ -303,12 +303,41 @@ export function useModuleConfig(
     };
   }, []);
 
+  /**
+   * Toggle visibilidad de una columna específica
+   */
+  const toggleColumna = useCallback(
+    (key: string) => {
+      if (!config) return;
+
+      const newColumnas = config.columnas.map((col) => {
+        if (col.key === key) {
+          // Verificar que quede al menos una columna visible
+          const visibleCount = config.columnas.filter((c) => c.visible).length;
+          if (col.visible && visibleCount <= 1) {
+            toast.warning('Debe haber al menos una columna visible');
+            return col;
+          }
+          return { ...col, visible: !col.visible };
+        }
+        return col;
+      });
+
+      updateColumnas(newColumnas);
+    },
+    [config, updateColumnas]
+  );
+
+  // Helper para obtener densidad con fallback
+  const densidad = config?.densidad || 'normal';
+
   return {
     // Estado
     config,
     isLoading,
     isSaving,
     error,
+    densidad,
 
     // Métodos de actualización
     updateConfig,
@@ -319,6 +348,7 @@ export function useModuleConfig(
     updateAdvancedFilters,
     updatePaginationLimit,
     updateDensidad,
+    toggleColumna,
 
     // Métodos de gestión
     resetConfig,

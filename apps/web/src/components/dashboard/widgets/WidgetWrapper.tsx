@@ -59,13 +59,13 @@ export function WidgetWrapper({
   return (
     <Card
       className={cn(
-        'h-full transition-shadow duration-200',
+        'h-full flex flex-col overflow-hidden transition-shadow duration-200',
         isDragging && 'shadow-xl ring-2 ring-primary/50',
         isExpanded && 'fixed inset-4 z-50',
         className
       )}
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-3">
+      <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-3">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab flex-shrink-0" />
           <div className="min-w-0">
@@ -134,7 +134,7 @@ export function WidgetWrapper({
         </div>
       </CardHeader>
 
-      <CardContent className="px-4 pb-4 pt-0">
+      <CardContent className="flex-1 overflow-auto px-4 pb-4 pt-0">
         {error ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[100px] text-center">
             <p className="text-sm text-red-500 mb-2">{error}</p>
@@ -146,7 +146,9 @@ export function WidgetWrapper({
             )}
           </div>
         ) : (
-          children
+          <div className="h-full">
+            {children}
+          </div>
         )}
       </CardContent>
     </Card>

@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Card } from '@/components/ui/card'
@@ -29,7 +29,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { toast } from 'sonner'
 import { Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
 
-export default function EmpresasListPage() {
+function EmpresasListContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuthStore()
@@ -224,5 +224,20 @@ export default function EmpresasListPage() {
         </Card>
       </div>
     </DashboardLayout>
+  )
+}
+
+export default function EmpresasListPage() {
+  return (
+    <Suspense fallback={
+      <DashboardLayout>
+        <div className="p-8 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-sm text-muted-foreground">Cargando...</p>
+        </div>
+      </DashboardLayout>
+    }>
+      <EmpresasListContent />
+    </Suspense>
   )
 }

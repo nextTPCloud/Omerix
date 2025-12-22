@@ -115,8 +115,10 @@ export interface IGenerarRecibosDesdeVencimientosDTO {
 }
 
 export interface ICrearRemesaDTO {
+  nombre?: string;
   reciboIds: string[];
   fechaRemesa?: string;
+  fechaCargo?: string;
   cuentaBancariaEmpresaId?: string;
 }
 

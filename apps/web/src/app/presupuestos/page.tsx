@@ -1,8 +1,10 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useReactToPrint } from 'react-to-print'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { presupuestosService } from '@/services/presupuestos.service'
@@ -166,8 +168,10 @@ const DEFAULT_CONFIG = {
 
 export default function PresupuestosPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { canCreate, canDelete } = usePermissions()
   const isInitialLoad = useRef(true)
+  const urlParamsApplied = useRef(false)
 
   // Estados de datos
   const [presupuestos, setPresupuestos] = useState<IPresupuesto[]>([])
@@ -483,6 +487,36 @@ const {
     isInitialLoad.current = false
 
   }, [moduleConfig, isLoadingConfig])
+
+  // ============================================
+  // APLICAR FILTROS DESDE URL (caducado=si, caducado=pronto)
+  // ============================================
+  useEffect(() => {
+    if (urlParamsApplied.current) return
+
+    const caducadoParam = searchParams.get('caducado')
+    if (caducadoParam) {
+      urlParamsApplied.current = true
+
+      if (caducadoParam === 'si') {
+        // Presupuestos caducados
+        setFilters((prev: any) => ({
+          ...prev,
+          caducados: 'true',
+          activo: undefined,
+        }))
+        toast.info('Mostrando presupuestos caducados')
+      } else if (caducadoParam === 'pronto') {
+        // Presupuestos proximos a caducar
+        setFilters((prev: any) => ({
+          ...prev,
+          porCaducar: 'true',
+          activo: undefined,
+        }))
+        toast.info('Mostrando presupuestos proximos a caducar')
+      }
+    }
+  }, [searchParams])
 
   // ============================================
   // GUARDAR FILTROS AVANZADOS CUANDO CAMBIAN

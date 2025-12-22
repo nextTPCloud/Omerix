@@ -68,7 +68,8 @@ export function ChartWidget({
   const mostrarEjes = widget.config.mostrarEjes !== false
   const colores = widget.config.colores || COLORES_DEFAULT
 
-  const formatTooltip = (value: number) => {
+  const formatTooltip = (value: number | undefined) => {
+    if (value === undefined) return '-'
     if (widget.config.formato === 'moneda') {
       return formatCurrency(value)
     }
@@ -201,7 +202,7 @@ export function ChartWidget({
               dataKey={pieKey}
               nameKey="name"
               label={({ name, percent }) =>
-                `${name}: ${(percent * 100).toFixed(0)}%`
+                `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`
               }
               labelLine={false}
             >
@@ -283,7 +284,7 @@ export function ChartWidget({
       onConfigure={onConfigure}
       onRemove={onRemove}
     >
-      <div className="h-[200px] w-full">
+      <div className="h-full w-full min-h-[120px]">
         <ResponsiveContainer width="100%" height="100%">
           {renderChart()}
         </ResponsiveContainer>

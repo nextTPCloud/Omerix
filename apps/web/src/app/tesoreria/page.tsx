@@ -366,7 +366,7 @@ export default function TesoreriaPage() {
                       />
                       <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
                       <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
+                        formatter={(value) => formatCurrency(value as number)}
                         labelFormatter={(label) => formatDate(label)}
                       />
                       <Legend />
@@ -415,7 +415,7 @@ export default function TesoreriaPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="periodo" />
                         <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                        <Tooltip formatter={(value) => formatCurrency(value as number)} />
                         <Legend />
                         <Bar dataKey="cobros" name="Cobros" fill="#10b981" />
                         <Bar dataKey="pagos" name="Pagos" fill="#ef4444" />
@@ -446,7 +446,7 @@ export default function TesoreriaPage() {
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                        <Tooltip formatter={(value) => formatCurrency(value as number)} />
                         <Legend />
                       </PieChart>
                     </ResponsiveContainer>
@@ -472,7 +472,7 @@ export default function TesoreriaPage() {
                       />
                       <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
                       <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
+                        formatter={(value) => formatCurrency(value as number)}
                         labelFormatter={(label) => formatDate(label)}
                       />
                       <Legend />

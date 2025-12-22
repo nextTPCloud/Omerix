@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 interface Column {
   key: string
   label: string
+  render?: (value: any, row?: any) => React.ReactNode | string
 }
 
 interface Stat {
@@ -248,7 +249,10 @@ export function PrintButton({
                   <tr key={idx}>
                     {columns.map((col) => (
                       <td key={col.key}>
-                        {formatValue(row[col.key], col.key)}
+                        {col.render
+                          ? col.render(row[col.key], row)
+                          : formatValue(row[col.key], col.key)
+                        }
                       </td>
                     ))}
                   </tr>

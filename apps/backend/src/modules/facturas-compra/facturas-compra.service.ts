@@ -14,10 +14,13 @@ import {
   getUserModel,
   getAlbaranCompraModel,
   getPedidoCompraModel,
+  getTerminoPagoModel,
 } from '@/utils/dynamic-models.helper';
 import { databaseManager } from '@/services/database-manager.service';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 import { EstadoAlbaranCompra } from '../albaranes-compra/AlbaranCompra';
+import { vencimientosService } from '@/modules/tesoreria/vencimientos.service';
+import { TipoVencimiento, TipoDocumentoOrigen } from '@/models/Vencimiento';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -179,6 +182,9 @@ export class FacturasCompraService {
       proveedorDireccion: dto.proveedorDireccion,
     };
 
+    // Variable para almacenar el término de pago del proveedor
+    let terminoPagoProveedor: any = null;
+
     if (dto.proveedorId) {
       const proveedor = await ProveedorModel.findById(dto.proveedorId);
       if (proveedor) {
@@ -190,6 +196,12 @@ export class FacturasCompraService {
           proveedorDireccion: proveedor.direcciones?.[0] ?
             `${proveedor.direcciones[0].calle}, ${proveedor.direcciones[0].ciudad}` : undefined,
         };
+
+        // Cargar término de pago del proveedor si existe
+        if ((proveedor as any).terminoPagoId) {
+          const TerminoPagoModel = await getTerminoPagoModel(String(empresaId), dbConfig);
+          terminoPagoProveedor = await TerminoPagoModel.findById((proveedor as any).terminoPagoId).lean();
+        }
       }
     }
 
@@ -212,17 +224,35 @@ export class FacturasCompraService {
     const descuentoGlobalPorcentaje = dto.descuentoGlobalPorcentaje || 0;
     const totales = this.calcularTotales(lineasProcesadas, descuentoGlobalPorcentaje);
 
-    // Generar vencimientos si no se proporcionan
+    // Generar vencimientos según el término de pago o por defecto
     let vencimientos = dto.vencimientos || [];
+    const fechaFactura = dto.fecha ? new Date(dto.fecha) : new Date();
+
     if (vencimientos.length === 0) {
-      // Un solo vencimiento con el total de la factura
-      const fechaVencimiento = dto.fechaVencimiento || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      vencimientos = [{
-        numero: 1,
-        fechaVencimiento,
-        importe: totales.totalFactura,
-        formaPagoId: dto.formaPagoId,
-      }];
+      if (terminoPagoProveedor && terminoPagoProveedor.vencimientos?.length) {
+        // Generar vencimientos según el término de pago del proveedor
+        vencimientos = terminoPagoProveedor.vencimientos.map((v: any, i: number) => {
+          const fechaVenc = new Date(fechaFactura);
+          fechaVenc.setDate(fechaVenc.getDate() + v.dias);
+          const importe = Math.round((totales.totalFactura * v.porcentaje / 100) * 100) / 100;
+
+          return {
+            numero: i + 1,
+            fechaVencimiento: fechaVenc,
+            importe,
+            formaPagoId: dto.formaPagoId,
+          };
+        });
+      } else {
+        // Por defecto: un solo vencimiento con el total de la factura a 30 días
+        const fechaVencimiento = dto.fechaVencimiento || new Date(fechaFactura.getTime() + 30 * 24 * 60 * 60 * 1000);
+        vencimientos = [{
+          numero: 1,
+          fechaVencimiento,
+          importe: totales.totalFactura,
+          formaPagoId: dto.formaPagoId,
+        }];
+      }
     }
 
     // Crear factura
@@ -270,6 +300,35 @@ export class FacturasCompraService {
     });
 
     await factura.save();
+
+    // Crear vencimientos en la colección de Vencimientos (tesorería)
+    try {
+      if (factura.vencimientos && factura.vencimientos.length > 0) {
+        const vencimientosData = factura.vencimientos.map((v: any) => ({
+          tipo: TipoVencimiento.PAGO,
+          documentoOrigen: TipoDocumentoOrigen.FACTURA_COMPRA,
+          documentoId: factura._id,
+          documentoNumero: factura.codigo,
+          proveedorId: factura.proveedorId,
+          terceroNombre: factura.proveedorNombre || proveedorData.proveedorNombre,
+          terceroNif: factura.proveedorNif || proveedorData.proveedorNif,
+          importe: v.importe,
+          fechaEmision: factura.fecha,
+          fechaVencimiento: v.fechaVencimiento,
+          formaPagoId: dto.formaPagoId,
+          observaciones: `Vencimiento ${v.numero} de factura compra ${factura.codigo}`,
+        }));
+
+        await vencimientosService.createMultiple(
+          String(empresaId),
+          vencimientosData,
+          dbConfig
+        );
+      }
+    } catch (error) {
+      console.error('Error creando vencimientos en tesorería:', error);
+      // No lanzamos error para no bloquear la creación de la factura
+    }
 
     return factura;
   }

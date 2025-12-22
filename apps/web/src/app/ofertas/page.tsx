@@ -564,7 +564,7 @@ export default function OfertasPage() {
                   {isColumnVisible('tipo') && (
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                       <TableSelect
-                        label="Tipo"
+                        placeholder="Tipo"
                         value={String(columnFilters.tipo || 'all')}
                         options={[
                           { value: 'all', label: 'Todos' },
@@ -573,7 +573,7 @@ export default function OfertasPage() {
                           { value: TipoOferta.DESCUENTO_PORCENTAJE, label: 'Descuento %' },
                           { value: TipoOferta.PRECIO_ESPECIAL, label: 'Precio especial' },
                         ]}
-                        onChange={(val) => handleColumnFilterChange('tipo', val)}
+                        onValueChange={(val) => handleColumnFilterChange('tipo', val)}
                       />
                     </th>
                   )}
@@ -595,14 +595,14 @@ export default function OfertasPage() {
                   {isColumnVisible('activo') && (
                     <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                       <TableSelect
-                        label="Estado"
+                        placeholder="Estado"
                         value={String(columnFilters.activo || 'true')}
                         options={[
                           { value: 'all', label: 'Todos' },
                           { value: 'true', label: 'Activas' },
                           { value: 'false', label: 'Inactivas' },
                         ]}
-                        onChange={(val) => handleColumnFilterChange('activo', val)}
+                        onValueChange={(val) => handleColumnFilterChange('activo', val)}
                       />
                     </th>
                   )}

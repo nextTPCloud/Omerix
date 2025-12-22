@@ -28,7 +28,7 @@ export const COLUMNAS_LINEAS: ColumnaLineaDefinition[] = [
   {
     key: 'tipo',
     label: 'Tipo',
-    width: 80,
+    width: 75,
     gridSpan: 1,
     align: 'left',
     editable: true,
@@ -36,7 +36,7 @@ export const COLUMNAS_LINEAS: ColumnaLineaDefinition[] = [
   {
     key: 'codigo',
     label: 'Código',
-    width: 80,
+    width: 75,
     gridSpan: 1,
     align: 'left',
     editable: false,
@@ -44,15 +44,15 @@ export const COLUMNAS_LINEAS: ColumnaLineaDefinition[] = [
   {
     key: 'nombre',
     label: 'Producto / Descripción',
-    width: 200,
-    gridSpan: 3,
+    width: 320,
+    gridSpan: 4,
     align: 'left',
     editable: true,
   },
   {
     key: 'cantidad',
     label: 'Cant.',
-    width: 70,
+    width: 65,
     gridSpan: 1,
     align: 'right',
     editable: true,

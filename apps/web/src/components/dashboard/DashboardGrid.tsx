@@ -2,7 +2,18 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
-import type { Layout } from 'react-grid-layout/legacy'
+// Layout type for react-grid-layout
+interface RGLLayout {
+  i: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  maxW?: number;
+  minH?: number;
+  maxH?: number;
+}
 import { Button } from '@/components/ui/button'
 import { RefreshCw, Settings, Plus, LayoutGrid, RotateCcw, Save, Lock, Unlock } from 'lucide-react'
 import {
@@ -29,6 +40,7 @@ import { KPIWidget } from './widgets/KPIWidget'
 import { ChartWidget } from './widgets/ChartWidget'
 import { ListWidget } from './widgets/ListWidget'
 import { QuickLinksWidget } from './widgets/QuickLinksWidget'
+import { TareasWidget } from './widgets/TareasWidget'
 
 // Iconos para KPIs
 import {
@@ -197,8 +209,11 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
   }, [dashboard])
 
   // Manejar cambio de layout (drag/resize)
-  const handleLayoutChange = useCallback((newLayout: Layout[]) => {
+  const handleLayoutChange = useCallback((layout: any, layouts: any) => {
     if (!dashboard || !editMode) return
+
+    // Use the current breakpoint layout or fallback to the provided layout
+    const newLayout = layout as RGLLayout[]
 
     const updatedWidgets = dashboard.widgets.map((widget) => {
       const layoutItem = newLayout.find((l) => l.i === widget.id)
@@ -546,19 +561,9 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
 
       case TipoWidget.TAREAS_PENDIENTES:
         return (
-          <ListWidget
-            {...commonProps}
-            titulo="Tareas Pendientes"
-            data={data?.datos?.map((t: any) => ({
-              id: t.id,
-              titulo: t.titulo,
-              subtitulo: t.subtitulo,
-              fecha: t.fecha,
-              icono: 'document' as const,
-              url: t.url,
-              badge: { texto: t.tipo, variante: 'secondary' as const },
-            }))}
-            emptyMessage="Sin tareas pendientes"
+          <TareasWidget
+            widget={widget}
+            onRemove={editMode ? () => handleRemoveWidget(widget.id) : undefined}
           />
         )
 
@@ -600,16 +605,36 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
         )
 
       case TipoWidget.PARTES_TRABAJO_HOY:
+        const getTipoBadge = (tipo: string) => {
+          const tipos: Record<string, string> = {
+            mantenimiento: 'Mant.',
+            instalacion: 'Inst.',
+            reparacion: 'Rep.',
+            servicio: 'Serv.',
+            proyecto: 'Proy.',
+            otro: 'Otro',
+          }
+          return tipos[tipo] || tipo
+        }
+        const getPrioridadVariante = (prioridad: string) => {
+          if (prioridad === 'urgente' || prioridad === 'alta') return 'destructive' as const
+          return 'secondary' as const
+        }
         return (
           <ListWidget
             {...commonProps}
             titulo="Partes de Trabajo Hoy"
             data={data?.datos?.partes?.map((p: any) => ({
               id: p._id,
-              titulo: p.personalNombre || p.codigo,
-              subtitulo: p.proyectoNombre,
-              valor: p.horasTrabajadas,
-              icono: 'user' as const,
+              titulo: p.titulo || p.codigo,
+              subtitulo: `${p.clienteNombre}${p.proyectoNombre ? ` - ${p.proyectoNombre}` : ''}`,
+              valor: p.totales?.ventaTotal || p.horasTrabajadas,
+              icono: 'document' as const,
+              url: `/partes-trabajo/${p._id}`,
+              badge: p.tipo ? {
+                texto: getTipoBadge(p.tipo),
+                variante: getPrioridadVariante(p.prioridad),
+              } : undefined,
             }))}
             emptyMessage="Sin partes de trabajo"
           />
@@ -813,7 +838,7 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
         layouts={{ lg: layout }}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-        rowHeight={120}
+        rowHeight={150}
         isDraggable={editMode}
         isResizable={editMode}
         onLayoutChange={handleLayoutChange}

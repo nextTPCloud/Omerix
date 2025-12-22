@@ -70,13 +70,13 @@ export function ListWidget({
       onConfigure={onConfigure}
       onRemove={onRemove}
     >
-      <ScrollArea className="h-[200px]">
+      <ScrollArea className="h-full">
         {!data || data.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+          <div className="flex items-center justify-center h-full min-h-[100px] text-muted-foreground text-sm">
             {emptyMessage}
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-1 pr-2">
             {data.slice(0, limite).map((item) => {
               const Icono = item.icono ? ICONOS[item.icono] : FileText
 
