@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { planificacionController } from './planificacion.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { authMiddleware, requireModuleAccess } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 
 const router = Router();
@@ -8,6 +8,9 @@ const router = Router();
 // Aplicar middleware
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+
+// Verificar acceso al módulo de RRHH
+router.use(requireModuleAccess('accesoRRHH'));
 
 /**
  * @swagger
@@ -27,6 +30,12 @@ router.get('/sugerir-codigo', planificacionController.sugerirCodigo.bind(planifi
  * Obtener resumen semanal de planificacion
  */
 router.get('/resumen-semanal', planificacionController.obtenerResumenSemanal.bind(planificacionController));
+
+/**
+ * GET /api/planificacion/vista-completa
+ * Obtener vista completa de la semana con partes de trabajo y tareas
+ */
+router.get('/vista-completa', planificacionController.obtenerVistaCompleta.bind(planificacionController));
 
 /**
  * GET /api/planificacion/empleado/:personalId
@@ -93,5 +102,11 @@ router.post('/:id/copiar-semana', planificacionController.copiarSemana.bind(plan
  * Eliminar planificacion
  */
 router.delete('/:id', planificacionController.eliminar.bind(planificacionController));
+
+/**
+ * POST /api/planificacion/enviar-email
+ * Enviar planificacion por email a empleados
+ */
+router.post('/enviar-email', planificacionController.enviarPorEmail.bind(planificacionController));
 
 export default router;

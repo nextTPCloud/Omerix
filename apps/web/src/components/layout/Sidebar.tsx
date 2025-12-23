@@ -54,6 +54,7 @@ import {
   ClipboardList,
   Edit,
   CheckSquare,
+  FileBarChart,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFavoritosContext } from '@/contexts/FavoritosContext'
@@ -79,7 +80,7 @@ const iconMap: { [key: string]: any } = {
   Layers, UtensilsCrossed, Printer, ChefHat, AlertTriangle, SlidersHorizontal,
   Grid3X3, Palette, Database, FileStack, CreditCard, Clock, Landmark,
   Briefcase, UserCog, Star, FolderKanban, CalendarDays, Timer, Fingerprint,
-  ArrowRightLeft, ClipboardList, Edit, CheckSquare,
+  ArrowRightLeft, ClipboardList, Edit, CheckSquare, FileBarChart,
 }
 
 // Tipo de permiso requerido para cada grupo
@@ -423,17 +424,6 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    group: 'Informes',
-    icon: BarChart3,
-    items: [
-      {
-        title: 'Reportes',
-        href: '/reportes',
-        icon: BarChart3,
-      },
-    ],
-  },
-  {
     group: 'Sistema',
     icon: Settings,
     permiso: 'accederConfiguracion',
@@ -546,6 +536,23 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
               >
                 <Home className="h-4 w-4 flex-shrink-0" />
                 {!isCollapsed && <span>Dashboard</span>}
+              </Link>
+
+              {/* Informes - Siempre visible */}
+              <Link
+                href="/informes"
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                  pathname.startsWith('/informes')
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                  isCollapsed && "justify-center"
+                )}
+                title={isCollapsed ? "Informes" : undefined}
+              >
+                <FileBarChart className="h-4 w-4 flex-shrink-0" />
+                {!isCollapsed && <span>Informes</span>}
               </Link>
 
               {/* Separador */}

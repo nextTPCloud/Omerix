@@ -54,6 +54,7 @@ export type Resource =
   | 'partes-trabajo'
   | 'calendarios'
   | 'departamentos'
+  | 'planificacion'
   // Proyectos
   | 'proyectos'
   // Comerciales
@@ -72,6 +73,14 @@ export type Resource =
   | 'grupos-modificadores'
   | 'alergenos'
   | 'comandas-cocina'
+  // Informes
+  | 'informes'
+  // Stock
+  | 'stock'
+  | 'inventarios'
+  | 'traspasos'
+  // Series
+  | 'series-documentos'
   // Sistema
   | 'usuarios'
   | 'roles'
@@ -586,4 +595,100 @@ export function isDescuentoPermitido(usuario: IUsuarioConPermisos, descuento: nu
   if (!canAplicarDescuentos(usuario)) return false;
   const maximo = getDescuentoMaximoUsuario(usuario);
   return descuento <= maximo;
+}
+
+// =============================================
+// FUNCIONES DE ACCESO A MÓDULOS
+// =============================================
+
+/**
+ * Verifica si un usuario tiene acceso al módulo de RRHH/Personal
+ */
+export function canAccesoRRHH(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'accesoRRHH');
+}
+
+/**
+ * Verifica si un usuario tiene acceso al módulo de Informes
+ */
+export function canAccesoInformes(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'accesoInformes');
+}
+
+/**
+ * Verifica si un usuario tiene acceso al módulo de Tesorería
+ */
+export function canAccesoTesoreria(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'accesoTesoreria');
+}
+
+/**
+ * Verifica si un usuario tiene acceso al módulo de Proyectos
+ */
+export function canAccesoProyectos(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'accesoProyectos');
+}
+
+/**
+ * Verifica si un usuario tiene acceso al módulo CRM
+ */
+export function canAccesoCRM(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'accesoCRM');
+}
+
+/**
+ * Verifica si un usuario tiene acceso al módulo de Ventas
+ */
+export function canAccesoVentas(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'accesoVentas');
+}
+
+/**
+ * Verifica si un usuario tiene acceso al módulo de Compras
+ */
+export function canAccesoCompras(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'accesoCompras');
+}
+
+/**
+ * Verifica si un usuario tiene acceso al módulo de Almacén
+ */
+export function canAccesoAlmacen(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'accesoAlmacen');
+}
+
+/**
+ * Verifica si un usuario tiene acceso al módulo de Contabilidad
+ */
+export function canAccesoContabilidad(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'accesoContabilidad');
+}
+
+/**
+ * Verifica si un usuario tiene acceso al TPV
+ */
+export function canAccesoTPV(usuario: IUsuarioConPermisos): boolean {
+  return hasSpecialPermission(usuario, 'accesoTPV');
+}
+
+/**
+ * Tipo para los permisos de acceso a módulos
+ */
+export type ModuloAcceso =
+  | 'accesoVentas'
+  | 'accesoCompras'
+  | 'accesoAlmacen'
+  | 'accesoContabilidad'
+  | 'accesoTPV'
+  | 'accesoRRHH'
+  | 'accesoInformes'
+  | 'accesoTesoreria'
+  | 'accesoProyectos'
+  | 'accesoCRM';
+
+/**
+ * Verifica acceso a un módulo específico
+ */
+export function canAccesoModulo(usuario: IUsuarioConPermisos, modulo: ModuloAcceso): boolean {
+  return hasSpecialPermission(usuario, modulo);
 }

@@ -1,11 +1,16 @@
 import { Router } from 'express';
 import { FichajesController } from './fichajes.controller';
-import { authMiddleware } from '@/middleware/auth.middleware';
+import { authMiddleware, requireModuleAccess } from '@/middleware/auth.middleware';
+import { tenantMiddleware } from '@/middleware/tenant.middleware';
 
 const router = Router();
 
 // Todas las rutas requieren autenticacion
 router.use(authMiddleware);
+router.use(tenantMiddleware);
+
+// Verificar acceso al módulo de RRHH
+router.use(requireModuleAccess('accesoRRHH'));
 
 /**
  * @swagger

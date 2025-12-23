@@ -367,6 +367,42 @@ router.post('/:id/completar', partesTrabajoController.completar);
 
 /**
  * @swagger
+ * /api/partes-trabajo/{id}/reasignar:
+ *   post:
+ *     summary: Reasignar fecha/hora de un parte de trabajo (desde planificacion)
+ *     tags: [PartesTrabajo]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fecha
+ *             properties:
+ *               fecha:
+ *                 type: string
+ *                 format: date
+ *               hora:
+ *                 type: string
+ *               responsableId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Parte reasignado correctamente
+ */
+router.post('/:id/reasignar', partesTrabajoController.reasignarFechaHora);
+
+/**
+ * @swagger
  * /api/partes-trabajo/{id}/generar-albaran:
  *   post:
  *     summary: Generar albaran de venta desde el parte de trabajo

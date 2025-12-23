@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -137,7 +137,13 @@ export function CalendarView({
 }: CalendarViewProps) {
   const [vista, setVista] = useState<VistaCalendario>(vistaInicial)
   const [mesActual, setMesActual] = useState(new Date().getMonth())
+  const [anioActual, setAnioActual] = useState(anio) // Año interno para navegación
   const [fechaActual, setFechaActual] = useState(new Date())
+
+  // Sincronizar año interno cuando cambia el prop
+  useEffect(() => {
+    setAnioActual(anio)
+  }, [anio])
 
   // Mapa de eventos por fecha
   const eventosPorFecha = useMemo(() => {
@@ -163,16 +169,34 @@ export function CalendarView({
         const nuevaFecha = new Date(fechaActual)
         nuevaFecha.setDate(fechaActual.getDate() + (delta * 7))
         setFechaActual(nuevaFecha)
+        setAnioActual(nuevaFecha.getFullYear())
         break
       case 'mensual':
-        setMesActual(prev => (prev + delta + 12) % 12)
+        setMesActual(prev => {
+          const nuevoMes = prev + delta
+          if (nuevoMes > 11) {
+            setAnioActual(a => a + 1)
+            return 0
+          }
+          if (nuevoMes < 0) {
+            setAnioActual(a => a - 1)
+            return 11
+          }
+          return nuevoMes
+        })
         break
       case 'trimestral':
         setMesActual(prev => {
-          const nuevo = prev + (delta * 3)
-          if (nuevo < 0) return 9
-          if (nuevo > 9) return 0
-          return nuevo
+          const nuevoMes = prev + (delta * 3)
+          if (nuevoMes > 11) {
+            setAnioActual(a => a + 1)
+            return nuevoMes - 12
+          }
+          if (nuevoMes < 0) {
+            setAnioActual(a => a - 1)
+            return nuevoMes + 12
+          }
+          return nuevoMes
         })
         break
     }
@@ -279,7 +303,7 @@ export function CalendarView({
   const renderVistaAnual = () => (
     <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
       {MESES.map((nombreMes, mesIndex) => {
-        const dias = getDiasDelMes(anio, mesIndex)
+        const dias = getDiasDelMes(anioActual, mesIndex)
 
         return (
           <div key={mesIndex} className="border rounded-lg p-2">
@@ -304,7 +328,7 @@ export function CalendarView({
 
   // Vista Mensual
   const renderVistaMensual = () => {
-    const dias = getDiasDelMes(anio, mesActual)
+    const dias = getDiasDelMes(anioActual, mesActual)
 
     return (
       <div className="space-y-2">
@@ -333,7 +357,7 @@ export function CalendarView({
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {mesesTrimestre.map(mesIndex => {
-          const dias = getDiasDelMes(anio, mesIndex)
+          const dias = getDiasDelMes(anioActual, mesIndex)
 
           return (
             <div key={mesIndex} className="border rounded-lg p-3">
@@ -418,16 +442,16 @@ export function CalendarView({
   const getTituloNavegacion = () => {
     switch (vista) {
       case 'anual':
-        return `${anio}`
+        return `${anioActual}`
       case 'mensual':
-        return `${MESES[mesActual]} ${anio}`
+        return `${MESES[mesActual]} ${anioActual}`
       case 'trimestral':
-        return `${MESES[mesActual]} - ${MESES[(mesActual + 2) % 12]} ${anio}`
+        return `${MESES[mesActual]} - ${MESES[(mesActual + 2) % 12]} ${anioActual}`
       case 'semanal':
         const diasSemana = getDiasSemana(fechaActual)
         const inicio = diasSemana[0]
         const fin = diasSemana[6]
-        return `${inicio.getDate()} ${MESES[inicio.getMonth()].slice(0, 3)} - ${fin.getDate()} ${MESES[fin.getMonth()].slice(0, 3)} ${anio}`
+        return `${inicio.getDate()} ${MESES[inicio.getMonth()].slice(0, 3)} - ${fin.getDate()} ${MESES[fin.getMonth()].slice(0, 3)} ${fin.getFullYear()}`
     }
   }
 

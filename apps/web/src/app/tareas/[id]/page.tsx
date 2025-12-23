@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Dialog,
   DialogContent,
@@ -804,41 +805,31 @@ export default function TareaDetallePage() {
                   <>
                     <div className="space-y-2">
                       <Label>Asignado a</Label>
-                      <Select
-                        value={formData.asignadoAId || 'none'}
-                        onValueChange={(value) => handleChange('asignadoAId', value === 'none' ? '' : value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sin asignar</SelectItem>
-                          {personal.map((p) => (
-                            <SelectItem key={p._id} value={p._id}>
-                              {p.nombreCompleto || `${p.nombre} ${p.apellidos}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        options={personal.map((p) => ({
+                          value: p._id,
+                          label: p.nombreCompleto || `${p.nombre} ${p.apellidos || ''}`.trim(),
+                        }))}
+                        value={formData.asignadoAId || ''}
+                        onValueChange={(value) => handleChange('asignadoAId', value)}
+                        placeholder="Seleccionar persona..."
+                        searchPlaceholder="Buscar personal..."
+                        emptyMessage="No se encontró personal"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Departamento</Label>
-                      <Select
-                        value={formData.departamentoId || 'none'}
-                        onValueChange={(value) => handleChange('departamentoId', value === 'none' ? '' : value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sin departamento</SelectItem>
-                          {departamentos.map((d) => (
-                            <SelectItem key={d._id} value={d._id}>
-                              {d.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        options={departamentos.map((d) => ({
+                          value: d._id,
+                          label: d.nombre,
+                        }))}
+                        value={formData.departamentoId || ''}
+                        onValueChange={(value) => handleChange('departamentoId', value)}
+                        placeholder="Seleccionar departamento..."
+                        searchPlaceholder="Buscar departamento..."
+                        emptyMessage="No se encontraron departamentos"
+                      />
                     </div>
                   </>
                 ) : (

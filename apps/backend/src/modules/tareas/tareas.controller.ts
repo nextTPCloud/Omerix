@@ -74,7 +74,7 @@ export class TareasController {
       const tarea = await tareasService.crear(
         data,
         usuarioId,
-        req.usuario?.nombre || 'Sistema',
+        req.usuarioNombre || 'Sistema',
         empresaId,
         req.empresaDbConfig
       );
@@ -128,7 +128,7 @@ export class TareasController {
         req.params.id,
         data,
         usuarioId,
-        req.usuario?.nombre || 'Sistema',
+        req.usuarioNombre || 'Sistema',
         empresaId,
         req.empresaDbConfig
       );
@@ -159,7 +159,7 @@ export class TareasController {
         req.params.id,
         data,
         usuarioId,
-        req.usuario?.nombre || 'Sistema',
+        req.usuarioNombre || 'Sistema',
         empresaId,
         req.empresaDbConfig
       );
@@ -192,6 +192,42 @@ export class TareasController {
       });
     } catch (error) {
       next(error);
+    }
+  }
+
+  /**
+   * Reasignar tarea (desde planificacion)
+   */
+  async reasignar(req: Request, res: Response, next: NextFunction) {
+    try {
+      const empresaId = req.empresaId;
+      if (!empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, message: 'No autorizado' });
+      }
+
+      const { fecha, asignadoId } = req.body;
+      if (!fecha) {
+        return res.status(400).json({ success: false, message: 'La fecha es requerida' });
+      }
+
+      const tarea = await tareasService.reasignar(
+        req.params.id,
+        fecha,
+        asignadoId || null,
+        empresaId,
+        req.empresaDbConfig
+      );
+
+      res.json({
+        success: true,
+        data: tarea,
+        message: 'Tarea reasignada correctamente',
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Error al reasignar la tarea',
+      });
     }
   }
 

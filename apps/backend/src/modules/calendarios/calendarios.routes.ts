@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { calendariosController } from './calendarios.controller';
-import { authMiddleware } from '@/middleware/auth.middleware';
+import { authMiddleware, requireModuleAccess } from '@/middleware/auth.middleware';
 import { tenantMiddleware } from '@/middleware/tenant.middleware';
 
 const router = Router();
@@ -8,6 +8,9 @@ const router = Router();
 // Aplicar middlewares a todas las rutas
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+
+// Verificar acceso al módulo de RRHH
+router.use(requireModuleAccess('accesoRRHH'));
 
 /**
  * @swagger

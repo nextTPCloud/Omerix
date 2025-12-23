@@ -372,6 +372,118 @@ export const emailTemplates = {
   `,
 
   // Notificación al agente comercial
+  // Planificacion de jornadas para empleado
+  planificacionJornadas: (params: {
+    empleadoNombre: string;
+    periodo: string;
+    fechaInicio: string;
+    fechaFin: string;
+    diasPlanificados: Array<{
+      fecha: string;
+      diaSemana: string;
+      horaInicio: string;
+      horaFin: string;
+      horas: number;
+      turno?: string;
+      partes?: Array<{ codigo: string; cliente: string }>;
+      tareas?: Array<{ titulo: string }>;
+    }>;
+    totalHoras: number;
+    empresaNombre: string;
+    mensaje?: string;
+  }) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 700px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .resumen { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; display: flex; justify-content: space-around; text-align: center; }
+        .resumen-item h3 { margin: 0; color: #3B82F6; font-size: 24px; }
+        .resumen-item p { margin: 5px 0 0; color: #666; font-size: 14px; }
+        .tabla-planificacion { width: 100%; border-collapse: collapse; margin: 20px 0; background: white; border-radius: 8px; overflow: hidden; }
+        .tabla-planificacion th { background: #E5E7EB; padding: 12px; text-align: left; font-weight: 600; }
+        .tabla-planificacion td { padding: 12px; border-bottom: 1px solid #E5E7EB; }
+        .tabla-planificacion tr:last-child td { border-bottom: none; }
+        .badge-horario { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #D1FAE5; color: #065F46; }
+        .badge-parte { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; background: #DBEAFE; color: #1E40AF; margin: 2px; }
+        .badge-tarea { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; background: #EDE9FE; color: #5B21B6; margin: 2px; }
+        .mensaje { background: #FEF3C7; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #F59E0B; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Planificacion de Jornadas</h1>
+          <p style="margin: 0; opacity: 0.9;">${params.periodo}</p>
+        </div>
+        <div class="content">
+          <p>Hola <strong>${params.empleadoNombre}</strong>,</p>
+          <p>Te enviamos tu planificacion de jornadas para la semana del <strong>${params.fechaInicio}</strong> al <strong>${params.fechaFin}</strong>:</p>
+
+          ${params.mensaje ? `
+          <div class="mensaje">
+            <p style="margin: 0;">${params.mensaje}</p>
+          </div>
+          ` : ''}
+
+          <div class="resumen">
+            <div class="resumen-item">
+              <h3>${params.diasPlanificados.length}</h3>
+              <p>Dias planificados</p>
+            </div>
+            <div class="resumen-item">
+              <h3>${params.totalHoras}h</h3>
+              <p>Total horas</p>
+            </div>
+          </div>
+
+          <table class="tabla-planificacion">
+            <thead>
+              <tr>
+                <th>Dia</th>
+                <th>Horario</th>
+                <th>Actividades</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${params.diasPlanificados.map(dia => `
+              <tr>
+                <td>
+                  <strong>${dia.diaSemana}</strong><br>
+                  <span style="color: #666; font-size: 13px;">${dia.fecha}</span>
+                </td>
+                <td>
+                  <span class="badge-horario">${dia.horaInicio} - ${dia.horaFin}</span>
+                  <br><span style="color: #666; font-size: 12px;">${dia.horas}h${dia.turno ? ` - ${dia.turno}` : ''}</span>
+                </td>
+                <td>
+                  ${dia.partes && dia.partes.length > 0 ? dia.partes.map(p => `<span class="badge-parte">${p.codigo} - ${p.cliente}</span>`).join(' ') : ''}
+                  ${dia.tareas && dia.tareas.length > 0 ? dia.tareas.map(t => `<span class="badge-tarea">${t.titulo}</span>`).join(' ') : ''}
+                  ${(!dia.partes || dia.partes.length === 0) && (!dia.tareas || dia.tareas.length === 0) ? '<span style="color: #999;">-</span>' : ''}
+                </td>
+              </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <p>Si tienes alguna pregunta sobre tu horario, contacta con tu supervisor.</p>
+
+          <p>Saludos,<br><strong>${params.empresaNombre}</strong></p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} ${params.empresaNombre}. Todos los derechos reservados.</p>
+          <p style="font-size: 11px; color: #999;">Este es un mensaje automatico del sistema de planificacion.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
+
   recordatorioAgente: (params: {
     agenteNombre: string;
     tipoRecordatorio: 'expiracion' | 'sin_respuesta';

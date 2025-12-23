@@ -18,9 +18,16 @@ export class FichajesController {
    */
   static async getAll(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({
+          success: false,
+          error: 'No autorizado',
+        });
+      }
+
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const query: FichajeQueryDTO = {
@@ -55,9 +62,12 @@ export class FichajesController {
    */
   static async getById(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const fichaje = await service.getById(req.params.id);
@@ -86,9 +96,12 @@ export class FichajesController {
    */
   static async getEstadoActual(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const personalId = req.params.personalId || req.user!.personalId?.toString();
@@ -119,9 +132,12 @@ export class FichajesController {
    */
   static async registrarEntrada(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const data: RegistrarEntradaDTO = req.body;
@@ -165,9 +181,12 @@ export class FichajesController {
    */
   static async registrarSalida(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const data: RegistrarSalidaDTO = {
@@ -202,9 +221,12 @@ export class FichajesController {
    */
   static async registrarPausa(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const data: RegistrarPausaDTO = {
@@ -235,9 +257,12 @@ export class FichajesController {
    */
   static async update(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const data: UpdateFichajeDTO = req.body;
@@ -266,9 +291,12 @@ export class FichajesController {
    */
   static async delete(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       await service.delete(req.params.id);
@@ -290,9 +318,12 @@ export class FichajesController {
    */
   static async aprobar(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const fichaje = await service.aprobar(
@@ -318,9 +349,12 @@ export class FichajesController {
    */
   static async rechazar(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const fichaje = await service.rechazar(
@@ -347,9 +381,12 @@ export class FichajesController {
    */
   static async getResumenEmpleado(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const personalId = req.params.personalId || req.user!.personalId?.toString();
@@ -382,9 +419,12 @@ export class FichajesController {
    */
   static async ficharRapido(req: Request, res: Response) {
     try {
+      if (!req.empresaId || !req.empresaDbConfig) {
+        return res.status(401).json({ success: false, error: 'No autorizado' });
+      }
       const service = new FichajesService(
-        req.user!.empresaId,
-        req.dbConfig!
+        req.empresaId as any,
+        req.empresaDbConfig
       );
 
       const personalId = req.body.personalId || req.user!.personalId?.toString();

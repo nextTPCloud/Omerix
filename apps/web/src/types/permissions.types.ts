@@ -36,6 +36,11 @@ export interface IPermisosEspeciales {
   accesoAlmacen: boolean;
   accesoContabilidad: boolean;
   accesoTPV: boolean;
+  accesoRRHH: boolean;
+  accesoInformes: boolean;
+  accesoTesoreria: boolean;
+  accesoProyectos: boolean;
+  accesoCRM: boolean;
 }
 
 /**
@@ -83,7 +88,18 @@ export type RecursoSistema =
   | 'traspasos'
   | 'inventarios'
   | 'ajustes-stock'
-  | 'tarifas';
+  | 'tarifas'
+  // Informes
+  | 'informes'
+  // Tesorería
+  | 'tesoreria'
+  | 'recibos'
+  | 'pagares'
+  | 'vencimientos'
+  // Stock
+  | 'stock'
+  // Series
+  | 'series-documentos';
 
 /**
  * Permisos por recurso
@@ -144,6 +160,11 @@ export const PERMISOS_ESPECIALES_DEFAULT: IPermisosEspeciales = {
   accesoAlmacen: false,
   accesoContabilidad: false,
   accesoTPV: false,
+  accesoRRHH: false,
+  accesoInformes: false,
+  accesoTesoreria: false,
+  accesoProyectos: false,
+  accesoCRM: false,
 };
 
 /**
@@ -170,6 +191,11 @@ export const PERMISOS_ESPECIALES_ADMIN: IPermisosEspeciales = {
   accesoAlmacen: true,
   accesoContabilidad: true,
   accesoTPV: true,
+  accesoRRHH: true,
+  accesoInformes: true,
+  accesoTesoreria: true,
+  accesoProyectos: true,
+  accesoCRM: true,
 };
 
 /**

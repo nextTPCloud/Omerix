@@ -599,7 +599,7 @@ export function RolesConfig({ onRolesChange }: RolesConfigProps) {
             <Separator />
 
             {/* Permisos especiales */}
-            <Accordion type="single" collapsible defaultValue="especiales">
+            <Accordion type="multiple" defaultValue={['especiales', 'recursos']}>
               <AccordionItem value="especiales">
                 <AccordionTrigger className="text-lg font-semibold">
                   <div className="flex items-center gap-2">
@@ -608,36 +608,51 @@ export function RolesConfig({ onRolesChange }: RolesConfigProps) {
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div className="grid grid-cols-2 gap-4 p-4">
-                    {permisosEspeciales.map(permiso => (
-                      <div key={permiso.codigo} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                        <div className="space-y-1">
-                          <Label htmlFor={permiso.codigo} className="font-medium">
-                            {permiso.nombre}
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            {permiso.descripcion}
-                          </p>
-                        </div>
-                        {permiso.tipo === 'boolean' ? (
-                          <Switch
-                            id={permiso.codigo}
-                            checked={!!formData.permisos.especiales[permiso.codigo]}
-                            onCheckedChange={() => togglePermisoEspecial(permiso.codigo)}
-                          />
-                        ) : (
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            className="w-20"
-                            value={formData.permisos.especiales[permiso.codigo] as number || 0}
-                            onChange={e => setPermisoEspecialValue(permiso.codigo, Number(e.target.value))}
-                          />
-                        )}
+                  {/* Agrupar por grupo */}
+                  {Object.entries(
+                    permisosEspeciales.reduce((acc, permiso) => {
+                      const grupo = permiso.grupo || 'Otros';
+                      if (!acc[grupo]) acc[grupo] = [];
+                      acc[grupo].push(permiso);
+                      return acc;
+                    }, {} as Record<string, typeof permisosEspeciales>)
+                  ).map(([grupo, permisos]) => (
+                    <div key={grupo} className="mb-4">
+                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-4">
+                        {grupo}
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3 px-4">
+                        {permisos.map(permiso => (
+                          <div key={permiso.codigo} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                            <div className="space-y-1 flex-1 mr-2">
+                              <Label htmlFor={permiso.codigo} className="font-medium text-sm">
+                                {permiso.nombre}
+                              </Label>
+                              <p className="text-xs text-muted-foreground">
+                                {permiso.descripcion}
+                              </p>
+                            </div>
+                            {permiso.tipo === 'boolean' ? (
+                              <Switch
+                                id={permiso.codigo}
+                                checked={!!formData.permisos.especiales[permiso.codigo]}
+                                onCheckedChange={() => togglePermisoEspecial(permiso.codigo)}
+                              />
+                            ) : (
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                className="w-20"
+                                value={formData.permisos.especiales[permiso.codigo] as number || 0}
+                                onChange={e => setPermisoEspecialValue(permiso.codigo, Number(e.target.value))}
+                              />
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </AccordionContent>
               </AccordionItem>
 
@@ -664,24 +679,43 @@ export function RolesConfig({ onRolesChange }: RolesConfigProps) {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {recursos.map(recurso => {
-                          const permisosRecurso = formData.permisos.recursos[recurso.recurso] || []
-                          return (
-                            <TableRow key={recurso.recurso}>
-                              <TableCell className="font-medium">{recurso.nombre}</TableCell>
-                              {(['create', 'read', 'update', 'delete', 'export', 'import'] as AccionRecurso[]).map(accion => (
-                                <TableCell key={accion} className="text-center">
-                                  {recurso.acciones.includes(accion) && (
-                                    <Switch
-                                      checked={permisosRecurso.includes(accion)}
-                                      onCheckedChange={() => togglePermisoRecurso(recurso.recurso, accion)}
-                                    />
-                                  )}
-                                </TableCell>
-                              ))}
+                        {/* Agrupar recursos por grupo */}
+                        {Object.entries(
+                          recursos.reduce((acc, recurso) => {
+                            const grupo = recurso.grupo || 'Otros';
+                            if (!acc[grupo]) acc[grupo] = [];
+                            acc[grupo].push(recurso);
+                            return acc;
+                          }, {} as Record<string, typeof recursos>)
+                        ).map(([grupo, recursosGrupo]) => (
+                          <React.Fragment key={grupo}>
+                            {/* Cabecera de grupo */}
+                            <TableRow className="bg-muted/50">
+                              <TableCell colSpan={7} className="font-semibold text-sm uppercase tracking-wider">
+                                {grupo}
+                              </TableCell>
                             </TableRow>
-                          )
-                        })}
+                            {/* Recursos del grupo */}
+                            {recursosGrupo.map(recurso => {
+                              const permisosRecurso = formData.permisos.recursos[recurso.recurso] || []
+                              return (
+                                <TableRow key={recurso.recurso}>
+                                  <TableCell className="font-medium pl-6">{recurso.nombre}</TableCell>
+                                  {(['create', 'read', 'update', 'delete', 'export', 'import'] as AccionRecurso[]).map(accion => (
+                                    <TableCell key={accion} className="text-center">
+                                      {recurso.acciones.includes(accion) && (
+                                        <Switch
+                                          checked={permisosRecurso.includes(accion)}
+                                          onCheckedChange={() => togglePermisoRecurso(recurso.recurso, accion)}
+                                        />
+                                      )}
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              )
+                            })}
+                          </React.Fragment>
+                        ))}
                       </TableBody>
                     </Table>
                   </div>

@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   ArrowLeft,
   Save,
@@ -437,62 +438,47 @@ export default function NuevaTareaPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Cliente</Label>
-                        <Select
-                          value={formData.clienteId || 'none'}
-                          onValueChange={(value) => handleChange('clienteId', value === 'none' ? '' : value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar cliente..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Sin cliente</SelectItem>
-                            {clientes.map((c) => (
-                              <SelectItem key={c._id} value={c._id}>
-                                {c.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          options={clientes.map((c) => ({
+                            value: c._id,
+                            label: c.nombre || c.razonSocial || '',
+                          }))}
+                          value={formData.clienteId || ''}
+                          onValueChange={(value) => handleChange('clienteId', value)}
+                          placeholder="Seleccionar cliente..."
+                          searchPlaceholder="Buscar cliente..."
+                          emptyMessage="No se encontraron clientes"
+                        />
                       </div>
 
                       <div className="space-y-2">
                         <Label>Proveedor</Label>
-                        <Select
-                          value={formData.proveedorId || 'none'}
-                          onValueChange={(value) => handleChange('proveedorId', value === 'none' ? '' : value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar proveedor..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Sin proveedor</SelectItem>
-                            {proveedores.map((p) => (
-                              <SelectItem key={p._id} value={p._id}>
-                                {p.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          options={proveedores.map((p) => ({
+                            value: p._id,
+                            label: p.nombre || p.razonSocial || '',
+                          }))}
+                          value={formData.proveedorId || ''}
+                          onValueChange={(value) => handleChange('proveedorId', value)}
+                          placeholder="Seleccionar proveedor..."
+                          searchPlaceholder="Buscar proveedor..."
+                          emptyMessage="No se encontraron proveedores"
+                        />
                       </div>
 
                       <div className="space-y-2">
                         <Label>Proyecto</Label>
-                        <Select
-                          value={formData.proyectoId || 'none'}
-                          onValueChange={(value) => handleChange('proyectoId', value === 'none' ? '' : value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar proyecto..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Sin proyecto</SelectItem>
-                            {proyectos.map((p) => (
-                              <SelectItem key={p._id} value={p._id}>
-                                {p.codigo} - {p.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          options={proyectos.map((p) => ({
+                            value: p._id,
+                            label: `${p.codigo} - ${p.nombre}`,
+                          }))}
+                          value={formData.proyectoId || ''}
+                          onValueChange={(value) => handleChange('proyectoId', value)}
+                          placeholder="Seleccionar proyecto..."
+                          searchPlaceholder="Buscar proyecto..."
+                          emptyMessage="No se encontraron proyectos"
+                        />
                       </div>
 
                       {formData.documentoTipo && (
@@ -525,42 +511,32 @@ export default function NuevaTareaPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label>Asignar a</Label>
-                    <Select
-                      value={formData.asignadoAId || 'none'}
-                      onValueChange={(value) => handleChange('asignadoAId', value === 'none' ? '' : value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar persona..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin asignar</SelectItem>
-                        {personal.map((p) => (
-                          <SelectItem key={p._id} value={p._id}>
-                            {p.nombreCompleto || `${p.nombre} ${p.apellidos}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      options={personal.map((p) => ({
+                        value: p._id,
+                        label: p.nombreCompleto || `${p.nombre} ${p.apellidos || ''}`.trim(),
+                      }))}
+                      value={formData.asignadoAId || ''}
+                      onValueChange={(value) => handleChange('asignadoAId', value)}
+                      placeholder="Seleccionar persona..."
+                      searchPlaceholder="Buscar personal..."
+                      emptyMessage="No se encontró personal"
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label>Departamento</Label>
-                    <Select
-                      value={formData.departamentoId || 'none'}
-                      onValueChange={(value) => handleChange('departamentoId', value === 'none' ? '' : value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar departamento..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin departamento</SelectItem>
-                        {departamentos.map((d) => (
-                          <SelectItem key={d._id} value={d._id}>
-                            {d.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      options={departamentos.map((d) => ({
+                        value: d._id,
+                        label: d.nombre,
+                      }))}
+                      value={formData.departamentoId || ''}
+                      onValueChange={(value) => handleChange('departamentoId', value)}
+                      placeholder="Seleccionar departamento..."
+                      searchPlaceholder="Buscar departamento..."
+                      emptyMessage="No se encontraron departamentos"
+                    />
                   </div>
                 </CardContent>
               </Card>

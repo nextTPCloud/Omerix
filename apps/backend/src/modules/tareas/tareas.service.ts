@@ -7,7 +7,8 @@ import {
   AgregarComentarioDTO,
   SearchTareasDTO,
 } from './tareas.dto';
-import { getEmpresaConnection, EmpresaDbConfig } from '../../config/database';
+import { databaseManager } from '../../services/database-manager.service';
+import { IDatabaseConfig } from '../empresa/Empresa';
 
 class TareasService {
   /**
@@ -20,8 +21,8 @@ class TareasService {
   /**
    * Listar tareas con filtros
    */
-  async listar(filters: SearchTareasDTO, usuarioId: string, empresaId: string, dbConfig: EmpresaDbConfig) {
-    const connection = await getEmpresaConnection(dbConfig);
+  async listar(filters: SearchTareasDTO, usuarioId: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const connection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
     const Model = this.getModel(connection);
 
     const query: any = {};
@@ -112,8 +113,8 @@ class TareasService {
   /**
    * Obtener tarea por ID
    */
-  async obtenerPorId(id: string, empresaId: string, dbConfig: EmpresaDbConfig) {
-    const connection = await getEmpresaConnection(dbConfig);
+  async obtenerPorId(id: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const connection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
     const Model = this.getModel(connection);
     return Model.findById(id).lean();
   }
@@ -126,9 +127,9 @@ class TareasService {
     usuarioId: string,
     usuarioNombre: string,
     empresaId: string,
-    dbConfig: EmpresaDbConfig
+    dbConfig: IDatabaseConfig
   ) {
-    const connection = await getEmpresaConnection(dbConfig);
+    const connection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
     const Model = this.getModel(connection);
 
     // Obtener nombres relacionados si hay IDs
@@ -200,8 +201,8 @@ class TareasService {
   /**
    * Actualizar tarea
    */
-  async actualizar(id: string, data: UpdateTareaDTO, empresaId: string, dbConfig: EmpresaDbConfig) {
-    const connection = await getEmpresaConnection(dbConfig);
+  async actualizar(id: string, data: UpdateTareaDTO, empresaId: string, dbConfig: IDatabaseConfig) {
+    const connection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
     const Model = this.getModel(connection);
 
     const tarea = await Model.findById(id);
@@ -241,9 +242,9 @@ class TareasService {
     usuarioId: string,
     usuarioNombre: string,
     empresaId: string,
-    dbConfig: EmpresaDbConfig
+    dbConfig: IDatabaseConfig
   ) {
-    const connection = await getEmpresaConnection(dbConfig);
+    const connection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
     const Model = this.getModel(connection);
 
     const tarea = await Model.findById(id);
@@ -321,6 +322,47 @@ class TareasService {
   }
 
   /**
+   * Reasignar tarea (cambiar fecha y/o asignacion desde planificacion)
+   */
+  async reasignar(
+    id: string,
+    nuevaFecha: string,
+    nuevoAsignadoId: string | null,
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ) {
+    const connection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
+    const Model = this.getModel(connection);
+
+    const tarea = await Model.findById(id);
+    if (!tarea) {
+      throw new Error('Tarea no encontrada');
+    }
+
+    // Validar que la tarea no este en estado final
+    if (tarea.estado === EstadoTarea.COMPLETADA || tarea.estado === EstadoTarea.CANCELADA) {
+      throw new Error(`No se puede reasignar una tarea en estado "${tarea.estado}"`);
+    }
+
+    // Actualizar fecha
+    tarea.fechaVencimiento = new Date(nuevaFecha);
+
+    // Actualizar asignacion si se proporciona
+    if (nuevoAsignadoId && nuevoAsignadoId !== tarea.asignadoAId?.toString()) {
+      const PersonalModel = connection.models.Personal ||
+        connection.model('Personal', require('../personal/Personal').Personal.schema);
+      const personal = await PersonalModel.findById(nuevoAsignadoId).lean();
+      if (personal) {
+        tarea.asignadoAId = new Types.ObjectId(nuevoAsignadoId);
+        tarea.asignadoANombre = `${(personal as any).nombre} ${(personal as any).apellidos || ''}`.trim();
+      }
+    }
+
+    await tarea.save();
+    return tarea.toObject();
+  }
+
+  /**
    * Agregar comentario
    */
   async agregarComentario(
@@ -329,9 +371,9 @@ class TareasService {
     usuarioId: string,
     usuarioNombre: string,
     empresaId: string,
-    dbConfig: EmpresaDbConfig
+    dbConfig: IDatabaseConfig
   ) {
-    const connection = await getEmpresaConnection(dbConfig);
+    const connection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
     const Model = this.getModel(connection);
 
     const tarea = await Model.findById(id);
@@ -353,8 +395,8 @@ class TareasService {
   /**
    * Eliminar tarea
    */
-  async eliminar(id: string, empresaId: string, dbConfig: EmpresaDbConfig) {
-    const connection = await getEmpresaConnection(dbConfig);
+  async eliminar(id: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const connection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
     const Model = this.getModel(connection);
     return Model.findByIdAndDelete(id);
   }
@@ -362,8 +404,8 @@ class TareasService {
   /**
    * Obtener estadísticas
    */
-  async obtenerEstadisticas(usuarioId: string, empresaId: string, dbConfig: EmpresaDbConfig) {
-    const connection = await getEmpresaConnection(dbConfig);
+  async obtenerEstadisticas(usuarioId: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const connection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
     const Model = this.getModel(connection);
 
     const ahora = new Date();
@@ -418,8 +460,8 @@ class TareasService {
   /**
    * Obtener tareas para el widget del dashboard
    */
-  async obtenerParaWidget(usuarioId: string, empresaId: string, dbConfig: EmpresaDbConfig) {
-    const connection = await getEmpresaConnection(dbConfig);
+  async obtenerParaWidget(usuarioId: string, empresaId: string, dbConfig: IDatabaseConfig) {
+    const connection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
     const Model = this.getModel(connection);
 
     const ahora = new Date();

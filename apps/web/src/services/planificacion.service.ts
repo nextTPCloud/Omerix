@@ -157,6 +157,67 @@ interface SingleResponse<T> {
   message?: string;
 }
 
+// Vista completa de la semana con partes de trabajo y tareas
+export interface ParteTrabajoDia {
+  _id: string;
+  codigo: string;
+  titulo?: string;
+  cliente: string;
+  direccion?: string;
+  estado: string;
+  prioridad: string;
+  rol: 'responsable' | 'asignado';
+  horaInicio?: string;
+  horaFin?: string;
+  descripcionTrabajo?: string;
+}
+
+export interface TareaDia {
+  _id: string;
+  titulo: string;
+  tipo: string;
+  prioridad: string;
+  estado: string;
+  cliente?: string;
+}
+
+export interface DiaEmpleado {
+  fecha: string;
+  asignacion: {
+    horaInicio: string;
+    horaFin: string;
+    horas: number;
+    turnoNombre?: string;
+    ubicacion?: string;
+    estado: string;
+    esAusencia: boolean;
+    tipoAusencia?: string;
+    notas?: string;
+  } | null;
+  partesTrabajo: ParteTrabajoDia[];
+  tareas: TareaDia[];
+}
+
+export interface EmpleadoVista {
+  _id: string;
+  nombre: string;
+  apellidos?: string;
+  nombreCompleto: string;
+  cargo?: string;
+  dias: Record<string, DiaEmpleado>;
+}
+
+export interface VistaCompletaSemana {
+  fechaInicio: string;
+  fechaFin: string;
+  empleados: EmpleadoVista[];
+  resumen: {
+    totalEmpleados: number;
+    totalPartesTrabajo: number;
+    totalTareas: number;
+  };
+}
+
 // ============================================
 // SERVICIO
 // ============================================
@@ -297,6 +358,17 @@ class PlanificacionService {
   async sugerirCodigo(): Promise<SingleResponse<{ codigo: string }>> {
     const response = await api.get<SingleResponse<{ codigo: string }>>(
       `${this.BASE_URL}/sugerir-codigo`
+    );
+    return response.data;
+  }
+
+  /**
+   * Obtener vista completa de la semana con partes de trabajo y tareas
+   */
+  async obtenerVistaCompleta(fechaInicio: string, fechaFin: string): Promise<SingleResponse<VistaCompletaSemana>> {
+    const response = await api.get<SingleResponse<VistaCompletaSemana>>(
+      `${this.BASE_URL}/vista-completa`,
+      { params: { fechaInicio, fechaFin } }
     );
     return response.data;
   }

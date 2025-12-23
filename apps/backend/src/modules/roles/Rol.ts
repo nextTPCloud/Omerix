@@ -38,6 +38,11 @@ export interface IPermisosEspeciales {
   accesoAlmacen: boolean;          // Acceso al módulo de almacén
   accesoContabilidad: boolean;     // Acceso a contabilidad/informes financieros
   accesoTPV: boolean;              // Acceso al TPV
+  accesoRRHH: boolean;             // Acceso al módulo de RRHH/Personal
+  accesoInformes: boolean;         // Acceso al módulo de informes
+  accesoTesoreria: boolean;        // Acceso al módulo de tesorería
+  accesoProyectos: boolean;        // Acceso al módulo de proyectos
+  accesoCRM: boolean;              // Acceso al módulo CRM (clientes avanzado)
 }
 
 /**
@@ -72,7 +77,30 @@ export type RecursoSistema =
   | 'tipos-impuesto'
   | 'partes-trabajo'
   | 'maquinaria'
-  | 'tipos-gasto';
+  | 'tipos-gasto'
+  // RRHH / Personal
+  | 'personal'
+  | 'departamentos'
+  | 'turnos'
+  | 'calendarios'
+  | 'fichajes'
+  | 'planificacion'
+  // Informes
+  | 'informes'
+  // Tesorería
+  | 'tesoreria'
+  | 'recibos'
+  | 'pagares'
+  | 'vencimientos'
+  // Stock
+  | 'stock'
+  | 'inventarios'
+  | 'traspasos'
+  // Otros
+  | 'tarifas'
+  | 'ofertas'
+  | 'series-documentos'
+  | 'terminales';
 
 /**
  * Estructura de permisos por recurso
@@ -150,6 +178,11 @@ export const PERMISOS_ESPECIALES_DEFAULT: IPermisosEspeciales = {
   accesoAlmacen: false,
   accesoContabilidad: false,
   accesoTPV: false,
+  accesoRRHH: false,
+  accesoInformes: false,
+  accesoTesoreria: false,
+  accesoProyectos: false,
+  accesoCRM: false,
 };
 
 /**
@@ -176,6 +209,11 @@ export const PERMISOS_ESPECIALES_ADMIN: IPermisosEspeciales = {
   accesoAlmacen: true,
   accesoContabilidad: true,
   accesoTPV: true,
+  accesoRRHH: true,
+  accesoInformes: true,
+  accesoTesoreria: true,
+  accesoProyectos: true,
+  accesoCRM: true,
 };
 
 /**
@@ -216,6 +254,29 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
         maquinaria: ['create', 'read', 'update', 'delete'],
         'tipos-gasto': ['create', 'read', 'update', 'delete'],
+        // RRHH / Personal
+        personal: ['create', 'read', 'update', 'delete', 'export', 'import'],
+        departamentos: ['create', 'read', 'update', 'delete'],
+        turnos: ['create', 'read', 'update', 'delete'],
+        calendarios: ['create', 'read', 'update', 'delete'],
+        fichajes: ['create', 'read', 'update', 'delete', 'export'],
+        planificacion: ['create', 'read', 'update', 'delete'],
+        // Informes
+        informes: ['create', 'read', 'update', 'delete', 'export'],
+        // Tesorería
+        tesoreria: ['create', 'read', 'update', 'delete', 'export'],
+        recibos: ['create', 'read', 'update', 'delete', 'export'],
+        pagares: ['create', 'read', 'update', 'delete', 'export'],
+        vencimientos: ['create', 'read', 'update', 'delete', 'export'],
+        // Stock
+        stock: ['create', 'read', 'update', 'delete', 'export'],
+        inventarios: ['create', 'read', 'update', 'delete', 'export'],
+        traspasos: ['create', 'read', 'update', 'delete', 'export'],
+        // Otros
+        tarifas: ['create', 'read', 'update', 'delete'],
+        ofertas: ['create', 'read', 'update', 'delete'],
+        'series-documentos': ['create', 'read', 'update', 'delete'],
+        terminales: ['create', 'read', 'update', 'delete'],
       },
       especiales: PERMISOS_ESPECIALES_ADMIN,
     },
@@ -254,6 +315,29 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
         maquinaria: ['create', 'read', 'update', 'delete'],
         'tipos-gasto': ['create', 'read', 'update', 'delete'],
+        // RRHH / Personal
+        personal: ['create', 'read', 'update', 'export'],
+        departamentos: ['create', 'read', 'update'],
+        turnos: ['read', 'update'],
+        calendarios: ['read', 'update'],
+        fichajes: ['read', 'export'],
+        planificacion: ['create', 'read', 'update'],
+        // Informes
+        informes: ['create', 'read', 'update', 'export'],
+        // Tesorería
+        tesoreria: ['create', 'read', 'update', 'export'],
+        recibos: ['create', 'read', 'update', 'export'],
+        pagares: ['create', 'read', 'update', 'export'],
+        vencimientos: ['create', 'read', 'update', 'export'],
+        // Stock
+        stock: ['read', 'update', 'export'],
+        inventarios: ['create', 'read', 'update', 'export'],
+        traspasos: ['create', 'read', 'update', 'export'],
+        // Otros
+        tarifas: ['create', 'read', 'update'],
+        ofertas: ['create', 'read', 'update', 'delete'],
+        'series-documentos': ['read'],
+        terminales: ['read', 'update'],
       },
       especiales: {
         ...PERMISOS_ESPECIALES_DEFAULT,
@@ -272,6 +356,11 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         accesoAlmacen: true,
         accesoContabilidad: true,
         accesoTPV: true,
+        accesoRRHH: true,
+        accesoInformes: true,
+        accesoTesoreria: true,
+        accesoProyectos: true,
+        accesoCRM: true,
       },
     },
   },
@@ -309,6 +398,29 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         'partes-trabajo': ['read'],
         maquinaria: [],
         'tipos-gasto': [],
+        // RRHH limitado
+        personal: [],
+        departamentos: [],
+        turnos: [],
+        calendarios: [],
+        fichajes: ['create', 'read'], // Solo sus propios fichajes
+        planificacion: ['read'],
+        // Informes limitado
+        informes: ['read'],
+        // Tesorería (solo lectura limitada)
+        tesoreria: [],
+        recibos: ['read'],
+        pagares: [],
+        vencimientos: ['read'],
+        // Stock lectura
+        stock: ['read'],
+        inventarios: [],
+        traspasos: [],
+        // Otros
+        tarifas: ['read'],
+        ofertas: ['read'],
+        'series-documentos': [],
+        terminales: ['read'],
       },
       especiales: {
         ...PERMISOS_ESPECIALES_DEFAULT,
@@ -319,6 +431,8 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         descuentoMaximo: 15,
         accesoVentas: true,
         accesoTPV: true,
+        accesoInformes: true,
+        accesoCRM: true,
       },
     },
   },
@@ -356,11 +470,35 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         'partes-trabajo': ['create', 'read', 'update'],
         maquinaria: ['read'],
         'tipos-gasto': ['read'],
+        // RRHH limitado
+        personal: [],
+        departamentos: [],
+        turnos: ['read'],
+        calendarios: ['read'],
+        fichajes: ['create', 'read'],
+        planificacion: ['read'],
+        // Informes
+        informes: [],
+        // Tesorería
+        tesoreria: [],
+        recibos: [],
+        pagares: [],
+        vencimientos: [],
+        // Stock
+        stock: ['read'],
+        inventarios: ['read'],
+        traspasos: ['read'],
+        // Otros
+        tarifas: [],
+        ofertas: [],
+        'series-documentos': [],
+        terminales: [],
       },
       especiales: {
         ...PERMISOS_ESPECIALES_DEFAULT,
         verCostes: false,
         accesoAlmacen: true,
+        accesoProyectos: true,
       },
     },
   },
@@ -398,6 +536,29 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         'partes-trabajo': ['read'],
         maquinaria: ['read'],
         'tipos-gasto': ['read'],
+        // RRHH limitado
+        personal: [],
+        departamentos: [],
+        turnos: ['read'],
+        calendarios: ['read'],
+        fichajes: ['create', 'read'],
+        planificacion: [],
+        // Informes
+        informes: [],
+        // Tesorería
+        tesoreria: [],
+        recibos: [],
+        pagares: [],
+        vencimientos: [],
+        // Stock - acceso completo
+        stock: ['create', 'read', 'update', 'export'],
+        inventarios: ['create', 'read', 'update', 'export'],
+        traspasos: ['create', 'read', 'update', 'export'],
+        // Otros
+        tarifas: [],
+        ofertas: [],
+        'series-documentos': [],
+        terminales: [],
       },
       especiales: {
         ...PERMISOS_ESPECIALES_DEFAULT,
@@ -441,6 +602,29 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         'partes-trabajo': ['read'],
         maquinaria: ['read'],
         'tipos-gasto': ['read'],
+        // RRHH lectura
+        personal: ['read'],
+        departamentos: ['read'],
+        turnos: ['read'],
+        calendarios: ['read'],
+        fichajes: ['read'],
+        planificacion: ['read'],
+        // Informes lectura
+        informes: ['read'],
+        // Tesorería lectura
+        tesoreria: ['read'],
+        recibos: ['read'],
+        pagares: ['read'],
+        vencimientos: ['read'],
+        // Stock lectura
+        stock: ['read'],
+        inventarios: ['read'],
+        traspasos: ['read'],
+        // Otros lectura
+        tarifas: ['read'],
+        ofertas: ['read'],
+        'series-documentos': ['read'],
+        terminales: ['read'],
       },
       especiales: {
         ...PERMISOS_ESPECIALES_DEFAULT,
@@ -448,6 +632,151 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         accesoVentas: true,
         accesoCompras: true,
         accesoAlmacen: true,
+        accesoInformes: true,
+        accesoTesoreria: true,
+        accesoProyectos: true,
+      },
+    },
+  },
+  // Nuevo rol específico para RRHH
+  {
+    codigo: 'rrhh',
+    nombre: 'Recursos Humanos',
+    descripcion: 'Gestión completa de personal y RRHH',
+    rolBase: 'gerente',
+    esSistema: true,
+    orden: 7,
+    color: '#0891b2',
+    permisos: {
+      recursos: {
+        clientes: [],
+        proveedores: [],
+        productos: [],
+        familias: [],
+        almacenes: [],
+        presupuestos: [],
+        pedidos: [],
+        albaranes: [],
+        facturas: [],
+        'presupuestos-compra': [],
+        'pedidos-compra': [],
+        'albaranes-compra': [],
+        'facturas-compra': [],
+        usuarios: ['read'],
+        roles: [],
+        configuracion: ['read'],
+        reportes: ['read'],
+        proyectos: ['read'],
+        agentes: [],
+        'formas-pago': [],
+        'tipos-impuesto': [],
+        'partes-trabajo': ['create', 'read', 'update', 'delete', 'export'],
+        maquinaria: [],
+        'tipos-gasto': [],
+        // RRHH - acceso completo
+        personal: ['create', 'read', 'update', 'delete', 'export', 'import'],
+        departamentos: ['create', 'read', 'update', 'delete'],
+        turnos: ['create', 'read', 'update', 'delete'],
+        calendarios: ['create', 'read', 'update', 'delete'],
+        fichajes: ['create', 'read', 'update', 'delete', 'export'],
+        planificacion: ['create', 'read', 'update', 'delete'],
+        // Informes de personal
+        informes: ['create', 'read', 'update', 'export'],
+        // Tesorería (nóminas relacionado)
+        tesoreria: ['read'],
+        recibos: [],
+        pagares: [],
+        vencimientos: [],
+        // Stock
+        stock: [],
+        inventarios: [],
+        traspasos: [],
+        // Otros
+        tarifas: [],
+        ofertas: [],
+        'series-documentos': [],
+        terminales: [],
+      },
+      especiales: {
+        ...PERMISOS_ESPECIALES_DEFAULT,
+        exportarDatos: true,
+        importarDatos: true,
+        verHistorialCambios: true,
+        accesoRRHH: true,
+        accesoInformes: true,
+        accesoProyectos: true,
+      },
+    },
+  },
+  // Nuevo rol para Tesorería
+  {
+    codigo: 'tesorero',
+    nombre: 'Tesorero',
+    descripcion: 'Gestión de tesorería, cobros y pagos',
+    rolBase: 'gerente',
+    esSistema: true,
+    orden: 8,
+    color: '#059669',
+    permisos: {
+      recursos: {
+        clientes: ['read'],
+        proveedores: ['read'],
+        productos: [],
+        familias: [],
+        almacenes: [],
+        presupuestos: ['read'],
+        pedidos: ['read'],
+        albaranes: ['read'],
+        facturas: ['read', 'update'],
+        'presupuestos-compra': ['read'],
+        'pedidos-compra': ['read'],
+        'albaranes-compra': ['read'],
+        'facturas-compra': ['read', 'update'],
+        usuarios: [],
+        roles: [],
+        configuracion: ['read'],
+        reportes: ['read', 'export'],
+        proyectos: [],
+        agentes: [],
+        'formas-pago': ['read'],
+        'tipos-impuesto': ['read'],
+        'partes-trabajo': [],
+        maquinaria: [],
+        'tipos-gasto': [],
+        // RRHH
+        personal: [],
+        departamentos: [],
+        turnos: [],
+        calendarios: [],
+        fichajes: ['create', 'read'],
+        planificacion: [],
+        // Informes
+        informes: ['create', 'read', 'update', 'export'],
+        // Tesorería - acceso completo
+        tesoreria: ['create', 'read', 'update', 'delete', 'export'],
+        recibos: ['create', 'read', 'update', 'delete', 'export'],
+        pagares: ['create', 'read', 'update', 'delete', 'export'],
+        vencimientos: ['create', 'read', 'update', 'delete', 'export'],
+        // Stock
+        stock: [],
+        inventarios: [],
+        traspasos: [],
+        // Otros
+        tarifas: [],
+        ofertas: [],
+        'series-documentos': ['read'],
+        terminales: [],
+      },
+      especiales: {
+        ...PERMISOS_ESPECIALES_DEFAULT,
+        verDatosFacturacion: true,
+        exportarDatos: true,
+        verHistorialCambios: true,
+        accesoVentas: true,
+        accesoCompras: true,
+        accesoContabilidad: true,
+        accesoTesoreria: true,
+        accesoInformes: true,
       },
     },
   },
@@ -478,6 +807,11 @@ const PermisosEspecialesSchema = new Schema<IPermisosEspeciales>({
   accesoAlmacen: { type: Boolean, default: false },
   accesoContabilidad: { type: Boolean, default: false },
   accesoTPV: { type: Boolean, default: false },
+  accesoRRHH: { type: Boolean, default: false },
+  accesoInformes: { type: Boolean, default: false },
+  accesoTesoreria: { type: Boolean, default: false },
+  accesoProyectos: { type: Boolean, default: false },
+  accesoCRM: { type: Boolean, default: false },
 }, { _id: false });
 
 const PermisosSchema = new Schema<IPermisos>({

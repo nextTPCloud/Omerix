@@ -1,9 +1,16 @@
 import { Router } from 'express';
 import { vencimientosController } from './vencimientos.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { authMiddleware, requireModuleAccess } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 
 const router = Router();
+
+// Aplicar middleware de autenticación y tenant
+router.use(authMiddleware);
+router.use(tenantMiddleware);
+
+// Verificar acceso al módulo de tesorería
+router.use(requireModuleAccess('accesoTesoreria'));
 
 /**
  * @swagger

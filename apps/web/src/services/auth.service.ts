@@ -58,6 +58,7 @@ export const authService = {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      localStorage.removeItem('auth-storage'); // Store de Zustand
     }
   },
 
@@ -66,6 +67,7 @@ export const authService = {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('auth-storage'); // Store de Zustand
   },
 
   // Obtener sesiones activas

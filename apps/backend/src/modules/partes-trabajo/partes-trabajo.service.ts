@@ -632,6 +632,96 @@ export class PartesTrabajoService {
   }
 
   // ============================================
+  // REASIGNAR FECHA/HORA (desde planificacion)
+  // ============================================
+
+  async reasignarFechaHora(
+    id: string,
+    nuevaFecha: string,
+    nuevaHora: string,
+    nuevoResponsableId: string | null,
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ): Promise<IParteTrabajo | null> {
+    const ParteTrabajoModel = await this.getModeloParteTrabajo(String(empresaId), dbConfig);
+
+    const parte = await ParteTrabajoModel.findById(id);
+    if (!parte) {
+      throw new Error('Parte de trabajo no encontrado');
+    }
+
+    // Validar que el parte no este en un estado final
+    const estadosNoModificables = [
+      EstadoParteTrabajo.COMPLETADO,
+      EstadoParteTrabajo.FACTURADO,
+      EstadoParteTrabajo.ANULADO,
+    ];
+
+    if (estadosNoModificables.includes(parte.estado)) {
+      throw new Error(`No se puede reasignar un parte en estado "${parte.estado}"`);
+    }
+
+    if (parte.bloqueado) {
+      throw new Error('El parte de trabajo esta bloqueado y no se puede modificar');
+    }
+
+    // Preparar datos actualizados
+    const datosActualizados: any = {
+      fechaInicio: new Date(nuevaFecha),
+      fechaPrevista: new Date(nuevaFecha),
+      modificadoPor: usuarioId,
+      fechaModificacion: new Date(),
+    };
+
+    // Si se proporciona hora, actualizar las lineas de personal
+    if (nuevaHora) {
+      // Calcular hora de fin (sumar duracion original o 1 hora por defecto)
+      const [h, m] = nuevaHora.split(':').map(Number);
+      const horaFinDate = new Date(2000, 0, 1, h + 1, m); // +1 hora por defecto
+      const horaFin = `${horaFinDate.getHours().toString().padStart(2, '0')}:${horaFinDate.getMinutes().toString().padStart(2, '0')}`;
+
+      // Actualizar lineas de personal con la nueva fecha/hora
+      if (parte.lineasPersonal && parte.lineasPersonal.length > 0) {
+        datosActualizados.lineasPersonal = parte.lineasPersonal.map((linea: any) => ({
+          ...linea.toObject ? linea.toObject() : linea,
+          fecha: new Date(nuevaFecha),
+          horaInicio: nuevaHora,
+          horaFin: linea.horaFin || horaFin,
+        }));
+      }
+    }
+
+    // Si se reasigna a otro responsable
+    if (nuevoResponsableId && nuevoResponsableId !== parte.responsableId?.toString()) {
+      const PersonalModel = await getPersonalModel(String(empresaId), dbConfig);
+      const personal = await PersonalModel.findById(nuevoResponsableId).lean();
+      if (personal) {
+        datosActualizados.responsableId = new mongoose.Types.ObjectId(nuevoResponsableId);
+        datosActualizados.responsableNombre = `${(personal as any).nombre} ${(personal as any).apellidos || ''}`.trim();
+      }
+    }
+
+    // Agregar al historial
+    datosActualizados.$push = {
+      historial: {
+        fecha: new Date(),
+        usuarioId,
+        accion: 'Parte reasignado',
+        descripcion: `Fecha/hora reasignada desde planificacion a ${nuevaFecha} ${nuevaHora || ''}`,
+      },
+    };
+
+    const parteActualizado = await ParteTrabajoModel.findByIdAndUpdate(
+      id,
+      datosActualizados,
+      { new: true }
+    );
+
+    return parteActualizado;
+  }
+
+  // ============================================
   // CAMBIAR ESTADO
   // ============================================
 

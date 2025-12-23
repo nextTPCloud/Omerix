@@ -357,6 +357,89 @@ class PlanificacionController {
       });
     }
   }
+
+  /**
+   * GET /api/planificacion/vista-completa
+   * Obtener vista completa de la semana con partes de trabajo y tareas
+   */
+  async obtenerVistaCompleta(req: Request, res: Response) {
+    try {
+      const empresaId = req.empresaId!;
+      const dbConfig = req.empresaDbConfig;
+      const { fechaInicio, fechaFin } = req.query;
+
+      if (!fechaInicio || !fechaFin) {
+        throw new Error('fechaInicio y fechaFin son requeridos');
+      }
+
+      if (!dbConfig) {
+        throw new Error('Configuración de base de datos no disponible');
+      }
+
+      const vista = await planificacionService.obtenerVistaCompletaSemana(
+        empresaId,
+        dbConfig,
+        fechaInicio as string,
+        fechaFin as string
+      );
+
+      res.json({
+        success: true,
+        data: vista,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * POST /api/planificacion/enviar-email
+   * Enviar planificacion por email a empleados
+   */
+  async enviarPorEmail(req: Request, res: Response) {
+    try {
+      const empresaId = req.empresaId!;
+      const dbConfig = req.empresaDbConfig;
+
+      if (!dbConfig) {
+        throw new Error('Configuración de base de datos no disponible');
+      }
+
+      const {
+        fechaInicio,
+        fechaFin,
+        empleadoIds, // Array de IDs de empleados a enviar, si vacío envía a todos
+        mensaje, // Mensaje opcional a incluir en el email
+      } = req.body;
+
+      if (!fechaInicio || !fechaFin) {
+        throw new Error('fechaInicio y fechaFin son requeridos');
+      }
+
+      const resultado = await planificacionService.enviarPorEmail(
+        empresaId,
+        dbConfig,
+        fechaInicio,
+        fechaFin,
+        empleadoIds,
+        mensaje
+      );
+
+      res.json({
+        success: true,
+        data: resultado,
+        message: `Emails enviados: ${resultado.enviados} de ${resultado.total}`,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
 }
 
 export const planificacionController = new PlanificacionController();

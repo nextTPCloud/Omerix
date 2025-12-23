@@ -117,6 +117,9 @@ import { terminalSyncScheduler } from './modules/terminales/terminal-sync.schedu
 // Dashboard personalizable
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
 
+// Informes personalizados
+import informesRoutes from './modules/informes/informes.routes';
+
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
 import logger, { httpLoggerMiddleware, logStartup, logShutdown } from './utils/logger/winston.config'; // 🆕 NUEVO
@@ -394,6 +397,9 @@ app.use('/api/terminales', terminalesRoutes);
 
 // Dashboard personalizable por usuario
 app.use('/api/dashboard', dashboardRoutes);
+
+// Informes personalizados
+app.use('/api/informes', informesRoutes);
 
 // ============================================
 // MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS

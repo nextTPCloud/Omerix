@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pagaresController } from './pagares.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { authMiddleware, requireModuleAccess } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 
 const router = Router();
@@ -15,6 +15,9 @@ const router = Router();
 // Aplicar middleware de autenticación y empresa a todas las rutas
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+
+// Verificar acceso al módulo de tesorería
+router.use(requireModuleAccess('accesoTesoreria'));
 
 // ============================================
 // RUTAS DE PAGARÉS

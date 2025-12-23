@@ -47,7 +47,12 @@ export const generateRefreshToken = (user: IUsuario): string => {
 export const verifyToken = (token: string): JWTPayload => {
   try {
     return jwt.verify(token, JWT_SECRET) as JWTPayload;
-  } catch (error) {
-    throw new Error('Token inválido o expirado');
+  } catch (error: any) {
+    console.error('❌ JWT verify error:', error.name, error.message);
+    // Preservar el nombre del error para mejor diagnóstico
+    if (error.name === 'TokenExpiredError') {
+      throw new Error('jwt expired');
+    }
+    throw new Error(error.message || 'Token inválido o expirado');
   }
 };

@@ -360,6 +360,54 @@ export const partesTrabajoController = {
   },
 
   /**
+   * Reasignar fecha/hora de un parte (desde planificacion)
+   */
+  async reasignarFechaHora(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuracion de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const usuarioId = req.userId!;
+      const { id } = req.params;
+      const { fecha, hora, responsableId } = req.body;
+
+      if (!fecha) {
+        return res.status(400).json({
+          success: false,
+          error: 'La fecha es requerida',
+        });
+      }
+
+      const parte = await partesTrabajoService.reasignarFechaHora(
+        id,
+        fecha,
+        hora || '',
+        responsableId || null,
+        new mongoose.Types.ObjectId(empresaId),
+        new mongoose.Types.ObjectId(usuarioId),
+        req.empresaDbConfig
+      );
+
+      return res.json({
+        success: true,
+        data: parte,
+        message: 'Parte reasignado correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al reasignar parte:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al reasignar el parte',
+      });
+    }
+  },
+
+  /**
    * Generar albaran desde parte de trabajo
    */
   async generarAlbaran(req: Request, res: Response) {

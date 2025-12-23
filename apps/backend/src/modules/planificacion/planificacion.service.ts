@@ -8,6 +8,8 @@ import {
 import { Personal } from '../personal/Personal';
 import { Departamento } from '../departamentos/Departamento';
 import { Turno } from '../turnos/Turno';
+import { databaseManager } from '../../services/database-manager.service';
+import { IDatabaseConfig } from '../empresa/Empresa';
 import {
   CreatePlanificacionDTO,
   UpdatePlanificacionDTO,
@@ -473,6 +475,394 @@ class PlanificacionService {
     return Object.values(resumenPorDia).sort((a, b) =>
       new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
     );
+  }
+
+  /**
+   * Obtener vista completa de la semana con partes de trabajo y tareas
+   * Este método agrega información de otros módulos para mostrar qué tiene que hacer cada empleado
+   */
+  async obtenerVistaCompletaSemana(
+    empresaId: string,
+    dbConfig: IDatabaseConfig,
+    fechaInicio: string,
+    fechaFin: string
+  ) {
+    const empresaObjectId = new mongoose.Types.ObjectId(empresaId);
+    const inicio = new Date(fechaInicio);
+    const fin = new Date(fechaFin);
+    fin.setHours(23, 59, 59, 999);
+
+    // Obtener conexión a la base de datos de la empresa
+    const empresaConnection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
+
+    // Obtener modelos dinámicos
+    const ParteTrabajo = empresaConnection.models.ParteTrabajo ||
+      empresaConnection.model('ParteTrabajo', require('../partes-trabajo/ParteTrabajo').ParteTrabajo.schema);
+    const Tarea = empresaConnection.models.Tarea ||
+      empresaConnection.model('Tarea', require('../tareas/Tarea').Tarea.schema);
+
+    // 1. Obtener planificaciones de la semana (del modelo principal)
+    const planificaciones = await Planificacion.find({
+      empresaId: empresaObjectId,
+      activo: true,
+      fechaInicio: { $lte: fin },
+      fechaFin: { $gte: inicio },
+    }).lean();
+
+    // 2. Obtener personal activo
+    const PersonalModel = empresaConnection.models.Personal ||
+      empresaConnection.model('Personal', require('../personal/Personal').Personal.schema);
+    const personal = await PersonalModel.find({ activo: true }).lean();
+
+    // 3. Obtener partes de trabajo del período
+    const partesTrabajo = await ParteTrabajo.find({
+      activo: true,
+      $or: [
+        { fechaInicio: { $gte: inicio, $lte: fin } },
+        { fechaPrevista: { $gte: inicio, $lte: fin } },
+        { fecha: { $gte: inicio, $lte: fin } },
+      ],
+      estado: { $nin: ['anulado', 'facturado'] }
+    }).select({
+      codigo: 1,
+      titulo: 1,
+      clienteNombre: 1,
+      direccionTrabajo: 1,
+      estado: 1,
+      prioridad: 1,
+      fechaInicio: 1,
+      fechaPrevista: 1,
+      fecha: 1,
+      responsableId: 1,
+      responsableNombre: 1,
+      'lineasPersonal.personalId': 1,
+      'lineasPersonal.personalNombre': 1,
+      'lineasPersonal.fecha': 1,
+      'lineasPersonal.horaInicio': 1,
+      'lineasPersonal.horaFin': 1,
+      'lineasPersonal.descripcionTrabajo': 1,
+    }).lean();
+
+    // 4. Obtener tareas del período
+    const tareas = await Tarea.find({
+      activo: true,
+      $or: [
+        { fechaVencimiento: { $gte: inicio, $lte: fin } },
+        { fechaInicio: { $gte: inicio, $lte: fin } },
+      ],
+      estado: { $nin: ['completada', 'cancelada'] }
+    }).select({
+      titulo: 1,
+      tipo: 1,
+      prioridad: 1,
+      estado: 1,
+      fechaVencimiento: 1,
+      fechaInicio: 1,
+      asignadoAId: 1,
+      asignadoANombre: 1,
+      clienteNombre: 1,
+      descripcion: 1,
+    }).lean();
+
+    // 5. Construir vista por empleado y día
+    const vistaEmpleados: any[] = [];
+
+    for (const emp of personal) {
+      const empleadoId = emp._id.toString();
+      const empleadoVista: any = {
+        _id: empleadoId,
+        nombre: emp.nombre,
+        apellidos: emp.apellidos,
+        nombreCompleto: `${emp.nombre} ${emp.apellidos || ''}`.trim(),
+        cargo: emp.cargo,
+        dias: {},
+      };
+
+      // Generar días de la semana
+      const currentDate = new Date(inicio);
+      while (currentDate <= fin) {
+        const fechaStr = currentDate.toISOString().split('T')[0];
+        empleadoVista.dias[fechaStr] = {
+          fecha: fechaStr,
+          asignacion: null,
+          partesTrabajo: [],
+          tareas: [],
+        };
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      // Agregar asignaciones de planificación
+      planificaciones.forEach(plan => {
+        plan.asignaciones.forEach(asig => {
+          if (asig.personalId.toString() === empleadoId) {
+            const fechaAsig = new Date(asig.fecha).toISOString().split('T')[0];
+            if (empleadoVista.dias[fechaAsig]) {
+              empleadoVista.dias[fechaAsig].asignacion = {
+                horaInicio: asig.horaInicio,
+                horaFin: asig.horaFin,
+                horas: asig.horasPlanificadas,
+                turnoNombre: asig.turnoNombre,
+                ubicacion: asig.ubicacion,
+                estado: asig.estado,
+                esAusencia: asig.esAusencia,
+                tipoAusencia: asig.tipoAusencia,
+                notas: asig.notas,
+              };
+            }
+          }
+        });
+      });
+
+      // Agregar partes de trabajo
+      partesTrabajo.forEach((parte: any) => {
+        // Verificar si el empleado es responsable
+        if (parte.responsableId?.toString() === empleadoId) {
+          const fechaParte = parte.fechaInicio || parte.fechaPrevista || parte.fecha;
+          if (fechaParte) {
+            const fechaStr = new Date(fechaParte).toISOString().split('T')[0];
+            if (empleadoVista.dias[fechaStr]) {
+              empleadoVista.dias[fechaStr].partesTrabajo.push({
+                _id: parte._id,
+                codigo: parte.codigo,
+                titulo: parte.titulo,
+                cliente: parte.clienteNombre,
+                direccion: parte.direccionTrabajo?.ciudad || parte.direccionTrabajo?.calle,
+                estado: parte.estado,
+                prioridad: parte.prioridad,
+                rol: 'responsable',
+              });
+            }
+          }
+        }
+
+        // Verificar en líneas de personal
+        (parte.lineasPersonal || []).forEach((linea: any) => {
+          if (linea.personalId?.toString() === empleadoId) {
+            const fechaLinea = linea.fecha;
+            if (fechaLinea) {
+              const fechaStr = new Date(fechaLinea).toISOString().split('T')[0];
+              if (empleadoVista.dias[fechaStr]) {
+                // Evitar duplicados
+                const yaExiste = empleadoVista.dias[fechaStr].partesTrabajo.some(
+                  (p: any) => p._id.toString() === parte._id.toString()
+                );
+                if (!yaExiste) {
+                  empleadoVista.dias[fechaStr].partesTrabajo.push({
+                    _id: parte._id,
+                    codigo: parte.codigo,
+                    titulo: parte.titulo,
+                    cliente: parte.clienteNombre,
+                    direccion: parte.direccionTrabajo?.ciudad || parte.direccionTrabajo?.calle,
+                    estado: parte.estado,
+                    prioridad: parte.prioridad,
+                    rol: 'asignado',
+                    horaInicio: linea.horaInicio,
+                    horaFin: linea.horaFin,
+                    descripcionTrabajo: linea.descripcionTrabajo,
+                  });
+                }
+              }
+            }
+          }
+        });
+      });
+
+      // Agregar tareas
+      tareas.forEach((tarea: any) => {
+        if (tarea.asignadoAId?.toString() === empleadoId) {
+          const fechaTarea = tarea.fechaVencimiento || tarea.fechaInicio;
+          if (fechaTarea) {
+            const fechaStr = new Date(fechaTarea).toISOString().split('T')[0];
+            if (empleadoVista.dias[fechaStr]) {
+              empleadoVista.dias[fechaStr].tareas.push({
+                _id: tarea._id,
+                titulo: tarea.titulo,
+                tipo: tarea.tipo,
+                prioridad: tarea.prioridad,
+                estado: tarea.estado,
+                cliente: tarea.clienteNombre,
+              });
+            }
+          }
+        }
+      });
+
+      vistaEmpleados.push(empleadoVista);
+    }
+
+    return {
+      fechaInicio,
+      fechaFin,
+      empleados: vistaEmpleados,
+      resumen: {
+        totalEmpleados: personal.length,
+        totalPartesTrabajo: partesTrabajo.length,
+        totalTareas: tareas.length,
+      }
+    };
+  }
+
+  // ============================================
+  // ENVIO DE EMAILS
+  // ============================================
+
+  /**
+   * Enviar planificación por email a empleados
+   */
+  async enviarPorEmail(
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
+    fechaInicio: string,
+    fechaFin: string,
+    empleadoIds?: string[],
+    mensaje?: string
+  ): Promise<{ total: number; enviados: number; errores: string[] }> {
+    // Importar utilidades de email
+    const { sendEmail, emailTemplates } = await import('../../utils/email');
+
+    // Obtener empresa para nombre
+    const EmpresaModel = (await import('../empresa/Empresa')).default;
+    const empresa = await EmpresaModel.findById(empresaId);
+    const empresaNombre = empresa?.nombre || 'Omerix ERP';
+
+    // Obtener vista completa
+    const vistaCompleta = await this.obtenerVistaCompletaSemana(
+      empresaId,
+      dbConfig,
+      fechaInicio,
+      fechaFin
+    );
+
+    // Filtrar empleados si se especificaron IDs
+    let empleadosAEnviar = vistaCompleta.empleados;
+    if (empleadoIds && empleadoIds.length > 0) {
+      empleadosAEnviar = empleadosAEnviar.filter(e =>
+        empleadoIds.includes(e._id.toString())
+      );
+    }
+
+    // Obtener conexión a la base de datos del tenant
+    const empresaConnection = await databaseManager.getEmpresaConnection(empresaId, dbConfig);
+    const PersonalModel = empresaConnection.model('Personal', Personal.schema);
+
+    // Obtener emails de empleados desde la BD del tenant
+    // El email está en contacto.email o contacto.emailCorporativo
+    const personal = await PersonalModel.find({
+      _id: { $in: empleadosAEnviar.map(e => e._id) }
+    }).select('_id nombre apellidos contacto');
+
+    const emailMap = new Map<string, string>();
+    personal.forEach((p: any) => {
+      // Priorizar email corporativo, si no usar email personal
+      const email = p.contacto?.emailCorporativo || p.contacto?.email;
+      if (email) {
+        emailMap.set(p._id.toString(), email);
+      }
+    });
+
+    const resultado = {
+      total: empleadosAEnviar.length,
+      enviados: 0,
+      errores: [] as string[],
+    };
+
+    // Formatear fechas para mostrar
+    const inicio = new Date(fechaInicio);
+    const fin = new Date(fechaFin);
+    const formatoFecha = (d: Date) => d.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+    const formatoMes = (d: Date) => d.toLocaleDateString('es-ES', {
+      month: 'long',
+      year: 'numeric'
+    });
+
+    const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
+
+    // Enviar emails a cada empleado
+    for (const empleado of empleadosAEnviar) {
+      const email = emailMap.get(empleado._id.toString());
+
+      if (!email) {
+        resultado.errores.push(`${empleado.nombreCompleto}: sin email configurado`);
+        continue;
+      }
+
+      // Construir datos de días planificados
+      const diasPlanificados: Array<{
+        fecha: string;
+        diaSemana: string;
+        horaInicio: string;
+        horaFin: string;
+        horas: number;
+        turno?: string;
+        partes?: Array<{ codigo: string; cliente: string }>;
+        tareas?: Array<{ titulo: string }>;
+      }> = [];
+
+      let totalHoras = 0;
+
+      Object.entries(empleado.dias).forEach(([fecha, diaInfo]) => {
+        // Incluir día si tiene asignación, partes o tareas
+        const tieneAsignacion = !!diaInfo.asignacion;
+        const tienePartes = diaInfo.partesTrabajo && diaInfo.partesTrabajo.length > 0;
+        const tieneTareas = diaInfo.tareas && diaInfo.tareas.length > 0;
+
+        if (tieneAsignacion || tienePartes || tieneTareas) {
+          const fechaObj = new Date(fecha);
+          diasPlanificados.push({
+            fecha: formatoFecha(fechaObj),
+            diaSemana: DIAS_SEMANA[fechaObj.getDay()],
+            horaInicio: diaInfo.asignacion?.horaInicio || '-',
+            horaFin: diaInfo.asignacion?.horaFin || '-',
+            horas: diaInfo.asignacion?.horas || 0,
+            turno: diaInfo.asignacion?.turnoNombre,
+            partes: (diaInfo.partesTrabajo || []).map(p => ({
+              codigo: p.codigo,
+              cliente: p.cliente,
+            })),
+            tareas: (diaInfo.tareas || []).map(t => ({
+              titulo: t.titulo,
+            })),
+          });
+          totalHoras += diaInfo.asignacion?.horas || 0;
+        }
+      });
+
+      if (diasPlanificados.length === 0) {
+        resultado.errores.push(`${empleado.nombreCompleto}: sin días planificados`);
+        continue;
+      }
+
+      // Generar HTML del email
+      const html = emailTemplates.planificacionJornadas({
+        empleadoNombre: empleado.nombreCompleto,
+        periodo: formatoMes(inicio),
+        fechaInicio: formatoFecha(inicio),
+        fechaFin: formatoFecha(fin),
+        diasPlanificados,
+        totalHoras,
+        empresaNombre,
+        mensaje,
+      });
+
+      // Enviar email
+      const result = await sendEmail(
+        email,
+        `Planificación de Jornadas - ${formatoMes(inicio)}`,
+        html
+      );
+
+      if (result.success) {
+        resultado.enviados++;
+      } else {
+        resultado.errores.push(`${empleado.nombreCompleto}: ${result.message}`);
+      }
+    }
+
+    return resultado;
   }
 
   // ============================================

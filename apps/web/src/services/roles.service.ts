@@ -45,6 +45,7 @@ export interface RecursoInfo {
   recurso: RecursoSistema;
   nombre: string;
   acciones: AccionRecurso[];
+  grupo: string;
 }
 
 /**
@@ -55,6 +56,7 @@ export interface PermisoEspecialInfo {
   nombre: string;
   descripcion: string;
   tipo: 'boolean' | 'number';
+  grupo: string;
 }
 
 class RolesService {

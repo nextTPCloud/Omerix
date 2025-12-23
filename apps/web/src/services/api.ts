@@ -72,8 +72,10 @@ api.interceptors.response.use(
 
     if (!refreshToken) {
       isRefreshing = false;
+      // Limpiar todos los datos de autenticación incluyendo el store de Zustand
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('auth-storage'); // Store de Zustand
       window.location.href = '/login';
       return Promise.reject(error);
     }
@@ -104,8 +106,10 @@ api.interceptors.response.use(
     } catch (refreshError) {
       processQueue(refreshError, null);
       isRefreshing = false;
+      // Limpiar todos los datos de autenticación incluyendo el store de Zustand
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('auth-storage'); // Store de Zustand
 
       window.location.href = '/login';
 

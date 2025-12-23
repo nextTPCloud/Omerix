@@ -9,6 +9,8 @@ import {
   EstadoPlanificacion,
   TipoPlanificacion,
   AsignacionJornada,
+  VistaCompletaSemana,
+  EmpleadoVista,
 } from '@/services/planificacion.service'
 import { api } from '@/services/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,6 +35,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Plus,
   ChevronLeft,
@@ -49,7 +53,20 @@ import {
   AlertTriangle,
   User,
   Loader2,
+  Wrench,
+  CheckSquare,
+  MapPin,
+  Briefcase,
+  LayoutGrid,
+  GanttChart,
+  Printer,
+  Download,
+  Share2,
+  Mail,
+  MessageCircle,
+  Clipboard,
 } from 'lucide-react'
+import { TimelineView } from '@/components/planificacion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -102,6 +119,10 @@ export default function PlanificacionPage() {
   const [personal, setPersonal] = useState<any[]>([])
   const [turnos, setTurnos] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  // Vista completa con partes de trabajo y tareas
+  const [vistaCompleta, setVistaCompleta] = useState<VistaCompletaSemana | null>(null)
+  // Tipo de vista: tabla o timeline
+  const [tipoVista, setTipoVista] = useState<'tabla' | 'timeline'>('tabla')
 
   // Navegacion de semana
   const [semanaActual, setSemanaActual] = useState(getInicioSemana(new Date()))
@@ -134,6 +155,20 @@ export default function PlanificacionPage() {
   })
   const [loadingCodigo, setLoadingCodigo] = useState(false)
 
+  // Dialog compartir
+  const [showCompartir, setShowCompartir] = useState(false)
+  const [enviandoEmail, setEnviandoEmail] = useState(false)
+  const [mensajeEmail, setMensajeEmail] = useState('')
+
+  // Dialog imprimir
+  const [showImprimir, setShowImprimir] = useState(false)
+  const [opcionesImpresion, setOpcionesImpresion] = useState({
+    mostrarHoras: true,
+    mostrarPartes: true,
+    mostrarTareas: true,
+    formato: 'horizontal' as 'horizontal' | 'vertical',
+  })
+
   // ============================================
   // CARGAR DATOS
   // ============================================
@@ -146,7 +181,7 @@ export default function PlanificacionPage() {
       const fechaInicio = formatearFecha(semanaActual);
       const fechaFin = formatearFecha(new Date(semanaActual.getTime() + 6 * 24 * 60 * 60 * 1000));
 
-      const [planRes, personalRes, turnosRes] = await Promise.all([
+      const [planRes, personalRes, turnosRes, vistaRes] = await Promise.all([
         planificacionService.listar({
           fechaDesde: fechaInicio,
           fechaHasta: fechaFin,
@@ -154,11 +189,13 @@ export default function PlanificacionPage() {
         }),
         api.get('/personal', { params: { limit: 100, activo: true } }),
         api.get('/turnos').catch(() => ({ data: { data: [] } })),
+        planificacionService.obtenerVistaCompleta(fechaInicio, fechaFin).catch(() => null),
       ]);
 
       setPlanificaciones(planRes.data);
       setPersonal(personalRes.data.data || []);
       setTurnos(turnosRes.data.data || []);
+      setVistaCompleta(vistaRes?.data || null);
 
       // Si hay una planificacion para esta semana, seleccionarla
       if (planRes.data.length > 0) {
@@ -406,8 +443,60 @@ export default function PlanificacionPage() {
     }
   };
 
+  // Handlers para TimelineView - mover parte de trabajo
+  const handleMoverParte = async (
+    parteId: string,
+    empleadoId: string,
+    nuevaFecha: string,
+    nuevaHora: string
+  ): Promise<boolean> => {
+    try {
+      await api.post(`/partes-trabajo/${parteId}/reasignar`, {
+        fecha: nuevaFecha,
+        horaInicio: nuevaHora,
+        asignadoId: empleadoId,
+      });
+      toast.success('Parte de trabajo reasignado');
+      await cargarDatos();
+      return true;
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al mover el parte');
+      return false;
+    }
+  };
+
+  // Handlers para TimelineView - mover tarea
+  const handleMoverTarea = async (
+    tareaId: string,
+    empleadoId: string,
+    nuevaFecha: string
+  ): Promise<boolean> => {
+    try {
+      await api.post(`/tareas/${tareaId}/reasignar`, {
+        fecha: nuevaFecha,
+        asignadoId: empleadoId,
+      });
+      toast.success('Tarea reasignada');
+      await cargarDatos();
+      return true;
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al mover la tarea');
+      return false;
+    }
+  };
+
+  // Handler para click en parte desde timeline
+  const handleClickParte = (parteId: string) => {
+    router.push(`/partes-trabajo/${parteId}`);
+  };
+
+  // Handler para click en tarea desde timeline
+  const handleClickTarea = (tareaId: string) => {
+    router.push(`/tareas/${tareaId}`);
+  };
+
   // ============================================
-  // RENDER
+  // EXPORTAR / IMPRIMIR / COMPARTIR
   // ============================================
 
   const formatMesAno = useMemo(() => {
@@ -415,6 +504,271 @@ export default function PlanificacionPage() {
     const ano = semanaActual.getFullYear();
     return `${mes.charAt(0).toUpperCase() + mes.slice(1)} ${ano}`;
   }, [semanaActual]);
+
+  // Generar datos para exportar
+  const generarDatosExportar = useCallback(() => {
+    const data: string[][] = [];
+
+    // Header
+    const header = ['Personal', ...fechasSemana.map(f => `${f.dia} ${f.numero}`)];
+    data.push(header);
+
+    // Filas de empleados
+    personal.forEach((empleado) => {
+      const fila = [`${empleado.nombre} ${empleado.apellidos || ''}`.trim()];
+
+      fechasSemana.forEach((fecha) => {
+        const key = `${fecha.dateStr}-${empleado._id}`;
+        const asignacion = asignacionesPorDiaYPersonal.get(key);
+        const empleadoVista = vistaCompleta?.empleados.find(e => e._id === empleado._id);
+        const diaInfo = empleadoVista?.dias[fecha.dateStr];
+        const partes = diaInfo?.partesTrabajo || [];
+        const tareas = diaInfo?.tareas || [];
+
+        let celda = '';
+        if (asignacion) {
+          celda = `${asignacion.horaInicio}-${asignacion.horaFin}`;
+          if (asignacion.turnoNombre) celda += ` (${asignacion.turnoNombre})`;
+        }
+        if (partes.length > 0) {
+          celda += celda ? '\n' : '';
+          celda += partes.map(p => `PT: ${p.codigo}`).join(', ');
+        }
+        if (tareas.length > 0) {
+          celda += celda ? '\n' : '';
+          celda += tareas.map(t => `T: ${t.titulo}`).join(', ');
+        }
+
+        fila.push(celda || '-');
+      });
+
+      data.push(fila);
+    });
+
+    return data;
+  }, [personal, fechasSemana, asignacionesPorDiaYPersonal, vistaCompleta]);
+
+  // Exportar a CSV
+  const handleExportar = useCallback(() => {
+    const data = generarDatosExportar();
+
+    // Escapar valores CSV
+    const csvContent = data.map(row =>
+      row.map(cell => {
+        const escaped = cell.replace(/"/g, '""');
+        return `"${escaped}"`;
+      }).join(',')
+    ).join('\n');
+
+    // Crear blob y descargar
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `planificacion_${formatearFecha(semanaActual)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success('Planificacion exportada');
+  }, [generarDatosExportar, semanaActual]);
+
+  // Ejecutar impresion con opciones
+  const ejecutarImpresion = useCallback(() => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('No se pudo abrir la ventana de impresion');
+      return;
+    }
+
+    // Generar contenido de la tabla segun opciones
+    const filas: string[] = [];
+
+    personal.forEach((empleado) => {
+      const nombreEmpleado = `${empleado.nombre} ${empleado.apellidos || ''}`.trim();
+      let filaCeldas = `<td class="nombre-empleado">${nombreEmpleado}</td>`;
+
+      fechasSemana.forEach((fecha) => {
+        const key = `${fecha.dateStr}-${empleado._id}`;
+        const asignacion = asignacionesPorDiaYPersonal.get(key);
+        const empleadoVista = vistaCompleta?.empleados.find(e => e._id === empleado._id);
+        const diaInfo = empleadoVista?.dias[fecha.dateStr];
+        const partes = diaInfo?.partesTrabajo || [];
+        const tareas = diaInfo?.tareas || [];
+
+        let contenido = '';
+
+        if (asignacion && opcionesImpresion.mostrarHoras) {
+          contenido += `<div class="horario">${asignacion.horaInicio} - ${asignacion.horaFin}</div>`;
+          contenido += `<div class="horas-total">${asignacion.horasPlanificadas}h</div>`;
+        } else if (!opcionesImpresion.mostrarHoras && asignacion) {
+          contenido += `<div class="check">✓</div>`;
+        }
+
+        if (opcionesImpresion.mostrarPartes && partes.length > 0) {
+          partes.forEach(p => {
+            contenido += `<div class="parte">${p.codigo}</div>`;
+          });
+        }
+
+        if (opcionesImpresion.mostrarTareas && tareas.length > 0) {
+          tareas.forEach(t => {
+            contenido += `<div class="tarea">${t.titulo}</div>`;
+          });
+        }
+
+        if (!contenido) contenido = '-';
+
+        filaCeldas += `<td class="${fecha.esHoy ? 'hoy' : ''}">${contenido}</td>`;
+      });
+
+      filas.push(`<tr>${filaCeldas}</tr>`);
+    });
+
+    const orientacion = opcionesImpresion.formato === 'horizontal' ? 'landscape' : 'portrait';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Planificacion - ${formatMesAno}</title>
+        <style>
+          @page { size: A4 ${orientacion}; margin: 10mm; }
+          body { font-family: Arial, sans-serif; margin: 0; padding: 10px; font-size: 11px; }
+          h1 { text-align: center; margin-bottom: 5px; font-size: 18px; }
+          h2 { text-align: center; color: #666; margin-top: 0; font-weight: normal; font-size: 14px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          th, td { border: 1px solid #ccc; padding: 6px; text-align: center; vertical-align: top; }
+          th { background-color: #e5e7eb; font-weight: bold; font-size: 10px; }
+          .nombre-empleado { text-align: left; font-weight: 500; min-width: 120px; background: #f9fafb; }
+          .hoy { background-color: #dbeafe !important; }
+          .horario { font-weight: bold; color: #059669; font-size: 10px; }
+          .horas-total { color: #666; font-size: 9px; }
+          .check { color: #059669; font-size: 14px; font-weight: bold; }
+          .parte { background: #dbeafe; color: #1e40af; padding: 2px 4px; border-radius: 3px; margin: 2px 0; font-size: 9px; }
+          .tarea { background: #ede9fe; color: #5b21b6; padding: 2px 4px; border-radius: 3px; margin: 2px 0; font-size: 9px; }
+          .leyenda { margin-top: 15px; font-size: 10px; display: flex; gap: 20px; justify-content: center; }
+          .leyenda-item { display: flex; align-items: center; gap: 5px; }
+          .leyenda-color { width: 12px; height: 12px; border-radius: 3px; }
+          @media print {
+            body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Planificacion de Jornadas</h1>
+        <h2>${formatMesAno} (${fechasSemana[0].numero} - ${fechasSemana[6].numero})</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Personal</th>
+              ${fechasSemana.map(f => `<th class="${f.esHoy ? 'hoy' : ''}">${f.dia}<br>${f.numero}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${filas.join('')}
+          </tbody>
+        </table>
+        <div class="leyenda">
+          ${opcionesImpresion.mostrarHoras ? '<div class="leyenda-item"><div class="leyenda-color" style="background:#059669"></div>Horario</div>' : ''}
+          ${opcionesImpresion.mostrarPartes ? '<div class="leyenda-item"><div class="leyenda-color" style="background:#3b82f6"></div>Parte trabajo</div>' : ''}
+          ${opcionesImpresion.mostrarTareas ? '<div class="leyenda-item"><div class="leyenda-color" style="background:#8b5cf6"></div>Tarea</div>' : ''}
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+    setShowImprimir(false);
+  }, [personal, fechasSemana, asignacionesPorDiaYPersonal, vistaCompleta, opcionesImpresion, formatMesAno]);
+
+  // Abrir dialogo de impresion
+  const handleImprimir = useCallback(() => {
+    setShowImprimir(true);
+  }, []);
+
+  // Enviar por email directo (usando backend)
+  const handleEnviarEmail = useCallback(async () => {
+    const fechaInicio = formatearFecha(semanaActual);
+    const fechaFin = formatearFecha(new Date(semanaActual.getTime() + 6 * 24 * 60 * 60 * 1000));
+
+    try {
+      setEnviandoEmail(true);
+      const response = await api.post('/planificacion/enviar-email', {
+        fechaInicio,
+        fechaFin,
+        mensaje: mensajeEmail || undefined,
+      });
+
+      if (response.data.success) {
+        const { enviados, total, errores } = response.data.data;
+        if (errores && errores.length > 0) {
+          toast.warning(`Enviados ${enviados} de ${total} emails. Errores: ${errores.join(', ')}`);
+        } else {
+          toast.success(`Emails enviados correctamente a ${enviados} empleados`);
+        }
+        setShowCompartir(false);
+        setMensajeEmail('');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Error al enviar emails');
+    } finally {
+      setEnviandoEmail(false);
+    }
+  }, [semanaActual, mensajeEmail]);
+
+  // Compartir por WhatsApp
+  const handleCompartirWhatsApp = useCallback(() => {
+    let mensaje = `*Planificacion de Jornadas*\n${formatMesAno}\n\n`;
+
+    personal.slice(0, 10).forEach((empleado) => {
+      mensaje += `*${empleado.nombre} ${empleado.apellidos?.split(' ')[0] || ''}*\n`;
+
+      fechasSemana.forEach((fecha) => {
+        const key = `${fecha.dateStr}-${empleado._id}`;
+        const asignacion = asignacionesPorDiaYPersonal.get(key);
+        if (asignacion) {
+          mensaje += `  ${fecha.dia}: ${asignacion.horaInicio}-${asignacion.horaFin}\n`;
+        }
+      });
+      mensaje += '\n';
+    });
+
+    if (personal.length > 10) {
+      mensaje += `... y ${personal.length - 10} empleados mas`;
+    }
+
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`;
+    window.open(whatsappUrl, '_blank');
+    setShowCompartir(false);
+    toast.success('Se abrio WhatsApp');
+  }, [personal, fechasSemana, asignacionesPorDiaYPersonal, formatMesAno]);
+
+  // Copiar al portapapeles
+  const handleCopiarPortapapeles = useCallback(async () => {
+    const data = generarDatosExportar();
+    const texto = data.map(row => row.join('\t')).join('\n');
+
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast.success('Copiado al portapapeles');
+      setShowCompartir(false);
+    } catch {
+      toast.error('No se pudo copiar al portapapeles');
+    }
+  }, [generarDatosExportar]);
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   if (isLoading) {
     return (
@@ -438,6 +792,37 @@ export default function PlanificacionPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Botones de exportar/imprimir/compartir */}
+            <div className="flex items-center border rounded-lg overflow-hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-none"
+                onClick={handleImprimir}
+                title="Imprimir planificacion"
+              >
+                <Printer className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-none"
+                onClick={handleExportar}
+                title="Exportar planificacion"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-none"
+                onClick={() => setShowCompartir(true)}
+                title="Compartir planificacion"
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+            </div>
+
             <Button variant="outline" onClick={() => cargarDatos()}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Actualizar
@@ -478,27 +863,69 @@ export default function PlanificacionPage() {
                 </Button>
               </div>
 
-              {planificacion && (
-                <div className="flex items-center gap-4">
-                  <Badge className={cn(planificacionService.getEstadoColor(planificacion.estado))}>
-                    {planificacion.estado === EstadoPlanificacion.BORRADOR && <FileText className="h-3 w-3 mr-1" />}
-                    {planificacion.estado === EstadoPlanificacion.PUBLICADA && <Send className="h-3 w-3 mr-1" />}
-                    {planificacion.estado === EstadoPlanificacion.CERRADA && <Lock className="h-3 w-3 mr-1" />}
-                    {planificacionService.getEstadoLabel(planificacion.estado)}
-                  </Badge>
-                  <div className="text-right text-sm">
-                    <p className="font-medium">{planificacion.resumen?.totalHorasPlanificadas || 0}h planificadas</p>
-                    <p className="text-muted-foreground">
-                      {planificacion.resumen?.totalEmpleadosPlanificados || 0} empleados
-                    </p>
-                  </div>
+              <div className="flex items-center gap-4">
+                {/* Toggle vista */}
+                <div className="flex items-center border rounded-lg overflow-hidden">
+                  <Button
+                    variant={tipoVista === 'tabla' ? 'default' : 'ghost'}
+                    size="sm"
+                    className="rounded-none"
+                    onClick={() => setTipoVista('tabla')}
+                  >
+                    <LayoutGrid className="h-4 w-4 mr-1" />
+                    Tabla
+                  </Button>
+                  <Button
+                    variant={tipoVista === 'timeline' ? 'default' : 'ghost'}
+                    size="sm"
+                    className="rounded-none"
+                    onClick={() => setTipoVista('timeline')}
+                  >
+                    <GanttChart className="h-4 w-4 mr-1" />
+                    Timeline
+                  </Button>
                 </div>
-              )}
+
+                {planificacion && (
+                  <>
+                    <Badge className={cn(planificacionService.getEstadoColor(planificacion.estado))}>
+                      {planificacion.estado === EstadoPlanificacion.BORRADOR && <FileText className="h-3 w-3 mr-1" />}
+                      {planificacion.estado === EstadoPlanificacion.PUBLICADA && <Send className="h-3 w-3 mr-1" />}
+                      {planificacion.estado === EstadoPlanificacion.CERRADA && <Lock className="h-3 w-3 mr-1" />}
+                      {planificacionService.getEstadoLabel(planificacion.estado)}
+                    </Badge>
+                    <div className="text-right text-sm">
+                      <p className="font-medium">{planificacion.resumen?.totalHorasPlanificadas || 0}h planificadas</p>
+                      <p className="text-muted-foreground">
+                        {planificacion.resumen?.totalEmpleadosPlanificados || 0} empleados
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Calendario semanal */}
+        {/* Vista Timeline */}
+        {tipoVista === 'timeline' && (
+          <Card>
+            <CardContent className="p-4">
+              <TimelineView
+                vistaCompleta={vistaCompleta}
+                fechasSemana={fechasSemana}
+                onMoverParte={handleMoverParte}
+                onMoverTarea={handleMoverTarea}
+                onClickAsignacion={planificacion ? handleAbrirAsignacion : undefined}
+                onClickParte={handleClickParte}
+                onClickTarea={handleClickTarea}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Calendario semanal (vista tabla) */}
+        {tipoVista === 'tabla' && (
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -565,39 +992,114 @@ export default function PlanificacionPage() {
                           const key = `${fecha.dateStr}-${empleado._id}`;
                           const asignacion = asignacionesPorDiaYPersonal.get(key);
 
+                          // Obtener partes y tareas de la vista completa
+                          const empleadoVista = vistaCompleta?.empleados.find(e => e._id === empleado._id);
+                          const diaInfo = empleadoVista?.dias[fecha.dateStr];
+                          const partes = diaInfo?.partesTrabajo || [];
+                          const tareas = diaInfo?.tareas || [];
+
                           return (
                             <td
                               key={fecha.dateStr}
                               className={cn(
-                                'p-1 border-r last:border-r-0 cursor-pointer hover:bg-muted/50 transition-colors',
+                                'p-1 border-r last:border-r-0 cursor-pointer hover:bg-muted/50 transition-colors align-top',
                                 fecha.esHoy && 'bg-blue-50/50 dark:bg-blue-950/30',
                                 !planificacion && 'opacity-50 cursor-not-allowed'
                               )}
                               onClick={() => planificacion && handleAbrirAsignacion(fecha.dateStr, empleado._id)}
                             >
-                              {asignacion ? (
-                                <div className={cn(
-                                  'p-2 rounded text-xs space-y-1',
-                                  asignacion.esAusencia
-                                    ? 'bg-red-100 dark:bg-red-900/30'
-                                    : 'bg-green-100 dark:bg-green-900/30',
-                                  asignacion.color && `bg-${asignacion.color}-100`
-                                )}>
-                                  <div className="font-medium">
-                                    {asignacion.horaInicio} - {asignacion.horaFin}
+                              <div className="min-h-[80px] space-y-1">
+                                {/* Horario asignado - VERDE */}
+                                {asignacion ? (
+                                  <div className={cn(
+                                    'p-1.5 rounded text-xs border-l-4',
+                                    asignacion.esAusencia
+                                      ? 'bg-red-100 dark:bg-red-900/30 border-red-500'
+                                      : 'bg-green-100 dark:bg-green-900/30 border-green-500'
+                                  )}>
+                                    <div className="font-medium flex items-center gap-1 text-green-800 dark:text-green-200">
+                                      <Clock className="h-3 w-3" />
+                                      {asignacion.horaInicio} - {asignacion.horaFin}
+                                    </div>
+                                    <div className="text-green-600 dark:text-green-400 text-[10px]">
+                                      {asignacion.horasPlanificadas}h
+                                      {asignacion.turnoNombre && ` · ${asignacion.turnoNombre}`}
+                                    </div>
                                   </div>
-                                  <div className="text-muted-foreground">
-                                    {asignacion.horasPlanificadas}h
-                                    {asignacion.turnoNombre && ` · ${asignacion.turnoNombre}`}
+                                ) : (
+                                  <div className="h-8 flex items-center justify-center opacity-30">
+                                    <Plus className="h-3 w-3" />
                                   </div>
-                                </div>
-                              ) : (
-                                <div className="h-16 flex items-center justify-center">
-                                  {planificacion && (
-                                    <Plus className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                                  )}
-                                </div>
-                              )}
+                                )}
+
+                                {/* Partes de trabajo - AZUL */}
+                                {partes.length > 0 && (
+                                  <div className="space-y-0.5">
+                                    {partes.slice(0, 2).map((parte) => (
+                                      <div
+                                        key={parte._id}
+                                        className={cn(
+                                          'p-1 rounded text-[10px] flex items-start gap-1 border-l-4',
+                                          'bg-blue-100 dark:bg-blue-900/30',
+                                          parte.prioridad === 'urgente' ? 'border-red-500' :
+                                          parte.prioridad === 'alta' ? 'border-orange-500' :
+                                          'border-blue-500'
+                                        )}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          router.push(`/partes-trabajo/${parte._id}`);
+                                        }}
+                                      >
+                                        <Wrench className="h-3 w-3 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
+                                        <div className="overflow-hidden">
+                                          <div className="font-medium truncate text-blue-800 dark:text-blue-200">{parte.codigo}</div>
+                                          <div className="text-blue-600 dark:text-blue-400 truncate">{parte.cliente}</div>
+                                          {parte.direccion && (
+                                            <div className="text-blue-500 dark:text-blue-400 truncate flex items-center gap-0.5">
+                                              <MapPin className="h-2 w-2" />{parte.direccion}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {partes.length > 2 && (
+                                      <div className="text-[10px] text-blue-600 dark:text-blue-400 text-center">
+                                        +{partes.length - 2} más
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Tareas - PURPURA */}
+                                {tareas.length > 0 && (
+                                  <div className="space-y-0.5">
+                                    {tareas.slice(0, 2).map((tarea) => (
+                                      <div
+                                        key={tarea._id}
+                                        className={cn(
+                                          'p-1 rounded text-[10px] flex items-start gap-1 border-l-4',
+                                          'bg-purple-100 dark:bg-purple-900/30',
+                                          tarea.prioridad === 'urgente' ? 'border-red-500' : 'border-purple-500'
+                                        )}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          router.push(`/tareas/${tarea._id}`);
+                                        }}
+                                      >
+                                        <CheckSquare className="h-3 w-3 flex-shrink-0 mt-0.5 text-purple-600 dark:text-purple-400" />
+                                        <div className="overflow-hidden">
+                                          <div className="truncate text-purple-800 dark:text-purple-200">{tarea.titulo}</div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {tareas.length > 2 && (
+                                      <div className="text-[10px] text-purple-600 dark:text-purple-400 text-center">
+                                        +{tareas.length - 2} más
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                           );
                         })}
@@ -646,6 +1148,7 @@ export default function PlanificacionPage() {
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* Dialog nueva planificacion */}
         <Dialog open={showNuevaPlanificacion} onOpenChange={setShowNuevaPlanificacion}>
@@ -745,22 +1248,17 @@ export default function PlanificacionPage() {
               {turnos.length > 0 && (
                 <div className="space-y-2">
                   <Label>Turno</Label>
-                  <Select
-                    value={asignacionData.turnoId || 'none'}
-                    onValueChange={(value) => value !== 'none' && handleTurnoChange(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar turno..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin turno</SelectItem>
-                      {turnos.map((turno) => (
-                        <SelectItem key={turno._id} value={turno._id}>
-                          {turno.nombre} ({turno.horaInicio} - {turno.horaFin})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    options={turnos.map((turno) => ({
+                      value: turno._id,
+                      label: `${turno.nombre} (${turno.horaInicio} - ${turno.horaFin})`,
+                    }))}
+                    value={asignacionData.turnoId || ''}
+                    onValueChange={(value) => value && handleTurnoChange(value)}
+                    placeholder="Seleccionar turno..."
+                    searchPlaceholder="Buscar turno..."
+                    emptyMessage="No se encontraron turnos"
+                  />
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">
@@ -807,6 +1305,197 @@ export default function PlanificacionPage() {
                   Guardar
                 </Button>
               </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog compartir */}
+        <Dialog open={showCompartir} onOpenChange={setShowCompartir}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Compartir Planificacion</DialogTitle>
+              <DialogDescription>
+                Elige como quieres compartir la planificacion de {formatMesAno}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {/* Envio por email directo */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                    <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <div className="font-medium">Enviar por Email a empleados</div>
+                    <div className="text-xs text-muted-foreground">
+                      Se enviara a todos los empleados con email configurado
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Mensaje opcional</Label>
+                  <Textarea
+                    value={mensajeEmail}
+                    onChange={(e) => setMensajeEmail(e.target.value)}
+                    placeholder="Escribe un mensaje para incluir en el email..."
+                    rows={2}
+                    className="text-sm"
+                  />
+                </div>
+                <Button
+                  onClick={handleEnviarEmail}
+                  disabled={enviandoEmail}
+                  className="w-full"
+                >
+                  {enviandoEmail ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Enviar a empleados
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Otras opciones */}
+              <div className="grid gap-2">
+                <Button
+                  variant="outline"
+                  className="justify-start gap-3 h-12"
+                  onClick={handleCompartirWhatsApp}
+                >
+                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <MessageCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-sm">Enviar por WhatsApp</div>
+                  </div>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="justify-start gap-3 h-12"
+                  onClick={handleCopiarPortapapeles}
+                >
+                  <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                    <Clipboard className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-sm">Copiar al portapapeles</div>
+                  </div>
+                </Button>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCompartir(false)}>
+                Cerrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog opciones de impresion */}
+        <Dialog open={showImprimir} onOpenChange={setShowImprimir}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Opciones de Impresion</DialogTitle>
+              <DialogDescription>
+                Configura que informacion incluir en la impresion
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {/* Opciones de contenido */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="mostrar-horas" className="cursor-pointer">
+                    <div className="font-medium">Mostrar horarios</div>
+                    <div className="text-xs text-muted-foreground">
+                      Incluir horas de entrada y salida
+                    </div>
+                  </Label>
+                  <Switch
+                    id="mostrar-horas"
+                    checked={opcionesImpresion.mostrarHoras}
+                    onCheckedChange={(checked) =>
+                      setOpcionesImpresion({ ...opcionesImpresion, mostrarHoras: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="mostrar-partes" className="cursor-pointer">
+                    <div className="font-medium">Mostrar partes de trabajo</div>
+                    <div className="text-xs text-muted-foreground">
+                      Incluir partes asignados
+                    </div>
+                  </Label>
+                  <Switch
+                    id="mostrar-partes"
+                    checked={opcionesImpresion.mostrarPartes}
+                    onCheckedChange={(checked) =>
+                      setOpcionesImpresion({ ...opcionesImpresion, mostrarPartes: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="mostrar-tareas" className="cursor-pointer">
+                    <div className="font-medium">Mostrar tareas</div>
+                    <div className="text-xs text-muted-foreground">
+                      Incluir tareas asignadas
+                    </div>
+                  </Label>
+                  <Switch
+                    id="mostrar-tareas"
+                    checked={opcionesImpresion.mostrarTareas}
+                    onCheckedChange={(checked) =>
+                      setOpcionesImpresion({ ...opcionesImpresion, mostrarTareas: checked })
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* Orientacion */}
+              <div className="space-y-2">
+                <Label>Orientacion de pagina</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={opcionesImpresion.formato === 'horizontal' ? 'default' : 'outline'}
+                    className="h-16"
+                    onClick={() => setOpcionesImpresion({ ...opcionesImpresion, formato: 'horizontal' })}
+                  >
+                    <div className="text-center">
+                      <div className="w-8 h-5 border-2 border-current mx-auto mb-1 rounded-sm" />
+                      <div className="text-xs">Horizontal</div>
+                    </div>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={opcionesImpresion.formato === 'vertical' ? 'default' : 'outline'}
+                    className="h-16"
+                    onClick={() => setOpcionesImpresion({ ...opcionesImpresion, formato: 'vertical' })}
+                  >
+                    <div className="text-center">
+                      <div className="w-5 h-8 border-2 border-current mx-auto mb-1 rounded-sm" />
+                      <div className="text-xs">Vertical</div>
+                    </div>
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setShowImprimir(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={ejecutarImpresion}>
+                <Printer className="h-4 w-4 mr-2" />
+                Imprimir
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

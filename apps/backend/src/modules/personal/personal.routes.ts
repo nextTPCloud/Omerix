@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as controller from './personal.controller';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { authMiddleware, requireModuleAccess, requirePermission } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 
 const router = Router();
@@ -8,6 +8,9 @@ const router = Router();
 // Middlewares de autenticación y tenant
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+
+// Verificar acceso al módulo de RRHH para todas las rutas
+router.use(requireModuleAccess('accesoRRHH'));
 
 /**
  * @swagger
@@ -75,7 +78,7 @@ router.use(tenantMiddleware);
  *       200:
  *         description: Lista de empleados
  */
-router.get('/', controller.findAll);
+router.get('/', requirePermission('personal', 'read'), controller.findAll);
 
 /**
  * @swagger
@@ -95,7 +98,7 @@ router.get('/', controller.findAll);
  *       200:
  *         description: Código sugerido
  */
-router.get('/sugerir-codigo', controller.sugerirCodigo);
+router.get('/sugerir-codigo', requirePermission('personal', 'create'), controller.sugerirCodigo);
 
 /**
  * @swagger
@@ -109,7 +112,7 @@ router.get('/sugerir-codigo', controller.sugerirCodigo);
  *       200:
  *         description: Estadísticas del personal
  */
-router.get('/estadisticas', controller.getEstadisticas);
+router.get('/estadisticas', requirePermission('personal', 'read'), controller.getEstadisticas);
 
 /**
  * @swagger
@@ -127,7 +130,7 @@ router.get('/estadisticas', controller.getEstadisticas);
  *             schema:
  *               type: string
  */
-router.get('/exportar/csv', controller.exportarCSV);
+router.get('/exportar/csv', requirePermission('personal', 'export'), controller.exportarCSV);
 
 /**
  * @swagger
@@ -152,7 +155,7 @@ router.get('/exportar/csv', controller.exportarCSV);
  *       200:
  *         description: Calendario de ausencias
  */
-router.get('/calendario-ausencias', controller.getCalendarioAusencias);
+router.get('/calendario-ausencias', requirePermission('personal', 'read'), controller.getCalendarioAusencias);
 
 /**
  * @swagger
@@ -174,7 +177,7 @@ router.get('/calendario-ausencias', controller.getCalendarioAusencias);
  *       404:
  *         description: Empleado no encontrado
  */
-router.get('/:id', controller.findById);
+router.get('/:id', requirePermission('personal', 'read'), controller.findById);
 
 /**
  * @swagger
@@ -211,7 +214,7 @@ router.get('/:id', controller.findById);
  *       400:
  *         description: Datos inválidos
  */
-router.post('/', controller.create);
+router.post('/', requirePermission('personal', 'create'), controller.create);
 
 /**
  * @swagger
@@ -238,7 +241,7 @@ router.post('/', controller.create);
  *       200:
  *         description: Empleados eliminados
  */
-router.post('/bulk-delete', controller.bulkDelete);
+router.post('/bulk-delete', requirePermission('personal', 'delete'), controller.bulkDelete);
 
 /**
  * @swagger
@@ -266,7 +269,7 @@ router.post('/bulk-delete', controller.bulkDelete);
  *       404:
  *         description: Empleado no encontrado
  */
-router.put('/:id', controller.update);
+router.put('/:id', requirePermission('personal', 'update'), controller.update);
 
 /**
  * @swagger
@@ -288,7 +291,7 @@ router.put('/:id', controller.update);
  *       404:
  *         description: Empleado no encontrado
  */
-router.delete('/:id', controller.remove);
+router.delete('/:id', requirePermission('personal', 'delete'), controller.remove);
 
 /**
  * @swagger
@@ -319,7 +322,7 @@ router.delete('/:id', controller.remove);
  *       200:
  *         description: Estado actualizado
  */
-router.patch('/:id/estado', controller.changeStatus);
+router.patch('/:id/estado', requirePermission('personal', 'update'), controller.changeStatus);
 
 /**
  * @swagger
@@ -339,7 +342,7 @@ router.patch('/:id/estado', controller.changeStatus);
  *       201:
  *         description: Empleado duplicado
  */
-router.post('/:id/duplicar', controller.duplicar);
+router.post('/:id/duplicar', requirePermission('personal', 'create'), controller.duplicar);
 
 /**
  * @swagger
@@ -359,7 +362,7 @@ router.post('/:id/duplicar', controller.duplicar);
  *       200:
  *         description: Lista de subordinados
  */
-router.get('/:id/subordinados', controller.getSubordinados);
+router.get('/:id/subordinados', requirePermission('personal', 'read'), controller.getSubordinados);
 
 /**
  * @swagger
@@ -399,7 +402,7 @@ router.get('/:id/subordinados', controller.getSubordinados);
  *       200:
  *         description: Ausencia registrada
  */
-router.post('/:id/ausencias', controller.registrarAusencia);
+router.post('/:id/ausencias', requirePermission('personal', 'update'), controller.registrarAusencia);
 
 /**
  * @swagger
@@ -435,7 +438,7 @@ router.post('/:id/ausencias', controller.registrarAusencia);
  *       200:
  *         description: Vacaciones actualizadas
  */
-router.put('/:id/vacaciones', controller.actualizarVacaciones);
+router.put('/:id/vacaciones', requirePermission('personal', 'update'), controller.actualizarVacaciones);
 
 /**
  * @swagger
@@ -474,6 +477,6 @@ router.put('/:id/vacaciones', controller.actualizarVacaciones);
  *       200:
  *         description: Evaluación registrada
  */
-router.post('/:id/evaluaciones', controller.registrarEvaluacion);
+router.post('/:id/evaluaciones', requirePermission('personal', 'update'), controller.registrarEvaluacion);
 
 export default router;

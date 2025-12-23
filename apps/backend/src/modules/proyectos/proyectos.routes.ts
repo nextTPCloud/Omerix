@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { proyectosController } from './proyectos.controller';
-import { authMiddleware } from '@/middleware/auth.middleware';
+import { authMiddleware, requireModuleAccess } from '@/middleware/auth.middleware';
 import { tenantMiddleware } from '@/middleware/tenant.middleware';
 
 const router = Router();
@@ -8,6 +8,9 @@ const router = Router();
 // Aplicar middlewares a todas las rutas
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+
+// Verificar acceso al módulo de Proyectos
+router.use(requireModuleAccess('accesoProyectos'));
 
 /**
  * @swagger

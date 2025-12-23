@@ -372,57 +372,98 @@ class RolesService {
   /**
    * Obtener lista de recursos disponibles
    */
-  getRecursosDisponibles(): { recurso: RecursoSistema; nombre: string; acciones: AccionRecurso[] }[] {
+  getRecursosDisponibles(): { recurso: RecursoSistema; nombre: string; acciones: AccionRecurso[]; grupo: string }[] {
     return [
-      { recurso: 'clientes', nombre: 'Clientes', acciones: ['create', 'read', 'update', 'delete', 'export', 'import'] },
-      { recurso: 'proveedores', nombre: 'Proveedores', acciones: ['create', 'read', 'update', 'delete', 'export', 'import'] },
-      { recurso: 'productos', nombre: 'Productos', acciones: ['create', 'read', 'update', 'delete', 'export', 'import'] },
-      { recurso: 'familias', nombre: 'Familias', acciones: ['create', 'read', 'update', 'delete'] },
-      { recurso: 'almacenes', nombre: 'Almacenes', acciones: ['create', 'read', 'update', 'delete'] },
-      { recurso: 'presupuestos', nombre: 'Presupuestos (Ventas)', acciones: ['create', 'read', 'update', 'delete', 'export'] },
-      { recurso: 'pedidos', nombre: 'Pedidos (Ventas)', acciones: ['create', 'read', 'update', 'delete', 'export'] },
-      { recurso: 'albaranes', nombre: 'Albaranes (Ventas)', acciones: ['create', 'read', 'update', 'delete', 'export'] },
-      { recurso: 'facturas', nombre: 'Facturas (Ventas)', acciones: ['create', 'read', 'update', 'delete', 'export'] },
-      { recurso: 'presupuestos-compra', nombre: 'Presupuestos (Compras)', acciones: ['create', 'read', 'update', 'delete', 'export'] },
-      { recurso: 'pedidos-compra', nombre: 'Pedidos (Compras)', acciones: ['create', 'read', 'update', 'delete', 'export'] },
-      { recurso: 'albaranes-compra', nombre: 'Albaranes (Compras)', acciones: ['create', 'read', 'update', 'delete', 'export'] },
-      { recurso: 'facturas-compra', nombre: 'Facturas (Compras)', acciones: ['create', 'read', 'update', 'delete', 'export'] },
-      { recurso: 'usuarios', nombre: 'Usuarios', acciones: ['create', 'read', 'update', 'delete'] },
-      { recurso: 'roles', nombre: 'Roles', acciones: ['create', 'read', 'update', 'delete'] },
-      { recurso: 'configuracion', nombre: 'Configuración', acciones: ['read', 'update'] },
-      { recurso: 'reportes', nombre: 'Informes', acciones: ['read', 'export'] },
-      { recurso: 'proyectos', nombre: 'Proyectos', acciones: ['create', 'read', 'update', 'delete'] },
-      { recurso: 'agentes', nombre: 'Agentes/Comerciales', acciones: ['create', 'read', 'update', 'delete'] },
-      { recurso: 'formas-pago', nombre: 'Formas de Pago', acciones: ['create', 'read', 'update', 'delete'] },
-      { recurso: 'tipos-impuesto', nombre: 'Tipos de Impuesto', acciones: ['create', 'read', 'update', 'delete'] },
+      // Maestros
+      { recurso: 'clientes', nombre: 'Clientes', acciones: ['create', 'read', 'update', 'delete', 'export', 'import'], grupo: 'Maestros' },
+      { recurso: 'proveedores', nombre: 'Proveedores', acciones: ['create', 'read', 'update', 'delete', 'export', 'import'], grupo: 'Maestros' },
+      { recurso: 'productos', nombre: 'Productos', acciones: ['create', 'read', 'update', 'delete', 'export', 'import'], grupo: 'Maestros' },
+      { recurso: 'familias', nombre: 'Familias', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Maestros' },
+      { recurso: 'almacenes', nombre: 'Almacenes', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Maestros' },
+      { recurso: 'agentes', nombre: 'Agentes/Comerciales', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Maestros' },
+      { recurso: 'formas-pago', nombre: 'Formas de Pago', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Maestros' },
+      { recurso: 'tipos-impuesto', nombre: 'Tipos de Impuesto', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Maestros' },
+      { recurso: 'tarifas', nombre: 'Tarifas', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Maestros' },
+      { recurso: 'ofertas', nombre: 'Ofertas/Promociones', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Maestros' },
+      { recurso: 'series-documentos', nombre: 'Series de Documentos', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Maestros' },
+      // Ventas
+      { recurso: 'presupuestos', nombre: 'Presupuestos (Ventas)', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Ventas' },
+      { recurso: 'pedidos', nombre: 'Pedidos (Ventas)', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Ventas' },
+      { recurso: 'albaranes', nombre: 'Albaranes (Ventas)', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Ventas' },
+      { recurso: 'facturas', nombre: 'Facturas (Ventas)', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Ventas' },
+      // Compras
+      { recurso: 'presupuestos-compra', nombre: 'Presupuestos (Compras)', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Compras' },
+      { recurso: 'pedidos-compra', nombre: 'Pedidos (Compras)', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Compras' },
+      { recurso: 'albaranes-compra', nombre: 'Albaranes (Compras)', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Compras' },
+      { recurso: 'facturas-compra', nombre: 'Facturas (Compras)', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Compras' },
+      // RRHH / Personal
+      { recurso: 'personal', nombre: 'Personal/Empleados', acciones: ['create', 'read', 'update', 'delete', 'export', 'import'], grupo: 'RRHH' },
+      { recurso: 'departamentos', nombre: 'Departamentos', acciones: ['create', 'read', 'update', 'delete'], grupo: 'RRHH' },
+      { recurso: 'turnos', nombre: 'Turnos', acciones: ['create', 'read', 'update', 'delete'], grupo: 'RRHH' },
+      { recurso: 'calendarios', nombre: 'Calendarios Laborales', acciones: ['create', 'read', 'update', 'delete'], grupo: 'RRHH' },
+      { recurso: 'fichajes', nombre: 'Fichajes', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'RRHH' },
+      { recurso: 'planificacion', nombre: 'Planificación', acciones: ['create', 'read', 'update', 'delete'], grupo: 'RRHH' },
+      { recurso: 'partes-trabajo', nombre: 'Partes de Trabajo', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'RRHH' },
+      // Informes
+      { recurso: 'informes', nombre: 'Informes Personalizados', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Informes' },
+      { recurso: 'reportes', nombre: 'Reportes del Sistema', acciones: ['read', 'export'], grupo: 'Informes' },
+      // Tesorería
+      { recurso: 'tesoreria', nombre: 'Tesorería General', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Tesorería' },
+      { recurso: 'recibos', nombre: 'Recibos', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Tesorería' },
+      { recurso: 'pagares', nombre: 'Pagarés', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Tesorería' },
+      { recurso: 'vencimientos', nombre: 'Vencimientos', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Tesorería' },
+      // Stock / Almacén
+      { recurso: 'stock', nombre: 'Stock', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Almacén' },
+      { recurso: 'inventarios', nombre: 'Inventarios', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Almacén' },
+      { recurso: 'traspasos', nombre: 'Traspasos', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Almacén' },
+      // Proyectos
+      { recurso: 'proyectos', nombre: 'Proyectos', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Proyectos' },
+      { recurso: 'maquinaria', nombre: 'Maquinaria', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Proyectos' },
+      { recurso: 'tipos-gasto', nombre: 'Tipos de Gasto', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Proyectos' },
+      // Terminales de Fichaje
+      { recurso: 'terminales', nombre: 'Terminales de Fichaje', acciones: ['create', 'read', 'update', 'delete'], grupo: 'RRHH' },
+      // Sistema
+      { recurso: 'usuarios', nombre: 'Usuarios', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Sistema' },
+      { recurso: 'roles', nombre: 'Roles', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Sistema' },
+      { recurso: 'configuracion', nombre: 'Configuración', acciones: ['read', 'update'], grupo: 'Sistema' },
     ];
   }
 
   /**
    * Obtener lista de permisos especiales disponibles
    */
-  getPermisosEspecialesDisponibles(): { codigo: keyof IPermisosEspeciales; nombre: string; descripcion: string; tipo: 'boolean' | 'number' }[] {
+  getPermisosEspecialesDisponibles(): { codigo: keyof IPermisosEspeciales; nombre: string; descripcion: string; tipo: 'boolean' | 'number'; grupo: string }[] {
     return [
-      { codigo: 'verCostes', nombre: 'Ver Costes', descripcion: 'Ver precios de compra y costes de productos', tipo: 'boolean' },
-      { codigo: 'verMargenes', nombre: 'Ver Márgenes', descripcion: 'Ver márgenes de beneficio en productos y documentos', tipo: 'boolean' },
-      { codigo: 'verDatosFacturacion', nombre: 'Ver Datos Facturación', descripcion: 'Ver CIF, direcciones y datos fiscales de clientes', tipo: 'boolean' },
-      { codigo: 'modificarPVP', nombre: 'Modificar PVP', descripcion: 'Modificar precios de venta en documentos', tipo: 'boolean' },
-      { codigo: 'modificarPrecioCompra', nombre: 'Modificar Precio Compra', descripcion: 'Modificar precios de compra en documentos', tipo: 'boolean' },
-      { codigo: 'aplicarDescuentos', nombre: 'Aplicar Descuentos', descripcion: 'Aplicar descuentos en líneas de documentos', tipo: 'boolean' },
-      { codigo: 'descuentoMaximo', nombre: 'Descuento Máximo (%)', descripcion: 'Porcentaje máximo de descuento permitido', tipo: 'number' },
-      { codigo: 'accederConfiguracion', nombre: 'Acceder Configuración', descripcion: 'Acceder a la configuración de la empresa', tipo: 'boolean' },
-      { codigo: 'gestionarUsuarios', nombre: 'Gestionar Usuarios', descripcion: 'Crear, editar y eliminar usuarios', tipo: 'boolean' },
-      { codigo: 'gestionarRoles', nombre: 'Gestionar Roles', descripcion: 'Crear y modificar roles personalizados', tipo: 'boolean' },
-      { codigo: 'exportarDatos', nombre: 'Exportar Datos', descripcion: 'Exportar datos a Excel/CSV', tipo: 'boolean' },
-      { codigo: 'importarDatos', nombre: 'Importar Datos', descripcion: 'Importar datos masivamente', tipo: 'boolean' },
-      { codigo: 'anularDocumentos', nombre: 'Anular Documentos', descripcion: 'Anular facturas, albaranes y otros documentos', tipo: 'boolean' },
-      { codigo: 'eliminarDocumentos', nombre: 'Eliminar Documentos', descripcion: 'Eliminar documentos completamente', tipo: 'boolean' },
-      { codigo: 'verHistorialCambios', nombre: 'Ver Historial', descripcion: 'Ver historial de modificaciones de documentos', tipo: 'boolean' },
-      { codigo: 'accesoVentas', nombre: 'Acceso Ventas', descripcion: 'Acceder al módulo de ventas', tipo: 'boolean' },
-      { codigo: 'accesoCompras', nombre: 'Acceso Compras', descripcion: 'Acceder al módulo de compras', tipo: 'boolean' },
-      { codigo: 'accesoAlmacen', nombre: 'Acceso Almacén', descripcion: 'Acceder al módulo de almacén', tipo: 'boolean' },
-      { codigo: 'accesoContabilidad', nombre: 'Acceso Contabilidad', descripcion: 'Acceder a informes financieros', tipo: 'boolean' },
-      { codigo: 'accesoTPV', nombre: 'Acceso TPV', descripcion: 'Acceder al terminal punto de venta', tipo: 'boolean' },
+      // Visibilidad de datos
+      { codigo: 'verCostes', nombre: 'Ver Costes', descripcion: 'Ver precios de compra y costes de productos', tipo: 'boolean', grupo: 'Datos Financieros' },
+      { codigo: 'verMargenes', nombre: 'Ver Márgenes', descripcion: 'Ver márgenes de beneficio en productos y documentos', tipo: 'boolean', grupo: 'Datos Financieros' },
+      { codigo: 'verDatosFacturacion', nombre: 'Ver Datos Facturación', descripcion: 'Ver CIF, direcciones y datos fiscales de clientes', tipo: 'boolean', grupo: 'Datos Financieros' },
+      // Edición de precios
+      { codigo: 'modificarPVP', nombre: 'Modificar PVP', descripcion: 'Modificar precios de venta en documentos', tipo: 'boolean', grupo: 'Precios' },
+      { codigo: 'modificarPrecioCompra', nombre: 'Modificar Precio Compra', descripcion: 'Modificar precios de compra en documentos', tipo: 'boolean', grupo: 'Precios' },
+      { codigo: 'aplicarDescuentos', nombre: 'Aplicar Descuentos', descripcion: 'Aplicar descuentos en líneas de documentos', tipo: 'boolean', grupo: 'Precios' },
+      { codigo: 'descuentoMaximo', nombre: 'Descuento Máximo (%)', descripcion: 'Porcentaje máximo de descuento permitido', tipo: 'number', grupo: 'Precios' },
+      // Gestión del sistema
+      { codigo: 'accederConfiguracion', nombre: 'Acceder Configuración', descripcion: 'Acceder a la configuración de la empresa', tipo: 'boolean', grupo: 'Sistema' },
+      { codigo: 'gestionarUsuarios', nombre: 'Gestionar Usuarios', descripcion: 'Crear, editar y eliminar usuarios', tipo: 'boolean', grupo: 'Sistema' },
+      { codigo: 'gestionarRoles', nombre: 'Gestionar Roles', descripcion: 'Crear y modificar roles personalizados', tipo: 'boolean', grupo: 'Sistema' },
+      // Operaciones masivas
+      { codigo: 'exportarDatos', nombre: 'Exportar Datos', descripcion: 'Exportar datos a Excel/CSV', tipo: 'boolean', grupo: 'Operaciones' },
+      { codigo: 'importarDatos', nombre: 'Importar Datos', descripcion: 'Importar datos masivamente', tipo: 'boolean', grupo: 'Operaciones' },
+      { codigo: 'anularDocumentos', nombre: 'Anular Documentos', descripcion: 'Anular facturas, albaranes y otros documentos', tipo: 'boolean', grupo: 'Operaciones' },
+      { codigo: 'eliminarDocumentos', nombre: 'Eliminar Documentos', descripcion: 'Eliminar documentos completamente', tipo: 'boolean', grupo: 'Operaciones' },
+      { codigo: 'verHistorialCambios', nombre: 'Ver Historial', descripcion: 'Ver historial de modificaciones de documentos', tipo: 'boolean', grupo: 'Operaciones' },
+      // Acceso a módulos
+      { codigo: 'accesoVentas', nombre: 'Acceso Ventas', descripcion: 'Acceder al módulo de ventas', tipo: 'boolean', grupo: 'Acceso a Módulos' },
+      { codigo: 'accesoCompras', nombre: 'Acceso Compras', descripcion: 'Acceder al módulo de compras', tipo: 'boolean', grupo: 'Acceso a Módulos' },
+      { codigo: 'accesoAlmacen', nombre: 'Acceso Almacén', descripcion: 'Acceder al módulo de almacén/stock', tipo: 'boolean', grupo: 'Acceso a Módulos' },
+      { codigo: 'accesoContabilidad', nombre: 'Acceso Contabilidad', descripcion: 'Acceder a informes financieros y contabilidad', tipo: 'boolean', grupo: 'Acceso a Módulos' },
+      { codigo: 'accesoTPV', nombre: 'Acceso TPV', descripcion: 'Acceder al terminal punto de venta', tipo: 'boolean', grupo: 'Acceso a Módulos' },
+      { codigo: 'accesoRRHH', nombre: 'Acceso RRHH', descripcion: 'Acceder al módulo de recursos humanos y personal', tipo: 'boolean', grupo: 'Acceso a Módulos' },
+      { codigo: 'accesoInformes', nombre: 'Acceso Informes', descripcion: 'Acceder al módulo de informes personalizados', tipo: 'boolean', grupo: 'Acceso a Módulos' },
+      { codigo: 'accesoTesoreria', nombre: 'Acceso Tesorería', descripcion: 'Acceder al módulo de tesorería (cobros, pagos, recibos)', tipo: 'boolean', grupo: 'Acceso a Módulos' },
+      { codigo: 'accesoProyectos', nombre: 'Acceso Proyectos', descripcion: 'Acceder al módulo de proyectos y partes de trabajo', tipo: 'boolean', grupo: 'Acceso a Módulos' },
+      { codigo: 'accesoCRM', nombre: 'Acceso CRM', descripcion: 'Acceder a funcionalidades avanzadas de gestión de clientes', tipo: 'boolean', grupo: 'Acceso a Módulos' },
     ];
   }
 }

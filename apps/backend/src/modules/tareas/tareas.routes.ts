@@ -65,6 +65,12 @@ router.post('/:id/estado', tareasController.cambiarEstado.bind(tareasController)
 router.post('/:id/comentarios', tareasController.agregarComentario.bind(tareasController));
 
 /**
+ * POST /api/tareas/:id/reasignar
+ * Reasignar tarea (desde planificacion)
+ */
+router.post('/:id/reasignar', tareasController.reasignar.bind(tareasController));
+
+/**
  * DELETE /api/tareas/:id
  * Eliminar tarea
  */
