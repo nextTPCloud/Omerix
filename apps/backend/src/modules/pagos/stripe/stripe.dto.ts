@@ -73,6 +73,17 @@ export const CreateRefundSchema = z.object({
 });
 
 // ============================================
+// CREAR CHECKOUT SESSION
+// ============================================
+
+export const CreateCheckoutSessionSchema = z.object({
+  planSlug: z.string(),
+  tipoSuscripcion: z.enum(['mensual', 'anual']),
+  successUrl: z.string().url(),
+  cancelUrl: z.string().url(),
+});
+
+// ============================================
 // TYPES
 // ============================================
 
@@ -83,3 +94,4 @@ export type UpdateSubscriptionDTO = z.infer<typeof UpdateSubscriptionSchema>;
 export type CancelSubscriptionDTO = z.infer<typeof CancelSubscriptionSchema>;
 export type AddPaymentMethodDTO = z.infer<typeof AddPaymentMethodSchema>;
 export type CreateRefundDTO = z.infer<typeof CreateRefundSchema>;
+export type CreateCheckoutSessionDTO = z.infer<typeof CreateCheckoutSessionSchema>;

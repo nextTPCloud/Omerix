@@ -20,7 +20,7 @@ export interface IUsuario extends Document {
   avatar?: string;
 
   // Rol y permisos
-  rol: 'superadmin' | 'admin' | 'gerente' | 'vendedor' | 'tecnico' | 'almacenero' | 'visualizador';
+  rol: string;  // Puede ser rol del sistema o personalizado
   rolId?: Types.ObjectId;  // Referencia a rol personalizado (opcional)
   permisos: IPermisosUsuario;
 
@@ -101,11 +101,13 @@ const UsuarioSchema = new Schema<IUsuario>(
       type: String,
     },
     
-    // Rol y permisos
+    // Rol y permisos (acepta roles del sistema y personalizados)
     rol: {
       type: String,
-      enum: ['superadmin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador'],
+      required: [true, 'El rol es obligatorio'],
       default: 'vendedor',
+      trim: true,
+      lowercase: true,
     },
     rolId: {
       type: Schema.Types.ObjectId,

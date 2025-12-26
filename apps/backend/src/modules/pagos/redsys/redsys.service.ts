@@ -181,8 +181,13 @@ export class RedsysService {
 
   async createSubscription(empresaId: string, data: CreateRedsysSubscriptionDTO) {
     try {
-      // Obtener plan
-      const plan = await Plan.findById(data.planId);
+      // Obtener plan por ID o slug
+      let plan;
+      if (data.planId) {
+        plan = await Plan.findById(data.planId);
+      } else if (data.planSlug) {
+        plan = await Plan.findOne({ slug: data.planSlug, activo: true });
+      }
       if (!plan) {
         throw new Error('Plan no encontrado');
       }

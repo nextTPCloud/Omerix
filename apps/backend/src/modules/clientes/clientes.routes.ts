@@ -8,7 +8,7 @@ import {
 } from './clientes.dto';
 import multer from 'multer';
 import { authMiddleware } from '@/middleware/auth.middleware';
-import { tenantMiddleware } from '@/middleware/tenant.middleware';
+import { tenantMiddleware, requireBusinessDatabase } from '@/middleware/tenant.middleware';
 import { validateBody } from '@/middleware/validation.middleware';
 
 const router = Router();
@@ -56,9 +56,10 @@ const upload = multer({
   },
 });
 
-// Todas las rutas requieren autenticación y tenant
+// Todas las rutas requieren autenticación, tenant y base de datos de negocio
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+router.use(requireBusinessDatabase);
 
 // ============================================
 // RUTAS CRUD BÁSICAS

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { proveedoresService } from './proveedores.service';
 import mongoose from 'mongoose';
 import { CreateProveedorSchema, UpdateProveedorSchema } from './proveedores.dto';
+import { ReferentialIntegrityError } from '@/utils/referential-integrity.helper';
 
 export class ProveedoresController {
 
@@ -324,6 +325,17 @@ export class ProveedoresController {
       });
     } catch (error: any) {
       console.error('Error al eliminar proveedor:', error);
+
+      // Error de integridad referencial - código 409 Conflict
+      if (error instanceof ReferentialIntegrityError) {
+        return res.status(409).json({
+          success: false,
+          message: error.message,
+          code: 'REFERENTIAL_INTEGRITY_ERROR',
+          details: error.relatedRecords,
+        });
+      }
+
       res.status(500).json({
         success: false,
         message: error.message || 'Error al eliminar el proveedor',
@@ -361,16 +373,26 @@ export class ProveedoresController {
       }
 
       const empresaId = new mongoose.Types.ObjectId(req.empresaId);
-      const eliminados = await proveedoresService.eliminarMultiples(
+      const result = await proveedoresService.eliminarMultiples(
         ids,
         empresaId,
         req.empresaDbConfig
       );
 
+      // Si hay errores de integridad, informar con código 207 Multi-Status
+      if (result.errors && result.errors.length > 0) {
+        return res.status(207).json({
+          success: result.deleted > 0,
+          message: `${result.deleted} proveedor(es) eliminado(s). ${result.errors.length} no pudieron eliminarse por tener registros asociados.`,
+          deleted: result.deleted,
+          errors: result.errors,
+        });
+      }
+
       res.json({
         success: true,
-        message: `${eliminados} proveedor(es) eliminado(s) exitosamente`,
-        data: { eliminados },
+        message: `${result.deleted} proveedor(es) eliminado(s) exitosamente`,
+        data: { eliminados: result.deleted },
       });
     } catch (error: any) {
       console.error('Error al eliminar proveedores:', error);

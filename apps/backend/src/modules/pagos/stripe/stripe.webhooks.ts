@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import config from '../../../config/env';
 import Pago from '../Pago';
 import Licencia from '../../licencias/Licencia';
+import { facturacionSuscripcionService } from '../facturacion-suscripcion.service';
 
 const stripe = new Stripe(config.stripe.secretKey, {
   apiVersion: '2025-10-29.clover',
@@ -148,6 +149,15 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     if (pago.concepto === 'suscripcion' && pago.metadata?.licenciaId) {
       await activarLicencia(String(pago.metadata.licenciaId));
     }
+
+    // Generar factura de suscripción y enviar por email
+    try {
+      const result = await facturacionSuscripcionService.procesarPagoCompletado(String(pago._id));
+      console.log(`Factura ${result.factura.numeroFactura} generada, email enviado: ${result.emailEnviado}`);
+    } catch (error: any) {
+      console.error('Error generando factura de suscripción:', error.message);
+      // No fallar el webhook por error de facturación
+    }
   }
 }
 
@@ -256,7 +266,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     const empresaId = subscription.metadata.empresaId;
 
     if (empresaId) {
-      await Pago.create({
+      const pago = await Pago.create({
         empresaId,
         concepto: 'suscripcion',
         descripcion: `Pago de suscripción - ${invoice.lines.data[0]?.description || 'Suscripción'}`,
@@ -267,7 +277,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         transaccionExternaId: paymentIntentId,
         clienteExternoId: String(invoice.customer || ''),
         estado: 'completado',
-        fechaPago: invoice.status_transitions?.paid_at 
+        fechaPago: invoice.status_transitions?.paid_at
           ? new Date(invoice.status_transitions.paid_at * 1000)
           : new Date(),
         metodoPago: {
@@ -275,6 +285,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
         },
         numeroFactura: invoice.number || undefined,
       });
+
+      // Generar factura de suscripción y enviar por email
+      try {
+        const result = await facturacionSuscripcionService.procesarPagoCompletado(String(pago._id));
+        console.log(`Factura ${result.factura.numeroFactura} generada, email enviado: ${result.emailEnviado}`);
+      } catch (error: any) {
+        console.error('Error generando factura de suscripción:', error.message);
+      }
     }
   }
 }

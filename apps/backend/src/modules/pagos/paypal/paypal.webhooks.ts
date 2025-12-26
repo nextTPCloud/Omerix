@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import config from '../../../config/env';
 import Pago from '../Pago';
 import Licencia from '../../licencias/Licencia';
+import { facturacionSuscripcionService } from '../facturacion-suscripcion.service';
 
 /**
  * Webhook de PayPal
@@ -112,6 +113,14 @@ async function handlePaymentCaptureCompleted(event: any) {
     // Si es una suscripción, activar la licencia
     if (pago.concepto === 'suscripcion' && pago.metadata?.licenciaId) {
       await activarLicencia(String(pago.metadata.licenciaId));
+    }
+
+    // Generar factura de suscripción y enviar por email
+    try {
+      const result = await facturacionSuscripcionService.procesarPagoCompletado(String(pago._id));
+      console.log(`Factura ${result.factura.numeroFactura} generada, email enviado: ${result.emailEnviado}`);
+    } catch (error: any) {
+      console.error('Error generando factura de suscripción:', error.message);
     }
   }
 }

@@ -2,6 +2,17 @@ import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Empresa from '../modules/empresa/Empresa';
 
+// Extender Request para incluir propiedades de tenant
+declare global {
+  namespace Express {
+    interface Request {
+      empresaDbConfig?: any;
+      dbConfig?: any;
+      esPlatforma?: boolean;
+    }
+  }
+}
+
 /**
  * Middleware Multi-tenant con soporte para múltiples bases de datos
  * Carga la configuración de base de datos de la empresa y la adjunta al request
@@ -77,7 +88,18 @@ export const tenantMiddleware = async (
       });
     }
 
+    // Bypass para empresa plataforma (Tralok) + superadmin
+    // La empresa plataforma no tiene base de datos propia
     if (!empresa.databaseConfig) {
+      // Si es empresa plataforma Y el usuario es superadmin, permitir acceso
+      if (empresa.esPlatforma && req.userRole === 'superadmin') {
+        console.log('🔓 Bypass: Superadmin accediendo a empresa plataforma');
+        req.empresaDbConfig = null as any;
+        req.dbConfig = null as any;
+        req.esPlatforma = true;
+        return next();
+      }
+
       return res.status(500).json({
         success: false,
         message: 'Configuración de base de datos no encontrada para esta empresa',
@@ -123,4 +145,34 @@ export const verifyTenantOwnership = (
   }
 
   return recursoEmpresaId === requestEmpresaId;
+};
+
+/**
+ * Middleware para bloquear rutas de negocio en empresa plataforma
+ * Usar en rutas que requieren base de datos de empresa (clientes, productos, etc.)
+ */
+export const requireBusinessDatabase = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  // Si es empresa plataforma, bloquear acceso a rutas de negocio
+  if (req.esPlatforma) {
+    return res.status(403).json({
+      success: false,
+      message: 'Esta función no está disponible desde la empresa plataforma. Selecciona una empresa de negocio para acceder a este módulo.',
+      code: 'PLATFORM_COMPANY_ACCESS',
+      requiresBusinessCompany: true,
+    });
+  }
+
+  // Verificar que hay configuración de base de datos
+  if (!req.dbConfig) {
+    return res.status(500).json({
+      success: false,
+      message: 'Configuración de base de datos no disponible',
+    });
+  }
+
+  next();
 };

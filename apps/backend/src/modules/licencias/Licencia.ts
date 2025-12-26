@@ -41,10 +41,14 @@ export interface ILicencia extends Document {
   
   // Add-ons contratados
   addOns: Array<{
+    addOnId: mongoose.Types.ObjectId;
     nombre: string;
+    slug: string;
+    cantidad: number; // Para add-ons con cantidad (usuarios extra, tokens, GB)
     precioMensual: number;
     activo: boolean;
     fechaActivacion: Date;
+    fechaCancelacion?: Date;
   }>;
   
   // Historial de cambios
@@ -134,10 +138,14 @@ const LicenciaSchema = new Schema<ILicencia>(
     },
     addOns: [
       {
+        addOnId: { type: Schema.Types.ObjectId, ref: 'AddOn' },
         nombre: String,
+        slug: String,
+        cantidad: { type: Number, default: 1 },
         precioMensual: Number,
         activo: { type: Boolean, default: true },
         fechaActivacion: { type: Date, default: Date.now },
+        fechaCancelacion: Date,
       },
     ],
     historial: [

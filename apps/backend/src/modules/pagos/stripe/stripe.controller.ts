@@ -8,6 +8,7 @@ import {
   CancelSubscriptionSchema,
   AddPaymentMethodSchema,
   CreateRefundSchema,
+  CreateCheckoutSessionSchema,
   CreatePaymentIntentDTO,
   ConfirmPaymentDTO,
   CreateSubscriptionDTO,
@@ -15,6 +16,7 @@ import {
   CancelSubscriptionDTO,
   AddPaymentMethodDTO,
   CreateRefundDTO,
+  CreateCheckoutSessionDTO,
 } from './stripe.dto';
 
 const stripeService = new StripeService();
@@ -426,6 +428,45 @@ export const getPublishableKey = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Error obteniendo clave pública',
+    });
+  }
+};
+
+// ============================================
+// CREAR CHECKOUT SESSION
+// ============================================
+
+export const createCheckoutSession = async (req: Request, res: Response) => {
+  try {
+    const empresaId = req.empresaId!;
+
+    // Validar
+    const validation = validateRequest<CreateCheckoutSessionDTO>(
+      CreateCheckoutSessionSchema,
+      req.body
+    );
+
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Datos de entrada inválidos',
+        errors: validation.errors,
+      });
+    }
+
+    const result = await stripeService.createCheckoutSession(empresaId, validation.data);
+
+    res.status(201).json({
+      success: true,
+      message: 'Checkout Session creada exitosamente',
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error creando Checkout Session:', error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error creando Checkout Session',
     });
   }
 };

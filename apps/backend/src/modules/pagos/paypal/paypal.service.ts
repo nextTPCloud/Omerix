@@ -171,12 +171,12 @@ export class PayPalService {
     // CREAR PLAN DE SUSCRIPCIÓN EN PAYPAL
     // ============================================
 
-    async createPayPalPlan(plan: any) {
+    async createPayPalPlan(plan: any, tipoSuscripcion: 'mensual' | 'anual' = 'mensual') {
     try {
-        // Crear producto en PayPal
+        // Crear producto en PayPal (si no existe)
         const productRequest = {
         name: plan.nombre,
-        description: plan.descripcion,
+        description: plan.descripcion || `Plan ${plan.nombre}`,
         type: 'SERVICE',
         category: 'SOFTWARE',
         };
@@ -193,17 +193,22 @@ export class PayPalService {
         }
         );
 
-        const product = await productResponse.json() as any; // ← AÑADIR 'as any'
+        const product = await productResponse.json() as any;
+
+        // Configurar según tipo de suscripción
+        const esAnual = tipoSuscripcion === 'anual';
+        const precio = esAnual ? plan.precio.anual : plan.precio.mensual;
+        const intervalo = esAnual ? 'YEAR' : 'MONTH';
 
         // Crear plan de suscripción
         const planRequest = {
         product_id: product.id,
-        name: plan.nombre,
-        description: plan.descripcion,
+        name: `${plan.nombre} (${esAnual ? 'Anual' : 'Mensual'})`,
+        description: plan.descripcion || `Suscripción ${esAnual ? 'anual' : 'mensual'} al plan ${plan.nombre}`,
         billing_cycles: [
             {
             frequency: {
-                interval_unit: 'MONTH',
+                interval_unit: intervalo,
                 interval_count: 1,
             },
             tenure_type: 'REGULAR',
@@ -211,7 +216,7 @@ export class PayPalService {
             total_cycles: 0, // Ilimitado
             pricing_scheme: {
                 fixed_price: {
-                value: plan.precio.mensual.toFixed(2),
+                value: precio.toFixed(2),
                 currency_code: 'EUR',
                 },
             },
@@ -240,9 +245,9 @@ export class PayPalService {
         }
         );
 
-        const paypalPlan = await planResponse.json() as any; // ← AÑADIR 'as any'
+        const paypalPlan = await planResponse.json() as any;
 
-        console.log('✅ Plan de PayPal creado:', paypalPlan.id);
+        console.log(`✅ Plan de PayPal creado (${tipoSuscripcion}):`, paypalPlan.id, `- ${precio}€`);
 
         return paypalPlan.id;
     } catch (error: any) {
@@ -258,18 +263,32 @@ export class PayPalService {
 
     async createSubscription(empresaId: string, data: CreatePayPalSubscriptionDTO) {
     try {
-        // Obtener plan
-        const plan = await Plan.findById(data.planId);
+        // Obtener plan por ID o slug
+        let plan;
+        if (data.planId) {
+          plan = await Plan.findById(data.planId);
+        } else if (data.planSlug) {
+          plan = await Plan.findOne({ slug: data.planSlug, activo: true });
+        }
         if (!plan) {
-        throw new Error('Plan no encontrado');
+          throw new Error('Plan no encontrado');
         }
 
-        // Crear plan en PayPal si no existe
-        let paypalPlanId = plan.paypalPlanId;
+        // Determinar tipo de suscripción
+        const tipoSuscripcion = data.tipoSuscripcion || 'mensual';
+        const esAnual = tipoSuscripcion === 'anual';
+
+        // Crear plan en PayPal si no existe para este tipo de suscripción
+        // Usamos paypalPlanId para mensual y paypalPlanIdAnual para anual
+        let paypalPlanId = esAnual ? plan.paypalPlanIdAnual : plan.paypalPlanId;
         if (!paypalPlanId) {
-        paypalPlanId = await this.createPayPalPlan(plan);
-        plan.paypalPlanId = paypalPlanId;
-        await plan.save();
+          paypalPlanId = await this.createPayPalPlan(plan, tipoSuscripcion);
+          if (esAnual) {
+            plan.paypalPlanIdAnual = paypalPlanId;
+          } else {
+            plan.paypalPlanId = paypalPlanId;
+          }
+          await plan.save();
         }
 
         // Crear suscripción en PayPal
@@ -303,11 +322,15 @@ export class PayPalService {
 
         const subscription = await response.json() as any; // ← AÑADIR 'as any'
 
-        // Guardar en licencia
+        // Guardar en licencia (incluyendo el nuevo plan)
         const licencia = await Licencia.findOne({ empresaId });
         if (licencia) {
-        licencia.paypalSubscriptionId = subscription.id;
-        await licencia.save();
+          const planAnterior = licencia.planId;
+          licencia.paypalSubscriptionId = subscription.id;
+          licencia.planId = plan._id; // Actualizar al nuevo plan
+          licencia.tipoSuscripcion = data.tipoSuscripcion || 'mensual';
+          await licencia.save();
+          console.log(`📋 Licencia actualizada: plan ${planAnterior} → ${plan._id}`);
         }
 
         console.log('✅ Suscripción de PayPal creada:', subscription.id);
@@ -329,9 +352,69 @@ export class PayPalService {
     }
 
   // ============================================
+  // ACTIVAR SUSCRIPCIÓN (después del callback de PayPal)
+  // ============================================
+
+  async activateSubscription(empresaId: string, subscriptionId: string) {
+    try {
+      // Obtener detalles de la suscripción desde PayPal
+      const response = await fetch(
+        `https://api-m.${config.paypal.mode}.paypal.com/v1/billing/subscriptions/${subscriptionId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${await this.getAccessToken()}`,
+          },
+        }
+      );
+
+      const subscription = await response.json() as any;
+
+      if (subscription.status !== 'ACTIVE' && subscription.status !== 'APPROVED') {
+        throw new Error(`La suscripción no está activa. Estado: ${subscription.status}`);
+      }
+
+      // Actualizar licencia
+      const licencia = await Licencia.findOne({ empresaId });
+      if (licencia) {
+        // Obtener plan asociado
+        const plan = await Plan.findById(licencia.planId);
+
+        licencia.estado = 'activa';
+        licencia.esTrial = false;
+        licencia.paypalSubscriptionId = subscriptionId;
+
+        // Calcular fecha de renovación
+        const dias = licencia.tipoSuscripcion === 'anual' ? 365 : 30;
+        licencia.fechaRenovacion = new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
+
+        licencia.historial.push({
+          fecha: new Date(),
+          accion: 'ACTIVACION_PAYPAL',
+          planNuevo: plan?.nombre,
+          motivo: `Suscripción PayPal activada: ${subscriptionId}`,
+        });
+
+        await licencia.save();
+        console.log('✅ Licencia activada con PayPal:', empresaId);
+      }
+
+      return {
+        success: true,
+        message: 'Suscripción activada correctamente',
+        subscription,
+      };
+    } catch (error: any) {
+      console.error('Error activando suscripción de PayPal:', error);
+      throw new Error(`Error activando suscripción: ${error.message}`);
+    }
+  }
+
+  // ============================================
   // CANCELAR SUSCRIPCIÓN
   // ============================================
-  
+
   async cancelSubscription(empresaId: string, data: CancelPayPalSubscriptionDTO) {
     try {
       const { subscriptionId, motivo } = data;

@@ -1,6 +1,11 @@
 import Empresa, { IEmpresa } from '@/modules/empresa/Empresa';
 import Usuario from '@/modules/usuarios/Usuario';
-import { GetEmpresasQueryDto, AdminUpdateEmpresaDto, UpdateEmpresaEstadoDto } from './admin.dto';
+import UsuarioEmpresa from '@/modules/usuarios/UsuarioEmpresa';
+import Plan from '@/modules/licencias/Plan';
+import Licencia from '@/modules/licencias/Licencia';
+import { GetEmpresasQueryDto, AdminUpdateEmpresaDto, UpdateEmpresaEstadoDto, CreateEmpresaDto } from './admin.dto';
+import { DatabaseManagerService, databaseManager } from '@/services/database-manager.service';
+import { generateAccessToken, generateRefreshToken } from '@/utils/jwt';
 import mongoose from 'mongoose';
 
 /**
@@ -243,6 +248,157 @@ class AdminService {
     // await databaseManager.dropEmpresaDatabase(empresaId);
 
     return result.deletedCount > 0;
+  }
+
+  /**
+   * Crear nueva empresa de negocio (para superadmin)
+   * Crea la empresa, su base de datos, asigna el superadmin y crea licencia trial
+   */
+  async createEmpresa(data: CreateEmpresaDto, superadminId: string) {
+    // Verificar si el NIF ya existe
+    const empresaExistente = await Empresa.findOne({ nif: data.nif });
+    if (empresaExistente) {
+      throw new Error('Ya existe una empresa con este NIF');
+    }
+
+    // 1. Generar configuración de base de datos
+    const tempEmpresaId = new mongoose.Types.ObjectId();
+    const databaseConfig = DatabaseManagerService.generateDatabaseConfig(
+      String(tempEmpresaId),
+      {
+        host: process.env.MONGODB_HOST || 'localhost',
+        port: parseInt(process.env.MONGODB_PORT || '27017'),
+        user: process.env.MONGODB_USER,
+        password: process.env.MONGODB_PASSWORD,
+      }
+    );
+
+    console.log(`🔧 Configuración de DB generada: ${databaseConfig.name}`);
+
+    // 2. Crear empresa con configuración de DB
+    const empresa = await Empresa.create({
+      _id: tempEmpresaId,
+      nombre: data.nombre,
+      nif: data.nif,
+      email: data.email,
+      telefono: data.telefono,
+      tipoNegocio: data.tipoNegocio,
+      estado: 'activa',
+      direccion: data.direccion,
+      databaseConfig,
+    });
+
+    console.log(`✅ Empresa creada: ${empresa.nombre} (${empresa._id})`);
+
+    // 3. Inicializar base de datos de la empresa
+    try {
+      await databaseManager.initializeEmpresaDatabase(
+        String(empresa._id),
+        databaseConfig
+      );
+      console.log(`✅ Base de datos inicializada: ${databaseConfig.name}`);
+    } catch (error: any) {
+      console.error('❌ Error inicializando base de datos:', error);
+      await Empresa.deleteOne({ _id: empresa._id });
+      throw new Error('Error al inicializar la base de datos de la empresa');
+    }
+
+    // 4. Asignar superadmin a la empresa
+    const superadmin = await Usuario.findById(superadminId);
+    if (superadmin) {
+      await UsuarioEmpresa.create({
+        usuarioId: superadmin._id,
+        empresaId: empresa._id,
+        rol: 'admin',
+        esPrincipal: true,
+        activo: true,
+        fechaAsignacion: new Date(),
+      });
+
+      // Actualizar empresaId del superadmin
+      superadmin.empresaId = empresa._id;
+      await superadmin.save();
+
+      console.log(`✅ Superadmin asignado a la empresa`);
+    }
+
+    // 5. Crear licencia - Enterprise para superadmin (sin restricciones)
+    // Buscar plan Enterprise (el maximo) para superadmin
+    let planSeleccionado = await Plan.findOne({ slug: 'enterprise' });
+
+    // Si no existe Enterprise, buscar el plan con mas modulos
+    if (!planSeleccionado) {
+      planSeleccionado = await Plan.findOne({ slug: 'profesional' });
+    }
+    if (!planSeleccionado) {
+      planSeleccionado = await Plan.findOne({ slug: 'basico' });
+    }
+    if (!planSeleccionado) {
+      planSeleccionado = await Plan.findOne({ slug: 'demo' });
+    }
+
+    if (planSeleccionado) {
+      await Licencia.create({
+        empresaId: empresa._id,
+        planId: planSeleccionado._id,
+        estado: 'activa', // Activa directamente, no trial para superadmin
+        esTrial: false,
+        tipoSuscripcion: 'anual',
+        fechaInicio: new Date(),
+        // Fecha muy lejana para que nunca expire
+        fechaRenovacion: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000),
+        usoActual: {
+          usuariosSimultaneos: 0,
+          usuariosTotales: 1,
+          facturasEsteMes: 0,
+          productosActuales: 0,
+          almacenesActuales: 1,
+          clientesActuales: 0,
+          tpvsActuales: 0,
+          almacenamientoUsadoGB: 0,
+          llamadasAPIHoy: 0,
+          emailsEsteMes: 0,
+          smsEsteMes: 0,
+          whatsappEsteMes: 0,
+        },
+        historial: [
+          {
+            fecha: new Date(),
+            accion: 'CREACION',
+            planNuevo: planSeleccionado.nombre,
+            motivo: `Empresa creada por superadmin - Licencia completa sin restricciones`,
+          },
+        ],
+      });
+
+      console.log(`✅ Licencia ${planSeleccionado.nombre} creada para superadmin`);
+    }
+
+    // 6. Generar nuevos tokens con la nueva empresaId
+    // Recargar el superadmin para tener los datos actualizados
+    const superadminActualizado = await Usuario.findById(superadminId);
+    let newTokens = null;
+
+    if (superadminActualizado) {
+      const accessToken = generateAccessToken(superadminActualizado);
+      const refreshToken = generateRefreshToken(superadminActualizado);
+      newTokens = { accessToken, refreshToken };
+      console.log(`✅ Nuevos tokens generados con empresaId: ${empresa._id}`);
+    }
+
+    return {
+      empresa: {
+        id: String(empresa._id),
+        nombre: empresa.nombre,
+        nif: empresa.nif,
+        email: empresa.email,
+        tipoNegocio: empresa.tipoNegocio,
+      },
+      plan: planSeleccionado?.nombre || 'Enterprise',
+      licenciaActiva: true,
+      // Nuevos tokens para que el frontend actualice la sesion
+      ...newTokens,
+    };
   }
 }
 

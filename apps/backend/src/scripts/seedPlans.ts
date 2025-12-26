@@ -7,7 +7,7 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/omerix-dev';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/tralok-dev';
 
 const planes = [
   {

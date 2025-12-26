@@ -47,19 +47,35 @@ export interface UsuariosFilterOptions {
 class UsuariosService {
   /**
    * Obtener todos los usuarios de una empresa
+   * @param ocultarSuperadmin - Si true, no incluye usuarios superadmin en los resultados
    */
   async getUsuariosByEmpresa(
     empresaId: string,
-    options: UsuariosFilterOptions = {}
+    options: UsuariosFilterOptions = {},
+    ocultarSuperadmin: boolean = false
   ): Promise<{ usuarios: IUsuario[]; total: number }> {
     const filter: any = { empresaId: new Types.ObjectId(empresaId) };
+
+    // Ocultar superadmin si no eres superadmin
+    if (ocultarSuperadmin) {
+      filter.rol = { $ne: 'superadmin' };
+    }
 
     if (options.activo !== undefined) {
       filter.activo = options.activo;
     }
 
     if (options.rol) {
-      filter.rol = options.rol;
+      // Si ya hay filtro de rol por $ne, combinamos con $and
+      if (filter.rol && filter.rol.$ne) {
+        filter.$and = [
+          { rol: { $ne: 'superadmin' } },
+          { rol: options.rol }
+        ];
+        delete filter.rol;
+      } else {
+        filter.rol = options.rol;
+      }
     }
 
     if (options.busqueda) {

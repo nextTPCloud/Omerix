@@ -7,6 +7,8 @@ import {
   getAddOns,
   cambiarPlan,
   addAddOn,
+  removeAddOn,
+  getResumenFacturacion,
 } from './licencias.controller';
 
 const router = Router();
@@ -112,5 +114,45 @@ router.post('/cambiar-plan', cambiarPlan);
  *         description: Add-on añadido exitosamente
  */
 router.post('/add-addon', addAddOn);
+
+/**
+ * @swagger
+ * /api/licencias/remove-addon:
+ *   post:
+ *     summary: Eliminar add-on
+ *     tags: [Licencias]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - addOnSlug
+ *             properties:
+ *               addOnSlug:
+ *                 type: string
+ *                 example: tpv
+ *     responses:
+ *       200:
+ *         description: Add-on eliminado exitosamente
+ */
+router.post('/remove-addon', removeAddOn);
+
+/**
+ * @swagger
+ * /api/licencias/facturacion:
+ *   get:
+ *     summary: Obtener resumen de facturación
+ *     tags: [Licencias]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Resumen de facturación actual
+ */
+router.get('/facturacion', getResumenFacturacion);
 
 export default router;

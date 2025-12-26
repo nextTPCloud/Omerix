@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { proveedoresController } from './proveedores.controller';
 import { authMiddleware } from '@/middleware/auth.middleware';
-import { tenantMiddleware } from '@/middleware/tenant.middleware';
+import { tenantMiddleware, requireBusinessDatabase } from '@/middleware/tenant.middleware';
 
 const router = Router();
 
@@ -15,6 +15,7 @@ const router = Router();
 // Todas las rutas requieren autenticación y tenant
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+router.use(requireBusinessDatabase);
 
 // ============================================
 // RUTAS CRUD BÁSICAS

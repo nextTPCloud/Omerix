@@ -12,6 +12,7 @@ import {
   CancelSubscriptionDTO,
   AddPaymentMethodDTO,
   CreateRefundDTO,
+  CreateCheckoutSessionDTO,
 } from './stripe.dto';
 
 // Inicializar Stripe
@@ -505,6 +506,101 @@ export class StripeService {
       .limit(limit);
 
     return pagos;
+  }
+
+  // ============================================
+  // CREAR CHECKOUT SESSION (STRIPE HOSTED)
+  // ============================================
+
+  async createCheckoutSession(empresaId: string, data: CreateCheckoutSessionDTO) {
+    try {
+      // Obtener plan por slug
+      const plan = await Plan.findOne({ slug: data.planSlug, activo: true });
+      if (!plan) {
+        throw new Error('Plan no encontrado');
+      }
+
+      // Obtener o crear customer
+      const customerId = await this.getOrCreateCustomer(empresaId);
+
+      // Determinar precio según tipo de suscripción
+      const precio = data.tipoSuscripcion === 'anual'
+        ? plan.precio.anual
+        : plan.precio.mensual;
+
+      // Crear o recuperar el precio en Stripe
+      let stripePriceId: string;
+
+      if (data.tipoSuscripcion === 'anual' && plan.stripePriceIdAnual) {
+        stripePriceId = plan.stripePriceIdAnual;
+      } else if (data.tipoSuscripcion === 'mensual' && plan.stripePriceId) {
+        stripePriceId = plan.stripePriceId;
+      } else {
+        // Crear precio en Stripe si no existe
+        const stripePrice = await stripe.prices.create({
+          currency: 'eur',
+          unit_amount: Math.round(precio * 100),
+          recurring: {
+            interval: data.tipoSuscripcion === 'anual' ? 'year' : 'month',
+          },
+          product_data: {
+            name: `Plan ${plan.nombre} (${data.tipoSuscripcion})`,
+          },
+        });
+
+        stripePriceId = stripePrice.id;
+
+        // Guardar para futuras referencias
+        if (data.tipoSuscripcion === 'anual') {
+          plan.stripePriceIdAnual = stripePriceId;
+        } else {
+          plan.stripePriceId = stripePriceId;
+        }
+        await plan.save();
+      }
+
+      // Crear Checkout Session
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: 'subscription',
+        line_items: [
+          {
+            price: stripePriceId,
+            quantity: 1,
+          },
+        ],
+        success_url: data.successUrl,
+        cancel_url: data.cancelUrl,
+        metadata: {
+          empresaId,
+          planId: String(plan._id),
+          planSlug: plan.slug,
+          tipoSuscripcion: data.tipoSuscripcion,
+        },
+        subscription_data: {
+          metadata: {
+            empresaId,
+            planId: String(plan._id),
+          },
+        },
+        allow_promotion_codes: true,
+        billing_address_collection: 'required',
+        customer_update: {
+          address: 'auto',
+        },
+        locale: 'es',
+      });
+
+      console.log('✅ Stripe Checkout Session creada:', session.id);
+
+      return {
+        sessionId: session.id,
+        url: session.url,
+      };
+    } catch (error: any) {
+      console.error('Error creando Checkout Session:', error);
+      throw new Error(`Error en Stripe: ${error.message}`);
+    }
   }
 
   // ============================================

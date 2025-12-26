@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 import crypto from 'crypto';
 
 // Clave de encriptación (en producción debería estar en variables de entorno)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'omerix-encryption-key-32-chars!!'; // 32 caracteres
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'tralok-encryption-key-32-chars!!'; // 32 caracteres
 const IV_LENGTH = 16;
 
 // Funciones de encriptación/desencriptación
@@ -248,6 +248,10 @@ export interface IEmpresa extends Document {
   paypalCustomerId?: string;
   redsysCustomerId?: string;
 
+  // Flag para identificar la empresa de la plataforma (Tralok SL)
+  // Esta empresa no tiene base de datos propia, solo se usa para facturación
+  esPlatforma?: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -483,9 +487,10 @@ const EmpresaSchema = new Schema<IEmpresa>(
     intervaloFacturacion: { type: Number, default: 15, min: 1, max: 60 },
 
     // Configuración de base de datos dedicada para esta empresa
+    // No es requerida para empresas de plataforma (esPlatforma: true)
     databaseConfig: {
       type: DatabaseConfigSchema,
-      required: true,
+      required: false,
     },
 
     // Configuración de email SMTP
@@ -530,6 +535,14 @@ const EmpresaSchema = new Schema<IEmpresa>(
     stripeCustomerId: String,
     paypalCustomerId: String,
     redsysCustomerId: String,
+
+    // Flag para identificar la empresa de la plataforma (Tralok SL)
+    // Esta empresa no tiene base de datos propia, solo se usa para facturación
+    esPlatforma: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,

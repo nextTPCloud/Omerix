@@ -15,6 +15,7 @@ import {
 export class FichajesController {
   /**
    * Obtener todos los fichajes
+   * Si el usuario no tiene accesoRRHH, solo ve sus propios fichajes
    */
   static async getAll(req: Request, res: Response) {
     try {
@@ -30,8 +31,27 @@ export class FichajesController {
         req.empresaDbConfig
       );
 
+      // Verificar si el usuario tiene acceso completo a RRHH
+      const tieneAccesoRRHH =
+        req.user!.rol === 'superadmin' ||
+        req.user!.permisos?.especiales?.accesoRRHH === true;
+
+      // Determinar el personalId a filtrar
+      let personalIdFiltro = req.query.personalId as string;
+
+      // Si NO tiene acceso RRHH, forzar filtro por su propio personalId
+      if (!tieneAccesoRRHH) {
+        if (!req.user!.personalId) {
+          return res.status(403).json({
+            success: false,
+            error: 'No tienes un empleado vinculado para ver fichajes',
+          });
+        }
+        personalIdFiltro = req.user!.personalId.toString();
+      }
+
       const query: FichajeQueryDTO = {
-        personalId: req.query.personalId as string,
+        personalId: personalIdFiltro,
         departamentoId: req.query.departamentoId as string,
         fechaDesde: req.query.fechaDesde as string,
         fechaHasta: req.query.fechaHasta as string,

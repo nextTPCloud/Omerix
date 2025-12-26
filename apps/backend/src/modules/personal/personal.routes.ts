@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import * as controller from './personal.controller';
 import { authMiddleware, requireModuleAccess, requirePermission } from '../../middleware/auth.middleware';
-import { tenantMiddleware } from '../../middleware/tenant.middleware';
+import { tenantMiddleware, requireBusinessDatabase } from '../../middleware/tenant.middleware';
 
 const router = Router();
 
 // Middlewares de autenticación y tenant
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+router.use(requireBusinessDatabase);
 
 // Verificar acceso al módulo de RRHH para todas las rutas
 router.use(requireModuleAccess('accesoRRHH'));

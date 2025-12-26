@@ -8,6 +8,7 @@ import {
   getPaymentStats,
   getPayment,
 } from './pagos.controller';
+import { createCheckoutSession } from './stripe/stripe.controller';
 import paypalRoutes from './paypal/paypal.routes';
 import redsysRoutes from './redsys/redsys.routes';
 
@@ -27,6 +28,112 @@ router.use('/redsys', redsysRoutes);
 
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+
+// ============================================
+// RUTAS DE CHECKOUT (ALIAS PARA FRONTEND)
+// ============================================
+
+/**
+ * @swagger
+ * /api/pagos/checkout/session:
+ *   post:
+ *     summary: Crear sesion de Stripe Checkout
+ *     tags: [Pagos]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - planSlug
+ *               - tipoSuscripcion
+ *               - successUrl
+ *               - cancelUrl
+ *             properties:
+ *               planSlug:
+ *                 type: string
+ *                 example: profesional
+ *               tipoSuscripcion:
+ *                 type: string
+ *                 enum: [mensual, anual]
+ *               successUrl:
+ *                 type: string
+ *                 format: uri
+ *               cancelUrl:
+ *                 type: string
+ *                 format: uri
+ *     responses:
+ *       201:
+ *         description: Sesion de checkout creada
+ */
+router.post('/checkout/session', createCheckoutSession);
+
+/**
+ * @swagger
+ * /api/pagos/historial:
+ *   get:
+ *     summary: Obtener historial de pagos (alias)
+ *     tags: [Pagos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Historial de pagos
+ */
+router.get('/historial', getPayments);
+
+/**
+ * @swagger
+ * /api/pagos/metodo-pago:
+ *   get:
+ *     summary: Obtener metodo de pago predeterminado
+ *     tags: [Pagos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Metodo de pago
+ */
+router.get('/metodo-pago', async (req, res) => {
+  try {
+    const empresaId = req.empresaId!;
+    const MetodoPago = (await import('../formas-pago/MetodoPago')).default;
+
+    const metodo = await MetodoPago.findOne({
+      empresaId,
+      activo: true,
+      predeterminado: true,
+    });
+
+    if (!metodo) {
+      return res.json({
+        success: true,
+        data: null,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        tipo: metodo.tipo,
+        ultimos4: metodo.ultimos4,
+        marca: metodo.marca,
+        expira: metodo.expMes && metodo.expAno
+          ? `${String(metodo.expMes).padStart(2, '0')}/${metodo.expAno}`
+          : null,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error obteniendo metodo de pago:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error obteniendo metodo de pago',
+    });
+  }
+});
 
 /**
  * @swagger

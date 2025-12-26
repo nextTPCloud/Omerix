@@ -8,12 +8,12 @@ const PORT = process.env.PORT || 5000;
 const swaggerDefinition = {
   openapi: '3.0.0',
   info: {
-    title: 'Omerix ERP API',
+    title: 'Tralok ERP API',
     version: '1.0.0',
-    description: 'API REST del Sistema ERP Multi-negocio Omerix',
+    description: 'API REST del Sistema ERP Multi-negocio Tralok',
     contact: {
-      name: 'Equipo Omerix',
-      email: 'soporte@omerix.com',
+      name: 'Equipo Tralok',
+      email: 'soporte@tralok.com',
     },
     license: {
       name: 'MIT',
@@ -26,7 +26,7 @@ const swaggerDefinition = {
       description: 'Servidor de Desarrollo',
     },
     {
-      url: 'https://api.omerix.com',
+      url: 'https://api.tralok.com',
       description: 'Servidor de Producción',
     },
   ],

@@ -20,9 +20,10 @@ export class LicenciasService {
         id: licencia._id,
         estado: licencia.estado,
         esTrial: licencia.esTrial,
-        diasTrialRestantes: licencia.getDiasTrialRestantes(),
         fechaRenovacion: licencia.fechaRenovacion,
         tipoSuscripcion: licencia.tipoSuscripcion,
+        usoActual: licencia.usoActual,
+        addOns: licencia.addOns,
       },
       plan: {
         id: plan._id,
@@ -32,67 +33,53 @@ export class LicenciasService {
         limites: plan.limites,
         modulosIncluidos: plan.modulosIncluidos,
       },
-      uso: licencia.usoActual,
-      addOns: licencia.addOns,
+      diasRestantes: licencia.getDiasTrialRestantes(),
       advertencias: this.getAdvertencias(licencia, plan),
     };
   }
 
   // Obtener advertencias de límites
-    private getAdvertencias(licencia: any, plan: any) {
-    const advertencias: Array<{
-        tipo: 'critico' | 'alerta' | 'aviso';
-        limite: string;
-        mensaje: string;
-        porcentaje: number;
-        uso: number;
-        limiteMaximo: number;
-    }> = []; // ← Definir el tipo del array aquí
+  private getAdvertencias(licencia: any, plan: any) {
+    const advertencias: string[] = [];
 
     const limites = plan.limites;
-    const uso = licencia.usoActual;
+    const uso = licencia.usoActual || {};
+
+    // Mapeo de usoActual a limites del plan
+    const mapeoLimites: Record<string, { usoKey: string; nombre: string }> = {
+      usuariosTotales: { usoKey: 'usuariosActuales', nombre: 'usuarios' },
+      facturasMes: { usoKey: 'facturasEsteMes', nombre: 'facturas este mes' },
+      productosCatalogo: { usoKey: 'productosActuales', nombre: 'productos' },
+      almacenes: { usoKey: 'almacenesActuales', nombre: 'almacenes' },
+      clientes: { usoKey: 'clientesActuales', nombre: 'clientes' },
+      tpvsActivos: { usoKey: 'tpvsActuales', nombre: 'TPVs' },
+      almacenamientoGB: { usoKey: 'almacenamientoUsadoGB', nombre: 'almacenamiento' },
+      llamadasAPIDia: { usoKey: 'llamadasAPIHoy', nombre: 'llamadas API hoy' },
+      emailsMes: { usoKey: 'emailsEsteMes', nombre: 'emails este mes' },
+      smsMes: { usoKey: 'smsEsteMes', nombre: 'SMS este mes' },
+      whatsappMes: { usoKey: 'whatsappEsteMes', nombre: 'WhatsApp este mes' },
+    };
 
     // Verificar cada límite
-    Object.keys(limites).forEach((key) => {
-        const limite = limites[key];
-        const usoActual = uso[key] || 0;
+    Object.entries(mapeoLimites).forEach(([limiteKey, { usoKey, nombre }]) => {
+      const limite = limites[limiteKey];
+      const usoActual = uso[usoKey] || 0;
 
-        if (limite === -1) return; // Ilimitado
+      if (limite === -1 || limite === undefined) return; // Ilimitado o no definido
 
-        const porcentaje = (usoActual / limite) * 100;
+      const porcentaje = (usoActual / limite) * 100;
 
-        if (porcentaje >= 100) {
-        advertencias.push({
-            tipo: 'critico',
-            limite: key,
-            mensaje: `Has alcanzado el límite de ${key}`,
-            porcentaje: 100,
-            uso: usoActual,
-            limiteMaximo: limite,
-        });
-        } else if (porcentaje >= 90) {
-        advertencias.push({
-            tipo: 'alerta',
-            limite: key,
-            mensaje: `Estás cerca del límite de ${key}`,
-            porcentaje: Math.round(porcentaje),
-            uso: usoActual,
-            limiteMaximo: limite,
-        });
-        } else if (porcentaje >= 80) {
-        advertencias.push({
-            tipo: 'aviso',
-            limite: key,
-            mensaje: `Has usado el ${Math.round(porcentaje)}% de ${key}`,
-            porcentaje: Math.round(porcentaje),
-            uso: usoActual,
-            limiteMaximo: limite,
-        });
-        }
+      if (porcentaje >= 100) {
+        advertencias.push(`⛔ Límite alcanzado: ${nombre} (${usoActual}/${limite})`);
+      } else if (porcentaje >= 80) {
+        advertencias.push(`⚠️ ${Math.round(porcentaje)}% de ${nombre} usado (${usoActual}/${limite})`);
+      } else if (porcentaje >= 60) {
+        advertencias.push(`📊 ${Math.round(porcentaje)}% de ${nombre} usado (${usoActual}/${limite})`);
+      }
     });
 
     return advertencias;
- }
+  }
 
   // Listar todos los planes disponibles
   async getPlanes() {
@@ -150,8 +137,8 @@ export class LicenciasService {
     };
   }
 
-  // Añadir add-on
-  async addAddOn(empresaId: string, addOnSlug: string) {
+  // Añadir add-on a la licencia
+  async addAddOn(empresaId: string, addOnSlug: string, cantidad: number = 1) {
     const licencia = await Licencia.findOne({ empresaId });
     if (!licencia) {
       throw new Error('Licencia no encontrada');
@@ -162,27 +149,134 @@ export class LicenciasService {
       throw new Error('Add-on no encontrado');
     }
 
-    // Verificar si ya tiene el add-on
-    const yaExiste = licencia.addOns.some((a: any) => a.nombre === addOn.nombre);
-    if (yaExiste) {
-      throw new Error('Ya tienes este add-on activado');
+    // Para add-ons recurrentes, verificar si ya existe
+    if (addOn.esRecurrente) {
+      const yaExiste = licencia.addOns.some(
+        (a: any) => a.slug === addOn.slug && a.activo
+      );
+      if (yaExiste) {
+        throw new Error('Ya tienes este add-on activado');
+      }
     }
+
+    // Calcular precio total según cantidad
+    const precioTotal = addOn.precioMensual * cantidad;
 
     // Añadir add-on
     licencia.addOns.push({
+      addOnId: addOn._id,
       nombre: addOn.nombre,
-      precioMensual: addOn.precioMensual,
+      slug: addOn.slug,
+      cantidad,
+      precioMensual: precioTotal,
       activo: true,
       fechaActivacion: new Date(),
     } as any);
 
+    // Para add-ons no recurrentes (tokens), añadir al contador
+    if (!addOn.esRecurrente && addOn.limitesExtra?.tokensIA) {
+      // Sumar tokens al uso disponible (implementar lógica de tokens)
+    }
+
+    // Añadir al historial
+    licencia.historial.push({
+      fecha: new Date(),
+      accion: 'ADDON_ACTIVADO',
+      motivo: `Add-on activado: ${addOn.nombre} x${cantidad}`,
+    } as any);
+
     await licencia.save();
 
-    console.log(`✅ Add-on añadido: ${addOn.nombre}`);
+    console.log(`Add-on añadido: ${addOn.nombre} x${cantidad}`);
 
     return {
       success: true,
       message: `Add-on ${addOn.nombre} añadido correctamente`,
+      addOn: {
+        nombre: addOn.nombre,
+        cantidad,
+        precioMensual: precioTotal,
+      },
+    };
+  }
+
+  // Desactivar add-on
+  async removeAddOn(empresaId: string, addOnSlug: string) {
+    const licencia = await Licencia.findOne({ empresaId });
+    if (!licencia) {
+      throw new Error('Licencia no encontrada');
+    }
+
+    const addOnIndex = licencia.addOns.findIndex(
+      (a: any) => a.slug === addOnSlug && a.activo
+    );
+
+    if (addOnIndex === -1) {
+      throw new Error('Add-on no encontrado en tu licencia');
+    }
+
+    // Marcar como inactivo
+    licencia.addOns[addOnIndex].activo = false;
+    licencia.addOns[addOnIndex].fechaCancelacion = new Date();
+
+    // Añadir al historial
+    licencia.historial.push({
+      fecha: new Date(),
+      accion: 'ADDON_CANCELADO',
+      motivo: `Add-on cancelado: ${licencia.addOns[addOnIndex].nombre}`,
+    } as any);
+
+    await licencia.save();
+
+    return {
+      success: true,
+      message: 'Add-on cancelado correctamente',
+    };
+  }
+
+  // Obtener resumen de facturación
+  async getResumenFacturacion(empresaId: string) {
+    const licencia = await Licencia.findOne({ empresaId }).populate('planId');
+    if (!licencia) {
+      throw new Error('Licencia no encontrada');
+    }
+
+    const plan = licencia.planId as any;
+
+    // Precio base del plan
+    const precioPlan = licencia.tipoSuscripcion === 'anual'
+      ? plan.precio.anual
+      : plan.precio.mensual;
+
+    // Sumar add-ons activos
+    const addOnsActivos = licencia.addOns.filter((a: any) => a.activo);
+    const precioAddOns = addOnsActivos.reduce(
+      (total: number, a: any) => total + (a.precioMensual || 0),
+      0
+    );
+
+    // Total mensual (para anuales, dividir entre 12)
+    const totalMensual = licencia.tipoSuscripcion === 'anual'
+      ? (precioPlan / 12) + precioAddOns
+      : precioPlan + precioAddOns;
+
+    return {
+      plan: {
+        nombre: plan.nombre,
+        precio: precioPlan,
+        tipoSuscripcion: licencia.tipoSuscripcion,
+      },
+      addOns: addOnsActivos.map((a: any) => ({
+        nombre: a.nombre,
+        cantidad: a.cantidad,
+        precioMensual: a.precioMensual,
+      })),
+      totales: {
+        precioPlan,
+        precioAddOns,
+        totalMensual: Math.round(totalMensual * 100) / 100,
+        proximaFactura: licencia.fechaRenovacion,
+      },
     };
   }
 

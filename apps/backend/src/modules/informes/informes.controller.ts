@@ -84,6 +84,35 @@ class InformesController {
   }
 
   /**
+   * GET /api/informes/nuevo
+   * Obtener datos iniciales para crear un nuevo informe
+   */
+  async datosNuevoInforme(req: Request, res: Response) {
+    try {
+      const empresaId = req.empresaId!;
+      const dbConfig = req.empresaDbConfig!;
+      const modulo = req.query.modulo as ModuloInforme | undefined;
+
+      // Obtener catálogo y plantillas para el formulario
+      const catalogo = informesService.obtenerCatalogo(modulo);
+      const plantillas = await informesService.obtenerPlantillas(empresaId, dbConfig, modulo);
+
+      res.json({
+        success: true,
+        data: {
+          catalogo,
+          plantillas,
+        },
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
    * GET /api/informes/:id
    * Obtener informe por ID
    */

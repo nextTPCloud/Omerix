@@ -8,6 +8,7 @@ import {
   captureOrder,
   getOrder,
   createSubscription,
+  activateSubscription,
   cancelSubscription,
   createRefund,
   getPaymentHistory,
@@ -190,6 +191,34 @@ router.get('/orders/:orderId', getOrder);
  *         description: Datos inválidos
  */
 router.post('/subscriptions', createSubscription);
+
+/**
+ * @swagger
+ * /api/pagos/paypal/subscriptions/activate:
+ *   post:
+ *     summary: Activar suscripción de PayPal (después del callback)
+ *     tags: [PayPal]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - subscriptionId
+ *             properties:
+ *               subscriptionId:
+ *                 type: string
+ *                 example: I-BW452GLLEP1G
+ *     responses:
+ *       200:
+ *         description: Suscripción activada exitosamente
+ *       400:
+ *         description: subscriptionId es requerido
+ */
+router.post('/subscriptions/activate', activateSubscription);
 
 /**
  * @swagger

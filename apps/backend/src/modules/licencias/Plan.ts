@@ -33,10 +33,11 @@ export interface IPlan extends Document {
   activo: boolean;
   visible: boolean;
   
-  // IDs en pasarelas de pago ← AÑADIR ESTO
+  // IDs en pasarelas de pago
   stripePriceId?: string; // Precio mensual
   stripePriceIdAnual?: string; // Precio anual
-  paypalPlanId?: string;
+  paypalPlanId?: string; // Plan mensual en PayPal
+  paypalPlanIdAnual?: string; // Plan anual en PayPal
 
 
   createdAt: Date;
@@ -103,10 +104,11 @@ const PlanSchema = new Schema<IPlan>(
       type: Boolean,
       default: true,
     },
-    // IDs en pasarelas de pago ← AÑADIR ESTO
+    // IDs en pasarelas de pago
     stripePriceId: String,
     stripePriceIdAnual: String,
     paypalPlanId: String,
+    paypalPlanIdAnual: String,
 
   },
   {

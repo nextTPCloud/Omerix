@@ -7,7 +7,7 @@ import { generateHash } from './hash.util';
  * Secret para firma digital
  * En producción debe estar en variable de entorno
  */
-const SIGNATURE_SECRET = process.env.SIGNATURE_SECRET || 'omerix-fiscal-secret-2025';
+const SIGNATURE_SECRET = process.env.SIGNATURE_SECRET || 'tralok-fiscal-secret-2025';
 
 /**
  * Genera una firma digital completa para un documento fiscal

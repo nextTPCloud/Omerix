@@ -56,6 +56,12 @@ router.post('/inicializar-plantillas', informesController.inicializarPlantillas.
 router.get('/', requirePermission('informes', 'read'), informesController.listar.bind(informesController));
 
 /**
+ * GET /api/informes/nuevo
+ * Obtener datos iniciales para crear un nuevo informe (catálogo + plantillas)
+ */
+router.get('/nuevo', requirePermission('informes', 'create'), informesController.datosNuevoInforme.bind(informesController));
+
+/**
  * GET /api/informes/:id
  * Obtener informe por ID
  */

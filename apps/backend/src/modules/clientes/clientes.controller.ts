@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { clientesService } from './clientes.service';
 import mongoose from 'mongoose';
 import { CreateClienteSchema } from './clientes.dto';
+import { ReferentialIntegrityError } from '@/utils/referential-integrity.helper';
 
 export class ClientesController {
 
@@ -324,6 +325,17 @@ export class ClientesController {
       });
     } catch (error: any) {
       console.error('Error al eliminar cliente:', error);
+
+      // Error de integridad referencial - código 409 Conflict
+      if (error instanceof ReferentialIntegrityError) {
+        return res.status(409).json({
+          success: false,
+          message: error.message,
+          code: 'REFERENTIAL_INTEGRITY_ERROR',
+          details: error.relatedRecords,
+        });
+      }
+
       res.status(500).json({
         success: false,
         message: error.message || 'Error al eliminar el cliente',
@@ -362,16 +374,26 @@ export class ClientesController {
         });
       }
 
-      const count = await clientesService.eliminarMultiples(
+      const result = await clientesService.eliminarMultiples(
         ids,
         empresaId,
         req.empresaDbConfig  // ← AÑADIDO
       );
 
+      // Si hay errores de integridad, informar con código 207 Multi-Status
+      if (result.errors && result.errors.length > 0) {
+        return res.status(207).json({
+          success: result.deleted > 0,
+          message: `${result.deleted} cliente(s) eliminado(s). ${result.errors.length} no pudieron eliminarse por tener registros asociados.`,
+          deleted: result.deleted,
+          errors: result.errors,
+        });
+      }
+
       res.json({
         success: true,
-        message: `${count} cliente(s) eliminado(s) exitosamente`,
-        count,
+        message: `${result.deleted} cliente(s) eliminado(s) exitosamente`,
+        count: result.deleted,
       });
     } catch (error: any) {
       console.error('Error al eliminar clientes:', error);

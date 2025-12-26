@@ -2,10 +2,11 @@
 
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { registroMercantilService } from '../../services/registro-mercantil.service';
 import {
   RegisterSchema,
   LoginSchema,
-  RefreshTokenSchema,  // ← AÑADIR ESTO
+  RefreshTokenSchema,
   Verify2FASchema,
   Confirm2FAAppSchema,
   Setup2FASMSSchema,
@@ -101,6 +102,77 @@ export const register = async (req: Request, res: Response) => {
 };
 
 // ============================================
+// VERIFICAR NIF (Pre-registro)
+// ============================================
+
+export const verificarNIF = async (req: Request, res: Response) => {
+  try {
+    const { nif, nombre } = req.body;
+
+    if (!nif) {
+      return res.status(400).json({
+        success: false,
+        message: 'El NIF es obligatorio',
+      });
+    }
+
+    // Validar solo formato del NIF (rápido)
+    const validacionFormato = registroMercantilService.validarSoloNIF(nif);
+
+    if (!validacionFormato.valido) {
+      return res.json({
+        success: true,
+        data: {
+          valido: false,
+          tipo: null,
+          mensaje: validacionFormato.mensaje,
+          verificado: false,
+        },
+      });
+    }
+
+    // Si también se proporciona nombre, hacer verificación completa
+    if (nombre) {
+      const verificacion = await registroMercantilService.verificarEmpresa({
+        nif,
+        nombre,
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          valido: true,
+          tipo: validacionFormato.tipo,
+          verificado: verificacion.verificado,
+          encontrado: verificacion.encontrado,
+          datosOficiales: verificacion.datosOficiales,
+          advertencias: verificacion.advertencias,
+          errores: verificacion.errores,
+          fuenteVerificacion: verificacion.fuenteVerificacion,
+        },
+      });
+    }
+
+    // Solo validación de formato
+    return res.json({
+      success: true,
+      data: {
+        valido: true,
+        tipo: validacionFormato.tipo,
+        mensaje: `Formato de ${validacionFormato.tipo} válido`,
+        verificado: false, // No se verificó en registro mercantil
+      },
+    });
+  } catch (error: any) {
+    console.error('Error verificando NIF:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Error al verificar el NIF',
+    });
+  }
+};
+
+// ============================================
 // LOGIN
 // ============================================
 
@@ -123,7 +195,6 @@ export const login = async (req: Request, res: Response) => {
 
     // Si requiere 2FA
     if (result.requires2FA) {
-      // Validar que twoFactorMethod esté definido
       if (!result.twoFactorMethod) {
         return res.status(500).json({
           success: false,
@@ -134,19 +205,44 @@ export const login = async (req: Request, res: Response) => {
       const response: Auth2FARequiredResponse = {
         success: true,
         requires2FA: true,
-        twoFactorMethod: result.twoFactorMethod,  // ← Ahora TypeScript sabe que NO es null
+        twoFactorMethod: result.twoFactorMethod,
         userId: result.userId!,
         message: 'Verificación de dos factores requerida',
       };
       return res.json(response);
     }
 
-    // Login exitoso sin 2FA
+    // Si requiere selección de empresa
+    if (result.requiresEmpresaSelection) {
+      return res.json({
+        success: true,
+        requiresEmpresaSelection: true,
+        userId: result.userId,
+        empresas: result.empresas,
+        message: 'Selecciona la empresa a la que deseas acceder',
+      });
+    }
+
+    // Si superadmin necesita crear empresa de negocio
+    if (result.requiresCompanyCreation) {
+      return res.json({
+        success: true,
+        requiresCompanyCreation: true,
+        userId: result.userId,
+        usuario: result.usuario,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        message: result.message || 'Debes crear una empresa de negocio para continuar',
+      });
+    }
+
+    // Login exitoso
     const response: AuthSuccessResponse = {
       success: true,
       message: 'Login exitoso',
       data: {
         usuario: result.usuario!,
+        empresa: result.empresa,
         accessToken: result.accessToken!,
         refreshToken: result.refreshToken!,
       },
@@ -163,6 +259,47 @@ export const login = async (req: Request, res: Response) => {
 
     const statusCode = error.message === 'Credenciales inválidas' ? 401 : 500;
     res.status(statusCode).json(response);
+  }
+};
+
+// ============================================
+// SELECCIONAR EMPRESA
+// ============================================
+
+export const selectEmpresa = async (req: Request, res: Response) => {
+  try {
+    const { userId, empresaId } = req.body;
+
+    if (!userId || !empresaId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId y empresaId son requeridos',
+      });
+    }
+
+    const result = await authService.selectEmpresa(
+      userId,
+      empresaId,
+      req.body.deviceInfo,
+      req.body.ipAddress
+    );
+
+    res.json({
+      success: true,
+      message: 'Empresa seleccionada correctamente',
+      data: {
+        usuario: result.usuario,
+        empresa: result.empresa,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error seleccionando empresa:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Error al seleccionar empresa',
+    });
   }
 };
 
@@ -604,7 +741,14 @@ export const logout = async (req: Request, res: Response) => {
   try {
     const { refreshToken } = req.body;
 
+    console.log('📤 Logout request recibido');
+    console.log(`   refreshToken presente: ${!!refreshToken}`);
+    if (refreshToken) {
+      console.log(`   refreshToken (primeros 20 chars): ${refreshToken.substring(0, 20)}...`);
+    }
+
     if (!refreshToken) {
+      console.log('❌ No se recibió refreshToken en el body');
       return res.status(400).json({
         success: false,
         message: 'Refresh token es requerido',
@@ -654,6 +798,37 @@ export const getActiveSessions = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Error al obtener sesiones',
+    });
+  }
+};
+
+// ============================================
+// 🆕 OBTENER SESIONES ACTIVAS DE LA EMPRESA
+// ============================================
+
+export const getActiveSessionsEmpresa = async (req: Request, res: Response) => {
+  try {
+    const empresaId = (req as any).empresaId;
+
+    if (!empresaId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Empresa no identificada',
+      });
+    }
+
+    const result = await authService.getActiveSessionsByEmpresa(empresaId);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error obteniendo sesiones de empresa:', error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error al obtener sesiones de empresa',
     });
   }
 };

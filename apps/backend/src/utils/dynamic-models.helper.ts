@@ -40,6 +40,9 @@ import { ParteTrabajo, IParteTrabajo } from '../modules/partes-trabajo/ParteTrab
 import { Tarifa, ITarifa } from '../modules/tarifas/Tarifa';
 import { Oferta, IOferta } from '../modules/ofertas/Oferta';
 import { Dashboard, IDashboard } from '../modules/dashboard/Dashboard';
+import { Inventario, IInventario } from '../modules/inventarios/Inventario';
+import { Traspaso, ITraspaso } from '../modules/traspasos/Traspaso';
+import { PresupuestoCompra, IPresupuestoCompra } from '../modules/presupuestos-compra/PresupuestoCompra';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -706,6 +709,54 @@ export const getDashboardModel = async (
 };
 
 /**
+ * Obtener modelo de Inventario para una empresa específica
+ */
+export const getInventarioModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IInventario>> => {
+  const InventarioSchema = Inventario.schema;
+  return databaseManager.getModel<IInventario>(
+    empresaId,
+    dbConfig,
+    'Inventario',
+    InventarioSchema
+  );
+};
+
+/**
+ * Obtener modelo de Traspaso para una empresa específica
+ */
+export const getTraspasoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ITraspaso>> => {
+  const TraspasoSchema = Traspaso.schema;
+  return databaseManager.getModel<ITraspaso>(
+    empresaId,
+    dbConfig,
+    'Traspaso',
+    TraspasoSchema
+  );
+};
+
+/**
+ * Obtener modelo de PresupuestoCompra para una empresa específica
+ */
+export const getPresupuestoCompraModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IPresupuestoCompra>> => {
+  const PresupuestoCompraSchema = PresupuestoCompra.schema;
+  return databaseManager.getModel<IPresupuestoCompra>(
+    empresaId,
+    dbConfig,
+    'PresupuestoCompra',
+    PresupuestoCompraSchema
+  );
+};
+
+/**
  * Objeto con todos los modelos por empresa
  * Se puede extender con más modelos según sea necesario
  */
@@ -749,6 +800,9 @@ export const EmpresaModels = {
   ParteTrabajo: getParteTrabajoModel,
   Tarifa: getTarifaModel,
   Oferta: getOfertaModel,
+  Inventario: getInventarioModel,
+  Traspaso: getTraspasoModel,
+  PresupuestoCompra: getPresupuestoCompraModel,
 };
 
 /**

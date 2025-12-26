@@ -723,7 +723,7 @@ class PlanificacionService {
     // Obtener empresa para nombre
     const EmpresaModel = (await import('../empresa/Empresa')).default;
     const empresa = await EmpresaModel.findById(empresaId);
-    const empresaNombre = empresa?.nombre || 'Omerix ERP';
+    const empresaNombre = empresa?.nombre || 'Tralok ERP';
 
     // Obtener vista completa
     const vistaCompleta = await this.obtenerVistaCompletaSemana(

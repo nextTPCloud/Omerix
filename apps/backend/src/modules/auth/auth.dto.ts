@@ -11,37 +11,71 @@ export const RegisterSchema = z.object({
   nombreEmpresa: z.string()
     .min(2, 'El nombre de la empresa debe tener al menos 2 caracteres')
     .max(100, 'El nombre de la empresa no puede exceder 100 caracteres'),
-  
+
+  nombreComercialEmpresa: z.string()
+    .max(100, 'El nombre comercial no puede exceder 100 caracteres')
+    .optional(),
+
   nifEmpresa: z.string()
-    .regex(/^[A-Z0-9]{9}$/, 'NIF inválido (debe ser 9 caracteres alfanuméricos)'),
-  
+    .min(9, 'NIF inválido')
+    .max(15, 'NIF inválido')
+    .transform(val => val.toUpperCase()),
+
   emailEmpresa: z.string()
     .email('Email de empresa inválido')
     .toLowerCase(),
-  
+
+  telefonoEmpresa: z.string()
+    .min(9, 'Teléfono de empresa inválido')
+    .optional(),
+
   tipoNegocio: z.enum(['retail', 'restauracion', 'taller', 'informatica', 'servicios', 'otro'])
     .default('retail'),
-  
+
+  // Dirección fiscal
+  direccion: z.string()
+    .min(5, 'Dirección requerida')
+    .optional(),
+
+  codigoPostal: z.string()
+    .min(4, 'Código postal requerido')
+    .optional(),
+
+  ciudad: z.string()
+    .min(2, 'Ciudad requerida')
+    .optional(),
+
+  provincia: z.string()
+    .min(2, 'Provincia requerida')
+    .optional(),
+
+  pais: z.string()
+    .min(2, 'País requerido')
+    .default('España'),
+
   // Datos del usuario
   nombre: z.string()
     .min(2, 'El nombre debe tener al menos 2 caracteres')
     .max(50, 'El nombre no puede exceder 50 caracteres'),
-  
+
   apellidos: z.string()
     .min(2, 'Los apellidos deben tener al menos 2 caracteres')
     .max(100, 'Los apellidos no pueden exceder 100 caracteres'),
-  
+
   email: z.string()
     .email('Email inválido')
     .toLowerCase(),
-  
+
   password: z.string()
     .min(6, 'La contraseña debe tener al menos 6 caracteres')
     .max(100, 'La contraseña no puede exceder 100 caracteres'),
-  
+
   telefono: z.string()
-    .regex(/^\+?[0-9]{9,15}$/, 'Teléfono inválido')
+    .min(9, 'Teléfono inválido')
     .optional(),
+
+  // Plan seleccionado
+  plan: z.string().optional(),
 });
 
 export type RegisterDTO = z.infer<typeof RegisterSchema>;
@@ -142,6 +176,7 @@ export const UserResponseSchema = z.object({
   avatar: z.string().optional(),
   twoFactorEnabled: z.boolean().optional(),
   twoFactorMethod: z.enum(['app', 'sms']).nullable().optional(),
+  personalId: z.string().optional(), // Vinculación con empleado para fichaje
 });
 
 export type UserResponse = z.infer<typeof UserResponseSchema>;

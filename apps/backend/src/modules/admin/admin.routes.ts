@@ -73,6 +73,60 @@ router.get('/empresas', AdminController.getAllEmpresas.bind(AdminController));
 
 /**
  * @swagger
+ * /api/admin/empresas:
+ *   post:
+ *     summary: Crear una nueva empresa de negocio
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nombre
+ *               - nif
+ *               - email
+ *               - telefono
+ *               - direccion
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               nif:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               telefono:
+ *                 type: string
+ *               tipoNegocio:
+ *                 type: string
+ *                 enum: [retail, restauracion, taller, informatica, servicios, otro]
+ *               direccion:
+ *                 type: object
+ *                 properties:
+ *                   calle:
+ *                     type: string
+ *                   codigoPostal:
+ *                     type: string
+ *                   ciudad:
+ *                     type: string
+ *                   provincia:
+ *                     type: string
+ *                   pais:
+ *                     type: string
+ *               plan:
+ *                 type: string
+ *                 description: Slug del plan (basico, profesional, enterprise)
+ *     responses:
+ *       201:
+ *         description: Empresa creada exitosamente
+ */
+router.post('/empresas', AdminController.createEmpresa.bind(AdminController));
+
+/**
+ * @swagger
  * /api/admin/empresas/{id}:
  *   get:
  *     summary: Obtener detalles de una empresa

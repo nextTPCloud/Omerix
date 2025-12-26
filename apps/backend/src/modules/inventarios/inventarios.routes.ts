@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { inventariosController } from './inventarios.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
-import { tenantMiddleware } from '../../middleware/tenant.middleware';
+import { tenantMiddleware, requireBusinessDatabase } from '../../middleware/tenant.middleware';
 
 const router = Router();
 
 // Aplicar middleware
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+router.use(requireBusinessDatabase);
 
 /**
  * @swagger

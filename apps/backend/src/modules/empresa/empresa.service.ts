@@ -287,11 +287,11 @@ class EmpresaService {
       await transporter.sendMail({
         from: `"${empresa.emailConfig.fromName || empresa.nombre}" <${empresa.emailConfig.fromEmail || empresa.emailConfig.user}>`,
         to: testEmail,
-        subject: 'Prueba de configuración de email - Omerix',
+        subject: 'Prueba de configuración de email - Tralok',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #333;">Prueba de configuración exitosa</h2>
-            <p>Este es un correo de prueba enviado desde Omerix.</p>
+            <p>Este es un correo de prueba enviado desde Tralok.</p>
             <p>Si estás viendo este mensaje, la configuración de email está funcionando correctamente.</p>
             <p><strong>Método de autenticación:</strong> ${empresa.emailConfig.authType === 'oauth2' ? `OAuth2 (${empresa.emailConfig.provider})` : 'SMTP Manual'}</p>
             <hr style="border: 1px solid #eee; margin: 20px 0;">
@@ -301,7 +301,7 @@ class EmpresaService {
             </p>
           </div>
         `,
-        text: `Prueba de configuración exitosa\n\nEste es un correo de prueba enviado desde Omerix.\nSi estás viendo este mensaje, la configuración de email está funcionando correctamente.\n\nMétodo: ${empresa.emailConfig.authType === 'oauth2' ? `OAuth2 (${empresa.emailConfig.provider})` : 'SMTP Manual'}`,
+        text: `Prueba de configuración exitosa\n\nEste es un correo de prueba enviado desde Tralok.\nSi estás viendo este mensaje, la configuración de email está funcionando correctamente.\n\nMétodo: ${empresa.emailConfig.authType === 'oauth2' ? `OAuth2 (${empresa.emailConfig.provider})` : 'SMTP Manual'}`,
       });
 
       return { success: true, message: 'Email de prueba enviado correctamente' };

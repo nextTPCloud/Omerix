@@ -470,7 +470,7 @@ Responde SOLO con el JSON.`,
   ): Promise<string> {
     const systemMessage: AIMessage = {
       role: 'system',
-      content: `Eres un asistente de IA para un sistema ERP de gestión comercial llamado Omerix.
+      content: `Eres un asistente de IA para un sistema ERP de gestión comercial llamado Tralok.
 Ayudas a los usuarios con:
 - Consultas sobre productos, ventas, stock, clientes
 - Análisis de datos del negocio

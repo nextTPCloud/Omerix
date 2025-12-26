@@ -3,6 +3,10 @@ import { IAgenteComercial } from './AgenteComercial';
 import { CreateAgenteComercialDto, UpdateAgenteComercialDto, GetAgentesQueryDto } from './agentes-comerciales.dto';
 import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getAgenteComercialModel } from '@/utils/dynamic-models.helper';
+import {
+  checkAgenteComercialIntegrity,
+  ReferentialIntegrityError
+} from '@/utils/referential-integrity.helper';
 
 // ============================================
 // SERVICIO
@@ -149,6 +153,21 @@ export class AgentesService {
     empresaId: string,
     dbConfig: IDatabaseConfig
   ): Promise<boolean> {
+    // Verificar integridad referencial antes de eliminar
+    const integrityCheck = await checkAgenteComercialIntegrity(
+      id,
+      empresaId,
+      dbConfig
+    );
+
+    if (!integrityCheck.canDelete) {
+      throw new ReferentialIntegrityError(
+        'el agente comercial',
+        id,
+        integrityCheck.relatedRecords
+      );
+    }
+
     const AgenteModel = await this.getModeloAgente(empresaId, dbConfig);
     const result = await AgenteModel.deleteOne({ _id: id });
     return result.deletedCount > 0;
@@ -161,10 +180,44 @@ export class AgentesService {
     ids: string[],
     empresaId: string,
     dbConfig: IDatabaseConfig
-  ): Promise<number> {
+  ): Promise<{ deleted: number; errors: Array<{ id: string; error: string }> }> {
     const AgenteModel = await this.getModeloAgente(empresaId, dbConfig);
-    const result = await AgenteModel.deleteMany({ _id: { $in: ids } });
-    return result.deletedCount;
+    const errors: Array<{ id: string; error: string }> = [];
+    const idsToDelete: string[] = [];
+
+    // Verificar integridad referencial de cada agente
+    for (const id of ids) {
+      try {
+        const integrityCheck = await checkAgenteComercialIntegrity(
+          id,
+          empresaId,
+          dbConfig
+        );
+
+        if (integrityCheck.canDelete) {
+          idsToDelete.push(id);
+        } else {
+          const messages = integrityCheck.relatedRecords.map(r =>
+            `${r.count} ${r.documentType}${r.count > 1 ? 's' : ''}`
+          );
+          errors.push({
+            id,
+            error: `Tiene ${messages.join(', ')} asociados`,
+          });
+        }
+      } catch (error: any) {
+        errors.push({ id, error: error.message });
+      }
+    }
+
+    // Eliminar solo los que no tienen dependencias
+    let deletedCount = 0;
+    if (idsToDelete.length > 0) {
+      const result = await AgenteModel.deleteMany({ _id: { $in: idsToDelete } });
+      deletedCount = result.deletedCount || 0;
+    }
+
+    return { deleted: deletedCount, errors };
   }
 
   // ============================================

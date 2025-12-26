@@ -5,8 +5,36 @@ export interface IAddOn extends Document {
   nombre: string;
   slug: string;
   descripcion?: string;
+  icono?: string;
+
+  // Tipo de add-on
+  tipo: 'modulo' | 'usuarios' | 'almacenamiento' | 'tokens' | 'otro';
+
+  // Precios (IVA incluido)
   precioMensual: number;
-  categoria: 'modulo' | 'recurso' | 'integracion' | 'otro';
+  precioAnual?: number;
+
+  // Para add-ons con cantidad (tokens, storage, usuarios)
+  unidad?: string; // 'usuario', 'GB', 'tokens'
+  cantidad?: number; // Cantidad incluida (ej: 10 GB, 1000 tokens)
+
+  // Tipo de cobro
+  esRecurrente: boolean; // true = mensual/anual, false = pago único
+
+  // Características que otorga
+  caracteristicas?: string[];
+
+  // Límites que modifica (se suman al plan base)
+  limitesExtra?: {
+    usuariosSimultaneos?: number; // Sesiones simultáneas adicionales
+    usuariosTotales?: number;
+    almacenamientoGB?: number;
+    tokensIA?: number;
+    tpvs?: number;
+  };
+
+  // Orden de visualización
+  orden: number;
   activo: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -19,7 +47,7 @@ const AddOnSchema = new Schema<IAddOn>(
       required: true,
       auto: true,
     },
-    
+
     nombre: {
       type: String,
       required: true,
@@ -34,15 +62,45 @@ const AddOnSchema = new Schema<IAddOn>(
     descripcion: {
       type: String,
     },
+    icono: {
+      type: String,
+    },
+    tipo: {
+      type: String,
+      enum: ['modulo', 'usuarios', 'almacenamiento', 'tokens', 'otro'],
+      default: 'modulo',
+    },
     precioMensual: {
       type: Number,
       required: true,
       default: 0,
     },
-    categoria: {
+    precioAnual: {
+      type: Number,
+    },
+    unidad: {
       type: String,
-      enum: ['modulo', 'recurso', 'integracion', 'otro'],
-      default: 'modulo',
+    },
+    cantidad: {
+      type: Number,
+    },
+    esRecurrente: {
+      type: Boolean,
+      default: true,
+    },
+    caracteristicas: [{
+      type: String,
+    }],
+    limitesExtra: {
+      usuariosSimultaneos: { type: Number }, // Sesiones simultáneas adicionales
+      usuariosTotales: { type: Number },
+      almacenamientoGB: { type: Number },
+      tokensIA: { type: Number },
+      tpvs: { type: Number },
+    },
+    orden: {
+      type: Number,
+      default: 0,
     },
     activo: {
       type: Boolean,
@@ -55,5 +113,7 @@ const AddOnSchema = new Schema<IAddOn>(
 );
 
 AddOnSchema.index({ activo: 1 });
+AddOnSchema.index({ tipo: 1 });
+AddOnSchema.index({ orden: 1 });
 
 export default mongoose.model<IAddOn>('AddOn', AddOnSchema);

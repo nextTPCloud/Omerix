@@ -195,6 +195,39 @@ export const createSubscription = async (req: Request, res: Response) => {
 };
 
 // ============================================
+// ACTIVAR SUSCRIPCIÓN (callback de PayPal)
+// ============================================
+
+export const activateSubscription = async (req: Request, res: Response) => {
+  try {
+    const empresaId = req.empresaId!;
+    const { subscriptionId } = req.body;
+
+    if (!subscriptionId) {
+      return res.status(400).json({
+        success: false,
+        message: 'subscriptionId es requerido',
+      });
+    }
+
+    const result = await paypalService.activateSubscription(empresaId, subscriptionId);
+
+    res.json({
+      success: true,
+      message: 'Suscripción activada exitosamente',
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error activando suscripción de PayPal:', error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error activando suscripción',
+    });
+  }
+};
+
+// ============================================
 // CANCELAR SUSCRIPCIÓN
 // ============================================
 

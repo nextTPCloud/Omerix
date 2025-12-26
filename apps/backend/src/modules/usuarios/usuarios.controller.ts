@@ -2,6 +2,10 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import usuariosService, { ROLES_GESTION_USUARIOS } from './usuarios.service';
 import { Role, ROLE_HIERARCHY } from '../../types/permissions.types';
+import Rol from '../roles/Rol';
+
+// Roles del sistema (predefinidos)
+const ROLES_SISTEMA = ['superadmin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador'] as const;
 
 // Schemas de validación
 const CreateUsuarioSchema = z.object({
@@ -10,7 +14,8 @@ const CreateUsuarioSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio').max(100),
   apellidos: z.string().min(1, 'Los apellidos son obligatorios').max(100),
   telefono: z.string().max(20).optional().nullable(),
-  rol: z.enum(['superadmin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador']),
+  // Aceptar roles del sistema o roles personalizados (cualquier string)
+  rol: z.string().min(1, 'El rol es obligatorio').max(50),
   rolId: z.string().optional().nullable(),
   activo: z.boolean().optional(),
 });
@@ -19,7 +24,8 @@ const UpdateUsuarioSchema = z.object({
   nombre: z.string().min(1).max(100).optional(),
   apellidos: z.string().min(1).max(100).optional(),
   telefono: z.string().max(20).optional().nullable(),
-  rol: z.enum(['superadmin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador']).optional(),
+  // Aceptar roles del sistema o roles personalizados (cualquier string)
+  rol: z.string().min(1).max(50).optional(),
   rolId: z.string().optional().nullable(),
   personalId: z.string().optional().nullable(),
   activo: z.boolean().optional(),
@@ -64,13 +70,20 @@ class UsuariosController {
 
       const { activo, rol, busqueda, page, limit } = req.query;
 
-      const result = await usuariosService.getUsuariosByEmpresa(empresaId, {
-        activo: activo !== undefined ? activo === 'true' : undefined,
-        rol: rol as Role,
-        busqueda: busqueda as string,
-        page: page ? parseInt(page as string) : 1,
-        limit: limit ? parseInt(limit as string) : 50,
-      });
+      // Ocultar superadmin si el usuario actual no es superadmin
+      const ocultarSuperadmin = userRol !== 'superadmin';
+
+      const result = await usuariosService.getUsuariosByEmpresa(
+        empresaId,
+        {
+          activo: activo !== undefined ? activo === 'true' : undefined,
+          rol: rol as Role,
+          busqueda: busqueda as string,
+          page: page ? parseInt(page as string) : 1,
+          limit: limit ? parseInt(limit as string) : 50,
+        },
+        ocultarSuperadmin
+      );
 
       res.json({
         success: true,
@@ -129,10 +142,12 @@ class UsuariosController {
   /**
    * GET /api/usuarios/roles-disponibles
    * Obtener roles que puede asignar el usuario actual
+   * Incluye roles del sistema y roles personalizados de la empresa
    */
   async getRolesDisponibles(req: Request, res: Response) {
     try {
       const userRol = req.userRole;
+      const empresaId = req.empresaId;
 
       if (!userRol) {
         return res.status(401).json({
@@ -141,14 +156,43 @@ class UsuariosController {
         });
       }
 
-      const roles = usuariosService.getRolesDisponibles(userRol as Role);
-
-      // Añadir información adicional de cada rol
-      const rolesConInfo = roles.map((rol) => ({
+      // 1. Obtener roles del sistema (según jerarquía del usuario)
+      const rolesDelSistema = usuariosService.getRolesDisponibles(userRol as Role);
+      const rolesConInfo = rolesDelSistema.map((rol) => ({
         codigo: rol,
         nombre: this.getNombreRol(rol),
         nivel: ROLE_HIERARCHY[rol],
+        esSistema: true,
       }));
+
+      // 2. Obtener roles personalizados de la empresa (si hay empresaId)
+      if (empresaId) {
+        const rolesPersonalizados = await Rol.find({
+          empresaId,
+          activo: true,
+          esSistema: false, // Solo roles personalizados, no los del sistema duplicados
+        }).sort({ orden: 1, nombre: 1 });
+
+        // Añadir roles personalizados a la lista
+        for (const rolCustom of rolesPersonalizados) {
+          // Determinar el nivel basado en el rolBase o usar un nivel medio
+          const nivelBase = rolCustom.rolBase ? (ROLE_HIERARCHY[rolCustom.rolBase as Role] || 3) : 3;
+
+          rolesConInfo.push({
+            codigo: rolCustom.codigo,
+            nombre: rolCustom.nombre,
+            nivel: nivelBase,
+            esSistema: false,
+            // @ts-ignore - campos adicionales para roles personalizados
+            _id: rolCustom._id.toString(),
+            color: rolCustom.color,
+            descripcion: rolCustom.descripcion,
+          });
+        }
+      }
+
+      // Ordenar por nivel descendente
+      rolesConInfo.sort((a, b) => b.nivel - a.nivel);
 
       res.json({
         success: true,

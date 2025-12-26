@@ -88,6 +88,31 @@ export const cambiarPlan = async (req: Request, res: Response) => {
 export const addAddOn = async (req: Request, res: Response) => {
   try {
     const empresaId = req.empresaId!;
+    const { addOnSlug, cantidad = 1 } = req.body;
+
+    if (!addOnSlug) {
+      return res.status(400).json({
+        success: false,
+        message: 'addOnSlug es requerido',
+      });
+    }
+
+    const result = await licenciasService.addAddOn(empresaId, addOnSlug, cantidad);
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error añadiendo add-on:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error añadiendo add-on',
+    });
+  }
+};
+
+// Eliminar add-on
+export const removeAddOn = async (req: Request, res: Response) => {
+  try {
+    const empresaId = req.empresaId!;
     const { addOnSlug } = req.body;
 
     if (!addOnSlug) {
@@ -97,14 +122,34 @@ export const addAddOn = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await licenciasService.addAddOn(empresaId, addOnSlug);
+    const result = await licenciasService.removeAddOn(empresaId, addOnSlug);
 
     res.json(result);
   } catch (error: any) {
-    console.error('Error añadiendo add-on:', error);
+    console.error('Error eliminando add-on:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Error añadiendo add-on',
+      message: error.message || 'Error eliminando add-on',
+    });
+  }
+};
+
+// Obtener resumen de facturación
+export const getResumenFacturacion = async (req: Request, res: Response) => {
+  try {
+    const empresaId = req.empresaId!;
+
+    const result = await licenciasService.getResumenFacturacion(empresaId);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error obteniendo resumen:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error obteniendo resumen de facturación',
     });
   }
 };

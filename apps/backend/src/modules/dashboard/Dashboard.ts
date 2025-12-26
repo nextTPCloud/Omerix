@@ -467,58 +467,64 @@ export const CATALOGO_WIDGETS: Record<TipoWidget, {
 // PLANTILLAS PREDEFINIDAS POR ROL
 // ============================================
 
+// Plantillas con rowHeight=80 (cada unidad = 80px + 12px margin)
+// KPI widgets: h=2 (160px), Gráficas: h=4 (320px), Listas: h=4-5
 export const PLANTILLAS_DASHBOARD: Record<string, { widgets: Partial<IWidget>[] }> = {
   gerente: {
     widgets: [
-      { tipo: TipoWidget.RESUMEN_VENTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 0, w: 3, h: 1 } },
-      { tipo: TipoWidget.RESUMEN_COMPRAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 3, y: 0, w: 3, h: 1 } },
-      { tipo: TipoWidget.RESUMEN_TESORERIA, tamano: TamanoWidget.MEDIANO, posicion: { x: 6, y: 0, w: 3, h: 1 } },
-      { tipo: TipoWidget.ACCESOS_RAPIDOS, tamano: TamanoWidget.PEQUENO, posicion: { x: 9, y: 0, w: 3, h: 1 } },
-      { tipo: TipoWidget.GRAFICA_VENTAS_PERIODO, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 1, w: 6, h: 2 } },
-      { tipo: TipoWidget.GRAFICA_VENTAS_CLIENTE, tamano: TamanoWidget.GRANDE, posicion: { x: 6, y: 1, w: 6, h: 2 } },
-      { tipo: TipoWidget.CLIENTES_MOROSOS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 3, w: 4, h: 2 } },
-      { tipo: TipoWidget.PRODUCTOS_MAS_VENDIDOS, tamano: TamanoWidget.MEDIANO, posicion: { x: 4, y: 3, w: 4, h: 2 } },
-      { tipo: TipoWidget.ALERTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 8, y: 3, w: 4, h: 2 } },
+      { tipo: TipoWidget.RESUMEN_VENTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 0, w: 3, h: 2 } },
+      { tipo: TipoWidget.RESUMEN_COMPRAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 3, y: 0, w: 3, h: 2 } },
+      { tipo: TipoWidget.RESUMEN_TESORERIA, tamano: TamanoWidget.MEDIANO, posicion: { x: 6, y: 0, w: 3, h: 2 } },
+      { tipo: TipoWidget.ACCESOS_RAPIDOS, tamano: TamanoWidget.PEQUENO, posicion: { x: 9, y: 0, w: 3, h: 2 } },
+      { tipo: TipoWidget.GRAFICA_VENTAS_PERIODO, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 2, w: 6, h: 4 } },
+      { tipo: TipoWidget.GRAFICA_VENTAS_CLIENTE, tamano: TamanoWidget.GRANDE, posicion: { x: 6, y: 2, w: 6, h: 4 } },
+      { tipo: TipoWidget.CLIENTES_MOROSOS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 6, w: 4, h: 4 } },
+      { tipo: TipoWidget.PRODUCTOS_MAS_VENDIDOS, tamano: TamanoWidget.MEDIANO, posicion: { x: 4, y: 6, w: 4, h: 4 } },
+      { tipo: TipoWidget.ALERTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 8, y: 6, w: 4, h: 4 } },
     ],
   },
   vendedor: {
     widgets: [
-      { tipo: TipoWidget.RESUMEN_VENTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 0, w: 4, h: 1 } },
-      { tipo: TipoWidget.DOCUMENTOS_PENDIENTES, tamano: TamanoWidget.MEDIANO, posicion: { x: 4, y: 0, w: 4, h: 1 } },
-      { tipo: TipoWidget.ACCESOS_RAPIDOS, tamano: TamanoWidget.PEQUENO, posicion: { x: 8, y: 0, w: 4, h: 1 } },
-      { tipo: TipoWidget.ULTIMOS_DOCUMENTOS, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 1, w: 6, h: 2 } },
-      { tipo: TipoWidget.PRODUCTOS_MAS_VENDIDOS, tamano: TamanoWidget.GRANDE, posicion: { x: 6, y: 1, w: 6, h: 2 } },
+      { tipo: TipoWidget.RESUMEN_VENTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 0, w: 4, h: 2 } },
+      { tipo: TipoWidget.DOCUMENTOS_PENDIENTES, tamano: TamanoWidget.MEDIANO, posicion: { x: 4, y: 0, w: 4, h: 2 } },
+      { tipo: TipoWidget.ACCESOS_RAPIDOS, tamano: TamanoWidget.PEQUENO, posicion: { x: 8, y: 0, w: 4, h: 2 } },
+      { tipo: TipoWidget.ULTIMOS_DOCUMENTOS, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 2, w: 6, h: 4 } },
+      { tipo: TipoWidget.PRODUCTOS_MAS_VENDIDOS, tamano: TamanoWidget.GRANDE, posicion: { x: 6, y: 2, w: 6, h: 4 } },
     ],
   },
   tecnico: {
     widgets: [
-      { tipo: TipoWidget.PARTES_TRABAJO_HOY, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 0, w: 6, h: 2 } },
-      { tipo: TipoWidget.FICHAJES_HOY, tamano: TamanoWidget.MEDIANO, posicion: { x: 6, y: 0, w: 6, h: 1 } },
-      { tipo: TipoWidget.ACCESOS_RAPIDOS, tamano: TamanoWidget.PEQUENO, posicion: { x: 6, y: 1, w: 6, h: 1 } },
-      { tipo: TipoWidget.TAREAS_PENDIENTES, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 2, w: 6, h: 2 } },
-      { tipo: TipoWidget.CALENDARIO, tamano: TamanoWidget.GRANDE, posicion: { x: 6, y: 2, w: 6, h: 2 } },
+      { tipo: TipoWidget.PARTES_TRABAJO_HOY, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 0, w: 6, h: 4 } },
+      { tipo: TipoWidget.FICHAJES_HOY, tamano: TamanoWidget.MEDIANO, posicion: { x: 6, y: 0, w: 6, h: 2 } },
+      { tipo: TipoWidget.ACCESOS_RAPIDOS, tamano: TamanoWidget.PEQUENO, posicion: { x: 6, y: 2, w: 6, h: 2 } },
+      { tipo: TipoWidget.TAREAS_PENDIENTES, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 4, w: 6, h: 4 } },
+      { tipo: TipoWidget.CALENDARIO, tamano: TamanoWidget.GRANDE, posicion: { x: 6, y: 4, w: 6, h: 4 } },
     ],
   },
   almacenero: {
     widgets: [
-      { tipo: TipoWidget.ALERTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 0, w: 6, h: 1 } },
-      { tipo: TipoWidget.ACCESOS_RAPIDOS, tamano: TamanoWidget.PEQUENO, posicion: { x: 6, y: 0, w: 6, h: 1 } },
-      { tipo: TipoWidget.ULTIMOS_DOCUMENTOS, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 1, w: 6, h: 2 } },
-      { tipo: TipoWidget.DOCUMENTOS_PENDIENTES, tamano: TamanoWidget.GRANDE, posicion: { x: 6, y: 1, w: 6, h: 2 } },
+      { tipo: TipoWidget.ALERTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 0, w: 6, h: 2 } },
+      { tipo: TipoWidget.ACCESOS_RAPIDOS, tamano: TamanoWidget.PEQUENO, posicion: { x: 6, y: 0, w: 6, h: 2 } },
+      { tipo: TipoWidget.ULTIMOS_DOCUMENTOS, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 2, w: 6, h: 4 } },
+      { tipo: TipoWidget.DOCUMENTOS_PENDIENTES, tamano: TamanoWidget.GRANDE, posicion: { x: 6, y: 2, w: 6, h: 4 } },
     ],
   },
   admin: {
     widgets: [
-      { tipo: TipoWidget.RESUMEN_VENTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 0, w: 3, h: 1 } },
-      { tipo: TipoWidget.RESUMEN_COMPRAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 3, y: 0, w: 3, h: 1 } },
-      { tipo: TipoWidget.RESUMEN_TESORERIA, tamano: TamanoWidget.MEDIANO, posicion: { x: 6, y: 0, w: 3, h: 1 } },
-      { tipo: TipoWidget.RESUMEN_PERSONAL, tamano: TamanoWidget.PEQUENO, posicion: { x: 9, y: 0, w: 3, h: 1 } },
-      { tipo: TipoWidget.GRAFICA_VENTAS_PERIODO, tamano: TamanoWidget.ANCHO, posicion: { x: 0, y: 1, w: 12, h: 2 } },
-      { tipo: TipoWidget.GRAFICA_COMPARATIVA_ANUAL, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 3, w: 6, h: 2 } },
-      { tipo: TipoWidget.GRAFICA_TESORERIA_FLUJO, tamano: TamanoWidget.GRANDE, posicion: { x: 6, y: 3, w: 6, h: 2 } },
-      { tipo: TipoWidget.CLIENTES_MOROSOS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 5, w: 4, h: 2 } },
-      { tipo: TipoWidget.ALERTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 4, y: 5, w: 4, h: 2 } },
-      { tipo: TipoWidget.ACCESOS_RAPIDOS, tamano: TamanoWidget.MEDIANO, posicion: { x: 8, y: 5, w: 4, h: 2 } },
+      // Fila 1: KPIs (altura 2)
+      { tipo: TipoWidget.RESUMEN_VENTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 0, w: 3, h: 2 } },
+      { tipo: TipoWidget.RESUMEN_COMPRAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 3, y: 0, w: 3, h: 2 } },
+      { tipo: TipoWidget.RESUMEN_TESORERIA, tamano: TamanoWidget.MEDIANO, posicion: { x: 6, y: 0, w: 3, h: 2 } },
+      { tipo: TipoWidget.RESUMEN_PERSONAL, tamano: TamanoWidget.PEQUENO, posicion: { x: 9, y: 0, w: 3, h: 2 } },
+      // Fila 2: Gráfica principal (altura 4)
+      { tipo: TipoWidget.GRAFICA_VENTAS_PERIODO, tamano: TamanoWidget.ANCHO, posicion: { x: 0, y: 2, w: 12, h: 4 } },
+      // Fila 3: Gráficas secundarias (altura 4)
+      { tipo: TipoWidget.GRAFICA_COMPARATIVA_ANUAL, tamano: TamanoWidget.GRANDE, posicion: { x: 0, y: 6, w: 6, h: 4 } },
+      { tipo: TipoWidget.GRAFICA_TESORERIA_FLUJO, tamano: TamanoWidget.GRANDE, posicion: { x: 6, y: 6, w: 6, h: 4 } },
+      // Fila 4: Listas y accesos (altura 4)
+      { tipo: TipoWidget.CLIENTES_MOROSOS, tamano: TamanoWidget.MEDIANO, posicion: { x: 0, y: 10, w: 4, h: 4 } },
+      { tipo: TipoWidget.ALERTAS, tamano: TamanoWidget.MEDIANO, posicion: { x: 4, y: 10, w: 4, h: 4 } },
+      { tipo: TipoWidget.ACCESOS_RAPIDOS, tamano: TamanoWidget.MEDIANO, posicion: { x: 8, y: 10, w: 4, h: 4 } },
     ],
   },
 };

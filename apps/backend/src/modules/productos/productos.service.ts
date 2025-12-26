@@ -20,6 +20,10 @@ import {
   getTiposImpuestoModel
 } from '../../utils/dynamic-models.helper';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
+import {
+  checkProductoIntegrity,
+  ReferentialIntegrityError
+} from '@/utils/referential-integrity.helper';
 
 export class ProductosService {
   /**
@@ -536,7 +540,8 @@ export class ProductosService {
   async deleteProducto(
     productoId: string,
     empresaId: mongoose.Types.ObjectId,
-    dbConfig: IDatabaseConfig
+    dbConfig: IDatabaseConfig,
+    force: boolean = false
   ) {
     const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
     const FamiliaModel = await this.getModeloFamilia(String(empresaId), dbConfig);
@@ -548,6 +553,23 @@ export class ProductosService {
 
     if (!producto) {
       throw new Error('Producto no encontrado');
+    }
+
+    // Verificar integridad referencial (solo si no es forzado)
+    if (!force) {
+      const integrityCheck = await checkProductoIntegrity(
+        productoId,
+        String(empresaId),
+        dbConfig
+      );
+
+      if (!integrityCheck.canDelete) {
+        throw new ReferentialIntegrityError(
+          'el producto',
+          productoId,
+          integrityCheck.relatedRecords
+        );
+      }
     }
 
     // Marcar como inactivo

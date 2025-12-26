@@ -4,8 +4,8 @@ const EMAIL_HOST = process.env.EMAIL_HOST || 'smtp.gmail.com';
 const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || '587');
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD;
-const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@omerix.com';
-const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'Omerix ERP';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@tralok.com';
+const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'Tralok ERP';
 
 // Crear transporter
 const transporter = nodemailer.createTransport({
@@ -83,7 +83,7 @@ export const emailTemplates = {
         </div>
         <div class="content">
           <p>Hola <strong>${userName}</strong>,</p>
-          <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en <strong>Omerix ERP</strong>.</p>
+          <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en <strong>Tralok ERP</strong>.</p>
           <p>Haz clic en el siguiente botón para crear una nueva contraseña:</p>
           <center>
             <a href="${resetUrl}" class="button">Restablecer Contraseña</a>
@@ -91,10 +91,10 @@ export const emailTemplates = {
           <p><small>O copia y pega este enlace en tu navegador:<br>${resetUrl}</small></p>
           <p><strong>⚠️ Este enlace expira en 1 hora.</strong></p>
           <p>Si no solicitaste este cambio, puedes ignorar este email.</p>
-          <p>Saludos,<br>El equipo de Omerix</p>
+          <p>Saludos,<br>El equipo de Tralok</p>
         </div>
         <div class="footer">
-          <p>© ${new Date().getFullYear()} Omerix ERP. Todos los derechos reservados.</p>
+          <p>© ${new Date().getFullYear()} Tralok ERP. Todos los derechos reservados.</p>
         </div>
       </div>
     </body>
@@ -123,10 +123,10 @@ export const emailTemplates = {
           <p>Hola <strong>${userName}</strong>,</p>
           <p>Tu contraseña ha sido actualizada exitosamente.</p>
           <p>Si no realizaste este cambio, por favor contacta inmediatamente a soporte.</p>
-          <p>Saludos,<br>El equipo de Omerix</p>
+          <p>Saludos,<br>El equipo de Tralok</p>
         </div>
         <div class="footer">
-          <p>© ${new Date().getFullYear()} Omerix ERP. Todos los derechos reservados.</p>
+          <p>© ${new Date().getFullYear()} Tralok ERP. Todos los derechos reservados.</p>
         </div>
       </div>
     </body>
@@ -478,6 +478,162 @@ export const emailTemplates = {
         <div class="footer">
           <p>&copy; ${new Date().getFullYear()} ${params.empresaNombre}. Todos los derechos reservados.</p>
           <p style="font-size: 11px; color: #999;">Este es un mensaje automatico del sistema de planificacion.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
+
+  // Factura de suscripción
+  facturaSuscripcion: (params: {
+    clienteNombre: string;
+    numeroFactura: string;
+    fechaEmision: string;
+    planNombre: string;
+    tipoSuscripcion: string;
+    periodoInicio: string;
+    periodoFin: string;
+    lineas: Array<{
+      descripcion: string;
+      cantidad: number;
+      precioUnitario: string;
+      total: string;
+    }>;
+    subtotal: string;
+    totalIva: string;
+    total: string;
+    urlDescarga?: string;
+  }) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10B981; }
+        .tabla-factura { width: 100%; border-collapse: collapse; margin: 20px 0; background: white; border-radius: 8px; overflow: hidden; }
+        .tabla-factura th { background: #E5E7EB; padding: 12px; text-align: left; font-weight: 600; }
+        .tabla-factura td { padding: 12px; border-bottom: 1px solid #E5E7EB; }
+        .tabla-factura tr:last-child td { border-bottom: none; }
+        .totales { background: white; padding: 15px; border-radius: 8px; text-align: right; }
+        .totales .total-final { font-size: 20px; font-weight: bold; color: #10B981; }
+        .cta-button { display: inline-block; padding: 14px 30px; background: #10B981; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #D1FAE5; color: #065F46; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Factura de Suscripcion</h1>
+          <p style="margin: 0; opacity: 0.9;">${params.numeroFactura}</p>
+        </div>
+        <div class="content">
+          <p>Estimado/a <strong>${params.clienteNombre}</strong>,</p>
+          <p>Gracias por su suscripcion a Tralok ERP. Adjuntamos la factura correspondiente:</p>
+
+          <div class="info-box">
+            <p><strong>Factura:</strong> ${params.numeroFactura}</p>
+            <p><strong>Fecha:</strong> ${params.fechaEmision}</p>
+            <p><strong>Plan:</strong> <span class="badge">${params.planNombre} (${params.tipoSuscripcion})</span></p>
+            <p><strong>Periodo:</strong> ${params.periodoInicio} - ${params.periodoFin}</p>
+          </div>
+
+          <table class="tabla-factura">
+            <thead>
+              <tr>
+                <th>Concepto</th>
+                <th style="text-align: center;">Cant.</th>
+                <th style="text-align: right;">Precio</th>
+                <th style="text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${params.lineas.map(l => `
+              <tr>
+                <td>${l.descripcion}</td>
+                <td style="text-align: center;">${l.cantidad}</td>
+                <td style="text-align: right;">${l.precioUnitario}</td>
+                <td style="text-align: right;">${l.total}</td>
+              </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="totales">
+            <p>Base imponible: <strong>${params.subtotal}</strong></p>
+            <p>IVA (21%): <strong>${params.totalIva}</strong></p>
+            <p class="total-final">Total: ${params.total}</p>
+          </div>
+
+          ${params.urlDescarga ? `
+          <center>
+            <a href="${params.urlDescarga}" class="cta-button">Descargar Factura PDF</a>
+          </center>
+          ` : ''}
+
+          <p>Si tiene alguna pregunta sobre esta factura, no dude en contactarnos.</p>
+
+          <p>Saludos cordiales,<br><strong>Equipo Tralok</strong></p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} Tralok SL. Todos los derechos reservados.</p>
+          <p style="font-size: 11px; color: #999;">CIF: B12345678 | soporte@tralok.com</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
+
+  // Confirmación de pago exitoso
+  pagoExitoso: (params: {
+    clienteNombre: string;
+    planNombre: string;
+    total: string;
+    proximaRenovacion: string;
+    numeroFactura: string;
+  }) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .success-icon { font-size: 48px; margin-bottom: 10px; }
+        .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10B981; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="success-icon">&#10004;</div>
+          <h1>Pago Confirmado</h1>
+        </div>
+        <div class="content">
+          <p>Hola <strong>${params.clienteNombre}</strong>,</p>
+          <p>Tu pago ha sido procesado correctamente. Gracias por confiar en Tralok ERP.</p>
+
+          <div class="info-box">
+            <p><strong>Plan:</strong> ${params.planNombre}</p>
+            <p><strong>Importe:</strong> ${params.total}</p>
+            <p><strong>Factura:</strong> ${params.numeroFactura}</p>
+            <p><strong>Proxima renovacion:</strong> ${params.proximaRenovacion}</p>
+          </div>
+
+          <p>Tu factura ha sido enviada en un email separado.</p>
+          <p>Si tienes alguna pregunta, contactanos en soporte@tralok.com</p>
+
+          <p>Saludos,<br><strong>Equipo Tralok</strong></p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} Tralok SL. Todos los derechos reservados.</p>
         </div>
       </div>
     </body>

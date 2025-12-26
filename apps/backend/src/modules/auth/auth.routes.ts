@@ -3,7 +3,9 @@
 import { Router } from 'express';
 import {
   register,
+  verificarNIF,
   login,
+  selectEmpresa,
   verify2FA,
   getMe,
   setup2FAApp,
@@ -18,6 +20,7 @@ import {
   forgotPassword,
   logout,
   getActiveSessions,
+  getActiveSessionsEmpresa,
   logoutAllSessions,
 } from './auth.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
@@ -96,6 +99,71 @@ router.post('/register', registerLimiter, register);
 
 /**
  * @swagger
+ * /api/auth/verificar-nif:
+ *   post:
+ *     summary: Verificar NIF/CIF antes del registro
+ *     tags: [Autenticación]
+ *     description: |
+ *       Valida el formato del NIF/CIF y opcionalmente verifica la empresa en el Registro Mercantil.
+ *       En desarrollo permite continuar con advertencias, en producción requiere verificación.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nif
+ *             properties:
+ *               nif:
+ *                 type: string
+ *                 example: B12345678
+ *                 description: NIF/CIF a verificar
+ *               nombre:
+ *                 type: string
+ *                 example: Mi Empresa SL
+ *                 description: Nombre fiscal (opcional, para verificación completa)
+ *     responses:
+ *       200:
+ *         description: Resultado de la verificación
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     valido:
+ *                       type: boolean
+ *                       description: Si el formato del NIF es válido
+ *                     tipo:
+ *                       type: string
+ *                       description: Tipo de entidad (DNI, NIE, CIF)
+ *                     verificado:
+ *                       type: boolean
+ *                       description: Si se verificó en el Registro Mercantil
+ *                     encontrado:
+ *                       type: boolean
+ *                       description: Si se encontró en el Registro Mercantil
+ *                     datosOficiales:
+ *                       type: object
+ *                       description: Datos oficiales del Registro Mercantil
+ *                     advertencias:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     errores:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ */
+router.post('/verificar-nif', authLimiter, verificarNIF);
+
+/**
+ * @swagger
  * /api/auth/login:
  *   post:
  *     summary: Iniciar sesión (Paso 1 - Verificar credenciales)
@@ -125,6 +193,36 @@ router.post('/register', registerLimiter, register);
  *         description: Credenciales inválidas
  */
 router.post('/login', authLimiter, login);
+
+/**
+ * @swagger
+ * /api/auth/select-empresa:
+ *   post:
+ *     summary: Seleccionar empresa (Paso 2 del login si el usuario tiene múltiples empresas)
+ *     tags: [Autenticación]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - empresaId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 example: 507f1f77bcf86cd799439011
+ *               empresaId:
+ *                 type: string
+ *                 example: 507f1f77bcf86cd799439012
+ *     responses:
+ *       200:
+ *         description: Empresa seleccionada, login exitoso
+ *       401:
+ *         description: Usuario no tiene acceso a esa empresa
+ */
+router.post('/select-empresa', authLimiter, selectEmpresa);
 
 /**
  * @swagger
@@ -504,6 +602,62 @@ router.post('/logout', logout);
  *         description: No autenticado
  */
 router.get('/sessions', authMiddleware, getActiveSessions);
+
+/**
+ * @swagger
+ * /api/auth/sessions/empresa:
+ *   get:
+ *     summary: Obtener todas las sesiones activas de la empresa
+ *     description: Devuelve todas las sesiones activas de todos los usuarios de la empresa (para control de usuarios simultáneos)
+ *     tags: [Autenticación]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de sesiones activas de la empresa
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalSesiones:
+ *                       type: integer
+ *                       description: Número total de sesiones activas
+ *                     sesiones:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           usuario:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                               nombre:
+ *                                 type: string
+ *                               email:
+ *                                 type: string
+ *                           deviceInfo:
+ *                             type: string
+ *                           ipAddress:
+ *                             type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                           expiresAt:
+ *                             type: string
+ *                             format: date-time
+ *       401:
+ *         description: No autenticado
+ */
+router.get('/sessions/empresa', authMiddleware, getActiveSessionsEmpresa);
 
 /**
  * @swagger

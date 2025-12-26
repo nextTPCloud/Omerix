@@ -4,6 +4,10 @@ import { Proveedor, IProveedor } from '@/modules/proveedores/Proveedor';
 import { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getProveedorModel, getFormaPagoModel, getTerminoPagoModel } from '@/utils/dynamic-models.helper';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
+import {
+  checkProveedorIntegrity,
+  ReferentialIntegrityError
+} from '@/utils/referential-integrity.helper';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -269,6 +273,21 @@ export class ProveedoresService {
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
   ): Promise<boolean> {
+    // Verificar integridad referencial antes de eliminar
+    const integrityCheck = await checkProveedorIntegrity(
+      id,
+      String(empresaId),
+      dbConfig
+    );
+
+    if (!integrityCheck.canDelete) {
+      throw new ReferentialIntegrityError(
+        'el proveedor',
+        id,
+        integrityCheck.relatedRecords
+      );
+    }
+
     const ProveedorModel = await this.getModeloProveedor(String(empresaId), dbConfig);
 
     const resultado = await ProveedorModel.deleteOne({
@@ -286,14 +305,46 @@ export class ProveedoresService {
     ids: string[],
     empresaId: mongoose.Types.ObjectId,
     dbConfig: IDatabaseConfig
-  ): Promise<number> {
+  ): Promise<{ deleted: number; errors: Array<{ id: string; error: string }> }> {
     const ProveedorModel = await this.getModeloProveedor(String(empresaId), dbConfig);
+    const errors: Array<{ id: string; error: string }> = [];
+    const idsToDelete: string[] = [];
 
-    const resultado = await ProveedorModel.deleteMany({
-      _id: { $in: ids },
-    });
+    // Verificar integridad referencial de cada proveedor
+    for (const id of ids) {
+      try {
+        const integrityCheck = await checkProveedorIntegrity(
+          id,
+          String(empresaId),
+          dbConfig
+        );
 
-    return resultado.deletedCount || 0;
+        if (integrityCheck.canDelete) {
+          idsToDelete.push(id);
+        } else {
+          const messages = integrityCheck.relatedRecords.map(r =>
+            `${r.count} ${r.documentType}${r.count > 1 ? 's' : ''}`
+          );
+          errors.push({
+            id,
+            error: `Tiene ${messages.join(', ')} asociados`,
+          });
+        }
+      } catch (error: any) {
+        errors.push({ id, error: error.message });
+      }
+    }
+
+    // Eliminar solo los que no tienen dependencias
+    let deletedCount = 0;
+    if (idsToDelete.length > 0) {
+      const resultado = await ProveedorModel.deleteMany({
+        _id: { $in: idsToDelete },
+      });
+      deletedCount = resultado.deletedCount || 0;
+    }
+
+    return { deleted: deletedCount, errors };
   }
 
   // ============================================

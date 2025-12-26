@@ -4,7 +4,7 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 import crypto from 'crypto';
 
 // Clave de encriptación para datos sensibles
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'omerix-encryption-key-32-chars!!';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'tralok-encryption-key-32-chars!!';
 const IV_LENGTH = 16;
 
 // Funciones de encriptación

@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Backend API del ERP Omerix",
+  "description": "Backend API del ERP Tralok",
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon --exec tsx src/server.ts",
@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
     "seed:plans": "tsx src/scripts/seed-plans.ts",
+    "seed:superadmin": "tsx src/scripts/seed-superadmin.ts",
     "seed:clientes": "tsx src/scripts/seedClientes.ts",
     "seed:textos-legales": "tsx src/scripts/seedTextosLegales.ts",
     "migrate:multidb": "tsx src/scripts/migrateToMultiDB.ts",

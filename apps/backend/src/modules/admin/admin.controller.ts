@@ -4,6 +4,7 @@ import {
   GetEmpresasQuerySchema,
   AdminUpdateEmpresaSchema,
   UpdateEmpresaEstadoSchema,
+  CreateEmpresaSchema,
 } from './admin.dto';
 
 /**
@@ -235,6 +236,46 @@ class AdminController {
       res.status(500).json({
         success: false,
         message: 'Error al eliminar la empresa',
+        errors: [{ field: 'general', message: error.message }],
+      });
+    }
+  }
+
+  /**
+   * @route   POST /api/admin/empresas
+   * @desc    Crear una nueva empresa de negocio (para superadmin)
+   * @access  Super Admin
+   */
+  async createEmpresa(req: Request, res: Response): Promise<void> {
+    try {
+      const validation = CreateEmpresaSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        res.status(400).json({
+          success: false,
+          message: 'Datos de entrada inválidos',
+          errors: validation.error.errors.map((err) => ({
+            field: err.path.join('.'),
+            message: err.message,
+          })),
+        });
+        return;
+      }
+
+      const superadminId = (req as any).userId;
+
+      const result = await AdminService.createEmpresa(validation.data, superadminId);
+
+      res.status(201).json({
+        success: true,
+        message: 'Empresa creada exitosamente',
+        data: result,
+      });
+    } catch (error: any) {
+      console.error('Error al crear empresa:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al crear la empresa',
         errors: [{ field: 'general', message: error.message }],
       });
     }

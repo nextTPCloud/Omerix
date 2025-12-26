@@ -1,9 +1,11 @@
 // apps/backend/src/modules/auth/auth.service.ts
 
 import Usuario, { IUsuario } from '../usuarios/Usuario';
+import UsuarioEmpresa from '../usuarios/UsuarioEmpresa';
 import Empresa from '../empresa/Empresa';
 import Plan from '../licencias/Plan';
 import Licencia from '../licencias/Licencia';
+import AddOn from '../licencias/AddOn';
 import RefreshToken from './RefreshToken';
 import { generateAccessToken, generateRefreshToken } from '../../utils/jwt';
 import crypto from 'crypto';
@@ -26,6 +28,7 @@ import {
 } from './auth.dto';
 import { databaseManager } from '../../services/database-manager.service';
 import { DatabaseManagerService } from '../../services/database-manager.service';
+import { registroMercantilService } from '../../services/registro-mercantil.service';
 import mongoose from 'mongoose';
 
 export class AuthService {
@@ -35,17 +38,44 @@ export class AuthService {
   // ============================================
   
  async register(data: RegisterDTO) {
-    // Verificar si el email ya existe
-    const usuarioExistente = await Usuario.findOne({ email: data.email });
-    if (usuarioExistente) {
-      throw new Error('El email ya está registrado');
+    // 1. Verificar si el usuario ya existe (puede tener múltiples empresas)
+    const usuarioExistente = await Usuario.findOne({ email: data.email }).select('+password');
+
+    // 2. Verificar si el NIF de empresa ya existe
+    const empresaExistenteNif = await Empresa.findOne({ nif: data.nifEmpresa });
+    if (empresaExistenteNif) {
+      throw new Error('Ya existe una empresa registrada con este NIF');
     }
 
-    // Verificar si el NIF de empresa ya existe
-    const empresaExistente = await Empresa.findOne({ nif: data.nifEmpresa });
-    if (empresaExistente) {
-      throw new Error('La empresa con este NIF ya está registrada');
+    // 3. Verificar si el email de empresa ya existe (debe ser único por empresa)
+    const empresaExistenteEmail = await Empresa.findOne({ email: data.emailEmpresa });
+    if (empresaExistenteEmail) {
+      throw new Error('Ya existe una empresa registrada con este email de empresa');
     }
+
+    // 4. Si el usuario existe, verificar la contraseña para confirmar identidad
+    if (usuarioExistente) {
+      const passwordValido = await usuarioExistente.comparePassword(data.password);
+      if (!passwordValido) {
+        throw new Error('El email ya está registrado. Si es tu cuenta, introduce la contraseña correcta para añadir una nueva empresa.');
+      }
+    }
+
+    // VERIFICAR EMPRESA EN REGISTRO MERCANTIL
+    const verificacion = await registroMercantilService.verificarEmpresa({
+      nif: data.nifEmpresa,
+      nombre: data.nombreEmpresa,
+      nombreComercial: data.nombreComercialEmpresa,
+    });
+
+    // Si hay errores de verificación, no permitir el registro
+    if (!verificacion.verificado) {
+      const errores = verificacion.errores.join('. ');
+      throw new Error(`Error de verificación: ${errores}`);
+    }
+
+    // Si hay advertencias, continuar (las advertencias no bloquean el registro)
+    // Las advertencias se registran en el sistema de logs de la empresa
 
     // 1. GENERAR CONFIGURACIÓN DE BASE DE DATOS PARA LA EMPRESA
     // Crear un ID temporal para la empresa
@@ -61,20 +91,30 @@ export class AuthService {
       }
     );
 
-    console.log(`🔧 Configuración de DB generada para nueva empresa: ${databaseConfig.name}`);
 
     // 2. CREAR EMPRESA CON CONFIGURACIÓN DE DB
+    // Usar el nombre oficial del registro mercantil si está disponible
+    const nombreFiscal = verificacion.datosOficiales?.nombreFiscal || data.nombreEmpresa;
+
     const empresa = await Empresa.create({
       _id: tempEmpresaId, // Usar el mismo ID temporal
-      nombre: data.nombreEmpresa,
+      nombre: nombreFiscal,
+      nombreComercial: data.nombreComercialEmpresa,
       nif: data.nifEmpresa,
       email: data.emailEmpresa,
+      telefono: data.telefonoEmpresa,
       tipoNegocio: data.tipoNegocio || 'retail',
       estado: 'activa',
-      databaseConfig, // ← AÑADIR CONFIGURACIÓN DE DB
+      direccion: {
+        calle: data.direccion,
+        codigoPostal: data.codigoPostal,
+        ciudad: data.ciudad,
+        provincia: data.provincia,
+        pais: data.pais || 'España',
+      },
+      databaseConfig,
     });
 
-    console.log(`✅ Empresa creada: ${empresa.nombre} (${empresa._id})`);
 
     // 3. INICIALIZAR BASE DE DATOS DE LA EMPRESA
     try {
@@ -82,55 +122,68 @@ export class AuthService {
         String(empresa._id),
         databaseConfig
       );
-      console.log(`✅ Base de datos inicializada: ${databaseConfig.name}`);
     } catch (error: any) {
-      console.error('❌ Error inicializando base de datos de empresa:', error);
+      console.error('Error inicializando base de datos de empresa:', error);
       // Si falla la inicialización, eliminar la empresa creada
       await Empresa.deleteOne({ _id: empresa._id });
       throw new Error('Error al inicializar la base de datos de la empresa');
     }
 
-    // 4. CREAR USUARIO (admin de la empresa)
-    const usuario = await Usuario.create({
-      empresaId: empresa._id,
-      nombre: data.nombre,
-      apellidos: data.apellidos,
-      email: data.email,
-      password: data.password,
-      telefono: data.telefono,
-      rol: 'admin',
-      activo: true,
-      emailVerificado: false,
-    });
+    // 4. CREAR O REUTILIZAR USUARIO (admin de la empresa)
+    let usuario: IUsuario;
 
-    console.log(`✅ Usuario admin creado: ${usuario.email}`);
-
-    // 5. CREAR LICENCIA DEMO (30 días trial)
-    // Buscar el plan Demo
-    const planDemo = await Plan.findOne({ slug: 'demo' });
-
-    if (!planDemo) {
-      console.error('⚠️ Plan Demo no encontrado. Ejecuta: npm run seed:plans');
-      throw new Error('Error en configuración de planes');
+    if (usuarioExistente) {
+      // Usuario ya existe - reutilizarlo para la nueva empresa
+      usuario = usuarioExistente;
+    } else {
+      // Crear nuevo usuario
+      usuario = await Usuario.create({
+        empresaId: empresa._id,
+        nombre: data.nombre,
+        apellidos: data.apellidos,
+        email: data.email,
+        password: data.password,
+        telefono: data.telefono,
+        rol: 'admin',
+        activo: true,
+        emailVerificado: false,
+      });
     }
 
-    // Crear licencia trial
+    // 4.1 CREAR RELACIÓN USUARIO-EMPRESA
+    await UsuarioEmpresa.create({
+      usuarioId: usuario._id,
+      empresaId: empresa._id,
+      rol: 'admin',
+      esPrincipal: true,
+      activo: true,
+      fechaAsignacion: new Date(),
+    });
+
+    // 5. CREAR LICENCIA CON EL PLAN SELECCIONADO
+    // El usuario selecciona un plan de pago desde el registro
+    const planSlug = data.plan || 'starter'; // Por defecto Starter si no se especifica
+    const planSeleccionado = await Plan.findOne({ slug: planSlug, activo: true });
+
+    if (!planSeleccionado) {
+      throw new Error('Plan no encontrado o no disponible');
+    }
+
+    // Crear licencia con el plan seleccionado (pendiente de pago)
     const licencia = await Licencia.create({
       empresaId: empresa._id,
-      planId: planDemo._id,
-      estado: 'trial',
-      esTrial: true,
-      fechaInicioTrial: new Date(),
-      fechaFinTrial: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
+      planId: planSeleccionado._id,
+      estado: 'activa', // Activa - el pago se gestionará en checkout
+      esTrial: false,
       tipoSuscripcion: 'mensual',
       fechaInicio: new Date(),
       fechaRenovacion: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       usoActual: {
         usuariosSimultaneos: 0,
-        usuariosTotales: 1, // Ya hay 1 usuario (el admin)
+        usuariosTotales: 1,
         facturasEsteMes: 0,
         productosActuales: 0,
-        almacenesActuales: 1, // Por defecto 1 almacén
+        almacenesActuales: 1,
         clientesActuales: 0,
         tpvsActuales: 0,
         almacenamientoUsadoGB: 0,
@@ -144,31 +197,25 @@ export class AuthService {
         {
           fecha: new Date(),
           accion: 'CREACION',
-          planNuevo: 'Demo',
-          motivo: 'Registro inicial - Trial de 30 días',
+          planNuevo: planSeleccionado.nombre,
+          motivo: `Registro con plan ${planSeleccionado.nombre}`,
         },
       ],
     });
-
-    console.log('✅ Licencia trial creada:', licencia._id);
 
     // 6. GENERAR TOKENS
     const accessToken = generateAccessToken(usuario);
     const refreshToken = generateRefreshToken(usuario);
 
-    // 🆕 GUARDAR REFRESH TOKEN EN BASE DE DATOS
+    // Guardar refresh token en base de datos
     await this.saveRefreshToken(usuario._id, refreshToken);
-
-    console.log('✅ Usuario registrado:', usuario.email);
-    console.log('🎉 Proceso de registro completado exitosamente\n');
 
     return {
       usuario: this.formatUserResponse(usuario),
       empresa: this.formatEmpresaResponse(empresa),
       licencia: {
-        plan: planDemo.nombre,
+        plan: planSeleccionado.nombre,
         estado: licencia.estado,
-        diasTrialRestantes: 30,
       },
       accessToken,
       refreshToken,
@@ -181,11 +228,61 @@ export class AuthService {
   // LOGIN
   // ============================================
 
-  async login(data: LoginDTO) {
+  /**
+   * Obtener el límite efectivo de sesiones simultáneas (plan + add-ons)
+   */
+  private async getLimiteSesionesSimultaneas(empresaId: mongoose.Types.ObjectId): Promise<number> {
+    const licencia = await Licencia.findOne({ empresaId }).populate('planId');
+    if (!licencia) {
+      return 1; // Por defecto 1 si no hay licencia
+    }
+
+    const plan = licencia.planId as any;
+    let limite = plan.limites?.usuariosSimultaneos ?? 1;
+
+    // Si es ilimitado (-1), devolver -1
+    if (limite === -1) {
+      return -1;
+    }
+
+    // Sumar límites extra de add-ons activos
+    const addOnsActivos = licencia.addOns.filter((a: any) => a.activo);
+    for (const addon of addOnsActivos) {
+      // Buscar el add-on para obtener sus límites extra
+      const addOnDoc = await AddOn.findById(addon.addOnId);
+      if (addOnDoc?.limitesExtra?.usuariosSimultaneos) {
+        // Multiplicar por cantidad si aplica (ej: Pack 5 Usuarios x 2 = 10 usuarios extra)
+        limite += (addOnDoc.limitesExtra.usuariosSimultaneos * (addon.cantidad || 1));
+      }
+    }
+
+    return limite;
+  }
+
+  /**
+   * Contar sesiones activas de una empresa
+   */
+  private async contarSesionesActivas(empresaId: mongoose.Types.ObjectId): Promise<number> {
+    const usuariosEmpresa = await UsuarioEmpresa.find({
+      empresaId,
+      activo: true,
+    }).select('usuarioId');
+
+    const userIds = usuariosEmpresa.map(ue => ue.usuarioId);
+
+    const count = await RefreshToken.countDocuments({
+      userId: { $in: userIds },
+      isRevoked: false,
+      expiresAt: { $gt: new Date() },
+    });
+
+    return count;
+  }
+
+  async login(data: LoginDTO & { empresaId?: string }) {
     // Buscar usuario (incluir password y twoFactorSecret para verificar 2FA)
     const usuario = await Usuario.findOne({ email: data.email })
-      .select('+password +twoFactorSecret')
-      .populate('empresaId');
+      .select('+password +twoFactorSecret');
 
     if (!usuario) {
       throw new Error('Credenciales inválidas');
@@ -204,27 +301,22 @@ export class AuthService {
 
     // Verificar si tiene 2FA activado Y correctamente configurado
     if (usuario.twoFactorEnabled) {
-      // Verificar que 2FA esté completamente configurado
       const is2FAConfigured =
         (usuario.twoFactorMethod === 'app' && usuario.twoFactorSecret) ||
         (usuario.twoFactorMethod === 'sms' && usuario.twoFactorPhone);
 
       if (!is2FAConfigured) {
-        console.warn(`⚠️ Usuario ${usuario.email} tiene 2FA habilitado pero no configurado correctamente. Deshabilitando temporalmente.`);
-        // Deshabilitar 2FA automáticamente si no está configurado
+        // 2FA habilitado pero no configurado correctamente - deshabilitar temporalmente
         usuario.twoFactorEnabled = false;
         usuario.twoFactorMethod = null;
         await usuario.save();
       } else {
-        // 2FA está correctamente configurado
-        // Si tiene 2FA por SMS, enviar código ahora
         if (usuario.twoFactorMethod === 'sms' && usuario.twoFactorPhone) {
           const code = generateSMSCode();
           await sendSMSCode(usuario.twoFactorPhone, code);
           storeSMSCode(String(usuario._id), code);
         }
 
-        // NO devolver tokens todavía
         return {
           requires2FA: true,
           twoFactorMethod: usuario.twoFactorMethod!,
@@ -234,20 +326,107 @@ export class AuthService {
     }
 
     // ============================================
-    // IMPORTANTE: Buscar el usuario de nuevo SIN POPULATE
-    // para generar tokens con el ID correcto
+    // VERIFICAR EMPRESAS DEL USUARIO
     // ============================================
-    const usuarioParaToken = await Usuario.findById(usuario._id).select('+password');
+    const empresasUsuario = await UsuarioEmpresa.getEmpresasDeUsuario(usuario._id);
 
-    if (!usuarioParaToken) {
-      throw new Error('Error al generar tokens');
+    // Si el usuario es superadmin, tiene acceso especial
+    const esSuperadmin = usuario.rol === 'superadmin';
+
+    // ============================================
+    // VERIFICAR SI SUPERADMIN TIENE EMPRESA DE NEGOCIO
+    // ============================================
+    if (esSuperadmin) {
+      // Filtrar empresas de negocio (no plataforma)
+      // Verificar que empresaId existe y no es null antes de acceder a esPlatforma
+      const empresasNegocio = empresasUsuario.filter((ue: any) =>
+        ue.empresaId && !ue.empresaId.esPlatforma
+      );
+
+      if (empresasNegocio.length === 0) {
+        // Generar tokens temporales para que pueda crear empresa
+        const accessToken = generateAccessToken(usuario);
+        const refreshToken = generateRefreshToken(usuario);
+
+        await this.saveRefreshToken(
+          usuario._id,
+          refreshToken,
+          data.deviceInfo,
+          data.ipAddress
+        );
+
+        return {
+          requiresCompanyCreation: true,
+          userId: String(usuario._id),
+          usuario: this.formatUserResponse(usuario),
+          accessToken,
+          refreshToken,
+          message: 'Debes crear una empresa de negocio para continuar',
+        };
+      }
     }
 
-    // Si NO tiene 2FA, devolver tokens directamente
-    const accessToken = generateAccessToken(usuarioParaToken); // ← Usuario sin populate
-    const refreshToken = generateRefreshToken(usuarioParaToken); // ← Usuario sin populate
+    // Si tiene múltiples empresas y no ha seleccionado una, pedir selección
+    // Esto aplica también para superadmins con múltiples empresas de negocio
+    if (empresasUsuario.length > 1 && !data.empresaId) {
+      // Filtrar solo empresas de negocio (no plataforma) para la selección
+      const empresasNegocio = empresasUsuario.filter((ue: any) =>
+        ue.empresaId && !ue.empresaId.esPlatforma
+      );
 
-    // 🆕 GUARDAR REFRESH TOKEN EN BASE DE DATOS
+      // Si tiene más de una empresa de negocio, pedir selección
+      if (empresasNegocio.length > 1) {
+        return {
+          requiresEmpresaSelection: true,
+          userId: String(usuario._id),
+          empresas: empresasNegocio.map((ue: any) => ({
+            id: String(ue.empresaId._id),
+            nombre: ue.empresaId.nombre,
+            nif: ue.empresaId.nif,
+            logo: ue.empresaId.logo,
+            rol: ue.rol,
+            esPrincipal: ue.esPrincipal,
+          })),
+        };
+      }
+    }
+
+    // Determinar la empresa a usar
+    let empresaIdFinal = usuario.empresaId;
+
+    if (data.empresaId) {
+      // Verificar que el usuario tenga acceso a esa empresa
+      const tieneAcceso = await UsuarioEmpresa.tieneAcceso(usuario._id, data.empresaId);
+      if (!tieneAcceso && !esSuperadmin) {
+        throw new Error('No tienes acceso a esa empresa');
+      }
+      empresaIdFinal = new mongoose.Types.ObjectId(data.empresaId);
+    } else if (empresasUsuario.length === 1) {
+      // Si solo tiene una empresa, usar esa
+      empresaIdFinal = (empresasUsuario[0] as any).empresaId._id;
+    }
+
+    // Actualizar empresaId en el usuario para esta sesión
+    usuario.empresaId = empresaIdFinal;
+
+    // ============================================
+    // VALIDAR LÍMITE DE SESIONES SIMULTÁNEAS
+    // ============================================
+    const limiteSesiones = await this.getLimiteSesionesSimultaneas(empresaIdFinal);
+    const sesionesActivas = await this.contarSesionesActivas(empresaIdFinal);
+
+    if (limiteSesiones !== -1 && sesionesActivas >= limiteSesiones) {
+      throw new Error(
+        `Se ha alcanzado el límite de ${limiteSesiones} sesiones simultáneas de tu plan. ` +
+        `Cierra alguna sesión activa o contacta con el administrador para ampliar el límite.`
+      );
+    }
+
+    // Generar tokens
+    const accessToken = generateAccessToken(usuario);
+    const refreshToken = generateRefreshToken(usuario);
+
+    // Guardar refresh token
     await this.saveRefreshToken(
       usuario._id,
       refreshToken,
@@ -259,11 +438,74 @@ export class AuthService {
     usuario.ultimoAcceso = new Date();
     await usuario.save();
 
-    console.log('✅ Login exitoso:', usuario.email);
+    // Obtener datos de la empresa
+    const empresa = await Empresa.findById(empresaIdFinal);
 
     return {
       requires2FA: false,
-      usuario: this.formatUserResponse(usuario), // ← Este puede tener populate para mostrar datos
+      requiresEmpresaSelection: false,
+      usuario: this.formatUserResponse(usuario),
+      empresa: empresa ? this.formatEmpresaResponse(empresa) : undefined,
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  // ============================================
+  // SELECCIONAR EMPRESA (después de login)
+  // ============================================
+
+  async selectEmpresa(userId: string, empresaId: string, deviceInfo?: string, ipAddress?: string) {
+    const usuario = await Usuario.findById(userId);
+
+    if (!usuario || !usuario.activo) {
+      throw new Error('Usuario no encontrado o inactivo');
+    }
+
+    // Verificar acceso a la empresa
+    const tieneAcceso = await UsuarioEmpresa.tieneAcceso(userId, empresaId);
+    if (!tieneAcceso && usuario.rol !== 'superadmin') {
+      throw new Error('No tienes acceso a esa empresa');
+    }
+
+    // Actualizar empresaId del usuario
+    usuario.empresaId = new mongoose.Types.ObjectId(empresaId);
+
+    // ============================================
+    // VALIDAR LÍMITE DE SESIONES SIMULTÁNEAS
+    // ============================================
+    const limiteSesiones = await this.getLimiteSesionesSimultaneas(usuario.empresaId);
+    const sesionesActivas = await this.contarSesionesActivas(usuario.empresaId);
+
+    if (limiteSesiones !== -1 && sesionesActivas >= limiteSesiones) {
+      throw new Error(
+        `Se ha alcanzado el límite de ${limiteSesiones} sesiones simultáneas de tu plan. ` +
+        `Cierra alguna sesión activa o contacta con el administrador para ampliar el límite.`
+      );
+    }
+
+    // Generar tokens
+    const accessToken = generateAccessToken(usuario);
+    const refreshToken = generateRefreshToken(usuario);
+
+    // Guardar refresh token
+    await this.saveRefreshToken(
+      usuario._id,
+      refreshToken,
+      deviceInfo,
+      ipAddress
+    );
+
+    // Actualizar último acceso
+    usuario.ultimoAcceso = new Date();
+    await usuario.save();
+
+    // Obtener datos de la empresa
+    const empresa = await Empresa.findById(empresaId);
+
+    return {
+      usuario: this.formatUserResponse(usuario),
+      empresa: empresa ? this.formatEmpresaResponse(empresa) : undefined,
       accessToken,
       refreshToken,
     };
@@ -292,8 +534,6 @@ export class AuthService {
 
     // Generar nuevo access token
     const newAccessToken = generateAccessToken(usuario);
-
-    console.log('✅ Token refrescado:', usuario.email);
 
     return {
       accessToken: newAccessToken,
@@ -341,21 +581,33 @@ export class AuthService {
       throw new Error('Error al generar tokens');
     }
 
-    // Código válido, generar tokens
-    const accessToken = generateAccessToken(usuarioParaToken); // ← Sin populate
-    const refreshToken = generateRefreshToken(usuarioParaToken); // ← Sin populate
+    // ============================================
+    // VALIDAR LÍMITE DE SESIONES SIMULTÁNEAS
+    // ============================================
+    const empresaIdUsuario = usuario.empresaId as mongoose.Types.ObjectId;
+    const limiteSesiones = await this.getLimiteSesionesSimultaneas(empresaIdUsuario);
+    const sesionesActivas = await this.contarSesionesActivas(empresaIdUsuario);
 
-    // 🆕 GUARDAR REFRESH TOKEN EN BASE DE DATOS
+    if (limiteSesiones !== -1 && sesionesActivas >= limiteSesiones) {
+      throw new Error(
+        `Se ha alcanzado el límite de ${limiteSesiones} sesiones simultáneas de tu plan. ` +
+        `Cierra alguna sesión activa o contacta con el administrador para ampliar el límite.`
+      );
+    }
+
+    // Código válido, generar tokens
+    const accessToken = generateAccessToken(usuarioParaToken);
+    const refreshToken = generateRefreshToken(usuarioParaToken);
+
+    // Guardar refresh token en base de datos
     await this.saveRefreshToken(usuario._id, refreshToken, data.deviceInfo, data.ipAddress);
 
     // Actualizar último acceso
     usuario.ultimoAcceso = new Date();
     await usuario.save();
 
-    console.log('✅ 2FA verificado exitosamente:', usuario.email);
-
     return {
-      usuario: this.formatUserResponse(usuario), // ← Este puede tener populate
+      usuario: this.formatUserResponse(usuario),
       accessToken,
       refreshToken,
     };
@@ -400,7 +652,7 @@ export class AuthService {
     const { sendEmail, emailTemplates } = require('../../utils/email');
     const emailResult = await sendEmail(
       usuario.email,
-      'Recuperación de Contraseña - Omerix ERP',
+      'Recuperación de Contraseña - Tralok ERP',
       emailTemplates.resetPassword(resetUrl, usuario.nombre)
     );
 
@@ -412,8 +664,6 @@ export class AuthService {
 
       throw new Error('Error enviando email de recuperación');
     }
-
-    console.log('✅ Email de recuperación enviado a:', usuario.email);
 
     return {
       success: true,
@@ -477,16 +727,14 @@ export class AuthService {
     usuario.resetPasswordExpires = undefined;
     await usuario.save();
 
-    console.log('✅ Contraseña actualizada para:', usuario.email);
-
-    // 🆕 REVOCAR TODOS LOS REFRESH TOKENS (por seguridad)
+    // Revocar todos los refresh tokens (por seguridad)
     await this.revokeAllUserTokens(String(usuario._id), 'password_change');
 
     // Enviar email de confirmación
     const { sendEmail, emailTemplates } = require('../../utils/email');
     await sendEmail(
       usuario.email,
-      'Contraseña Actualizada - Omerix ERP',
+      'Contraseña Actualizada - Tralok ERP',
       emailTemplates.passwordChanged(usuario.nombre)
     );
 
@@ -555,8 +803,6 @@ export class AuthService {
     usuario.twoFactorMethod = 'app';
     await usuario.save();
 
-    console.log('✅ 2FA App activado:', usuario.email);
-
     return true;
   }
 
@@ -614,8 +860,6 @@ export class AuthService {
     usuario.twoFactorMethod = 'sms';
     await usuario.save();
 
-    console.log('✅ 2FA SMS activado:', usuario.email);
-
     return true;
   }
 
@@ -643,8 +887,6 @@ export class AuthService {
     usuario.twoFactorSecret = undefined;
     usuario.twoFactorPhone = undefined;
     await usuario.save();
-
-    console.log('✅ 2FA desactivado:', usuario.email);
 
     return true;
   }
@@ -690,6 +932,7 @@ export class AuthService {
       avatar: usuario.avatar,
       twoFactorEnabled: usuario.twoFactorEnabled,
       twoFactorMethod: usuario.twoFactorMethod,
+      personalId: usuario.personalId ? String(usuario.personalId) : undefined,
     };
   }
 
@@ -732,8 +975,6 @@ export class AuthService {
       expiresAt,
       isRevoked: false,
     });
-
-    console.log(`🔐 Refresh token guardado para usuario ${userId}`);
   }
 
   /**
@@ -767,8 +1008,6 @@ export class AuthService {
         },
       }
     );
-
-    console.log(`🔒 Refresh token revocado: ${reason}`);
   }
 
   /**
@@ -786,7 +1025,6 @@ export class AuthService {
       }
     );
 
-    console.log(`🔒 Revocados ${result.modifiedCount} tokens del usuario ${userId}: ${reason}`);
     return result.modifiedCount;
   }
 
@@ -810,6 +1048,50 @@ export class AuthService {
       createdAt: session.createdAt,
       expiresAt: session.expiresAt,
     }));
+  }
+
+  /**
+   * Obtener sesiones activas de todos los usuarios de una empresa
+   * Usado para el control de usuarios simultáneos en billing
+   */
+  async getActiveSessionsByEmpresa(empresaId: string) {
+    // Obtener todos los usuarios de la empresa
+    const usuariosEmpresa = await UsuarioEmpresa.find({
+      empresaId: new mongoose.Types.ObjectId(empresaId),
+      activo: true,
+    }).select('usuarioId');
+
+    const userIds = usuariosEmpresa.map(ue => ue.usuarioId);
+
+    // Obtener todas las sesiones activas de esos usuarios
+    const sessions = await RefreshToken.find({
+      userId: { $in: userIds },
+      isRevoked: false,
+      expiresAt: { $gt: new Date() },
+    })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: 'userId',
+        select: 'nombre apellidos email',
+        model: 'Usuario',
+      })
+      .lean();
+
+    return {
+      totalSesiones: sessions.length,
+      sesiones: sessions.map((session: any) => ({
+        id: String(session._id),
+        usuario: session.userId ? {
+          id: String(session.userId._id),
+          nombre: `${session.userId.nombre || ''} ${session.userId.apellidos || ''}`.trim(),
+          email: session.userId.email,
+        } : null,
+        deviceInfo: session.deviceInfo || 'Dispositivo desconocido',
+        ipAddress: session.ipAddress || 'IP desconocida',
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+      })),
+    };
   }
 
   /**

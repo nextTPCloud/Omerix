@@ -9,6 +9,7 @@ import {
   AsignarClientesSchema,
   RegistrarVentaSchema
 } from './agentes-comerciales.dto';
+import { ReferentialIntegrityError } from '@/utils/referential-integrity.helper';
 
 // ============================================
 // CREAR AGENTE
@@ -252,6 +253,17 @@ export const remove = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error al eliminar agente:', error);
+
+    // Error de integridad referencial - código 409 Conflict
+    if (error instanceof ReferentialIntegrityError) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        code: 'REFERENTIAL_INTEGRITY_ERROR',
+        details: error.relatedRecords,
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: error.message || 'Error al eliminar agente'
@@ -282,12 +294,22 @@ export const bulkDelete = async (req: Request, res: Response) => {
     }
 
     const { ids } = BulkDeleteAgentesSchema.parse(req.body);
-    const count = await agentesService.eliminarMultiples(ids, empresaId, dbConfig);
+    const result = await agentesService.eliminarMultiples(ids, empresaId, dbConfig);
+
+    // Si hay errores de integridad, informar con código 207 Multi-Status
+    if (result.errors && result.errors.length > 0) {
+      return res.status(207).json({
+        success: result.deleted > 0,
+        message: `${result.deleted} agente(s) eliminado(s). ${result.errors.length} no pudieron eliminarse por tener registros asociados.`,
+        deleted: result.deleted,
+        errors: result.errors,
+      });
+    }
 
     return res.json({
       success: true,
-      message: `${count} agente(s) eliminado(s)`,
-      count
+      message: `${result.deleted} agente(s) eliminado(s)`,
+      count: result.deleted
     });
   } catch (error: any) {
     console.error('Error al eliminar agentes:', error);

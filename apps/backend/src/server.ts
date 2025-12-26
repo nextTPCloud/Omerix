@@ -156,7 +156,7 @@ app.use(httpLoggerMiddleware);
 // ============================================
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Omerix ERP API Docs',
+  customSiteTitle: 'Tralok ERP API Docs',
 }));
 
 // Endpoint para obtener el JSON de Swagger
@@ -185,7 +185,7 @@ app.get('/api-docs.json', serveSwaggerJSON);
  *                   example: ok
  *                 message:
  *                   type: string
- *                   example: Backend Omerix funcionando correctamente
+ *                   example: Backend Tralok funcionando correctamente
  *                 timestamp:
  *                   type: string
  *                   format: date-time
@@ -193,7 +193,7 @@ app.get('/api-docs.json', serveSwaggerJSON);
 app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
-    message: 'Backend Omerix funcionando correctamente',
+    message: 'Backend Tralok funcionando correctamente',
     timestamp: new Date().toISOString(),
   });
 });

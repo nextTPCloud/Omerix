@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { FichajesController } from './fichajes.controller';
 import { authMiddleware, requireModuleAccess } from '@/middleware/auth.middleware';
 import { tenantMiddleware } from '@/middleware/tenant.middleware';
@@ -9,8 +9,45 @@ const router = Router();
 router.use(authMiddleware);
 router.use(tenantMiddleware);
 
-// Verificar acceso al módulo de RRHH
-router.use(requireModuleAccess('accesoRRHH'));
+/**
+ * Middleware que permite acceso si:
+ * - El usuario tiene permiso accesoRRHH, O
+ * - El usuario tiene personalId (es empleado fichando)
+ */
+const requireFichajeAccess = (req: Request, res: Response, next: NextFunction) => {
+  const user = req.user;
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: 'No autorizado',
+    });
+  }
+
+  // Superadmin siempre tiene acceso
+  if (user.rol === 'superadmin') {
+    return next();
+  }
+
+  // Si tiene permiso accesoRRHH, tiene acceso completo
+  if (user.permisos?.especiales?.accesoRRHH === true) {
+    return next();
+  }
+
+  // Si tiene personalId, puede acceder a sus propios fichajes
+  if (user.personalId) {
+    return next();
+  }
+
+  // Si no cumple ninguna condición, denegar acceso
+  return res.status(403).json({
+    success: false,
+    message: 'No tienes acceso al módulo de fichajes. Necesitas ser empleado o tener permiso de RRHH.',
+  });
+};
+
+// Aplicar middleware de acceso a fichajes
+router.use(requireFichajeAccess);
 
 /**
  * @swagger
@@ -285,7 +322,7 @@ router.post('/:id/pausa', FichajesController.registrarPausa);
  *       200:
  *         description: Fichaje aprobado
  */
-router.put('/:id/aprobar', FichajesController.aprobar);
+router.put('/:id/aprobar', requireModuleAccess('accesoRRHH'), FichajesController.aprobar);
 
 /**
  * @swagger
@@ -313,7 +350,7 @@ router.put('/:id/aprobar', FichajesController.aprobar);
  *       200:
  *         description: Fichaje rechazado
  */
-router.put('/:id/rechazar', FichajesController.rechazar);
+router.put('/:id/rechazar', requireModuleAccess('accesoRRHH'), FichajesController.rechazar);
 
 /**
  * @swagger
@@ -333,7 +370,7 @@ router.put('/:id/rechazar', FichajesController.rechazar);
  *       200:
  *         description: Fichaje actualizado
  */
-router.put('/:id', FichajesController.update);
+router.put('/:id', requireModuleAccess('accesoRRHH'), FichajesController.update);
 
 /**
  * @swagger
@@ -353,6 +390,6 @@ router.put('/:id', FichajesController.update);
  *       200:
  *         description: Fichaje eliminado
  */
-router.delete('/:id', FichajesController.delete);
+router.delete('/:id', requireModuleAccess('accesoRRHH'), FichajesController.delete);
 
 export default router;

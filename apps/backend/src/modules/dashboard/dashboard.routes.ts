@@ -13,13 +13,14 @@ import {
   resetDashboard,
 } from './dashboard.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
-import { tenantMiddleware } from '../../middleware/tenant.middleware';
+import { tenantMiddleware, requireBusinessDatabase } from '../../middleware/tenant.middleware';
 
 const router = Router();
 
 // Todas las rutas requieren autenticación
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+router.use(requireBusinessDatabase);
 
 // Dashboard del usuario
 router.get('/', getDashboard);

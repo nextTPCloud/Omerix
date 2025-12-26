@@ -27,7 +27,11 @@ export const CaptureOrderSchema = z.object({
 // ============================================
 
 export const CreatePayPalSubscriptionSchema = z.object({
-  planId: z.string(),
+  planId: z.string().optional(),
+  planSlug: z.string().optional(),
+  tipoSuscripcion: z.enum(['mensual', 'anual']).optional(),
+}).refine(data => data.planId || data.planSlug, {
+  message: 'Se requiere planId o planSlug',
 });
 
 // ============================================

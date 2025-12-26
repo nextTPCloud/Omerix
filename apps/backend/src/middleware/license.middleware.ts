@@ -13,6 +13,7 @@ declare global {
 
 /**
  * Middleware para cargar licencia y plan
+ * Nota: superadmin tiene bypass completo si no hay empresaId asociada
  */
 export const loadLicense = async (
   req: Request,
@@ -21,6 +22,21 @@ export const loadLicense = async (
 ) => {
   try {
     const empresaId = req.empresaId;
+    const userRole = req.userRole;
+
+    // Superadmin tiene bypass completo
+    if (userRole === 'superadmin') {
+      // Si tiene empresaId, intentar cargar la licencia para contexto
+      if (empresaId) {
+        const licencia = await Licencia.findOne({ empresaId }).populate('planId');
+        if (licencia) {
+          req.licencia = licencia;
+          req.plan = licencia.planId;
+        }
+      }
+      // Siempre continuar sin bloquear
+      return next();
+    }
 
     if (!empresaId) {
       return res.status(401).json({
@@ -84,10 +100,16 @@ export const loadLicense = async (
 
 /**
  * Middleware para verificar límite específico
+ * Nota: superadmin tiene bypass completo
  */
 export const checkLimit = (limitType: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // Superadmin tiene bypass completo
+      if (req.userRole === 'superadmin') {
+        return next();
+      }
+
       const licencia = req.licencia;
       const plan = req.plan;
 
@@ -143,10 +165,16 @@ export const checkLimit = (limitType: string) => {
 
 /**
  * Middleware para verificar acceso a módulo
+ * Nota: superadmin tiene bypass completo
  */
 export const requireModule = (moduleName: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // Superadmin tiene bypass completo
+      if (req.userRole === 'superadmin') {
+        return next();
+      }
+
       const plan = req.plan;
 
       if (!plan) {

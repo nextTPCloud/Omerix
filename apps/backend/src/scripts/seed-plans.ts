@@ -24,29 +24,29 @@ async function seedPlans() {
       logger.info('✅ Planes eliminados\n');
     }
 
-    // Definir planes
+    // Definir planes (precios IVA incluido)
     const planes = [
       {
         nombre: 'Demo',
         slug: 'demo',
-        descripcion: 'Plan de prueba gratuito de 30 días',
+        descripcion: 'Plan de prueba gratuito de 30 días con acceso completo',
         precio: {
           mensual: 0,
           anual: 0,
         },
         limites: {
-          usuariosSimultaneos: 3,
+          usuariosSimultaneos: 3, // Suficiente para probar multiusuario
           usuariosTotales: 5,
-          facturasMes: 50,
-          productosCatalogo: 100,
-          almacenes: 1,
-          clientes: 100,
-          tpvsActivos: 1,
-          almacenamientoGB: 1,
-          llamadasAPIDia: 500,
-          emailsMes: 100,
-          smsMes: 0,
-          whatsappMes: 0,
+          facturasMes: 100,
+          productosCatalogo: 500,
+          almacenes: 3,
+          clientes: 500,
+          tpvsActivos: 2,
+          almacenamientoGB: 2,
+          llamadasAPIDia: 1000,
+          emailsMes: 200,
+          smsMes: 20,
+          whatsappMes: 20,
         },
         modulosIncluidos: [
           'clientes',
@@ -54,26 +54,97 @@ async function seedPlans() {
           'ventas',
           'compras',
           'inventario',
+          'informes',
+          'contabilidad',
+          'proyectos',
+          'crm',
+          'tpv',
+          'rrhh',
+          'restauracion',
+          'tesoreria',
+          'calendarios',
         ],
         activo: true,
-        visible: false, // No visible en página de precios (solo para trials)
+        visible: false,
+      },
+      // Plan Solo Fichaje - standalone RRHH
+      {
+        nombre: 'Solo Fichaje',
+        slug: 'solo-fichaje',
+        descripcion: 'Control horario y fichajes para tu equipo',
+        precio: {
+          mensual: 15,
+          anual: 150, // 2 meses gratis
+        },
+        limites: {
+          usuariosSimultaneos: 5, // Equipo pequeño
+          usuariosTotales: 10,
+          facturasMes: 0, // Sin facturación
+          productosCatalogo: 0,
+          almacenes: 0,
+          clientes: 0,
+          tpvsActivos: 0,
+          almacenamientoGB: 1,
+          llamadasAPIDia: 500,
+          emailsMes: 100,
+          smsMes: 0,
+          whatsappMes: 0,
+        },
+        modulosIncluidos: [
+          'rrhh',
+          'calendarios',
+        ],
+        activo: true,
+        visible: true,
+      },
+      // Plan Starter - Para autónomos que empiezan
+      {
+        nombre: 'Starter',
+        slug: 'starter',
+        descripcion: 'Plan económico para autónomos que empiezan',
+        precio: {
+          mensual: 19,
+          anual: 190, // 2 meses gratis
+        },
+        limites: {
+          usuariosSimultaneos: 1,
+          usuariosTotales: 2,
+          facturasMes: 100,
+          productosCatalogo: 200,
+          almacenes: 1,
+          clientes: 200,
+          tpvsActivos: 0,
+          almacenamientoGB: 2,
+          llamadasAPIDia: 1000,
+          emailsMes: 200,
+          smsMes: 20,
+          whatsappMes: 20,
+        },
+        modulosIncluidos: [
+          'clientes',
+          'productos',
+          'ventas',
+          'informes',
+        ],
+        activo: true,
+        visible: true,
       },
       {
         nombre: 'Básico',
         slug: 'basico',
-        descripcion: 'Plan ideal para pequeños negocios',
+        descripcion: 'Plan ideal para autónomos y microempresas',
         precio: {
-          mensual: 29,
-          anual: 290, // ~24€/mes (2 meses gratis)
+          mensual: 35,
+          anual: 349, // 2 meses gratis
         },
         limites: {
-          usuariosSimultaneos: 5,
-          usuariosTotales: 10,
+          usuariosSimultaneos: 2, // 2 sesiones simultáneas
+          usuariosTotales: 10,   // 10 usuarios totales
           facturasMes: 200,
           productosCatalogo: 500,
           almacenes: 2,
           clientes: 500,
-          tpvsActivos: 2,
+          tpvsActivos: 1,
           almacenamientoGB: 5,
           llamadasAPIDia: 2000,
           emailsMes: 500,
@@ -96,8 +167,8 @@ async function seedPlans() {
         slug: 'profesional',
         descripcion: 'Plan completo para negocios en crecimiento',
         precio: {
-          mensual: 79,
-          anual: 790, // ~65€/mes (2 meses gratis)
+          mensual: 99,
+          anual: 990, // 2 meses gratis
         },
         limites: {
           usuariosSimultaneos: 15,
@@ -124,6 +195,10 @@ async function seedPlans() {
           'proyectos',
           'crm',
           'tpv',
+          'rrhh',
+          'tesoreria',
+          'calendarios',
+          'api', // Acceso a documentación API
         ],
         activo: true,
         visible: true,
@@ -133,11 +208,11 @@ async function seedPlans() {
         slug: 'enterprise',
         descripcion: 'Plan sin límites para grandes empresas',
         precio: {
-          mensual: 199,
-          anual: 1990, // ~165€/mes (2 meses gratis)
+          mensual: 249,
+          anual: 2490, // 2 meses gratis
         },
         limites: {
-          usuariosSimultaneos: -1, // -1 = ilimitado
+          usuariosSimultaneos: -1,
           usuariosTotales: -1,
           facturasMes: -1,
           productosCatalogo: -1,
@@ -161,6 +236,10 @@ async function seedPlans() {
           'proyectos',
           'crm',
           'tpv',
+          'rrhh',
+          'restauracion',
+          'tesoreria',
+          'calendarios',
           'api',
           'integraciones',
           'soporte-prioritario',

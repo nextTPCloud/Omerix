@@ -23,7 +23,7 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
 
   // App
-  APP_NAME: z.string().default('Omerix ERP'),
+  APP_NAME: z.string().default('Tralok ERP'),
 
   // Twilio (SMS 2FA)
   TWILIO_ACCOUNT_SID: z.string().optional(),
@@ -97,7 +97,7 @@ export const config = {
     port: env.SMTP_PORT ? parseInt(env.SMTP_PORT, 10) : 587,
     user: env.SMTP_USER,
     pass: env.SMTP_PASS,
-    from: env.SMTP_FROM || 'noreply@omerix.com',
+    from: env.SMTP_FROM || 'noreply@tralok.com',
   },
   // Stripe
   stripe: {

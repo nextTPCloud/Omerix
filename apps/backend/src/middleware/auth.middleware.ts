@@ -115,7 +115,8 @@ export const authMiddleware = async (
     }
 
     // 🔒 VALIDACIÓN: Verificar que los datos del token coincidan con la BD
-    if (String(usuario.empresaId) !== String(payload.empresaId)) {
+    // EXCEPCIÓN: Superadmin puede tener empresaId diferente (empresa plataforma vs negocio)
+    if (String(usuario.empresaId) !== String(payload.empresaId) && usuario.rol !== 'superadmin') {
       AuthorizationHelper.logSecurityEvent(
         payload.userId,
         'TOKEN_EMPRESA_MISMATCH',

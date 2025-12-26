@@ -2,7 +2,7 @@ import { UserRole, TwoFactorMethod } from './enums';
 
 /**
  * ============================================
- * INTERFACES COMPARTIDAS - OMERIX ERP
+ * INTERFACES COMPARTIDAS - TRALOK ERP
  * ============================================
  */
 

@@ -1,6 +1,7 @@
 import mongoose, { Connection, Model } from 'mongoose';
 import { logger } from '../config/logger';
 import { IEmpresa, IDatabaseConfig } from '../modules/empresa/Empresa';
+import { empresaSeedService } from './empresa-seed.service';
 
 /**
  * Servicio para gestionar conexiones dinámicas a múltiples bases de datos
@@ -228,8 +229,8 @@ class DatabaseManagerService {
     const user = baseConfig?.user || process.env.MONGODB_USER;
     const password = baseConfig?.password || process.env.MONGODB_PASSWORD;
 
-    // Nombre de la DB: omerix_empresa_{empresaId}
-    const dbName = `omerix_empresa_${empresaId}`;
+    // Nombre de la DB: tralok_empresa_{empresaId}
+    const dbName = `tralok_empresa_${empresaId}`;
 
     const config: IDatabaseConfig = {
       host,
@@ -250,7 +251,7 @@ class DatabaseManagerService {
 
   /**
    * Inicializar base de datos de una nueva empresa
-   * Crea índices y colecciones necesarias
+   * Crea índices, colecciones y datos maestros iniciales
    */
   async initializeEmpresaDatabase(empresaId: string, dbConfig: IDatabaseConfig): Promise<void> {
     try {
@@ -258,8 +259,23 @@ class DatabaseManagerService {
 
       logger.info(`🔧 Inicializando base de datos para empresa ${empresaId}...`);
 
-      // Aquí se podrían crear colecciones, índices iniciales, datos seed, etc.
-      // Por ahora, solo verificamos que la conexión funciona
+      // Crear colección _metadata para forzar la creación de la base de datos
+      // MongoDB solo crea la DB cuando hay al menos una colección con datos
+      const metadataCollection = connection.db.collection('_metadata');
+      await metadataCollection.updateOne(
+        { _id: 'init' },
+        {
+          $set: {
+            empresaId,
+            createdAt: new Date(),
+            version: '1.0.0',
+          },
+        },
+        { upsert: true }
+      );
+
+      // Seed de datos maestros iniciales (tipos de impuesto, formas de pago, series de documentos)
+      await empresaSeedService.seedEmpresaData(connection, empresaId);
 
       const collections = await connection.db.listCollections().toArray();
       logger.info(`✅ Base de datos inicializada para empresa ${empresaId}`, {

@@ -34,7 +34,7 @@ import { getModeloTurno } from '../modules/turnos/Turno';
 // ============================================
 
 async function connectDB() {
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/omerix';
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/tralok-dev';
 
   await mongoose.connect(mongoUri);
   console.log('✓ Conectado a MongoDB:', mongoUri);

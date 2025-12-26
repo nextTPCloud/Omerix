@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { productosController } from './productos.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
-import { tenantMiddleware } from '../../middleware/tenant.middleware';
+import { tenantMiddleware, requireBusinessDatabase } from '../../middleware/tenant.middleware';
 
 const router = Router();
 
 // Aplicar middleware de autenticación y tenant a todas las rutas
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+router.use(requireBusinessDatabase);
 
 /**
  * @swagger

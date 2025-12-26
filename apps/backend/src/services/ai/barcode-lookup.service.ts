@@ -24,7 +24,7 @@ async function queryOpenFoodFacts(barcode: string): Promise<BarcodeApiResult> {
       `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`,
       {
         headers: {
-          'User-Agent': 'Omerix ERP - contact@omerix.com',
+          'User-Agent': 'Tralok ERP - contact@tralok.com',
         },
       }
     );
@@ -72,7 +72,7 @@ async function queryOpenBeautyFacts(barcode: string): Promise<BarcodeApiResult> 
       `https://world.openbeautyfacts.org/api/v2/product/${barcode}.json`,
       {
         headers: {
-          'User-Agent': 'Omerix ERP - contact@omerix.com',
+          'User-Agent': 'Tralok ERP - contact@tralok.com',
         },
       }
     );
@@ -114,7 +114,7 @@ async function queryOpenPetFoodFacts(barcode: string): Promise<BarcodeApiResult>
       `https://world.openpetfoodfacts.org/api/v2/product/${barcode}.json`,
       {
         headers: {
-          'User-Agent': 'Omerix ERP - contact@omerix.com',
+          'User-Agent': 'Tralok ERP - contact@tralok.com',
         },
       }
     );
@@ -159,7 +159,7 @@ async function queryUpcItemDb(barcode: string): Promise<BarcodeApiResult> {
       {
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'Omerix ERP',
+          'User-Agent': 'Tralok ERP',
         },
       }
     );
