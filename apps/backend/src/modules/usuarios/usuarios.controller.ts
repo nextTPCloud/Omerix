@@ -3,6 +3,8 @@ import { z } from 'zod';
 import usuariosService, { ROLES_GESTION_USUARIOS } from './usuarios.service';
 import { Role, ROLE_HIERARCHY } from '../../types/permissions.types';
 import Rol from '../roles/Rol';
+import UsuarioEmpresa from './UsuarioEmpresa';
+import { Types } from 'mongoose';
 
 // Roles del sistema (predefinidos)
 const ROLES_SISTEMA = ['superadmin', 'admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador'] as const;
@@ -85,9 +87,32 @@ class UsuariosController {
         ocultarSuperadmin
       );
 
+      // Obtener las relaciones UsuarioEmpresa para todos los usuarios
+      // para enriquecer con personalId (que ahora está en UsuarioEmpresa, no en Usuario)
+      const usuarioIds = result.usuarios.map((u) => new Types.ObjectId(String(u._id)));
+      const relacionesEmpresa = await UsuarioEmpresa.find({
+        usuarioId: { $in: usuarioIds },
+        empresaId: new Types.ObjectId(empresaId),
+        activo: true,
+      });
+
+      // Crear mapa de usuarioId -> personalId
+      const personalIdMap = new Map<string, string>();
+      for (const rel of relacionesEmpresa) {
+        if (rel.personalId) {
+          personalIdMap.set(String(rel.usuarioId), String(rel.personalId));
+        }
+      }
+
+      // Enriquecer usuarios con personalId de UsuarioEmpresa
+      const usuariosEnriquecidos = result.usuarios.map((usuario) => ({
+        ...usuario,
+        personalId: personalIdMap.get(String(usuario._id)) || null,
+      }));
+
       res.json({
         success: true,
-        data: result.usuarios,
+        data: usuariosEnriquecidos,
         total: result.total,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 50,
@@ -239,9 +264,24 @@ class UsuariosController {
         });
       }
 
+      // Obtener personalId de UsuarioEmpresa
+      const relacionEmpresa = await UsuarioEmpresa.findOne({
+        usuarioId: new Types.ObjectId(id),
+        empresaId: new Types.ObjectId(empresaId),
+        activo: true,
+      });
+
+      // Enriquecer con personalId de UsuarioEmpresa
+      const usuarioConPersonalId = {
+        ...usuario,
+        personalId: relacionEmpresa?.personalId
+          ? String(relacionEmpresa.personalId)
+          : null,
+      };
+
       res.json({
         success: true,
-        data: usuario,
+        data: usuarioConPersonalId,
       });
     } catch (error: any) {
       console.error('Error al obtener usuario:', error);
@@ -294,6 +334,16 @@ class UsuariosController {
         userRol as Role
       );
 
+      // Crear también el registro en UsuarioEmpresa para multi-tenancy
+      await UsuarioEmpresa.create({
+        usuarioId: new Types.ObjectId(String(usuario._id)),
+        empresaId: new Types.ObjectId(empresaId),
+        rol: validacion.data.rol,
+        activo: true,
+        esPrincipal: true, // Primera empresa es la principal
+        fechaAsignacion: new Date(),
+      });
+
       res.status(201).json({
         success: true,
         data: usuario,
@@ -342,15 +392,17 @@ class UsuariosController {
         });
       }
 
+      // Extraer personalId para guardarlo en UsuarioEmpresa (no en Usuario)
+      const { personalId, ...datosUsuario } = validacion.data;
+
       const usuario = await usuariosService.updateUsuario(
         id,
         empresaId,
         {
-          ...validacion.data,
-          telefono: validacion.data.telefono || undefined,
-          rolId: validacion.data.rolId || undefined,
-          personalId: validacion.data.personalId,
-          avatar: validacion.data.avatar || undefined,
+          ...datosUsuario,
+          telefono: datosUsuario.telefono || undefined,
+          rolId: datosUsuario.rolId || undefined,
+          avatar: datosUsuario.avatar || undefined,
         },
         userRol as Role,
         userId
@@ -363,9 +415,55 @@ class UsuariosController {
         });
       }
 
+      // Guardar personalId en UsuarioEmpresa (relación usuario-empresa)
+      // Esto permite que un usuario tenga diferentes empleados vinculados en diferentes empresas
+      if (personalId !== undefined) {
+        const updateResult = await UsuarioEmpresa.findOneAndUpdate(
+          {
+            usuarioId: new Types.ObjectId(id),
+            empresaId: new Types.ObjectId(empresaId),
+          },
+          {
+            $set: {
+              personalId: personalId ? new Types.ObjectId(personalId) : null,
+            },
+            $setOnInsert: {
+              usuarioId: new Types.ObjectId(id),
+              empresaId: new Types.ObjectId(empresaId),
+              rol: usuario.rol || 'visualizador',
+              activo: true,
+              esPrincipal: false,
+              fechaAsignacion: new Date(),
+            },
+          },
+          { upsert: true, new: true }
+        );
+        console.log('[UsuariosController] UsuarioEmpresa actualizado:', {
+          usuarioId: id,
+          empresaId,
+          personalId,
+          result: updateResult?._id,
+        });
+      }
+
+      // Obtener personalId actualizado de UsuarioEmpresa para la respuesta
+      const relacionEmpresa = await UsuarioEmpresa.findOne({
+        usuarioId: new Types.ObjectId(id),
+        empresaId: new Types.ObjectId(empresaId),
+        activo: true,
+      });
+
+      // Enriquecer respuesta con personalId de UsuarioEmpresa
+      const usuarioConPersonalId = {
+        ...usuario,
+        personalId: relacionEmpresa?.personalId
+          ? String(relacionEmpresa.personalId)
+          : null,
+      };
+
       res.json({
         success: true,
-        data: usuario,
+        data: usuarioConPersonalId,
         message: 'Usuario actualizado correctamente',
       });
     } catch (error: any) {

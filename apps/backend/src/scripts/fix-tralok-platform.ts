@@ -17,7 +17,7 @@ async function fixTralok() {
   const tralok = await db.collection('empresas').findOne({ nombre: 'TRALOK S.L.' });
   if (tralok) {
     // 3. Eliminar relaciones duplicadas con TRALOK (mantener solo la que es esPrincipal: true)
-    const relaciones = await db.collection('usuarioempresas')
+    const relaciones = await db.collection('usuarioempresa')
       .find({ empresaId: tralok._id })
       .toArray();
 
@@ -27,7 +27,7 @@ async function fixTralok() {
     if (relaciones.length > 1) {
       const noEsPrincipal = relaciones.filter(r => !r.esPrincipal);
       for (const rel of noEsPrincipal) {
-        await db.collection('usuarioempresas').deleteOne({ _id: rel._id });
+        await db.collection('usuarioempresa').deleteOne({ _id: rel._id });
         console.log(`  🗑️  Eliminada relación duplicada`);
       }
     }
@@ -40,7 +40,7 @@ async function fixTralok() {
     console.log(`${e.nombre} | esPlatforma: ${e.esPlatforma}`);
   }
 
-  const relFinales = await db.collection('usuarioempresas').find({}).toArray();
+  const relFinales = await db.collection('usuarioempresa').find({}).toArray();
   console.log(`\nRelaciones totales: ${relFinales.length}`);
 
   await mongoose.disconnect();

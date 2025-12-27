@@ -19,7 +19,10 @@ export interface ILicencia extends Document {
   fechaRenovacion: Date;
   fechaCancelacion?: Date;
   
-  // IDs de suscripciones en pasarelas ← AÑADIR ESTO
+  // Renovación automática
+  renovacionAutomatica: boolean;
+
+  // IDs de suscripciones en pasarelas
   stripeSubscriptionId?: string;
   paypalSubscriptionId?: string;
 
@@ -122,12 +125,16 @@ const LicenciaSchema = new Schema<ILicencia>(
     fechaCancelacion: {
       type: Date,
     },
+    renovacionAutomatica: {
+      type: Boolean,
+      default: true,
+    },
     usoActual: {
       usuariosSimultaneos: { type: Number, default: 0 },
       usuariosTotales: { type: Number, default: 1 },
       facturasEsteMes: { type: Number, default: 0 },
       productosActuales: { type: Number, default: 0 },
-      almacenesActuales: { type: Number, default: 1 },
+      almacenesActuales: { type: Number, default: 0 },
       clientesActuales: { type: Number, default: 0 },
       tpvsActuales: { type: Number, default: 0 },
       almacenamientoUsadoGB: { type: Number, default: 0 },

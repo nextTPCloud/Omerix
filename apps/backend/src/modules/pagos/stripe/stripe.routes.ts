@@ -390,4 +390,147 @@ router.post('/refund', createRefund);
  */
 router.get('/history', getPaymentHistory);
 
+// ============================================
+// SEPA DIRECT DEBIT
+// ============================================
+
+/**
+ * @swagger
+ * /api/pagos/stripe/sepa/setup:
+ *   post:
+ *     summary: Iniciar configuración de SEPA Direct Debit
+ *     tags: [Stripe]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: SetupIntent creado para SEPA
+ */
+router.post('/sepa/setup', async (req, res) => {
+  try {
+    const { StripeService } = await import('./stripe.service');
+    const stripeService = new StripeService();
+    const result = await stripeService.createSepaSetupIntent(req.empresaId!);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/pagos/stripe/sepa/confirm:
+ *   post:
+ *     summary: Confirmar configuración SEPA con IBAN
+ *     tags: [Stripe]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - setupIntentId
+ *               - iban
+ *               - nombreTitular
+ *               - email
+ *             properties:
+ *               setupIntentId:
+ *                 type: string
+ *               iban:
+ *                 type: string
+ *                 example: ES9121000418450200051332
+ *               nombreTitular:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: SEPA configurado correctamente
+ */
+router.post('/sepa/confirm', async (req, res) => {
+  try {
+    const { setupIntentId, iban, nombreTitular, email } = req.body;
+    const { StripeService } = await import('./stripe.service');
+    const stripeService = new StripeService();
+    const result = await stripeService.confirmSepaSetup(
+      req.empresaId!,
+      setupIntentId,
+      iban,
+      nombreTitular,
+      email
+    );
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/pagos/stripe/sepa/subscription:
+ *   post:
+ *     summary: Crear suscripción con SEPA Direct Debit
+ *     tags: [Stripe]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - planId
+ *             properties:
+ *               planId:
+ *                 type: string
+ *               tipoSuscripcion:
+ *                 type: string
+ *                 enum: [mensual, anual]
+ *     responses:
+ *       200:
+ *         description: Suscripción SEPA creada
+ */
+router.post('/sepa/subscription', async (req, res) => {
+  try {
+    const { planId, tipoSuscripcion } = req.body;
+    const { StripeService } = await import('./stripe.service');
+    const stripeService = new StripeService();
+    const result = await stripeService.createSepaSubscription(
+      req.empresaId!,
+      planId,
+      tipoSuscripcion
+    );
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/pagos/stripe/sepa/methods:
+ *   get:
+ *     summary: Obtener métodos de pago SEPA
+ *     tags: [Stripe]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de métodos SEPA
+ */
+router.get('/sepa/methods', async (req, res) => {
+  try {
+    const { StripeService } = await import('./stripe.service');
+    const stripeService = new StripeService();
+    const result = await stripeService.getSepaPaymentMethods(req.empresaId!);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

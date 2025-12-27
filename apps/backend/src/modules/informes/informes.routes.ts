@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { informesController } from './informes.controller';
-import { authMiddleware, requireModuleAccess, requirePermission } from '../../middleware/auth.middleware';
+import { authMiddleware, requirePermission } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 
 const router = Router();
@@ -9,8 +9,9 @@ const router = Router();
 router.use(authMiddleware);
 router.use(tenantMiddleware);
 
-// Verificar acceso al módulo de informes para todas las rutas
-router.use(requireModuleAccess('accesoInformes'));
+// NOTA: No se aplica requireModuleAccess aquí porque informes es accesible
+// desde cualquier plan. Las pestañas se filtran en el frontend según los
+// módulos contratados (ventas, compras, rrhh, etc.)
 
 /**
  * @swagger

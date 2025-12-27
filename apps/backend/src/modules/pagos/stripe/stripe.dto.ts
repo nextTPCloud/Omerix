@@ -28,6 +28,7 @@ export const ConfirmPaymentSchema = z.object({
 
 export const CreateSubscriptionSchema = z.object({
   planId: z.string(),
+  tipoSuscripcion: z.enum(['mensual', 'anual']).default('mensual'),
   paymentMethodId: z.string().optional(),
   trialDays: z.number().min(0).optional(),
 });

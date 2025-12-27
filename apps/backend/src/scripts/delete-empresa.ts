@@ -97,7 +97,7 @@ async function deleteEmpresa() {
     console.log(`✅ Pagos eliminados: ${pagosResult.deletedCount}`);
 
     // 4. Eliminar relaciones usuario-empresa
-    const relacionesResult = await db.collection('usuarioempresas').deleteMany({
+    const relacionesResult = await db.collection('usuarioempresa').deleteMany({
       empresaId: empresa._id
     });
     console.log(`✅ Relaciones usuario-empresa eliminadas: ${relacionesResult.deletedCount}`);

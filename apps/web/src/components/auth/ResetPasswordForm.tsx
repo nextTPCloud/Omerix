@@ -73,10 +73,10 @@ export function ResetPasswordForm() {
       await passwordResetService.resetPassword(token, data.newPassword)
       setSuccess(true)
       toast.success('¡Contraseña actualizada exitosamente!')
-      
-      // Redirigir al login después de 2 segundos
+
+      // Redirigir a la pagina principal después de 2 segundos
       setTimeout(() => {
-        router.push('/login')
+        router.push('/')
       }, 2000)
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error actualizando contraseña')

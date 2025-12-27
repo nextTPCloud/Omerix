@@ -55,10 +55,13 @@ import {
   Edit,
   CheckSquare,
   FileBarChart,
+  Shield,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFavoritosContext } from '@/contexts/FavoritosContext'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useLicense } from '@/hooks/useLicense'
+import { useAuthStore } from '@/stores/authStore'
 import { IPermisosEspeciales } from '@/types/permissions.types'
 
 interface MenuItem {
@@ -91,13 +94,21 @@ interface MenuGroup {
   icon: any
   items: MenuItem[]
   permiso?: PermisoGrupo // Permiso requerido para ver este grupo
+  moduloLicencia?: string // Modulo de licencia requerido para acceder
+  proximamente?: boolean // Modulo en desarrollo
+  requierePersonalId?: boolean // Solo visible si el usuario tiene empleado vinculado
+  requiereAlgunModulo?: boolean // Solo visible si tiene al menos un módulo funcional
 }
 
 const menuGroups: MenuGroup[] = [
+  // ═══════════════════════════════════════════════════════════════
+  // MÓDULOS FUNCIONALES (según licencia)
+  // ═══════════════════════════════════════════════════════════════
   {
     group: 'Ventas',
     icon: TrendingUp,
     permiso: 'accesoVentas',
+    moduloLicencia: 'ventas',
     items: [
       {
         title: 'Clientes',
@@ -141,12 +152,24 @@ const menuGroups: MenuGroup[] = [
           { title: 'Nueva factura', href: '/facturas/nuevo' },
         ],
       },
+      // Configuración integrada en Ventas
+      {
+        title: 'Tarifas',
+        href: '/tarifas',
+        icon: Tag,
+      },
+      {
+        title: 'Ofertas',
+        href: '/ofertas',
+        icon: Percent,
+      },
     ],
   },
   {
     group: 'Compras',
     icon: TrendingDown,
     permiso: 'accesoCompras',
+    moduloLicencia: 'compras',
     items: [
       {
         title: 'Proveedores',
@@ -185,33 +208,11 @@ const menuGroups: MenuGroup[] = [
           { title: 'Nueva factura compra', href: '/compras/facturas/nuevo' },
         ],
       },
-    ],
-  },
-  {
-    group: 'Servicios',
-    icon: Wrench,
-    permiso: 'accesoVentas', // Los servicios están asociados a ventas
-    items: [
+      // Configuración integrada en Compras
       {
-        title: 'Proyectos',
-        icon: FolderKanban,
-        children: [
-          { title: 'Listado proyectos', href: '/proyectos' },
-          { title: 'Nuevo proyecto', href: '/proyectos/nuevo' },
-        ],
-      },
-      {
-        title: 'Partes de Trabajo',
-        icon: Wrench,
-        children: [
-          { title: 'Listado partes', href: '/partes-trabajo' },
-          { title: 'Nuevo parte', href: '/partes-trabajo/nuevo' },
-        ],
-      },
-      {
-        title: 'Maquinaria',
-        href: '/maquinaria',
-        icon: Truck,
+        title: 'Tipos de Gasto',
+        href: '/tipos-gasto',
+        icon: Tag,
       },
     ],
   },
@@ -219,6 +220,7 @@ const menuGroups: MenuGroup[] = [
     group: 'Tesorería',
     icon: Wallet,
     permiso: 'accesoContabilidad',
+    moduloLicencia: 'contabilidad',
     items: [
       {
         title: 'Vencimientos',
@@ -243,11 +245,36 @@ const menuGroups: MenuGroup[] = [
         href: '/tesoreria/movimientos',
         icon: Wallet,
       },
+      // Configuración integrada en Tesorería
+      {
+        title: 'Formas de Pago',
+        href: '/formas-pago',
+        icon: CreditCard,
+      },
+      {
+        title: 'Términos de Pago',
+        href: '/terminos-pago',
+        icon: Clock,
+      },
+    ],
+  },
+  {
+    group: 'Mi Fichaje',
+    icon: Fingerprint,
+    requierePersonalId: true, // Solo visible si el usuario tiene empleado vinculado
+    items: [
+      {
+        title: 'Fichar',
+        href: '/fichaje',
+        icon: Fingerprint,
+      },
     ],
   },
   {
     group: 'RRHH',
     icon: UserCog,
+    moduloLicencia: 'rrhh',
+    permiso: 'accesoRRHH', // Requiere permiso además de módulo
     items: [
       {
         title: 'Personal',
@@ -270,11 +297,6 @@ const menuGroups: MenuGroup[] = [
         icon: CalendarDays,
       },
       {
-        title: 'Mi Fichaje',
-        href: '/fichaje',
-        icon: Fingerprint,
-      },
-      {
         title: 'Fichajes',
         href: '/fichajes',
         icon: Fingerprint,
@@ -288,28 +310,10 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    group: 'Tareas',
-    icon: CheckSquare,
-    items: [
-      {
-        title: 'Tareas',
-        icon: CheckSquare,
-        children: [
-          { title: 'Listado tareas', href: '/tareas' },
-          { title: 'Nueva tarea', href: '/tareas/nuevo' },
-        ],
-      },
-      {
-        title: 'Planificacion',
-        href: '/planificacion',
-        icon: CalendarDays,
-      },
-    ],
-  },
-  {
     group: 'Almacenes',
     icon: Package,
     permiso: 'accesoAlmacen',
+    moduloLicencia: 'inventario',
     items: [
       {
         title: 'Productos',
@@ -365,9 +369,59 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    group: 'Servicios',
+    icon: Wrench,
+    permiso: 'accesoVentas',
+    moduloLicencia: 'proyectos',
+    items: [
+      {
+        title: 'Proyectos',
+        icon: FolderKanban,
+        children: [
+          { title: 'Listado proyectos', href: '/proyectos' },
+          { title: 'Nuevo proyecto', href: '/proyectos/nuevo' },
+        ],
+      },
+      {
+        title: 'Partes de Trabajo',
+        icon: Wrench,
+        children: [
+          { title: 'Listado partes', href: '/partes-trabajo' },
+          { title: 'Nuevo parte', href: '/partes-trabajo/nuevo' },
+        ],
+      },
+      {
+        title: 'Maquinaria',
+        href: '/maquinaria',
+        icon: Truck,
+      },
+    ],
+  },
+  {
+    group: 'Tareas',
+    icon: CheckSquare,
+    moduloLicencia: 'crm',
+    items: [
+      {
+        title: 'Tareas',
+        icon: CheckSquare,
+        children: [
+          { title: 'Listado tareas', href: '/tareas' },
+          { title: 'Nueva tarea', href: '/tareas/nuevo' },
+        ],
+      },
+      {
+        title: 'Planificacion',
+        href: '/planificacion',
+        icon: CalendarDays,
+      },
+    ],
+  },
+  {
     group: 'Restauración',
     icon: UtensilsCrossed,
     permiso: 'accesoTPV',
+    moduloLicencia: 'restauracion',
     items: [
       {
         title: 'Zonas Preparación',
@@ -394,45 +448,58 @@ const menuGroups: MenuGroup[] = [
       },
     ],
   },
+  // ═══════════════════════════════════════════════════════════════
+  // CONFIGURACIÓN (según licencia o siempre visible)
+  // ═══════════════════════════════════════════════════════════════
   {
-    group: 'Administración',
-    icon: Database,
-    permiso: 'accederConfiguracion',
+    group: 'Ficheros',
+    icon: FileStack,
+    moduloLicencia: 'ventas', // Solo si tiene ventas (documentos comerciales)
     items: [
       {
-        title: 'Precios',
-        icon: Tag,
-        children: [
-          { title: 'Tarifas', href: '/tarifas' },
-          { title: 'Ofertas / Promociones', href: '/ofertas' },
-        ],
+        title: 'Series de Documentos',
+        href: '/series-documentos',
+        icon: FileStack,
       },
       {
-        title: 'Ficheros',
-        icon: FileStack,
-        children: [
-          { title: 'Series de Documentos', href: '/series-documentos' },
-          { title: 'Tipos de Impuesto', href: '/tipos-impuesto' },
-          { title: 'Formas de Pago', href: '/formas-pago' },
-          { title: 'Términos de Pago', href: '/terminos-pago' },
-          { title: 'Tipos de Gasto', href: '/tipos-gasto' },
-          { title: 'Estados', href: '/estados' },
-          { title: 'Situaciones', href: '/situaciones' },
-          { title: 'Clasificaciones', href: '/clasificaciones' },
-        ],
+        title: 'Tipos de Impuesto',
+        href: '/tipos-impuesto',
+        icon: Percent,
+      },
+      {
+        title: 'Estados',
+        href: '/estados',
+        icon: ListChecks,
+      },
+      {
+        title: 'Situaciones',
+        href: '/situaciones',
+        icon: Layers,
+      },
+      {
+        title: 'Clasificaciones',
+        href: '/clasificaciones',
+        icon: FolderTree,
       },
     ],
   },
   {
-    group: 'Sistema',
-    icon: Settings,
-    permiso: 'accederConfiguracion',
+    group: 'Mi Empresa',
+    icon: Building2,
+    requiereAlgunModulo: true, // Solo visible si tiene al menos un módulo funcional
     items: [
       {
         title: 'Configuración',
         href: '/configuracion',
         icon: Settings,
       },
+    ],
+  },
+  {
+    group: 'Desarrolladores',
+    icon: BookOpen,
+    moduloLicencia: 'api', // Solo para planes con acceso API (Profesional+)
+    items: [
       {
         title: 'API Docs',
         href: '/api-docs',
@@ -455,13 +522,39 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const { favoritos, isFavorito, toggleFavorito, loading: favoritosLoading } = useFavoritosContext()
   const { can } = usePermissions()
+  const { hasModule, plan, loading: licenseLoading } = useLicense()
+  const { user } = useAuthStore()
 
-  // Filtrar grupos del menú según los permisos del usuario
+  // Superadmin tiene acceso completo sin restricciones de licencia
+  const isSuperadmin = user?.rol === 'superadmin'
+
+  // Verificar si el usuario tiene empleado vinculado (para Mi Fichaje)
+  const tienePersonalId = !!(user as any)?.personalId
+
+  // Verificar si el usuario tiene acceso a algún módulo funcional
+  // Esto determina si ve Dashboard/Informes o solo Mi Fichaje
+  const modulosFuncionales = ['ventas', 'compras', 'contabilidad', 'rrhh', 'inventario', 'proyectos', 'crm', 'restauracion']
+  const tieneAlgunModulo = isSuperadmin || modulosFuncionales.some(modulo => hasModule(modulo))
+
+  // Filtrar grupos del menú según permisos Y licencia
+  // Ocultamos completamente los módulos no incluidos en el plan
   const filteredMenuGroups = menuGroups.filter(group => {
-    // Si no tiene permiso definido, mostrar siempre (ej: Informes, RRHH)
-    if (!group.permiso) return true
-    // Verificar si el usuario tiene el permiso requerido
-    return can(group.permiso)
+    // Verificar permiso si está definido
+    if (group.permiso && !can(group.permiso)) return false
+
+    // Verificar si requiere personalId (ej: Mi Fichaje)
+    if (group.requierePersonalId && !tienePersonalId) return false
+
+    // Verificar si requiere al menos un módulo funcional
+    if (group.requiereAlgunModulo && !tieneAlgunModulo) return false
+
+    // Verificar licencia de módulo (ocultar si no está incluido)
+    // Superadmin ve todo, y módulos sin restricción de licencia siempre se muestran
+    if (group.moduloLicencia && !isSuperadmin) {
+      if (!hasModule(group.moduloLicencia)) return false
+    }
+
+    return true
   })
 
   const toggleGroup = (group: string) => {
@@ -521,42 +614,65 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
           {/* Menu */}
           <div className="flex-1 overflow-y-auto py-4">
             <nav className="space-y-2 px-2">
-              {/* Dashboard - Siempre visible al inicio */}
-              <Link
-                href="/dashboard"
-                onClick={onClose}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
-                  pathname === '/dashboard'
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white',
-                  isCollapsed && "justify-center"
-                )}
-                title={isCollapsed ? "Dashboard" : undefined}
-              >
-                <Home className="h-4 w-4 flex-shrink-0" />
-                {!isCollapsed && <span>Dashboard</span>}
-              </Link>
+              {/* Dashboard - Solo visible si tiene algún módulo funcional */}
+              {tieneAlgunModulo && (
+                <Link
+                  href="/dashboard"
+                  onClick={onClose}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                    pathname === '/dashboard'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                    isCollapsed && "justify-center"
+                  )}
+                  title={isCollapsed ? "Dashboard" : undefined}
+                >
+                  <Home className="h-4 w-4 flex-shrink-0" />
+                  {!isCollapsed && <span>Dashboard</span>}
+                </Link>
+              )}
 
-              {/* Informes - Siempre visible */}
-              <Link
-                href="/informes"
-                onClick={onClose}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
-                  pathname.startsWith('/informes')
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white',
-                  isCollapsed && "justify-center"
-                )}
-                title={isCollapsed ? "Informes" : undefined}
-              >
-                <FileBarChart className="h-4 w-4 flex-shrink-0" />
-                {!isCollapsed && <span>Informes</span>}
-              </Link>
+              {/* Panel Administracion - Solo visible para superadmin */}
+              {isSuperadmin && (
+                <Link
+                  href="/admin"
+                  onClick={onClose}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                    pathname.startsWith('/admin')
+                      ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
+                      : 'text-amber-400 hover:bg-slate-800 hover:text-amber-300',
+                    isCollapsed && "justify-center"
+                  )}
+                  title={isCollapsed ? "Panel Administracion" : undefined}
+                >
+                  <Shield className="h-4 w-4 flex-shrink-0" />
+                  {!isCollapsed && <span>Panel Administracion</span>}
+                </Link>
+              )}
 
-              {/* Separador */}
-              {!isCollapsed && <div className="border-t border-slate-800 my-3" />}
+              {/* Informes - Solo visible si tiene algún módulo funcional */}
+              {tieneAlgunModulo && (
+                <Link
+                  href="/informes"
+                  onClick={onClose}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                    pathname.startsWith('/informes')
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                    isCollapsed && "justify-center"
+                  )}
+                  title={isCollapsed ? "Informes" : undefined}
+                >
+                  <FileBarChart className="h-4 w-4 flex-shrink-0" />
+                  {!isCollapsed && <span>Informes</span>}
+                </Link>
+              )}
+
+              {/* Separador - Solo si hay Dashboard/Informes */}
+              {!isCollapsed && tieneAlgunModulo && <div className="border-t border-slate-800 my-3" />}
 
               {/* Favoritos */}
               {favoritos.length > 0 && (
@@ -609,7 +725,7 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                 </div>
               )}
 
-              {/* Grupos de menú (filtrados por permisos) */}
+              {/* Grupos de menú (filtrados por permisos y licencia) */}
               {filteredMenuGroups.map((group) => {
                 const isGroupExpanded = expandedGroups.includes(group.group)
                 const GroupIcon = group.icon

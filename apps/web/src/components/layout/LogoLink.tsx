@@ -13,7 +13,7 @@ export function LogoLink() {
     if (isAuthenticated) {
       router.push('/dashboard')
     } else {
-      router.push('/login')
+      router.push('/')
     }
   }
 

@@ -159,7 +159,7 @@ export function AIChat() {
   }, [isListening]);
 
   // Mensaje de bienvenida
-  const welcomeMessage = `¡Hola! Soy tu asistente de Omerix. Puedo ayudarte con:
+  const welcomeMessage = `¡Hola! Soy tu asistente de Tralok. Puedo ayudarte con:
 
 • **Crear documentos**: "Crea un albarán para García con 5 martillos"
 • **Consultas**: "¿Cuántas facturas tengo pendientes?"

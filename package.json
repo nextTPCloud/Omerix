@@ -1,15 +1,17 @@
 {
-  "name": "omerix",
+  "name": "tralok",
   "version": "1.0.0",
   "private": true,
   "description": "Sistema ERP Cloud Multi-negocio",
   "scripts": {
     "dev:backend": "cd apps/backend && npm run dev",
     "dev:web": "cd apps/web && npm run dev",
-    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:web\"",
+    "dev:tpv": "cd apps/tpv && npm run dev",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:web\" \"npm run dev:tpv\"",
     "build:backend": "cd apps/backend && npm run build",
     "build:web": "cd apps/web && npm run build",
-    "build:all": "npm run build:backend && npm run build:web"
+    "build:tpv": "cd apps/tpv && npm run build",
+   "build:all": "npm run build:backend && npm run build:web && npm run build:tpv"
   },
   "workspaces": [
     "apps/*",

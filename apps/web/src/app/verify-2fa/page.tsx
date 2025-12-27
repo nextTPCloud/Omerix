@@ -47,7 +47,7 @@ export default function Verify2FAPage() {
 
     if (!userIdParam) {
       toast.error('Sesión inválida')
-      router.push('/login')
+      router.push('/')
       return
     }
 
@@ -103,7 +103,7 @@ export default function Verify2FAPage() {
   }
 
   const handleCancel = () => {
-    router.push('/login')
+    router.push('/')
   }
 
   return (
@@ -185,7 +185,7 @@ export default function Verify2FAPage() {
             <div className="mt-6 p-4 bg-muted rounded-lg">
               <p className="text-xs text-muted-foreground">
                 <strong>Consejo de seguridad:</strong> No compartas este código con nadie.
-                Omerix nunca te pedirá este código por teléfono, email o mensaje.
+                Tralok nunca te pedirá este código por teléfono, email o mensaje.
               </p>
             </div>
           </CardContent>

@@ -1,0 +1,24 @@
+{
+  "name": "@tralok/tpv",
+  "version": "1.0.0",
+  "description": "TPV Tralok - Punto de Venta con soporte offline y VeriFactu",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "web",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:web\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:web": "cd web && npm run dev",
+    "build": "npm run build:backend && npm run build:web",
+    "build:backend": "cd backend && npm run build",
+    "build:web": "cd web && npm run build",
+    "electron": "cd web && npm run electron",
+    "package": "cd web && npm run package"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

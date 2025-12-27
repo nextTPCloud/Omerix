@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuthStore } from '@/stores/authStore'
 import { authService } from '@/services/auth.service'
+import { useLicense } from '@/hooks/useLicense'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +15,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Sparkles, Clock, AlertTriangle, Crown } from 'lucide-react'
 import { toast } from 'sonner'
-import Image from 'next/image'
 import { LogoLink } from './LogoLink'
 import { SkinSelector } from '@/components/SkinSelector'
 
@@ -27,18 +34,82 @@ interface HeaderProps {
 
 export function Header({ onMenuClick, isMobileMenuOpen }: HeaderProps) {
   const router = useRouter()
-  const { user, clearAuth } = useAuthStore()
+  const { user, logout } = useAuthStore()
+  const {
+    plan,
+    isTrial,
+    isActive,
+    isExpired,
+    isSuspended,
+    daysRemaining,
+    warnings,
+    loading: licenseLoading
+  } = useLicense()
 
-  const handleLogout = () => {
-    authService.logoutLocal()
-    clearAuth()
-    toast.success('Sesión cerrada')
-    router.push('/login')
+  const handleLogout = async () => {
+    try {
+      await logout() // Esto revoca el token en el servidor y limpia el estado
+      toast.success('Sesión cerrada')
+      router.push('/')
+    } catch (error) {
+      // Aún así redirigir
+      router.push('/')
+    }
   }
 
   if (!user) return null
 
   const initials = `${user.nombre[0]}${user.apellidos[0]}`.toUpperCase()
+
+  // Obtener el badge y estilo segun el estado de la licencia
+  const getLicenseBadge = () => {
+    if (licenseLoading) return null
+
+    if (isExpired) {
+      return {
+        label: 'Expirada',
+        variant: 'destructive' as const,
+        icon: AlertTriangle,
+        tooltip: 'Tu suscripción ha expirado. Renueva para continuar usando el sistema.'
+      }
+    }
+
+    if (isSuspended) {
+      return {
+        label: 'Suspendida',
+        variant: 'destructive' as const,
+        icon: AlertTriangle,
+        tooltip: 'Tu cuenta está suspendida. Contacta con soporte.'
+      }
+    }
+
+    if (isTrial) {
+      return {
+        label: `Trial ${daysRemaining}d`,
+        variant: 'secondary' as const,
+        icon: Clock,
+        tooltip: `Te quedan ${daysRemaining} días de prueba gratuita`
+      }
+    }
+
+    if (isActive && plan) {
+      return {
+        label: plan.nombre,
+        variant: 'outline' as const,
+        icon: plan.slug === 'enterprise' ? Crown : Sparkles,
+        tooltip: `Plan ${plan.nombre} activo`
+      }
+    }
+
+    return null
+  }
+
+  const licenseBadge = getLicenseBadge()
+  const showUpgradeButton = isTrial || (plan && plan.slug !== 'enterprise')
+
+  // Determinar si hay alertas críticas (>=80% uso)
+  const hasWarnings = warnings.length > 0
+  const hasCriticalWarning = warnings.some(w => w.includes('⛔') || w.includes('⚠️'))
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -65,6 +136,79 @@ export function Header({ onMenuClick, isMobileMenuOpen }: HeaderProps) {
 
         {/* Avatar y menú usuario */}
         <nav className="flex items-center space-x-2">
+          {/* Indicador de licencia */}
+          {licenseBadge && (
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="hidden sm:flex items-center gap-2">
+                    <Badge
+                      variant={licenseBadge.variant}
+                      className="gap-1 cursor-default"
+                    >
+                      <licenseBadge.icon className="h-3 w-3" />
+                      {licenseBadge.label}
+                    </Badge>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">{licenseBadge.tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          {/* Boton Upgrade */}
+          {showUpgradeButton && (
+            <Link href="/configuracion/billing">
+              <Button
+                size="sm"
+                variant={isTrial || isExpired ? "default" : "outline"}
+                className="hidden sm:flex gap-1 h-8 text-xs"
+              >
+                <Sparkles className="h-3 w-3" />
+                {isExpired ? 'Renovar' : 'Upgrade'}
+              </Button>
+            </Link>
+          )}
+
+          {/* Warnings - Alerta si hay limites bajos */}
+          {hasWarnings && (
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/configuracion/billing">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-8 gap-1.5 ${
+                        hasCriticalWarning
+                          ? 'text-amber-600 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/50 dark:hover:bg-amber-900'
+                          : 'text-amber-500 hover:text-amber-600'
+                      }`}
+                    >
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="hidden sm:inline text-xs font-medium">
+                        {hasCriticalWarning ? 'Límites' : 'Uso'}
+                      </span>
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="end" className="max-w-xs">
+                  <div className="space-y-2 p-1">
+                    <p className="font-medium text-xs text-amber-500">Uso de tu plan</p>
+                    {warnings.map((warning, index) => (
+                      <p key={index} className="text-xs">{warning}</p>
+                    ))}
+                    <p className="text-xs text-muted-foreground pt-1 border-t">
+                      Click para ver detalles
+                    </p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
           {/* Selector de tema */}
           <SkinSelector />
 

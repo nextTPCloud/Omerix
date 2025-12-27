@@ -183,7 +183,7 @@ export class AuthService {
         usuariosTotales: 1,
         facturasEsteMes: 0,
         productosActuales: 0,
-        almacenesActuales: 1,
+        almacenesActuales: 0,
         clientesActuales: 0,
         tpvsActuales: 0,
         almacenamientoUsadoGB: 0,
@@ -441,10 +441,17 @@ export class AuthService {
     // Obtener datos de la empresa
     const empresa = await Empresa.findById(empresaIdFinal);
 
+    // Obtener relación UsuarioEmpresa para esta empresa (para personalId y rol específico)
+    const relacionEmpresa = await UsuarioEmpresa.findOne({
+      usuarioId: usuario._id,
+      empresaId: empresaIdFinal,
+      activo: true,
+    });
+
     return {
       requires2FA: false,
       requiresEmpresaSelection: false,
-      usuario: this.formatUserResponse(usuario),
+      usuario: this.formatUserResponse(usuario, relacionEmpresa || undefined),
       empresa: empresa ? this.formatEmpresaResponse(empresa) : undefined,
       accessToken,
       refreshToken,
@@ -503,8 +510,15 @@ export class AuthService {
     // Obtener datos de la empresa
     const empresa = await Empresa.findById(empresaId);
 
+    // Obtener relación UsuarioEmpresa para esta empresa
+    const relacionEmpresa = await UsuarioEmpresa.findOne({
+      usuarioId: usuario._id,
+      empresaId: new mongoose.Types.ObjectId(empresaId),
+      activo: true,
+    });
+
     return {
-      usuario: this.formatUserResponse(usuario),
+      usuario: this.formatUserResponse(usuario, relacionEmpresa || undefined),
       empresa: empresa ? this.formatEmpresaResponse(empresa) : undefined,
       accessToken,
       refreshToken,
@@ -606,8 +620,15 @@ export class AuthService {
     usuario.ultimoAcceso = new Date();
     await usuario.save();
 
+    // Obtener relación UsuarioEmpresa para esta empresa
+    const relacionEmpresa = await UsuarioEmpresa.findOne({
+      usuarioId: usuario._id,
+      empresaId: empresaIdUsuario,
+      activo: true,
+    });
+
     return {
-      usuario: this.formatUserResponse(usuario),
+      usuario: this.formatUserResponse(usuario, relacionEmpresa || undefined),
       accessToken,
       refreshToken,
     };
@@ -755,7 +776,16 @@ export class AuthService {
       throw new Error('Usuario no encontrado');
     }
 
-    return this.formatUserResponse(usuario);
+    // Obtener relación UsuarioEmpresa para la empresa actual del usuario
+    const relacionEmpresa = usuario.empresaId
+      ? await UsuarioEmpresa.findOne({
+          usuarioId: usuario._id,
+          empresaId: usuario.empresaId,
+          activo: true,
+        })
+      : null;
+
+    return this.formatUserResponse(usuario, relacionEmpresa || undefined);
   }
 
   // ============================================
@@ -921,18 +951,25 @@ export class AuthService {
   // HELPERS PRIVADOS
   // ============================================
   
-  private formatUserResponse(usuario: IUsuario): UserResponse {
+  private formatUserResponse(
+    usuario: IUsuario,
+    relacionEmpresa?: { personalId?: mongoose.Types.ObjectId; rol?: string }
+  ): UserResponse {
     return {
       id: String(usuario._id),
       nombre: usuario.nombre,
       apellidos: usuario.apellidos,
       email: usuario.email,
-      rol: usuario.rol,
+      // Usar el rol de la relación si existe, si no el del usuario
+      rol: relacionEmpresa?.rol || usuario.rol,
       empresaId: String(usuario.empresaId),
       avatar: usuario.avatar,
       twoFactorEnabled: usuario.twoFactorEnabled,
       twoFactorMethod: usuario.twoFactorMethod,
-      personalId: usuario.personalId ? String(usuario.personalId) : undefined,
+      // Usar personalId de la relación UsuarioEmpresa (específico de cada empresa)
+      personalId: relacionEmpresa?.personalId
+        ? String(relacionEmpresa.personalId)
+        : undefined,
     };
   }
 

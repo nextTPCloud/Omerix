@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===========================================
+   TPV OMERIX - ESTILOS GLOBALES
+   =========================================== */
+
+:root {
+  --tpv-header-height: 60px;
+  --tpv-footer-height: 80px;
+  --tpv-sidebar-width: 320px;
+}
+
+/* Desactivar selección de texto en modo kiosk */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Botones táctiles grandes */
+.btn-touch {
+  @apply min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg font-medium transition-all;
+  @apply active:scale-95 touch-manipulation;
+}
+
+.btn-touch-lg {
+  @apply min-h-[56px] min-w-[56px] px-6 py-3 text-lg rounded-xl font-semibold;
+  @apply active:scale-95 touch-manipulation;
+}
+
+/* Productos en cuadrícula */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.product-card {
+  @apply flex flex-col items-center justify-center p-3 rounded-lg border;
+  @apply bg-white hover:bg-gray-50 active:bg-gray-100;
+  @apply cursor-pointer transition-all;
+  min-height: 120px;
+}
+
+/* Líneas de venta */
+.sale-line {
+  @apply flex items-center gap-3 p-3 border-b border-gray-100;
+  @apply hover:bg-gray-50;
+}
+
+.sale-line:last-child {
+  @apply border-b-0;
+}
+
+/* Teclado numérico */
+.numpad-btn {
+  @apply w-16 h-16 text-2xl font-bold rounded-xl;
+  @apply bg-gray-100 hover:bg-gray-200 active:bg-gray-300;
+  @apply flex items-center justify-center;
+  @apply transition-all touch-manipulation;
+}
+
+.numpad-btn-action {
+  @apply bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700;
+}
+
+/* Scroll personalizado */
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.custom-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Estados de sincronización */
+.sync-online {
+  @apply text-green-500;
+}
+
+.sync-offline {
+  @apply text-amber-500;
+}
+
+.sync-error {
+  @apply text-red-500;
+}
+
+/* Animaciones */
+@keyframes pulse-scale {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.animate-pulse-scale {
+  animation: pulse-scale 2s ease-in-out infinite;
+}
+
+/* Print styles */
+@media print {
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 12px;
+  }
+}

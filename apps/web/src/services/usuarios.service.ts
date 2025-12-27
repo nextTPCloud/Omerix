@@ -1,13 +1,28 @@
 import { api } from './api';
 
 /**
- * Tipos de roles disponibles
+ * Roles del sistema (predefinidos)
  */
-export type RoleType = 'superadmin' | 'admin' | 'gerente' | 'vendedor' | 'tecnico' | 'almacenero' | 'visualizador';
+export type SystemRoleType = 'superadmin' | 'admin' | 'gerente' | 'vendedor' | 'tecnico' | 'almacenero' | 'visualizador';
+
+/**
+ * Tipos de roles disponibles (sistema + personalizados)
+ */
+export type RoleType = SystemRoleType | string;
 
 /**
  * Interface del usuario
  */
+/**
+ * Personal populado cuando viene del backend
+ */
+export interface IPersonalPopulated {
+  _id: string;
+  codigo?: string;
+  nombre: string;
+  apellidos: string;
+}
+
 export interface IUsuario {
   _id: string;
   empresaId: string;
@@ -24,7 +39,7 @@ export interface IUsuario {
     codigo: string;
     color?: string;
   };
-  personalId?: string;  // Vinculación con empleado para fichaje
+  personalId?: string | IPersonalPopulated;  // Puede venir como string o populado
   activo: boolean;
   emailVerificado: boolean;
   twoFactorEnabled: boolean;
@@ -78,9 +93,13 @@ interface ApiResponse<T> {
  * Información de rol disponible para asignar
  */
 export interface RolDisponible {
-  codigo: RoleType;
+  codigo: string; // Puede ser RoleType o código de rol personalizado
   nombre: string;
   nivel: number;
+  esSistema?: boolean;
+  _id?: string; // Solo para roles personalizados
+  color?: string;
+  descripcion?: string;
 }
 
 /**
@@ -242,7 +261,7 @@ class UsuariosService {
    * Obtener nombre descriptivo del rol
    */
   getNombreRol(rol: RoleType): string {
-    const nombres: Record<RoleType, string> = {
+    const nombres: Record<SystemRoleType, string> = {
       superadmin: 'Super Administrador',
       admin: 'Administrador',
       gerente: 'Gerente',
@@ -251,14 +270,16 @@ class UsuariosService {
       almacenero: 'Almacenero',
       visualizador: 'Solo Lectura',
     };
-    return nombres[rol] || rol;
+    // Para roles del sistema, usar el nombre predefinido
+    // Para roles personalizados, capitalizar el código
+    return nombres[rol as SystemRoleType] || rol.charAt(0).toUpperCase() + rol.slice(1);
   }
 
   /**
    * Obtener color del badge según el rol
    */
   getColorRol(rol: RoleType): string {
-    const colores: Record<RoleType, string> = {
+    const colores: Record<SystemRoleType, string> = {
       superadmin: 'bg-purple-100 text-purple-800',
       admin: 'bg-red-100 text-red-800',
       gerente: 'bg-orange-100 text-orange-800',
@@ -267,7 +288,8 @@ class UsuariosService {
       almacenero: 'bg-violet-100 text-violet-800',
       visualizador: 'bg-gray-100 text-gray-800',
     };
-    return colores[rol] || 'bg-gray-100 text-gray-800';
+    // Para roles personalizados, usar un color neutro
+    return colores[rol as SystemRoleType] || 'bg-cyan-100 text-cyan-800';
   }
 }
 

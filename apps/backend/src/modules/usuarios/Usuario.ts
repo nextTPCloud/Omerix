@@ -37,6 +37,9 @@ export interface IUsuario extends Document {
   activo: boolean;
   emailVerificado: boolean;
   ultimoAcceso?: Date;
+
+  // TPV - PIN para acceso rapido en punto de venta
+  pinTPV?: string;
     // Reset de contraseña ← AÑADIR AQUÍ
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
@@ -158,6 +161,19 @@ const UsuarioSchema = new Schema<IUsuario>(
     ultimoAcceso: {
       type: Date,
     },
+
+    // TPV - PIN para acceso rapido (4-6 digitos)
+    pinTPV: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: function (v: string) {
+          return !v || /^\d{4,6}$/.test(v);
+        },
+        message: 'El PIN debe tener entre 4 y 6 digitos',
+      },
+    },
+
     // Después de ultimoAcceso, antes de preferencias:
 
     // Reset de contraseña
@@ -184,6 +200,7 @@ const UsuarioSchema = new Schema<IUsuario>(
 // Índices compuestos y adicionales
 UsuarioSchema.index({ empresaId: 1, email: 1 }, { unique: true });
 UsuarioSchema.index({ empresaId: 1, activo: 1 });
+UsuarioSchema.index({ empresaId: 1, pinTPV: 1 }); // Para login TPV por PIN
 // UsuarioSchema.index({ email: 1 }); // ← ELIMINAR (ya tiene unique: true arriba)
 
 // Middleware: Hashear password antes de guardar

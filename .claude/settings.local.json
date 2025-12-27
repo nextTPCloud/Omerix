@@ -9,7 +9,23 @@
       "Bash(npm run build:*)",
       "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npx tsc:*)",
       "Bash(dir /b \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend\\\\src\\\\modules\")",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(move \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\web\\\\src\\\\app\\\\\\(public\\)\\\\landing\\\\page.tsx\" \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\web\\\\src\\\\app\\\\\\(public\\)\\\\page.tsx\")",
+      "Bash(ipconfig:*)",
+      "Bash(findstr:*)",
+      "Bash(netsh advfirewall firewall:*)",
+      "Bash(dir /b \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\web\\\\src\\\\app\")",
+      "Bash(node -e:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(curl:*)",
+      "WebFetch(domain:www.holded.com)",
+      "Bash(cmd /c \"cd /d C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\web && npx tsc --noEmit 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend && npx tsc --noEmit 2>&1\")",
+      "Bash(dir \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\tpv\")",
+      "Bash(cmd /c \"cd /d C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\tpv && npm ls --depth=0\")",
+      "Bash(dir \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\tpv\\\\web\")",
+      "Bash(dir \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\tpv\\\\backend\")",
+      "Bash(cmd /c \"cd /d C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\tpv\\\\web && npm ls --depth=0 2>&1\")"
     ]
   }
 }

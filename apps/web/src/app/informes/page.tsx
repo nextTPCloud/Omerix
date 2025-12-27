@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Button } from '@/components/ui/button'
@@ -72,7 +72,22 @@ import {
   TipoInforme,
   MODULOS_INFO,
   TIPOS_INFORME_INFO,
+  getModuloInfo,
 } from '@/services/informes.service'
+import { useLicense } from '@/hooks/useLicense'
+
+// Mapeo de módulos de informes a módulos del plan
+const MODULO_TO_PLAN: Record<ModuloInforme, string | null> = {
+  [ModuloInforme.VENTAS]: 'ventas',
+  [ModuloInforme.COMPRAS]: 'compras',
+  [ModuloInforme.STOCK]: 'almacen',
+  [ModuloInforme.TESORERIA]: 'tesoreria',
+  [ModuloInforme.PERSONAL]: 'rrhh',
+  [ModuloInforme.CLIENTES]: 'clientes',
+  [ModuloInforme.PROVEEDORES]: 'proveedores',
+  [ModuloInforme.PROYECTOS]: 'proyectos',
+  [ModuloInforme.GENERAL]: null, // Siempre disponible
+}
 
 // Iconos por módulo
 const ICONOS_MODULO: Record<string, React.ReactNode> = {
@@ -96,11 +111,36 @@ const ICONOS_TIPO: Record<string, React.ReactNode> = {
 
 export default function InformesPage() {
   const router = useRouter()
+  const { hasModule } = useLicense()
   const [informes, setInformes] = useState<IInforme[]>([])
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [moduloActivo, setModuloActivo] = useState<ModuloInforme | 'todos'>('todos')
   const [soloFavoritos, setSoloFavoritos] = useState(false)
+
+  // Filtrar módulos disponibles según el plan
+  const modulosDisponibles = useMemo(() => {
+    return Object.values(ModuloInforme).filter((modulo) => {
+      const planModulo = MODULO_TO_PLAN[modulo]
+      // Si no requiere módulo del plan (GENERAL), siempre disponible
+      if (planModulo === null) return true
+      // Verificar si tiene el módulo en el plan
+      return hasModule(planModulo)
+    })
+  }, [hasModule])
+
+  // Filtrar informes según módulos disponibles (para la pestaña "Todos")
+  const informesFiltrados = useMemo(() => {
+    if (moduloActivo !== 'todos') return informes
+    return informes.filter((informe) => modulosDisponibles.includes(informe.modulo))
+  }, [informes, moduloActivo, modulosDisponibles])
+
+  // Resetear módulo activo si ya no está disponible
+  useEffect(() => {
+    if (moduloActivo !== 'todos' && !modulosDisponibles.includes(moduloActivo as ModuloInforme)) {
+      setModuloActivo('todos')
+    }
+  }, [modulosDisponibles, moduloActivo])
 
   // Estado para el modal de IA
   const [showIAModal, setShowIAModal] = useState(false)
@@ -313,17 +353,17 @@ export default function InformesPage() {
           </Button>
         </div>
 
-        {/* Tabs por módulo */}
+        {/* Tabs por módulo (filtrados según plan) */}
         <Tabs value={moduloActivo} onValueChange={(v) => setModuloActivo(v as any)}>
           <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="todos" className="gap-2">
               <LayoutDashboard className="h-4 w-4" />
               Todos
             </TabsTrigger>
-            {Object.entries(ModuloInforme).map(([key, value]) => (
-              <TabsTrigger key={value} value={value} className="gap-2">
-                {ICONOS_MODULO[value]}
-                {MODULOS_INFO[value].label}
+            {modulosDisponibles.map((modulo) => (
+              <TabsTrigger key={modulo} value={modulo} className="gap-2">
+                {ICONOS_MODULO[modulo]}
+                {getModuloInfo(modulo).label}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -333,7 +373,7 @@ export default function InformesPage() {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
-            ) : informes.length === 0 ? (
+            ) : informesFiltrados.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <FileText className="h-12 w-12 text-muted-foreground mb-4" />
@@ -354,7 +394,7 @@ export default function InformesPage() {
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {informes.map((informe) => (
+                {informesFiltrados.map((informe) => (
                   <Card
                     key={informe._id}
                     className="cursor-pointer hover:shadow-md transition-shadow"
@@ -363,13 +403,13 @@ export default function InformesPage() {
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
-                          <div className={`p-2 rounded-lg ${MODULOS_INFO[informe.modulo].color} text-white`}>
-                            {ICONOS_MODULO[informe.modulo]}
+                          <div className={`p-2 rounded-lg ${getModuloInfo(informe.modulo).color} text-white`}>
+                            {ICONOS_MODULO[informe.modulo] || <FileText className="h-4 w-4" />}
                           </div>
                           <div>
                             <CardTitle className="text-base">{informe.nombre}</CardTitle>
                             <CardDescription className="text-xs">
-                              {MODULOS_INFO[informe.modulo].label}
+                              {getModuloInfo(informe.modulo).label}
                             </CardDescription>
                           </div>
                         </div>

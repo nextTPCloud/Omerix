@@ -64,6 +64,55 @@ import { toast } from 'sonner'
 import { rolesService, RecursoInfo, PermisoEspecialInfo } from '@/services/roles.service'
 import { IRol, IPermisosEspeciales, IPermisos, AccionRecurso, RecursoSistema, PERMISOS_ESPECIALES_DEFAULT } from '@/types/permissions.types'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useLicense } from '@/hooks/useLicense'
+import { Crown } from 'lucide-react'
+
+// Mapeo de grupos de recursos a módulos del plan
+const RECURSO_GRUPO_TO_MODULO: Record<string, string | null> = {
+  'Maestros': null, // Siempre disponible
+  'Ventas': 'ventas',
+  'Compras': 'compras',
+  'RRHH': 'rrhh',
+  'Informes': 'informes',
+  'Tesorería': 'tesoreria',
+  'Almacén': 'almacen',
+  'Proyectos': 'proyectos',
+  'Sistema': null, // Siempre disponible
+}
+
+// Mapeo de permisos especiales a módulos del plan
+const PERMISO_TO_MODULO: Record<string, string | null> = {
+  // Datos Financieros - siempre disponibles
+  'verCostes': null,
+  'verMargenes': null,
+  'verDatosFacturacion': null,
+  // Precios - siempre disponibles
+  'modificarPVP': null,
+  'modificarPrecioCompra': null,
+  'aplicarDescuentos': null,
+  'descuentoMaximo': null,
+  // Sistema - siempre disponibles
+  'accederConfiguracion': null,
+  'gestionarUsuarios': null,
+  'gestionarRoles': null,
+  // Operaciones - siempre disponibles
+  'exportarDatos': null,
+  'importarDatos': null,
+  'anularDocumentos': null,
+  'eliminarDocumentos': null,
+  'verHistorialCambios': null,
+  // Acceso a Módulos - según plan
+  'accesoVentas': 'ventas',
+  'accesoCompras': 'compras',
+  'accesoAlmacen': 'almacen',
+  'accesoContabilidad': 'contabilidad',
+  'accesoTPV': 'tpv',
+  'accesoRRHH': 'rrhh',
+  'accesoInformes': 'informes',
+  'accesoTesoreria': 'tesoreria',
+  'accesoProyectos': 'proyectos',
+  'accesoCRM': 'crm',
+}
 
 interface RolesConfigProps {
   onRolesChange?: () => void
@@ -71,6 +120,7 @@ interface RolesConfigProps {
 
 export function RolesConfig({ onRolesChange }: RolesConfigProps) {
   const { canGestionarRoles } = usePermissions()
+  const { hasModule, plan } = useLicense()
 
   const [roles, setRoles] = useState<IRol[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -622,34 +672,70 @@ export function RolesConfig({ onRolesChange }: RolesConfigProps) {
                         {grupo}
                       </h4>
                       <div className="grid grid-cols-2 gap-3 px-4">
-                        {permisos.map(permiso => (
-                          <div key={permiso.codigo} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                            <div className="space-y-1 flex-1 mr-2">
-                              <Label htmlFor={permiso.codigo} className="font-medium text-sm">
-                                {permiso.nombre}
-                              </Label>
-                              <p className="text-xs text-muted-foreground">
-                                {permiso.descripcion}
-                              </p>
+                        {permisos.map(permiso => {
+                          // Verificar si el permiso está disponible según el plan
+                          const moduloRequerido = PERMISO_TO_MODULO[permiso.codigo]
+                          const disponible = moduloRequerido === null || hasModule(moduloRequerido)
+
+                          return (
+                            <div
+                              key={permiso.codigo}
+                              className={`flex items-center justify-between p-3 rounded-lg ${
+                                disponible ? 'bg-muted/50' : 'bg-amber-50/50 border border-amber-200/50'
+                              }`}
+                            >
+                              <div className="space-y-1 flex-1 mr-2">
+                                <div className="flex items-center gap-2">
+                                  <Label
+                                    htmlFor={permiso.codigo}
+                                    className={`font-medium text-sm ${!disponible ? 'text-muted-foreground' : ''}`}
+                                  >
+                                    {permiso.nombre}
+                                  </Label>
+                                  {!disponible && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs bg-amber-100 text-amber-700 border-amber-300 cursor-help"
+                                          >
+                                            <Crown className="h-3 w-3 mr-1" />
+                                            Upgrade
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Requiere el módulo "{moduloRequerido}" en tu plan</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </div>
+                                <p className={`text-xs ${!disponible ? 'text-muted-foreground/70' : 'text-muted-foreground'}`}>
+                                  {permiso.descripcion}
+                                </p>
+                              </div>
+                              {permiso.tipo === 'boolean' ? (
+                                <Switch
+                                  id={permiso.codigo}
+                                  checked={disponible && !!formData.permisos.especiales[permiso.codigo]}
+                                  onCheckedChange={() => togglePermisoEspecial(permiso.codigo)}
+                                  disabled={!disponible}
+                                />
+                              ) : (
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  className="w-20"
+                                  value={formData.permisos.especiales[permiso.codigo] as number || 0}
+                                  onChange={e => setPermisoEspecialValue(permiso.codigo, Number(e.target.value))}
+                                  disabled={!disponible}
+                                />
+                              )}
                             </div>
-                            {permiso.tipo === 'boolean' ? (
-                              <Switch
-                                id={permiso.codigo}
-                                checked={!!formData.permisos.especiales[permiso.codigo]}
-                                onCheckedChange={() => togglePermisoEspecial(permiso.codigo)}
-                              />
-                            ) : (
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                className="w-20"
-                                value={formData.permisos.especiales[permiso.codigo] as number || 0}
-                                onChange={e => setPermisoEspecialValue(permiso.codigo, Number(e.target.value))}
-                              />
-                            )}
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   ))}
@@ -687,35 +773,67 @@ export function RolesConfig({ onRolesChange }: RolesConfigProps) {
                             acc[grupo].push(recurso);
                             return acc;
                           }, {} as Record<string, typeof recursos>)
-                        ).map(([grupo, recursosGrupo]) => (
-                          <React.Fragment key={grupo}>
-                            {/* Cabecera de grupo */}
-                            <TableRow className="bg-muted/50">
-                              <TableCell colSpan={7} className="font-semibold text-sm uppercase tracking-wider">
-                                {grupo}
-                              </TableCell>
-                            </TableRow>
-                            {/* Recursos del grupo */}
-                            {recursosGrupo.map(recurso => {
-                              const permisosRecurso = formData.permisos.recursos[recurso.recurso] || []
-                              return (
-                                <TableRow key={recurso.recurso}>
-                                  <TableCell className="font-medium pl-6">{recurso.nombre}</TableCell>
-                                  {(['create', 'read', 'update', 'delete', 'export', 'import'] as AccionRecurso[]).map(accion => (
-                                    <TableCell key={accion} className="text-center">
-                                      {recurso.acciones.includes(accion) && (
-                                        <Switch
-                                          checked={permisosRecurso.includes(accion)}
-                                          onCheckedChange={() => togglePermisoRecurso(recurso.recurso, accion)}
-                                        />
-                                      )}
+                        ).map(([grupo, recursosGrupo]) => {
+                          // Verificar si el grupo está disponible según el plan
+                          const moduloRequerido = RECURSO_GRUPO_TO_MODULO[grupo]
+                          const grupoDisponible = moduloRequerido === null || hasModule(moduloRequerido)
+
+                          return (
+                            <React.Fragment key={grupo}>
+                              {/* Cabecera de grupo */}
+                              <TableRow className={grupoDisponible ? 'bg-muted/50' : 'bg-amber-50/50'}>
+                                <TableCell colSpan={7} className="font-semibold text-sm uppercase tracking-wider">
+                                  <div className="flex items-center gap-2">
+                                    {grupo}
+                                    {!grupoDisponible && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge
+                                              variant="outline"
+                                              className="text-xs bg-amber-100 text-amber-700 border-amber-300 cursor-help"
+                                            >
+                                              <Crown className="h-3 w-3 mr-1" />
+                                              Upgrade
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Requiere el módulo "{moduloRequerido}" en tu plan</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                              {/* Recursos del grupo */}
+                              {recursosGrupo.map(recurso => {
+                                const permisosRecurso = formData.permisos.recursos[recurso.recurso] || []
+                                return (
+                                  <TableRow
+                                    key={recurso.recurso}
+                                    className={!grupoDisponible ? 'opacity-50' : ''}
+                                  >
+                                    <TableCell className={`font-medium pl-6 ${!grupoDisponible ? 'text-muted-foreground' : ''}`}>
+                                      {recurso.nombre}
                                     </TableCell>
-                                  ))}
-                                </TableRow>
-                              )
-                            })}
-                          </React.Fragment>
-                        ))}
+                                    {(['create', 'read', 'update', 'delete', 'export', 'import'] as AccionRecurso[]).map(accion => (
+                                      <TableCell key={accion} className="text-center">
+                                        {recurso.acciones.includes(accion) && (
+                                          <Switch
+                                            checked={grupoDisponible && permisosRecurso.includes(accion)}
+                                            onCheckedChange={() => togglePermisoRecurso(recurso.recurso, accion)}
+                                            disabled={!grupoDisponible}
+                                          />
+                                        )}
+                                      </TableCell>
+                                    ))}
+                                  </TableRow>
+                                )
+                              })}
+                            </React.Fragment>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   </div>

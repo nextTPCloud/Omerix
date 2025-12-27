@@ -203,7 +203,7 @@ export function PrintButton({
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold">Sistema ERP Omerix</p>
+                  <p className="font-semibold">Sistema ERP Tralok</p>
                   <p className="text-sm text-gray-600">Gestión Comercial</p>
                 </div>
               </div>

@@ -11,6 +11,7 @@ interface AuthState {
   isAuthenticated: boolean
   isHydrated: boolean
   setAuth: (user: Usuario, accessToken: string, refreshToken: string) => void
+  setUser: (user: Usuario) => void
   clearAuth: () => void
   logout: () => Promise<void>
   setHydrated: () => void
@@ -39,6 +40,10 @@ export const useAuthStore = create<AuthState>()(
         })
       },
 
+      setUser: (user) => {
+        set({ user })
+      },
+
       clearAuth: () => {
         if (typeof window !== 'undefined') {
           localStorage.removeItem('accessToken')
@@ -54,13 +59,20 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         const state = useAuthStore.getState()
-        const refreshToken = state.refreshToken
+        // Intentar obtener el refreshToken del estado o del localStorage
+        let refreshToken = state.refreshToken
+        if (!refreshToken && typeof window !== 'undefined') {
+          refreshToken = localStorage.getItem('refreshToken')
+        }
 
         // Revocar token en el servidor si existe
         if (refreshToken) {
-          await authService.logout(refreshToken)
+          try {
+            await authService.logout(refreshToken)
+          } catch {
+            // Error silencioso - el logout local continuará de todas formas
+          }
         } else {
-          // Si no hay refreshToken, solo limpiar local
           authService.logoutLocal()
         }
 

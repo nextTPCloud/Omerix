@@ -76,7 +76,7 @@ api.interceptors.response.use(
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('auth-storage'); // Store de Zustand
-      window.location.href = '/login';
+      window.location.href = '/';
       return Promise.reject(error);
     }
 
@@ -111,7 +111,7 @@ api.interceptors.response.use(
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('auth-storage'); // Store de Zustand
 
-      window.location.href = '/login';
+      window.location.href = '/';
 
       return Promise.reject(refreshError);
     }

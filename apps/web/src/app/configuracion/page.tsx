@@ -1622,7 +1622,7 @@ export default function ConfiguracionEmpresaPage() {
                   Método de Autenticación
                 </CardTitle>
                 <CardDescription>
-                  Elige cómo conectar tu email para enviar desde Omerix
+                  Elige cómo conectar tu email para enviar desde Tralok
                 </CardDescription>
               </CardHeader>
               <CardContent>

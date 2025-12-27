@@ -83,7 +83,7 @@ export default function ApiDocsPage() {
       {/* Header personalizado */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-6 px-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold mb-2">Documentación API - Omerix ERP</h1>
+          <h1 className="text-3xl font-bold mb-2">Documentación API - Tralok ERP</h1>
           <p className="text-blue-100">
             Explora y prueba todos los endpoints de la API del sistema
           </p>

@@ -355,7 +355,7 @@ export async function obtenerSugerenciasIA(modulo?: ModuloInforme): Promise<stri
 // UTILIDADES
 // ============================================
 
-export const MODULOS_INFO: Record<ModuloInforme, { label: string; icon: string; color: string }> = {
+export const MODULOS_INFO: Record<string, { label: string; icon: string; color: string }> = {
   [ModuloInforme.VENTAS]: { label: 'Ventas', icon: 'TrendingUp', color: 'bg-green-500' },
   [ModuloInforme.COMPRAS]: { label: 'Compras', icon: 'ShoppingCart', color: 'bg-blue-500' },
   [ModuloInforme.STOCK]: { label: 'Stock', icon: 'Package', color: 'bg-amber-500' },
@@ -365,6 +365,13 @@ export const MODULOS_INFO: Record<ModuloInforme, { label: string; icon: string; 
   [ModuloInforme.PROVEEDORES]: { label: 'Proveedores', icon: 'Truck', color: 'bg-orange-500' },
   [ModuloInforme.PROYECTOS]: { label: 'Proyectos', icon: 'Briefcase', color: 'bg-pink-500' },
   [ModuloInforme.GENERAL]: { label: 'General', icon: 'LayoutDashboard', color: 'bg-gray-500' },
+  // Alias para compatibilidad
+  'rrhh': { label: 'RRHH', icon: 'Users', color: 'bg-indigo-500' },
+}
+
+// Fallback para módulos no definidos
+export const getModuloInfo = (modulo: string) => {
+  return MODULOS_INFO[modulo] || { label: modulo || 'Sin módulo', icon: 'FileText', color: 'bg-gray-400' }
 }
 
 export const TIPOS_INFORME_INFO: Record<TipoInforme, { label: string; icon: string }> = {

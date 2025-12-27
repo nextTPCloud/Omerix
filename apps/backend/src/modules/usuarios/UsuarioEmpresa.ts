@@ -13,10 +13,13 @@ export interface IUsuarioEmpresa extends Document {
   empresaId: Types.ObjectId;
 
   // Rol del usuario en esta empresa
-  rol: 'admin' | 'gerente' | 'vendedor' | 'tecnico' | 'almacenero' | 'visualizador';
+  rol: string; // Puede ser rol del sistema o personalizado
 
   // Rol personalizado (opcional)
   rolId?: Types.ObjectId;
+
+  // Vinculación con empleado en esta empresa (para fichaje)
+  personalId?: Types.ObjectId;
 
   // Estado
   activo: boolean;
@@ -59,14 +62,22 @@ const UsuarioEmpresaSchema = new Schema<IUsuarioEmpresa>(
 
     rol: {
       type: String,
-      enum: ['admin', 'gerente', 'vendedor', 'tecnico', 'almacenero', 'visualizador'],
       required: [true, 'El rol es obligatorio'],
       default: 'visualizador',
+      trim: true,
+      lowercase: true,
     },
 
     rolId: {
       type: Schema.Types.ObjectId,
       ref: 'Rol',
+    },
+
+    // Vinculación con empleado en esta empresa (para fichaje)
+    personalId: {
+      type: Schema.Types.ObjectId,
+      // No usamos ref porque Personal está en la BD de la empresa, no en la central
+      index: true,
     },
 
     activo: {
@@ -101,7 +112,7 @@ const UsuarioEmpresaSchema = new Schema<IUsuarioEmpresa>(
   },
   {
     timestamps: true,
-    collection: 'usuarios_empresas',
+    collection: 'usuarioempresa',
   }
 );
 

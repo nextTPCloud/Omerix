@@ -203,8 +203,8 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
         w: widget.posicion.w,
         h: widget.posicion.h,
         minW: 2,
-        minH: 1,
-        maxH: 4,
+        minH: 2,  // Mínimo 2 unidades (160px con rowHeight=80)
+        maxH: 8,  // Máximo 8 unidades (640px)
       }))
   }, [dashboard])
 
@@ -271,15 +271,23 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
     }
   }
 
-  // Añadir widget
+  // Añadir widget con tamaños apropiados según el tipo
   const handleAddWidget = async (tipo: TipoWidget) => {
     if (!dashboard) return
+
+    // Determinar tamaño por defecto según el tipo de widget
+    let defaultH = 2  // KPIs pequeños
+    if (tipo.includes('grafica') || tipo.includes('flujo') || tipo.includes('comparativa')) {
+      defaultH = 4  // Gráficas
+    } else if (tipo.includes('lista') || tipo.includes('documentos') || tipo.includes('morosos') || tipo.includes('tareas') || tipo.includes('alertas') || tipo.includes('partes') || tipo.includes('fichajes')) {
+      defaultH = 4  // Listas
+    }
 
     try {
       const response = await dashboardService.addWidget(dashboard._id, {
         tipo,
         tamano: TamanoWidget.MEDIANO,
-        posicion: { x: 0, y: 0, w: 3, h: 2 },
+        posicion: { x: 0, y: 0, w: 3, h: defaultH },
       })
       if (response.success) {
         setDashboard(response.data)
@@ -838,12 +846,12 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
         layouts={{ lg: layout }}
         breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
-        rowHeight={150}
+        rowHeight={80}
         isDraggable={editMode}
         isResizable={editMode}
         onLayoutChange={handleLayoutChange}
         draggableHandle=".drag-handle"
-        margin={[16, 16]}
+        margin={[12, 12]}
       >
         {dashboard.widgets
           .filter((w) => w.visible)

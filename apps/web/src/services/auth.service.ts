@@ -5,12 +5,34 @@ import {
   RegisterData,
   LoginData,
   Verify2FAData,
+  SelectEmpresaData,
   Usuario,
 } from '../types/auth.types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+// Respuesta de verificación de NIF
+interface VerificarNIFResponse {
+  success: boolean;
+  data?: {
+    valido: boolean;
+    tipo?: string;
+    mensaje?: string;
+    verificado?: boolean;
+    encontrado?: boolean;
+    datosOficiales?: any;
+    advertencias?: string[];
+    errores?: string[];
+  };
+}
+
 export const authService = {
+  // Verificar NIF antes del registro
+  verificarNIF: async (nif: string, nombre?: string): Promise<VerificarNIFResponse> => {
+    const response = await api.post('/auth/verificar-nif', { nif, nombre });
+    return response.data;
+  },
+
   // Registro
   register: async (data: RegisterData): Promise<LoginResponse> => {
     const response = await api.post('/auth/register', data);
@@ -26,6 +48,12 @@ export const authService = {
   // Verificar 2FA
   verify2FA: async (data: Verify2FAData): Promise<LoginResponse> => {
     const response = await api.post('/auth/verify-2fa', data);
+    return response.data;
+  },
+
+  // Seleccionar empresa (cuando el usuario tiene acceso a múltiples)
+  selectEmpresa: async (data: SelectEmpresaData): Promise<LoginResponse> => {
+    const response = await api.post('/auth/select-empresa', data);
     return response.data;
   },
 

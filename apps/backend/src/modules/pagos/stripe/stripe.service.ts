@@ -5,6 +5,7 @@ import MetodoPago from '../../formas-pago/MetodoPago';
 import Empresa from '../../empresa/Empresa';
 import Licencia from '../../licencias/Licencia';
 import Plan from '../../licencias/Plan';
+import AddOn from '../../licencias/AddOn';
 import {
   CreatePaymentIntentDTO,
   CreateSubscriptionDTO,
@@ -167,7 +168,7 @@ export class StripeService {
   // ============================================
   // CREAR SUSCRIPCIÓN RECURRENTE
   // ============================================
-  
+
   async createSubscription(empresaId: string, data: CreateSubscriptionDTO) {
     try {
       // Obtener plan
@@ -176,39 +177,102 @@ export class StripeService {
         throw new Error('Plan no encontrado');
       }
 
+      // Obtener licencia para ver add-ons activos
+      const licencia = await Licencia.findOne({ empresaId });
+
       // Obtener o crear customer
       const customerId = await this.getOrCreateCustomer(empresaId);
 
-      // Crear precio en Stripe si no existe
-      let stripePriceId = plan.stripePriceId;
+      // Determinar si es anual o mensual
+      const esAnual = data.tipoSuscripcion === 'anual';
+      const intervalo = esAnual ? 'year' : 'month';
+      const precio = esAnual ? plan.precio.anual : plan.precio.mensual;
+
+      // Crear precio del plan en Stripe si no existe
+      let stripePriceId = esAnual ? plan.stripePriceIdAnual : plan.stripePriceId;
 
       if (!stripePriceId) {
         const price = await stripe.prices.create({
           currency: 'eur',
-          unit_amount: Math.round(plan.precio.mensual * 100),
+          unit_amount: Math.round(precio * 100),
           recurring: {
-            interval: 'month',
+            interval: intervalo,
           },
           product_data: {
-            name: plan.nombre,
+            name: `${plan.nombre} (${esAnual ? 'Anual' : 'Mensual'})`,
           },
         });
 
         stripePriceId = price.id;
-        plan.stripePriceId = stripePriceId;
+        if (esAnual) {
+          plan.stripePriceIdAnual = stripePriceId;
+        } else {
+          plan.stripePriceId = stripePriceId;
+        }
         await plan.save();
+      }
+
+      // Preparar items de la suscripción (plan + add-ons)
+      const items: Stripe.SubscriptionCreateParams.Item[] = [
+        { price: stripePriceId }
+      ];
+
+      // Añadir add-ons activos como items adicionales
+      if (licencia?.addOns && licencia.addOns.length > 0) {
+        const addOnsActivos = licencia.addOns.filter((a: any) => a.activo && a.addOnId);
+
+        for (const addOnLicencia of addOnsActivos) {
+          const addOn = await AddOn.findById(addOnLicencia.addOnId);
+          if (!addOn || !addOn.esRecurrente) continue;
+
+          // Crear precio del add-on en Stripe si no existe
+          let addOnPriceId = esAnual ? addOn.stripePriceIdAnual : addOn.stripePriceId;
+          const addOnPrecio = esAnual
+            ? (addOn.precioAnual || addOn.precioMensual * 12)
+            : addOn.precioMensual;
+
+          if (!addOnPriceId) {
+            const addOnPrice = await stripe.prices.create({
+              currency: 'eur',
+              unit_amount: Math.round(addOnPrecio * 100),
+              recurring: {
+                interval: intervalo,
+              },
+              product_data: {
+                name: `${addOn.nombre} (${esAnual ? 'Anual' : 'Mensual'})`,
+              },
+            });
+
+            addOnPriceId = addOnPrice.id;
+            if (esAnual) {
+              addOn.stripePriceIdAnual = addOnPriceId;
+            } else {
+              addOn.stripePriceId = addOnPriceId;
+            }
+            await addOn.save();
+          }
+
+          // Añadir item con cantidad
+          items.push({
+            price: addOnPriceId,
+            quantity: addOnLicencia.cantidad || 1,
+          });
+
+          console.log(`✅ Add-on añadido a suscripción: ${addOn.nombre} x${addOnLicencia.cantidad || 1}`);
+        }
       }
 
       // Crear suscripción en Stripe
       const subscriptionData: Stripe.SubscriptionCreateParams = {
         customer: customerId,
-        items: [{ price: stripePriceId }],
+        items,
         payment_behavior: 'default_incomplete',
         payment_settings: { save_default_payment_method: 'on_subscription' },
         expand: ['latest_invoice.payment_intent'],
         metadata: {
           empresaId,
           planId: String(plan._id),
+          tipoSuscripcion: data.tipoSuscripcion || 'mensual',
         },
       };
 
@@ -225,23 +289,24 @@ export class StripeService {
       const subscription = await stripe.subscriptions.create(subscriptionData);
 
       // Guardar suscripción en la licencia
-      const licencia = await Licencia.findOne({ empresaId });
       if (licencia) {
         licencia.stripeSubscriptionId = subscription.id;
+        licencia.tipoSuscripcion = data.tipoSuscripcion || 'mensual';
         await licencia.save();
       }
 
-      console.log('✅ Suscripción creada:', subscription.id);
+      console.log('✅ Suscripción creada con', items.length, 'items:', subscription.id);
 
       // Obtener client_secret para confirmar el pago
       const invoice = subscription.latest_invoice as Stripe.Invoice;
-      const invoiceAny = invoice as any; 
-      const paymentIntent = invoiceAny?.payment_intent as Stripe.PaymentIntent; 
-      
+      const invoiceAny = invoice as any;
+      const paymentIntent = invoiceAny?.payment_intent as Stripe.PaymentIntent;
+
       return {
         subscription,
         clientSecret: paymentIntent?.client_secret,
         subscriptionId: subscription.id,
+        itemsCount: items.length,
       };
     } catch (error: any) {
       console.error('Error creando suscripción:', error);
@@ -601,6 +666,179 @@ export class StripeService {
       console.error('Error creando Checkout Session:', error);
       throw new Error(`Error en Stripe: ${error.message}`);
     }
+  }
+
+  // ============================================
+  // SEPA DIRECT DEBIT
+  // ============================================
+
+  /**
+   * Crear SetupIntent para SEPA Direct Debit
+   * El cliente debe proporcionar su IBAN y aceptar el mandato
+   */
+  async createSepaSetupIntent(empresaId: string) {
+    try {
+      const customerId = await this.getOrCreateCustomer(empresaId);
+
+      const setupIntent = await stripe.setupIntents.create({
+        customer: customerId,
+        payment_method_types: ['sepa_debit'],
+        usage: 'off_session', // Para cobros recurrentes
+        metadata: {
+          empresaId,
+          tipo: 'sepa_debit',
+        },
+      });
+
+      console.log('✅ SEPA SetupIntent creado:', setupIntent.id);
+
+      return {
+        setupIntentId: setupIntent.id,
+        clientSecret: setupIntent.client_secret,
+      };
+    } catch (error: any) {
+      console.error('Error creando SEPA SetupIntent:', error);
+      throw new Error(`Error en Stripe SEPA: ${error.message}`);
+    }
+  }
+
+  /**
+   * Confirmar SetupIntent SEPA con los datos del cliente
+   */
+  async confirmSepaSetup(
+    empresaId: string,
+    setupIntentId: string,
+    iban: string,
+    nombreTitular: string,
+    email: string
+  ) {
+    try {
+      const customerId = await this.getOrCreateCustomer(empresaId);
+
+      // Crear PaymentMethod SEPA
+      const paymentMethod = await stripe.paymentMethods.create({
+        type: 'sepa_debit',
+        sepa_debit: {
+          iban,
+        },
+        billing_details: {
+          name: nombreTitular,
+          email,
+        },
+      });
+
+      // Adjuntar al customer
+      await stripe.paymentMethods.attach(paymentMethod.id, {
+        customer: customerId,
+      });
+
+      // Confirmar el SetupIntent
+      const setupIntent = await stripe.setupIntents.confirm(setupIntentId, {
+        payment_method: paymentMethod.id,
+        mandate_data: {
+          customer_acceptance: {
+            type: 'online',
+            online: {
+              ip_address: '0.0.0.0', // Se puede pasar la IP real del cliente
+              user_agent: 'OmerixERP',
+            },
+          },
+        },
+      });
+
+      // Guardar como método de pago predeterminado
+      await stripe.customers.update(customerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethod.id,
+        },
+      });
+
+      // Guardar en nuestra BD
+      const metodoPago = await MetodoPago.create({
+        empresaId,
+        tipo: 'sepa',
+        iban: `****${iban.slice(-4)}`, // Solo últimos 4 dígitos por seguridad
+        nombreTitular,
+        stripePaymentMethodId: paymentMethod.id,
+        stripeCustomerId: customerId,
+        predeterminado: true,
+        activo: true,
+        verificado: setupIntent.status === 'succeeded',
+        fechaVerificacion: new Date(),
+      });
+
+      // Desmarcar otros métodos como predeterminados
+      await MetodoPago.updateMany(
+        { empresaId, _id: { $ne: metodoPago._id }, predeterminado: true },
+        { predeterminado: false }
+      );
+
+      console.log('✅ SEPA configurado correctamente:', paymentMethod.id);
+
+      return {
+        success: true,
+        metodoPago,
+        status: setupIntent.status,
+        message: 'Domiciliación bancaria SEPA configurada correctamente',
+      };
+    } catch (error: any) {
+      console.error('Error confirmando SEPA:', error);
+      throw new Error(`Error configurando SEPA: ${error.message}`);
+    }
+  }
+
+  /**
+   * Crear suscripción con SEPA Direct Debit
+   */
+  async createSepaSubscription(
+    empresaId: string,
+    planId: string,
+    tipoSuscripcion: 'mensual' | 'anual' = 'mensual'
+  ) {
+    try {
+      // Verificar que tiene método SEPA configurado
+      const metodoPago = await MetodoPago.findOne({
+        empresaId,
+        tipo: 'sepa',
+        activo: true,
+        verificado: true,
+      });
+
+      if (!metodoPago || !metodoPago.stripePaymentMethodId) {
+        throw new Error('No tienes una cuenta SEPA configurada. Configúrala primero.');
+      }
+
+      // Crear suscripción con el método SEPA
+      const result = await this.createSubscription(empresaId, {
+        planId,
+        tipoSuscripcion,
+        paymentMethodId: metodoPago.stripePaymentMethodId,
+      });
+
+      console.log('✅ Suscripción SEPA creada:', result.subscriptionId);
+
+      return {
+        ...result,
+        metodoPago: 'sepa_debit',
+        message: 'Suscripción creada con domiciliación bancaria SEPA',
+      };
+    } catch (error: any) {
+      console.error('Error creando suscripción SEPA:', error);
+      throw new Error(`Error en suscripción SEPA: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener métodos de pago SEPA del cliente
+   */
+  async getSepaPaymentMethods(empresaId: string) {
+    const metodos = await MetodoPago.find({
+      empresaId,
+      tipo: 'sepa',
+      activo: true,
+    }).sort({ predeterminado: -1, createdAt: -1 });
+
+    return metodos;
   }
 
   // ============================================

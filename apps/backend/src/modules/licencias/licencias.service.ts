@@ -1,6 +1,12 @@
 import Licencia from './Licencia';
 import Plan from './Plan';
 import AddOn from './AddOn';
+import Stripe from 'stripe';
+import config from '../../config/env';
+
+const stripe = new Stripe(config.stripe.secretKey, {
+  apiVersion: '2025-10-29.clover',
+});
 
 export class LicenciasService {
   
@@ -303,6 +309,213 @@ export class LicenciasService {
     return {
       success: true,
       message: 'Suscripción cancelada',
+    };
+  }
+
+  // ============================================
+  // TOGGLE RENOVACIÓN AUTOMÁTICA
+  // ============================================
+
+  async toggleRenovacionAutomatica(empresaId: string, activar: boolean) {
+    const licencia = await Licencia.findOne({ empresaId });
+    if (!licencia) {
+      throw new Error('Licencia no encontrada');
+    }
+
+    // Actualizar en la pasarela de pago
+    if (licencia.stripeSubscriptionId) {
+      await this.toggleStripeAutoRenew(licencia.stripeSubscriptionId, activar);
+    } else if (licencia.paypalSubscriptionId) {
+      await this.togglePayPalAutoRenew(licencia.paypalSubscriptionId, activar);
+    }
+
+    // Actualizar en nuestra BD
+    licencia.renovacionAutomatica = activar;
+    licencia.historial.push({
+      fecha: new Date(),
+      accion: activar ? 'RENOVACION_ACTIVADA' : 'RENOVACION_DESACTIVADA',
+      motivo: activar
+        ? 'Renovación automática activada por el usuario'
+        : 'Renovación automática desactivada por el usuario',
+    } as any);
+
+    await licencia.save();
+
+    console.log(`✅ Renovación automática ${activar ? 'activada' : 'desactivada'}: ${empresaId}`);
+
+    return {
+      success: true,
+      renovacionAutomatica: activar,
+      message: activar
+        ? 'Renovación automática activada'
+        : 'Renovación automática desactivada. Tu suscripción se cancelará al finalizar el período actual.',
+    };
+  }
+
+  // Toggle renovación en Stripe
+  private async toggleStripeAutoRenew(subscriptionId: string, activar: boolean) {
+    try {
+      if (activar) {
+        // Reactivar suscripción (quitar cancel_at_period_end)
+        await stripe.subscriptions.update(subscriptionId, {
+          cancel_at_period_end: false,
+        });
+      } else {
+        // Cancelar al final del período (no renueva)
+        await stripe.subscriptions.update(subscriptionId, {
+          cancel_at_period_end: true,
+        });
+      }
+      console.log(`✅ Stripe: cancel_at_period_end = ${!activar}`);
+    } catch (error: any) {
+      console.error('Error actualizando suscripción en Stripe:', error);
+      throw new Error(`Error en Stripe: ${error.message}`);
+    }
+  }
+
+  // Toggle renovación en PayPal
+  private async togglePayPalAutoRenew(subscriptionId: string, activar: boolean) {
+    try {
+      const action = activar ? 'activate' : 'suspend';
+
+      const response = await fetch(
+        `https://api-m.${config.paypal.mode}.paypal.com/v1/billing/subscriptions/${subscriptionId}/${action}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${await this.getPayPalAccessToken()}`,
+          },
+          body: JSON.stringify({
+            reason: activar
+              ? 'Reactivación por el usuario'
+              : 'Suspensión de renovación por el usuario',
+          }),
+        }
+      );
+
+      if (!response.ok && response.status !== 204) {
+        throw new Error(`Error ${action} suscripción PayPal`);
+      }
+
+      console.log(`✅ PayPal: suscripción ${action}d`);
+    } catch (error: any) {
+      console.error('Error actualizando suscripción en PayPal:', error);
+      throw new Error(`Error en PayPal: ${error.message}`);
+    }
+  }
+
+  // Helper para obtener token de PayPal
+  private async getPayPalAccessToken(): Promise<string> {
+    const auth = Buffer.from(
+      `${config.paypal.clientId}:${config.paypal.clientSecret}`
+    ).toString('base64');
+
+    const response = await fetch(
+      `https://api-m.${config.paypal.mode}.paypal.com/v1/oauth2/token`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'grant_type=client_credentials',
+      }
+    );
+
+    const data = await response.json() as any;
+    return data.access_token;
+  }
+
+  // Obtener estado de renovación
+  async getEstadoRenovacion(empresaId: string) {
+    const licencia = await Licencia.findOne({ empresaId }).populate('planId');
+    if (!licencia) {
+      throw new Error('Licencia no encontrada');
+    }
+
+    const plan = licencia.planId as any;
+
+    return {
+      renovacionAutomatica: licencia.renovacionAutomatica,
+      fechaRenovacion: licencia.fechaRenovacion,
+      estado: licencia.estado,
+      plan: plan.nombre,
+      tipoSuscripcion: licencia.tipoSuscripcion,
+      pasarela: licencia.stripeSubscriptionId ? 'stripe' :
+                licencia.paypalSubscriptionId ? 'paypal' : null,
+    };
+  }
+
+  // ============================================
+  // PERMISOS DISPONIBLES SEGÚN PLAN
+  // ============================================
+
+  /**
+   * Obtener permisos especiales disponibles según el plan contratado
+   * Usado en el frontend para ocultar opciones no disponibles
+   */
+  async getPermisosDisponibles(empresaId: string) {
+    const licencia = await Licencia.findOne({ empresaId }).populate('planId');
+    if (!licencia) {
+      throw new Error('Licencia no encontrada');
+    }
+
+    const plan = licencia.planId as any;
+    const modulosContratados: string[] = plan.modulosIncluidos || [];
+
+    // Añadir módulos de add-ons activos
+    const addOnsActivos = licencia.addOns?.filter((a: any) => a.activo) || [];
+    for (const addOn of addOnsActivos) {
+      if (addOn.slug && !modulosContratados.includes(addOn.slug)) {
+        modulosContratados.push(addOn.slug);
+      }
+    }
+
+    // Mapeo de módulos a permisos especiales
+    const moduloToPermiso: Record<string, string[]> = {
+      rrhh: ['accesoRRHH'],
+      informes: ['accesoInformes'],
+      taller: ['accesoTaller'],
+      tpv: ['accesoTPV'],
+      contabilidad: ['accesoContabilidad'],
+      // Permisos base siempre disponibles
+      base: ['accesoVentas', 'accesoCompras', 'accesoAlmacen', 'accesoClientes', 'accesoProveedores'],
+    };
+
+    // Permisos siempre disponibles (base del sistema)
+    const permisosDisponibles: string[] = [...moduloToPermiso.base];
+
+    // Añadir permisos según módulos contratados
+    for (const modulo of modulosContratados) {
+      const permisos = moduloToPermiso[modulo];
+      if (permisos) {
+        permisosDisponibles.push(...permisos);
+      }
+    }
+
+    // Lista completa de permisos especiales y cuáles están disponibles
+    const todosLosPermisos = [
+      { key: 'accesoRRHH', label: 'Recursos Humanos', modulo: 'rrhh' },
+      { key: 'accesoInformes', label: 'Informes Avanzados', modulo: 'informes' },
+      { key: 'accesoTaller', label: 'Gestión de Taller', modulo: 'taller' },
+      { key: 'accesoTPV', label: 'Terminal Punto de Venta', modulo: 'tpv' },
+      { key: 'accesoContabilidad', label: 'Contabilidad', modulo: 'contabilidad' },
+      { key: 'accesoVentas', label: 'Ventas', modulo: 'base' },
+      { key: 'accesoCompras', label: 'Compras', modulo: 'base' },
+      { key: 'accesoAlmacen', label: 'Almacén', modulo: 'base' },
+      { key: 'accesoClientes', label: 'Clientes', modulo: 'base' },
+      { key: 'accesoProveedores', label: 'Proveedores', modulo: 'base' },
+    ];
+
+    return {
+      plan: plan.nombre,
+      modulosContratados,
+      permisos: todosLosPermisos.map(p => ({
+        ...p,
+        disponible: permisosDisponibles.includes(p.key),
+        requiereUpgrade: !permisosDisponibles.includes(p.key),
+      })),
     };
   }
 }

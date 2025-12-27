@@ -47,8 +47,8 @@ export default function SessionsPage() {
     try {
       const response = await authService.logoutAllSessions()
       toast.success(response.message)
-      // Redirigir al login
-      router.push('/login')
+      // Redirigir a la pagina principal
+      router.push('/')
     } catch (error: any) {
       toast.error('Error al cerrar todas las sesiones')
       console.error(error)

@@ -352,7 +352,7 @@ class AdminService {
           usuariosTotales: 1,
           facturasEsteMes: 0,
           productosActuales: 0,
-          almacenesActuales: 1,
+          almacenesActuales: 0,
           clientesActuales: 0,
           tpvsActuales: 0,
           almacenamientoUsadoGB: 0,

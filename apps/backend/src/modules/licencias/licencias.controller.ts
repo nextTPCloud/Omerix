@@ -153,3 +153,68 @@ export const getResumenFacturacion = async (req: Request, res: Response) => {
     });
   }
 };
+
+// Toggle renovación automática
+export const toggleRenovacionAutomatica = async (req: Request, res: Response) => {
+  try {
+    const empresaId = req.empresaId!;
+    const { activar } = req.body;
+
+    if (typeof activar !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'El campo "activar" es requerido y debe ser booleano',
+      });
+    }
+
+    const result = await licenciasService.toggleRenovacionAutomatica(empresaId, activar);
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error toggle renovación:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error actualizando renovación automática',
+    });
+  }
+};
+
+// Obtener estado de renovación
+export const getEstadoRenovacion = async (req: Request, res: Response) => {
+  try {
+    const empresaId = req.empresaId!;
+
+    const result = await licenciasService.getEstadoRenovacion(empresaId);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error obteniendo estado renovación:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error obteniendo estado de renovación',
+    });
+  }
+};
+
+// Obtener permisos disponibles según el plan
+export const getPermisosDisponibles = async (req: Request, res: Response) => {
+  try {
+    const empresaId = req.empresaId!;
+
+    const result = await licenciasService.getPermisosDisponibles(empresaId);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error obteniendo permisos disponibles:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error obteniendo permisos disponibles',
+    });
+  }
+};

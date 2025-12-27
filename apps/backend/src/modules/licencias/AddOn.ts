@@ -21,6 +21,12 @@ export interface IAddOn extends Document {
   // Tipo de cobro
   esRecurrente: boolean; // true = mensual/anual, false = pago único
 
+  // IDs en pasarelas de pago (para suscripciones)
+  stripePriceId?: string;
+  stripePriceIdAnual?: string;
+  paypalPlanId?: string;
+  paypalPlanIdAnual?: string;
+
   // Características que otorga
   caracteristicas?: string[];
 
@@ -88,6 +94,11 @@ const AddOnSchema = new Schema<IAddOn>(
       type: Boolean,
       default: true,
     },
+    // IDs en pasarelas de pago
+    stripePriceId: String,
+    stripePriceIdAnual: String,
+    paypalPlanId: String,
+    paypalPlanIdAnual: String,
     caracteristicas: [{
       type: String,
     }],

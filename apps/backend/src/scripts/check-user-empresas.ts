@@ -11,7 +11,7 @@ async function checkRelaciones() {
     const db = mongoose.connection.db!;
 
     console.log('=== RELACIONES USUARIO-EMPRESA ===');
-    const relaciones = await db.collection('usuarioempresas').find({}).toArray();
+    const relaciones = await db.collection('usuarioempresa').find({}).toArray();
     console.log('Total relaciones:', relaciones.length);
 
     for (const rel of relaciones) {
@@ -29,7 +29,7 @@ async function checkRelaciones() {
     console.log('\n=== EMPRESAS DE paco.tugores@gmail.com ===');
     const paco = await db.collection('usuarios').findOne({ email: 'paco.tugores@gmail.com' });
     if (paco) {
-      const empresasPaco = await db.collection('usuarioempresas')
+      const empresasPaco = await db.collection('usuarioempresa')
         .find({ usuarioId: paco._id, activo: true })
         .toArray();
 

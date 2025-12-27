@@ -99,7 +99,7 @@ interface SkinContextType {
 const SkinContext = createContext<SkinContextType | undefined>(undefined);
 
 // Clave para localStorage
-const SKIN_STORAGE_KEY = 'omerix-skin';
+const SKIN_STORAGE_KEY = 'tralok-skin';
 
 // Props del provider
 interface SkinProviderProps {

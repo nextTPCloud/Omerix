@@ -24,7 +24,7 @@ async function migrateUsuarioEmpresa() {
     console.log(`🏢 Total empresas: ${empresas.length}`);
 
     // 3. Obtener relaciones existentes
-    const relacionesExistentes = await db.collection('usuarioempresas').find({}).toArray();
+    const relacionesExistentes = await db.collection('usuarioempresa').find({}).toArray();
     console.log(`🔗 Relaciones existentes: ${relacionesExistentes.length}\n`);
 
     let creadas = 0;
@@ -42,7 +42,7 @@ async function migrateUsuarioEmpresa() {
           );
 
           if (!existeRelacion) {
-            await db.collection('usuarioempresas').insertOne({
+            await db.collection('usuarioempresa').insertOne({
               usuarioId: usuario._id,
               empresaId: usuario.empresaId,
               rol: 'admin',
@@ -69,7 +69,7 @@ async function migrateUsuarioEmpresa() {
           );
 
           if (!existeRelacion) {
-            await db.collection('usuarioempresas').insertOne({
+            await db.collection('usuarioempresa').insertOne({
               usuarioId: usuario._id,
               empresaId: empresa._id,
               rol: 'admin',
@@ -96,7 +96,7 @@ async function migrateUsuarioEmpresa() {
               (e) => e._id?.toString() === usuario.empresaId?.toString()
             );
 
-            await db.collection('usuarioempresas').insertOne({
+            await db.collection('usuarioempresa').insertOne({
               usuarioId: usuario._id,
               empresaId: usuario.empresaId,
               rol: usuario.rol || 'empleado',
@@ -121,7 +121,7 @@ async function migrateUsuarioEmpresa() {
     console.log(`========================================\n`);
 
     // Verificar resultado final
-    const relacionesFinales = await db.collection('usuarioempresas').find({}).toArray();
+    const relacionesFinales = await db.collection('usuarioempresa').find({}).toArray();
     console.log(`📊 Total relaciones ahora: ${relacionesFinales.length}`);
 
   } catch (error) {

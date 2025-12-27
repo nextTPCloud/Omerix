@@ -1,0 +1,13 @@
+{
+  "name": "@tralok/tpv-shared",
+  "version": "1.0.0",
+  "description": "Tipos compartidos TPV Tralok",
+  "main": "types/index.js",
+  "types": "types/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

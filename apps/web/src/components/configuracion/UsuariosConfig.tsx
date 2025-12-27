@@ -59,11 +59,40 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { usuariosService, IUsuario, RolDisponible, CreateUsuarioDTO, UpdateUsuarioDTO, RoleType } from '@/services/usuarios.service'
+import { usuariosService, IUsuario, IPersonalPopulated, RolDisponible, CreateUsuarioDTO, UpdateUsuarioDTO, RoleType } from '@/services/usuarios.service'
 import { personalService } from '@/services/personal.service'
 import { Personal } from '@/types/personal.types'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAuthStore } from '@/stores/authStore'
+
+// Helper para extraer el ID del personalId (puede venir como string o como objeto populado)
+const getPersonalId = (personalId: string | IPersonalPopulated | undefined): string => {
+  if (!personalId) return ''
+  if (typeof personalId === 'string') return personalId
+  return personalId._id || ''
+}
+
+// Helper para obtener el nombre del personal (busca en la lista local)
+const getPersonalNombreFromList = (
+  personalId: string | IPersonalPopulated | undefined,
+  personalList: Personal[]
+): string | null => {
+  if (!personalId) return null
+
+  // Si viene como objeto populado, extraer el nombre directamente
+  if (typeof personalId === 'object' && personalId.nombre) {
+    return `${personalId.nombre} ${personalId.apellidos}`
+  }
+
+  // Si es un string (ID), buscar en la lista local
+  const id = typeof personalId === 'string' ? personalId : personalId._id
+  const personal = personalList.find(p => p._id === id)
+  if (personal) {
+    return `${personal.nombre} ${personal.apellidos}`
+  }
+
+  return null
+}
 
 interface UsuariosConfigProps {
   onUsuariosChange?: () => void
@@ -178,7 +207,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
       apellidos: usuario.apellidos,
       telefono: usuario.telefono || '',
       rol: usuario.rol as Exclude<RoleType, 'superadmin'>,
-      personalId: usuario.personalId || '',
+      personalId: getPersonalId(usuario.personalId), // Extraer ID del objeto populado
       activo: usuario.activo,
     })
     setShowDialog(true)
@@ -412,6 +441,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
                   <TableHead>Usuario</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Rol</TableHead>
+                  <TableHead>Personal vinculado</TableHead>
                   <TableHead className="text-center">2FA</TableHead>
                   <TableHead className="text-center">Estado</TableHead>
                   <TableHead className="w-40"></TableHead>
@@ -454,6 +484,15 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
                       <Badge className={usuariosService.getColorRol(usuario.rol)}>
                         {usuariosService.getNombreRol(usuario.rol)}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {getPersonalNombreFromList(usuario.personalId, personalList) ? (
+                        <span className="text-sm">
+                          {getPersonalNombreFromList(usuario.personalId, personalList)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Sin vincular</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
                       {usuario.twoFactorEnabled ? (
@@ -679,7 +718,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
               <Label htmlFor="personalId">Empleado vinculado</Label>
               <SearchableSelect
                 value={formData.personalId || ''}
-                onValueChange={value => setFormData({ ...formData, personalId: value || undefined })}
+                onValueChange={value => setFormData({ ...formData, personalId: value || '' })}
                 placeholder="Sin vincular (no puede fichar)"
                 searchPlaceholder="Buscar empleado..."
                 emptyMessage="No se encontraron empleados"

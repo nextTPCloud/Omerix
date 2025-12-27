@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmpresaSelector } from './EmpresaSelector'
+import { EmpresaResumen } from '@/types/auth.types'
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -25,7 +27,9 @@ export function LoginForm() {
   const { setAuth } = useAuthStore()
   const [isLoading, setIsLoading] = useState(false)
   const [requires2FA, setRequires2FA] = useState(false)
+  const [requiresEmpresaSelection, setRequiresEmpresaSelection] = useState(false)
   const [userId, setUserId] = useState<string>('')
+  const [empresas, setEmpresas] = useState<EmpresaResumen[]>([])
   const [twoFactorMethod, setTwoFactorMethod] = useState<'app' | 'sms' | null>(null)
   const [code2FA, setCode2FA] = useState('')
 
@@ -48,7 +52,18 @@ const {
         deviceInfo,
       })
 
-      if (response.requires2FA) {
+      if (response.requiresCompanyCreation) {
+        // Superadmin sin empresa de negocio - redirigir a crear empresa
+        setAuth(response.usuario!, response.accessToken!, response.refreshToken!)
+        toast.info('Debes crear una empresa para continuar')
+        router.push('/admin/crear-empresa')
+      } else if (response.requiresEmpresaSelection) {
+        // Usuario tiene acceso a múltiples empresas
+        setUserId(response.userId!)
+        setEmpresas(response.empresas || [])
+        setRequiresEmpresaSelection(true)
+        toast.info('Selecciona la empresa a la que deseas acceder')
+      } else if (response.requires2FA) {
         // Redirigir a la página de verificación 2FA
         toast.info('Introduce el código de verificación')
         router.push(`/verify-2fa?userId=${response.userId}&method=${response.twoFactorMethod}`)
@@ -101,6 +116,51 @@ const {
     } catch (error: any) {
       toast.error('Error al reenviar código')
     }
+  }
+
+  const handleSelectEmpresa = async (empresaId: string) => {
+    setIsLoading(true)
+    try {
+      const deviceInfo = navigator.userAgent
+      const response = await authService.selectEmpresa({
+        userId,
+        empresaId,
+        deviceInfo,
+      })
+
+      if (response.requires2FA) {
+        // Después de seleccionar empresa, puede requerir 2FA
+        toast.info('Introduce el código de verificación')
+        router.push(`/verify-2fa?userId=${response.userId}&method=${response.twoFactorMethod}`)
+      } else if (response.data) {
+        // Login exitoso
+        setAuth(response.data.usuario, response.data.accessToken, response.data.refreshToken)
+        toast.success('¡Bienvenido!')
+        router.push('/dashboard')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al seleccionar empresa')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCancelEmpresaSelection = () => {
+    setRequiresEmpresaSelection(false)
+    setEmpresas([])
+    setUserId('')
+  }
+
+  // Vista de selección de empresa
+  if (requiresEmpresaSelection) {
+    return (
+      <EmpresaSelector
+        empresas={empresas}
+        isLoading={isLoading}
+        onSelect={handleSelectEmpresa}
+        onCancel={handleCancelEmpresaSelection}
+      />
+    )
   }
 
   if (requires2FA) {
@@ -166,7 +226,7 @@ const {
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Iniciar Sesión</CardTitle>
-        <CardDescription>Accede a tu cuenta de Omerix ERP</CardDescription>
+        <CardDescription>Accede a tu cuenta de Tralok ERP</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

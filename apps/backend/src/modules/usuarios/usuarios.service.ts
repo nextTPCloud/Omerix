@@ -95,7 +95,7 @@ class UsuariosService {
       Usuario.find(filter)
         .select('-password -twoFactorSecret -resetPasswordToken -resetPasswordExpires')
         .populate('rolId', 'nombre codigo color')
-        .populate('personalId', 'codigo nombre apellidos')
+        // personalId ahora viene de UsuarioEmpresa (el controller lo enriquece)
         .sort({ nombre: 1, apellidos: 1 })
         .skip(skip)
         .limit(limit)
@@ -116,7 +116,7 @@ class UsuariosService {
     })
       .select('-password -twoFactorSecret -resetPasswordToken -resetPasswordExpires')
       .populate('rolId', 'nombre codigo color permisos')
-      .populate('personalId', 'codigo nombre apellidos')
+      // personalId ahora viene de UsuarioEmpresa (el controller lo enriquece)
       .lean();
   }
 
@@ -226,9 +226,8 @@ class UsuariosService {
     if (data.rolId !== undefined) {
       updateData.rolId = data.rolId ? new Types.ObjectId(data.rolId) : null;
     }
-    if (data.personalId !== undefined) {
-      updateData.personalId = data.personalId ? new Types.ObjectId(data.personalId) : null;
-    }
+    // personalId ahora se guarda en UsuarioEmpresa, no en Usuario
+    // (lo maneja el controller)
     if (data.activo !== undefined) updateData.activo = data.activo;
     if (data.avatar !== undefined) updateData.avatar = data.avatar;
 

@@ -12,10 +12,10 @@ export const dynamic = 'force-dynamic';
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Omerix ERP",
+  title: "Tralok ERP",
   description: "Sistema de gestión empresarial multi-negocio",
   icons: {
-    icon: '/omerix-icon.svg',
+    icon: '/tralok-icon.svg',
   },
 };
 
@@ -30,7 +30,15 @@ export default function RootLayout({
         <SkinProvider>
           <PermissionsProvider>
             {children}
-            <Toaster position="top-right" richColors />
+            <Toaster
+              position="top-right"
+              richColors
+              closeButton
+              duration={3000}
+              toastOptions={{
+                className: 'cursor-pointer',
+              }}
+            />
           </PermissionsProvider>
         </SkinProvider>
       </body>

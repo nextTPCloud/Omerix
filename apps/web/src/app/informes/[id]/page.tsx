@@ -70,7 +70,7 @@ import {
   TipoCampo,
   TipoGraficoInforme,
   formatearValor,
-  MODULOS_INFO,
+  getModuloInfo,
 } from '@/services/informes.service'
 
 // Colores para gráficos
@@ -282,7 +282,7 @@ export default function InformeVisorPage() {
                 cy="50%"
                 outerRadius={tipo === TipoGraficoInforme.DONA ? 120 : 150}
                 innerRadius={tipo === TipoGraficoInforme.DONA ? 60 : 0}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
               >
                 {datos.map((_, i) => (
                   <Cell key={i} fill={colores[i % colores.length]} />
@@ -325,8 +325,8 @@ export default function InformeVisorPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold">{informe.nombre}</h1>
-                <Badge className={MODULOS_INFO[informe.modulo].color}>
-                  {MODULOS_INFO[informe.modulo].label}
+                <Badge className={getModuloInfo(informe.modulo).color}>
+                  {getModuloInfo(informe.modulo).label}
                 </Badge>
               </div>
               {informe.descripcion && (
@@ -362,9 +362,9 @@ export default function InformeVisorPage() {
               <RefreshCw className={`h-4 w-4 ${ejecutando ? 'animate-spin' : ''}`} />
             </Button>
 
-            {informe.config.exportable && (
+            {informe.config?.exportable && (
               <>
-                {informe.config.formatos.includes('csv') && (
+                {informe.config.formatos?.includes('csv') && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -375,7 +375,7 @@ export default function InformeVisorPage() {
                     CSV
                   </Button>
                 )}
-                {informe.config.formatos.includes('excel') && (
+                {informe.config.formatos?.includes('excel') && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -386,7 +386,7 @@ export default function InformeVisorPage() {
                     Excel
                   </Button>
                 )}
-                {informe.config.formatos.includes('pdf') && (
+                {informe.config.formatos?.includes('pdf') && (
                   <Button
                     variant="outline"
                     size="sm"

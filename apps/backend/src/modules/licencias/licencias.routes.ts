@@ -9,6 +9,9 @@ import {
   addAddOn,
   removeAddOn,
   getResumenFacturacion,
+  toggleRenovacionAutomatica,
+  getEstadoRenovacion,
+  getPermisosDisponibles,
 } from './licencias.controller';
 
 const router = Router();
@@ -154,5 +157,59 @@ router.post('/remove-addon', removeAddOn);
  *         description: Resumen de facturación actual
  */
 router.get('/facturacion', getResumenFacturacion);
+
+/**
+ * @swagger
+ * /api/licencias/renovacion:
+ *   get:
+ *     summary: Obtener estado de renovación automática
+ *     tags: [Licencias]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Estado de renovación
+ */
+router.get('/renovacion', getEstadoRenovacion);
+
+/**
+ * @swagger
+ * /api/licencias/renovacion:
+ *   put:
+ *     summary: Activar/Desactivar renovación automática
+ *     tags: [Licencias]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - activar
+ *             properties:
+ *               activar:
+ *                 type: boolean
+ *                 description: true para activar, false para desactivar
+ *     responses:
+ *       200:
+ *         description: Estado actualizado
+ */
+router.put('/renovacion', toggleRenovacionAutomatica);
+
+/**
+ * @swagger
+ * /api/licencias/permisos-disponibles:
+ *   get:
+ *     summary: Obtener permisos disponibles según el plan contratado
+ *     tags: [Licencias]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de permisos y su disponibilidad
+ */
+router.get('/permisos-disponibles', getPermisosDisponibles);
 
 export default router;

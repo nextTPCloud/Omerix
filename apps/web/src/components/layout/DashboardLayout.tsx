@@ -34,7 +34,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (isTokenExpired(accessToken, 120)) {
       const isValid = await checkAndRefreshToken()
       if (!isValid) {
-        router.push('/login')
+        router.push('/')
       }
     }
   }, [isAuthenticated, accessToken, checkAndRefreshToken, router])
@@ -80,7 +80,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     // Redirigir cuando ya se haya cargado del localStorage y no esté autenticado
     if (isHydrated && !isAuthenticated) {
-      router.push('/login')
+      router.push('/')
     }
   }, [isAuthenticated, isHydrated, router])
 

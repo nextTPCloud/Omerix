@@ -95,7 +95,7 @@ export function AddressAutocomplete({
         }),
         {
           headers: {
-            'User-Agent': 'ERP-Omerix/1.0', // Nominatim requiere User-Agent
+            'User-Agent': 'ERP-Tralok/1.0', // Nominatim requiere User-Agent
           },
         }
       )

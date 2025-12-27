@@ -120,6 +120,9 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes';
 // Informes personalizados
 import informesRoutes from './modules/informes/informes.routes';
 
+// TPV - Punto de Venta
+import tpvRoutes from './modules/tpv/tpv.routes';
+
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
 import logger, { httpLoggerMiddleware, logStartup, logShutdown } from './utils/logger/winston.config'; // 🆕 NUEVO
@@ -400,6 +403,9 @@ app.use('/api/dashboard', dashboardRoutes);
 
 // Informes personalizados
 app.use('/api/informes', informesRoutes);
+
+// TPV - Punto de Venta
+app.use('/api/tpv', tpvRoutes);
 
 // ============================================
 // MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS
