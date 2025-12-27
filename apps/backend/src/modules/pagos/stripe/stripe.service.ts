@@ -579,73 +579,127 @@ export class StripeService {
 
   async createCheckoutSession(empresaId: string, data: CreateCheckoutSessionDTO) {
     try {
-      // Obtener plan por slug
-      const plan = await Plan.findOne({ slug: data.planSlug, activo: true });
-      if (!plan) {
-        throw new Error('Plan no encontrado');
-      }
-
       // Obtener o crear customer
       const customerId = await this.getOrCreateCustomer(empresaId);
 
-      // Determinar precio según tipo de suscripción
-      const precio = data.tipoSuscripcion === 'anual'
-        ? plan.precio.anual
-        : plan.precio.mensual;
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+      let plan: any = null;
+      const addOnSlugs: string[] = data.addOns || [];
 
-      // Crear o recuperar el precio en Stripe
-      let stripePriceId: string;
-
-      if (data.tipoSuscripcion === 'anual' && plan.stripePriceIdAnual) {
-        stripePriceId = plan.stripePriceIdAnual;
-      } else if (data.tipoSuscripcion === 'mensual' && plan.stripePriceId) {
-        stripePriceId = plan.stripePriceId;
-      } else {
-        // Crear precio en Stripe si no existe
-        const stripePrice = await stripe.prices.create({
-          currency: 'eur',
-          unit_amount: Math.round(precio * 100),
-          recurring: {
-            interval: data.tipoSuscripcion === 'anual' ? 'year' : 'month',
-          },
-          product_data: {
-            name: `Plan ${plan.nombre} (${data.tipoSuscripcion})`,
-          },
-        });
-
-        stripePriceId = stripePrice.id;
-
-        // Guardar para futuras referencias
-        if (data.tipoSuscripcion === 'anual') {
-          plan.stripePriceIdAnual = stripePriceId;
-        } else {
-          plan.stripePriceId = stripePriceId;
+      // Si no es solo add-ons, obtener el plan
+      if (!data.onlyAddOns && data.planSlug) {
+        plan = await Plan.findOne({ slug: data.planSlug, activo: true });
+        if (!plan) {
+          throw new Error('Plan no encontrado');
         }
-        await plan.save();
+
+        // Determinar precio según tipo de suscripción
+        const precio = data.tipoSuscripcion === 'anual'
+          ? plan.precio.anual
+          : plan.precio.mensual;
+
+        // Crear o recuperar el precio en Stripe
+        let stripePriceId: string;
+
+        if (data.tipoSuscripcion === 'anual' && plan.stripePriceIdAnual) {
+          stripePriceId = plan.stripePriceIdAnual;
+        } else if (data.tipoSuscripcion === 'mensual' && plan.stripePriceId) {
+          stripePriceId = plan.stripePriceId;
+        } else {
+          // Crear precio en Stripe si no existe
+          const stripePrice = await stripe.prices.create({
+            currency: 'eur',
+            unit_amount: Math.round(precio * 100),
+            recurring: {
+              interval: data.tipoSuscripcion === 'anual' ? 'year' : 'month',
+            },
+            product_data: {
+              name: `Plan ${plan.nombre} (${data.tipoSuscripcion})`,
+            },
+          });
+
+          stripePriceId = stripePrice.id;
+
+          // Guardar para futuras referencias
+          if (data.tipoSuscripcion === 'anual') {
+            plan.stripePriceIdAnual = stripePriceId;
+          } else {
+            plan.stripePriceId = stripePriceId;
+          }
+          await plan.save();
+        }
+
+        lineItems.push({
+          price: stripePriceId,
+          quantity: 1,
+        });
+      }
+
+      // Procesar add-ons
+      if (addOnSlugs.length > 0) {
+        const addOns = await AddOn.find({ slug: { $in: addOnSlugs }, activo: true });
+
+        for (const addOn of addOns) {
+          const precio = data.tipoSuscripcion === 'anual' && addOn.precioAnual
+            ? addOn.precioAnual
+            : addOn.precioMensual;
+
+          // Crear precio en Stripe para el add-on
+          const stripePriceKey = data.tipoSuscripcion === 'anual'
+            ? 'stripePriceIdAnual'
+            : 'stripePriceId';
+
+          let addonPriceId = (addOn as any)[stripePriceKey];
+
+          if (!addonPriceId) {
+            const stripePrice = await stripe.prices.create({
+              currency: 'eur',
+              unit_amount: Math.round(precio * 100),
+              recurring: addOn.esRecurrente ? {
+                interval: data.tipoSuscripcion === 'anual' ? 'year' : 'month',
+              } : undefined,
+              product_data: {
+                name: `${addOn.nombre} (${data.tipoSuscripcion})`,
+              },
+            });
+
+            addonPriceId = stripePrice.id;
+            (addOn as any)[stripePriceKey] = addonPriceId;
+            await addOn.save();
+          }
+
+          lineItems.push({
+            price: addonPriceId,
+            quantity: 1,
+          });
+        }
+      }
+
+      // Verificar que hay al menos un item
+      if (lineItems.length === 0) {
+        throw new Error('Debes seleccionar al menos un plan o add-on');
       }
 
       // Crear Checkout Session
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         mode: 'subscription',
-        line_items: [
-          {
-            price: stripePriceId,
-            quantity: 1,
-          },
-        ],
+        line_items: lineItems,
         success_url: data.successUrl,
         cancel_url: data.cancelUrl,
         metadata: {
           empresaId,
-          planId: String(plan._id),
-          planSlug: plan.slug,
+          planId: plan ? String(plan._id) : '',
+          planSlug: plan?.slug || '',
           tipoSuscripcion: data.tipoSuscripcion,
+          addOns: addOnSlugs.join(','),
+          onlyAddOns: data.onlyAddOns ? 'true' : 'false',
         },
         subscription_data: {
           metadata: {
             empresaId,
-            planId: String(plan._id),
+            planId: plan ? String(plan._id) : '',
+            addOns: addOnSlugs.join(','),
           },
         },
         allow_promotion_codes: true,

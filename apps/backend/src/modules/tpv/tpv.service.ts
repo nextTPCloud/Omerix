@@ -6,6 +6,7 @@ import SesionTPV, { ISesionTPV } from './SesionTPV';
 import Licencia from '../licencias/Licencia';
 import Empresa from '../empresa/Empresa';
 import Usuario from '../usuarios/Usuario';
+import UsuarioEmpresa from '../usuarios/UsuarioEmpresa';
 import mongoose from 'mongoose';
 
 // Generar token corto (8 caracteres alfanumericos, facil de escribir)
@@ -48,14 +49,16 @@ export class TPVService {
 
     // 2. Calcular limite de TPVs
     const plan = licencia.planId as any;
-    let limiteTPVs = plan.limites?.tpvs || 0;
+    // El campo correcto es tpvsActivos
+    let limiteTPVs = plan.limites?.tpvsActivos || 0;
 
-    // Sumar TPVs extra contratados como add-on
+    // Sumar TPVs del add-on de TPV/Restauracion
     const addonTPV = licencia.addOns.find(
-      (a) => a.slug === 'tpv-extra' && a.activo
+      (a) => (a.slug === 'tpv' || a.slug === 'restauracion' || a.slug === 'tpv-extra') && a.activo
     );
     if (addonTPV) {
-      limiteTPVs += addonTPV.cantidad;
+      // El add-on TPV incluye 1 TPV por defecto, o la cantidad especificada
+      limiteTPVs += addonTPV.cantidad || 1;
     }
 
     // 3. Verificar TPVs actuales
@@ -95,11 +98,12 @@ export class TPVService {
 
   /**
    * Activa un TPV usando el token de activacion
+   * El almacenId es opcional - se puede configurar despues
    */
   async activarTPV(
     token: string,
     nombre: string,
-    almacenId: string,
+    almacenId: string | undefined,
     deviceInfo: { ip: string; version?: string }
   ): Promise<{
     tpvId: string;
@@ -110,6 +114,21 @@ export class TPVService {
     config: ITPVRegistrado['config'];
   }> {
     // 1. Buscar y validar token
+    console.log('[TPV Service] Buscando token:', token);
+
+    // Primero buscar el token sin validaciones para debug
+    const tokenExiste = await TPVActivationToken.findOne({ token });
+    if (tokenExiste) {
+      console.log('[TPV Service] Token encontrado:', {
+        usado: tokenExiste.usado,
+        expiraEn: tokenExiste.expiraEn,
+        ahora: new Date(),
+        expirado: tokenExiste.expiraEn < new Date()
+      });
+    } else {
+      console.log('[TPV Service] Token NO encontrado en BD');
+    }
+
     const activationToken = await TPVActivationToken.findOne({
       token,
       usado: false,
@@ -120,15 +139,19 @@ export class TPVService {
       throw new Error('Token invalido o expirado');
     }
 
-    // 2. Verificar que el almacen existe y pertenece a la empresa
-    const Almacen = mongoose.model('Almacen');
-    const almacen = await Almacen.findOne({
-      _id: almacenId,
-      empresaId: activationToken.empresaId,
-    });
+    // 2. Verificar almacen si se proporciona
+    let almacenIdFinal: string | undefined = undefined;
+    if (almacenId) {
+      const Almacen = mongoose.model('Almacen');
+      const almacen = await Almacen.findOne({
+        _id: almacenId,
+        empresaId: activationToken.empresaId,
+      });
 
-    if (!almacen) {
-      throw new Error('Almacen no encontrado');
+      if (!almacen) {
+        throw new Error('Almacen no encontrado');
+      }
+      almacenIdFinal = almacenId;
     }
 
     // 3. Generar codigo de TPV
@@ -148,7 +171,7 @@ export class TPVService {
       deviceId: uuidv4(),
       secretHash: hashToken(tpvSecret),
       tokenVersion: 1,
-      almacenId,
+      almacenId: almacenIdFinal,
       serieFactura: 'FS',
       config: {
         permitirDescuentos: true,
@@ -211,15 +234,21 @@ export class TPVService {
       throw new Error('Credenciales de TPV invalidas');
     }
 
-    // 2. Buscar usuario por PIN
-    const usuario = await Usuario.findOne({
+    // 2. Buscar relacion usuario-empresa por PIN
+    const usuarioEmpresa = await UsuarioEmpresa.findOne({
       empresaId: tpv.empresaId,
       pinTPV: pin,
       activo: true,
-    });
+    }).populate('usuarioId');
 
-    if (!usuario) {
+    if (!usuarioEmpresa || !usuarioEmpresa.usuarioId) {
       throw new Error('PIN incorrecto');
+    }
+
+    // Obtener el usuario
+    const usuario = usuarioEmpresa.usuarioId as any;
+    if (!usuario.activo) {
+      throw new Error('Usuario inactivo');
     }
 
     // 3. Verificar limite de usuarios simultaneos
@@ -356,14 +385,17 @@ export class TPVService {
    * Lista TPVs de una empresa
    */
   async listarTPVs(empresaId: string): Promise<ITPVRegistrado[]> {
-    return TPVRegistrado.find({ empresaId }).sort({ codigo: 1 });
+    return TPVRegistrado.find({ empresaId })
+      .populate('almacenId', 'codigo nombre')
+      .sort({ codigo: 1 });
   }
 
   /**
    * Obtiene un TPV por ID
    */
   async obtenerTPV(tpvId: string, empresaId: string): Promise<ITPVRegistrado | null> {
-    return TPVRegistrado.findOne({ _id: tpvId, empresaId });
+    return TPVRegistrado.findOne({ _id: tpvId, empresaId })
+      .populate('almacenId', 'codigo nombre');
   }
 
   /**
@@ -480,6 +512,54 @@ export class TPVService {
       { tpvId, activa: true },
       { activa: false, finSesion: new Date(), motivoFin: 'forzado' }
     );
+  }
+
+  /**
+   * Elimina un TPV permanentemente (para reasignar licencia)
+   * No se puede eliminar si tiene ventas realizadas
+   */
+  async eliminarTPV(
+    tpvId: string,
+    empresaId: string,
+    usuarioId: string
+  ): Promise<void> {
+    const tpv = await TPVRegistrado.findOne({ _id: tpvId, empresaId });
+    if (!tpv) {
+      throw new Error('TPV no encontrado');
+    }
+
+    // Verificar si hay sesiones historicas con ventas
+    const sesionesConVentas = await SesionTPV.countDocuments({
+      tpvId,
+      cajaId: { $exists: true, $ne: null }
+    });
+
+    if (sesionesConVentas > 0) {
+      throw new Error('No se puede eliminar el TPV porque tiene ventas realizadas. Solo puedes desactivarlo.');
+    }
+
+    // Cerrar todas las sesiones activas
+    await SesionTPV.updateMany(
+      { tpvId, activa: true },
+      { activa: false, finSesion: new Date(), motivoFin: 'eliminado' }
+    );
+
+    // Decrementar contador en licencia solo si estaba activo
+    if (tpv.estado !== 'desactivado') {
+      await Licencia.updateOne(
+        { empresaId },
+        { $inc: { 'usoActual.tpvsActuales': -1 } }
+      );
+    }
+
+    // Eliminar sesiones del TPV (solo si no tiene ventas)
+    await SesionTPV.deleteMany({ tpvId });
+
+    // Eliminar el TPV
+    await TPVRegistrado.deleteOne({ _id: tpvId, empresaId });
+
+    // Eliminar tokens de activacion asociados (si los hay)
+    await TPVActivationToken.deleteMany({ tpvId });
   }
 
   /**

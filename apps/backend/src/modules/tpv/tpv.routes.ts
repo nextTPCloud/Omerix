@@ -11,6 +11,7 @@ import {
   obtenerTPV,
   actualizarTPV,
   desactivarTPV,
+  eliminarTPV,
   obtenerSesiones,
   forzarCierreSesion,
   revocarTokenTPV,
@@ -134,6 +135,99 @@ router.post('/heartbeat', heartbeat);
  *         description: Logout exitoso
  */
 router.post('/logout', logoutTPV);
+
+// ===== RUTAS DE SINCRONIZACION (autenticacion por tpvId/tpvSecret) =====
+
+/**
+ * @swagger
+ * /api/tpv/sync/descargar:
+ *   post:
+ *     summary: Descarga datos para el TPV (productos, clientes, tarifas)
+ *     tags: [TPV]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tpvId
+ *               - tpvSecret
+ *             properties:
+ *               tpvId:
+ *                 type: string
+ *               tpvSecret:
+ *                 type: string
+ *               ultimaSync:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Fecha de ultima sincronizacion para sync incremental
+ *     responses:
+ *       200:
+ *         description: Datos descargados
+ */
+router.post('/sync/descargar', descargarDatos);
+
+/**
+ * @swagger
+ * /api/tpv/sync/subir:
+ *   post:
+ *     summary: Sube ventas realizadas en modo offline
+ *     tags: [TPV]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tpvId
+ *               - tpvSecret
+ *               - ventas
+ *             properties:
+ *               tpvId:
+ *                 type: string
+ *               tpvSecret:
+ *                 type: string
+ *               ventas:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *     responses:
+ *       200:
+ *         description: Ventas procesadas
+ */
+router.post('/sync/subir', subirVentas);
+
+/**
+ * @swagger
+ * /api/tpv/sync/stock:
+ *   post:
+ *     summary: Obtiene stock actual de productos
+ *     tags: [TPV]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tpvId
+ *               - tpvSecret
+ *             properties:
+ *               tpvId:
+ *                 type: string
+ *               tpvSecret:
+ *                 type: string
+ *               productosIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Stock obtenido
+ */
+router.post('/sync/stock', obtenerStock);
 
 // ===== RUTAS PROTEGIDAS (para la web de administracion) =====
 router.use(authMiddleware);
@@ -303,5 +397,25 @@ router.post('/:id/desactivar', desactivarTPV);
  *         description: Token revocado
  */
 router.post('/:id/revocar-token', revocarTokenTPV);
+
+/**
+ * @swagger
+ * /api/tpv/{id}:
+ *   delete:
+ *     summary: Elimina un TPV permanentemente
+ *     tags: [TPV]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: TPV eliminado
+ */
+router.delete('/:id', eliminarTPV);
 
 export default router;

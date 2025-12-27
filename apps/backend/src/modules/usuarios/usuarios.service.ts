@@ -28,9 +28,10 @@ export interface UpdateUsuarioDTO {
   telefono?: string;
   rol?: Role;
   rolId?: string;
-  personalId?: string | null;  // Vinculación con empleado para fichaje
+  personalId?: string | null;  // Vinculación con empleado para fichaje (guardado en UsuarioEmpresa)
   activo?: boolean;
   avatar?: string;
+  // pinTPV ahora se guarda en UsuarioEmpresa, no en Usuario
 }
 
 /**
@@ -226,7 +227,7 @@ class UsuariosService {
     if (data.rolId !== undefined) {
       updateData.rolId = data.rolId ? new Types.ObjectId(data.rolId) : null;
     }
-    // personalId ahora se guarda en UsuarioEmpresa, no en Usuario
+    // personalId y pinTPV ahora se guardan en UsuarioEmpresa, no en Usuario
     // (lo maneja el controller)
     if (data.activo !== undefined) updateData.activo = data.activo;
     if (data.avatar !== undefined) updateData.avatar = data.avatar;

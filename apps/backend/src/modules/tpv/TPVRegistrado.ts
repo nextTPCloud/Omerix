@@ -13,25 +13,65 @@ export interface ITPVRegistrado extends Document {
   secretHash: string;          // Hash del tpvSecret
   tokenVersion: number;        // Para invalidar tokens (se incrementa al revocar)
 
-  // Configuracion asignada
-  almacenId: mongoose.Types.ObjectId;
+  // Configuracion asignada (opcional - se puede configurar despues)
+  almacenId?: mongoose.Types.ObjectId;
   serieFactura: string;        // Serie para facturas simplificadas
 
   config: {
+    // Opciones de venta
     permitirDescuentos: boolean;
     descuentoMaximo: number;
     permitirPrecioManual: boolean;
     modoOfflinePermitido: boolean;
     diasCacheProductos: number;
+
+    // Impresora de tickets
     impresoraTicket?: {
+      activa: boolean;
       tipo: 'usb' | 'red' | 'bluetooth' | 'serial';
       conexion: string;
       anchoTicket: 58 | 80;
     };
+
+    // Impresora de cocina
     impresoraCocina?: {
+      activa: boolean;
       tipo: 'usb' | 'red' | 'bluetooth' | 'serial';
       conexion: string;
       anchoTicket: 58 | 80;
+    };
+
+    // Visor de cliente
+    visorCliente?: {
+      activo: boolean;
+      tipo: 'serial' | 'usb' | 'red';
+      conexion: string;
+      lineas: number; // 2 o 4 lineas
+    };
+
+    // Cajon portamonedas
+    cajonPortamonedas?: {
+      activo: boolean;
+      tipo: 'impresora' | 'serial' | 'usb'; // impresora = se abre via impresora
+      conexion?: string; // solo si no es via impresora
+      abrirAlCobrar: boolean;
+      abrirAlAbrirCaja: boolean;
+    };
+
+    // Lector de codigo de barras
+    lectorCodigoBarras?: {
+      activo: boolean;
+      tipo: 'usb' | 'serial' | 'bluetooth';
+      prefijo?: string;
+      sufijo?: string;
+    };
+
+    // Bascula
+    bascula?: {
+      activa: boolean;
+      tipo: 'serial' | 'usb';
+      conexion: string;
+      protocolo: 'epelsa' | 'dibal' | 'marques' | 'generico';
     };
   };
 
@@ -83,27 +123,67 @@ const TPVRegistradoSchema = new Schema<ITPVRegistrado>(
     almacenId: {
       type: Schema.Types.ObjectId,
       ref: 'Almacen',
-      required: true,
+      required: false, // Opcional - se puede configurar despues de la activacion
     },
     serieFactura: {
       type: String,
       default: 'FS', // Factura Simplificada
     },
     config: {
+      // Opciones de venta
       permitirDescuentos: { type: Boolean, default: true },
       descuentoMaximo: { type: Number, default: 100 },
       permitirPrecioManual: { type: Boolean, default: false },
       modoOfflinePermitido: { type: Boolean, default: true },
       diasCacheProductos: { type: Number, default: 7 },
+
+      // Impresora de tickets
       impresoraTicket: {
+        activa: { type: Boolean, default: false },
         tipo: { type: String, enum: ['usb', 'red', 'bluetooth', 'serial'] },
         conexion: String,
-        anchoTicket: { type: Number, enum: [58, 80] },
+        anchoTicket: { type: Number, enum: [58, 80], default: 80 },
       },
+
+      // Impresora de cocina
       impresoraCocina: {
+        activa: { type: Boolean, default: false },
         tipo: { type: String, enum: ['usb', 'red', 'bluetooth', 'serial'] },
         conexion: String,
-        anchoTicket: { type: Number, enum: [58, 80] },
+        anchoTicket: { type: Number, enum: [58, 80], default: 80 },
+      },
+
+      // Visor de cliente
+      visorCliente: {
+        activo: { type: Boolean, default: false },
+        tipo: { type: String, enum: ['serial', 'usb', 'red'] },
+        conexion: String,
+        lineas: { type: Number, default: 2 },
+      },
+
+      // Cajon portamonedas
+      cajonPortamonedas: {
+        activo: { type: Boolean, default: false },
+        tipo: { type: String, enum: ['impresora', 'serial', 'usb'], default: 'impresora' },
+        conexion: String,
+        abrirAlCobrar: { type: Boolean, default: true },
+        abrirAlAbrirCaja: { type: Boolean, default: true },
+      },
+
+      // Lector de codigo de barras
+      lectorCodigoBarras: {
+        activo: { type: Boolean, default: true },
+        tipo: { type: String, enum: ['usb', 'serial', 'bluetooth'], default: 'usb' },
+        prefijo: String,
+        sufijo: String,
+      },
+
+      // Bascula
+      bascula: {
+        activa: { type: Boolean, default: false },
+        tipo: { type: String, enum: ['serial', 'usb'] },
+        conexion: String,
+        protocolo: { type: String, enum: ['epelsa', 'dibal', 'marques', 'generico'] },
       },
     },
     estado: {

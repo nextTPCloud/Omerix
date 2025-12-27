@@ -96,6 +96,10 @@ export type RecursoSistema =
   | 'stock'
   | 'inventarios'
   | 'traspasos'
+  // TPV - Punto de Venta
+  | 'tpv'              // Gestion de TPVs registrados
+  | 'tpv-sesiones'     // Ver/cerrar sesiones de TPV
+  | 'cajas'            // Cajas registradoras
   // Otros
   | 'tarifas'
   | 'ofertas'
@@ -272,6 +276,10 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         stock: ['create', 'read', 'update', 'delete', 'export'],
         inventarios: ['create', 'read', 'update', 'delete', 'export'],
         traspasos: ['create', 'read', 'update', 'delete', 'export'],
+        // TPV
+        tpv: ['create', 'read', 'update', 'delete'],
+        'tpv-sesiones': ['read', 'delete'],
+        cajas: ['create', 'read', 'update', 'delete', 'export'],
         // Otros
         tarifas: ['create', 'read', 'update', 'delete'],
         ofertas: ['create', 'read', 'update', 'delete'],
@@ -333,6 +341,10 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         stock: ['read', 'update', 'export'],
         inventarios: ['create', 'read', 'update', 'export'],
         traspasos: ['create', 'read', 'update', 'export'],
+        // TPV
+        tpv: ['create', 'read', 'update'],
+        'tpv-sesiones': ['read', 'delete'],
+        cajas: ['create', 'read', 'update', 'export'],
         // Otros
         tarifas: ['create', 'read', 'update'],
         ofertas: ['create', 'read', 'update', 'delete'],
@@ -416,6 +428,10 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         stock: ['read'],
         inventarios: [],
         traspasos: [],
+        // TPV - acceso operativo
+        tpv: ['read'],
+        'tpv-sesiones': [],
+        cajas: ['create', 'read', 'update'],
         // Otros
         tarifas: ['read'],
         ofertas: ['read'],
@@ -488,6 +504,10 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         stock: ['read'],
         inventarios: ['read'],
         traspasos: ['read'],
+        // TPV - sin acceso
+        tpv: [],
+        'tpv-sesiones': [],
+        cajas: [],
         // Otros
         tarifas: [],
         ofertas: [],
@@ -554,6 +574,10 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         stock: ['create', 'read', 'update', 'export'],
         inventarios: ['create', 'read', 'update', 'export'],
         traspasos: ['create', 'read', 'update', 'export'],
+        // TPV - sin acceso
+        tpv: [],
+        'tpv-sesiones': [],
+        cajas: [],
         // Otros
         tarifas: [],
         ofertas: [],
@@ -620,6 +644,10 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         stock: ['read'],
         inventarios: ['read'],
         traspasos: ['read'],
+        // TPV lectura
+        tpv: ['read'],
+        'tpv-sesiones': ['read'],
+        cajas: ['read'],
         // Otros lectura
         tarifas: ['read'],
         ofertas: ['read'],
@@ -691,6 +719,10 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         stock: [],
         inventarios: [],
         traspasos: [],
+        // TPV - sin acceso
+        tpv: [],
+        'tpv-sesiones': [],
+        cajas: [],
         // Otros
         tarifas: [],
         ofertas: [],
@@ -761,6 +793,10 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         stock: [],
         inventarios: [],
         traspasos: [],
+        // TPV - lectura de cajas
+        tpv: [],
+        'tpv-sesiones': [],
+        cajas: ['read', 'export'],
         // Otros
         tarifas: [],
         ofertas: [],

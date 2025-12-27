@@ -30,6 +30,7 @@ const UpdateUsuarioSchema = z.object({
   rol: z.string().min(1).max(50).optional(),
   rolId: z.string().optional().nullable(),
   personalId: z.string().optional().nullable(),
+  pinTPV: z.string().regex(/^\d{4,6}$/, 'El PIN debe tener entre 4 y 6 dígitos').optional().nullable(),
   activo: z.boolean().optional(),
   avatar: z.string().optional().nullable(),
 });
@@ -96,18 +97,24 @@ class UsuariosController {
         activo: true,
       });
 
-      // Crear mapa de usuarioId -> personalId
+      // Crear mapas de usuarioId -> personalId y usuarioId -> pinTPV
       const personalIdMap = new Map<string, string>();
+      const pinTPVMap = new Map<string, string>();
       for (const rel of relacionesEmpresa) {
+        const usuarioIdStr = String(rel.usuarioId);
         if (rel.personalId) {
-          personalIdMap.set(String(rel.usuarioId), String(rel.personalId));
+          personalIdMap.set(usuarioIdStr, String(rel.personalId));
+        }
+        if (rel.pinTPV) {
+          pinTPVMap.set(usuarioIdStr, rel.pinTPV);
         }
       }
 
-      // Enriquecer usuarios con personalId de UsuarioEmpresa
+      // Enriquecer usuarios con datos de UsuarioEmpresa
       const usuariosEnriquecidos = result.usuarios.map((usuario) => ({
         ...usuario,
         personalId: personalIdMap.get(String(usuario._id)) || null,
+        pinTPV: pinTPVMap.get(String(usuario._id)) || null,
       }));
 
       res.json({
@@ -264,24 +271,25 @@ class UsuariosController {
         });
       }
 
-      // Obtener personalId de UsuarioEmpresa
+      // Obtener datos de UsuarioEmpresa
       const relacionEmpresa = await UsuarioEmpresa.findOne({
         usuarioId: new Types.ObjectId(id),
         empresaId: new Types.ObjectId(empresaId),
         activo: true,
       });
 
-      // Enriquecer con personalId de UsuarioEmpresa
-      const usuarioConPersonalId = {
+      // Enriquecer con datos de UsuarioEmpresa (personalId y pinTPV)
+      const usuarioEnriquecido = {
         ...usuario,
         personalId: relacionEmpresa?.personalId
           ? String(relacionEmpresa.personalId)
           : null,
+        pinTPV: relacionEmpresa?.pinTPV || null,
       };
 
       res.json({
         success: true,
-        data: usuarioConPersonalId,
+        data: usuarioEnriquecido,
       });
     } catch (error: any) {
       console.error('Error al obtener usuario:', error);
@@ -392,8 +400,8 @@ class UsuariosController {
         });
       }
 
-      // Extraer personalId para guardarlo en UsuarioEmpresa (no en Usuario)
-      const { personalId, ...datosUsuario } = validacion.data;
+      // Extraer personalId y pinTPV para guardarlos en UsuarioEmpresa (no en Usuario)
+      const { personalId, pinTPV, ...datosUsuario } = validacion.data;
 
       const usuario = await usuariosService.updateUsuario(
         id,
@@ -415,18 +423,24 @@ class UsuariosController {
         });
       }
 
-      // Guardar personalId en UsuarioEmpresa (relación usuario-empresa)
-      // Esto permite que un usuario tenga diferentes empleados vinculados en diferentes empresas
-      if (personalId !== undefined) {
+      // Guardar personalId y pinTPV en UsuarioEmpresa (relación usuario-empresa)
+      // Esto permite que un usuario tenga diferentes empleados vinculados y PINs en diferentes empresas
+      if (personalId !== undefined || pinTPV !== undefined) {
+        const setData: any = {};
+        if (personalId !== undefined) {
+          setData.personalId = personalId ? new Types.ObjectId(personalId) : null;
+        }
+        if (pinTPV !== undefined) {
+          setData.pinTPV = pinTPV || null;
+        }
+
         const updateResult = await UsuarioEmpresa.findOneAndUpdate(
           {
             usuarioId: new Types.ObjectId(id),
             empresaId: new Types.ObjectId(empresaId),
           },
           {
-            $set: {
-              personalId: personalId ? new Types.ObjectId(personalId) : null,
-            },
+            $set: setData,
             $setOnInsert: {
               usuarioId: new Types.ObjectId(id),
               empresaId: new Types.ObjectId(empresaId),
@@ -442,28 +456,30 @@ class UsuariosController {
           usuarioId: id,
           empresaId,
           personalId,
+          pinTPV: pinTPV ? '****' : null,
           result: updateResult?._id,
         });
       }
 
-      // Obtener personalId actualizado de UsuarioEmpresa para la respuesta
+      // Obtener datos actualizados de UsuarioEmpresa para la respuesta
       const relacionEmpresa = await UsuarioEmpresa.findOne({
         usuarioId: new Types.ObjectId(id),
         empresaId: new Types.ObjectId(empresaId),
         activo: true,
       });
 
-      // Enriquecer respuesta con personalId de UsuarioEmpresa
-      const usuarioConPersonalId = {
+      // Enriquecer respuesta con datos de UsuarioEmpresa (personalId y pinTPV)
+      const usuarioEnriquecido = {
         ...usuario,
         personalId: relacionEmpresa?.personalId
           ? String(relacionEmpresa.personalId)
           : null,
+        pinTPV: relacionEmpresa?.pinTPV || null,
       };
 
       res.json({
         success: true,
-        data: usuarioConPersonalId,
+        data: usuarioEnriquecido,
         message: 'Usuario actualizado correctamente',
       });
     } catch (error: any) {

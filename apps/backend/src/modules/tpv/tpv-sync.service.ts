@@ -1,13 +1,14 @@
 import mongoose from 'mongoose';
-import Producto from '../productos/Producto';
-import Cliente from '../clientes/Cliente';
-import Familia from '../familias/Familia';
-import TipoImpuesto from '../tipos-impuesto/TipoImpuesto';
-import FormaPago from '../formas-pago/FormaPago';
-import Almacen from '../almacenes/Almacen';
-import Tarifa from '../tarifas/Tarifa';
-import Oferta from '../ofertas/Oferta';
+import { Producto } from '../productos/Producto';
+import { Cliente } from '../clientes/Cliente';
+import { Familia } from '../familias/Familia';
+import { TipoImpuesto } from '../tipos-impuesto/TipoImpuesto';
+import { FormaPago } from '../formas-pago/FormaPago';
+import { Almacen } from '../almacenes/Almacen';
+import { Tarifa } from '../tarifas/Tarifa';
+import { Oferta } from '../ofertas/Oferta';
 import Usuario from '../usuarios/Usuario';
+import UsuarioEmpresa from '../usuarios/UsuarioEmpresa';
 import TPVRegistrado from './TPVRegistrado';
 
 // Interfaces para datos sincronizados
@@ -24,6 +25,7 @@ export interface IDatosSincronizacion {
   config: {
     serieFactura: string;
     almacenId: string;
+    almacenNombre: string;
     tpvNombre: string;
     tpvConfig: any;
     empresaNombre: string;
@@ -66,8 +68,29 @@ export class TPVSyncService {
     empresaId: string,
     ultimaSync?: Date
   ): Promise<IDatosSincronizacion> {
-    // Obtener datos del TPV
-    const tpv = await TPVRegistrado.findOne({ _id: tpvId, empresaId });
+    // Verificar que todos los modelos estan cargados
+    const modelos = {
+      Producto,
+      Familia,
+      Cliente,
+      TipoImpuesto,
+      FormaPago,
+      Almacen,
+      Tarifa,
+      Oferta,
+      UsuarioEmpresa,
+    };
+
+    for (const [nombre, modelo] of Object.entries(modelos)) {
+      if (!modelo) {
+        console.error(`[TPV Sync] Modelo ${nombre} no esta cargado`);
+        throw new Error(`Modelo ${nombre} no disponible`);
+      }
+    }
+
+    // Obtener datos del TPV con su almacen
+    const tpv = await TPVRegistrado.findOne({ _id: tpvId, empresaId })
+      .populate('almacenId', 'codigo nombre');
     if (!tpv) {
       throw new Error('TPV no encontrado');
     }
@@ -223,19 +246,28 @@ export class TPVSyncService {
         prioridad: 1,
       }),
 
-      // Usuarios con PIN para TPV
-      Usuario.find({
+      // Usuarios con PIN para TPV (desde UsuarioEmpresa)
+      UsuarioEmpresa.find({
         empresaId,
         activo: true,
-        pinTPV: { $exists: true, $ne: null },
-      }).select({
-        _id: 1,
-        nombre: 1,
-        apellidos: 1,
-        rol: 1,
-        permisos: 1,
+        pinTPV: { $exists: true, $nin: [null, ''] },
+      }).populate({
+        path: 'usuarioId',
+        match: { activo: true },
+        select: '_id nombre apellidos permisos',
       }),
     ]);
+
+    // Transformar usuarios para mantener compatibilidad
+    const usuariosTransformados = usuarios
+      .filter((ue: any) => ue.usuarioId) // Solo los que tienen usuario activo
+      .map((ue: any) => ({
+        _id: ue.usuarioId._id,
+        nombre: ue.usuarioId.nombre,
+        apellidos: ue.usuarioId.apellidos,
+        rol: ue.rol, // Rol de la relacion usuario-empresa
+        permisos: ue.usuarioId.permisos || {},
+      }));
 
     return {
       productos,
@@ -246,16 +278,17 @@ export class TPVSyncService {
       almacenes,
       tarifas,
       ofertas,
-      usuarios,
+      usuarios: usuariosTransformados,
       config: {
         serieFactura: tpv.serieFactura,
-        almacenId: tpv.almacenId.toString(),
+        almacenId: (tpv.almacenId as any)?._id?.toString() || tpv.almacenId?.toString() || '',
+        almacenNombre: (tpv.almacenId as any)?.nombre || '',
         tpvNombre: tpv.nombre,
         tpvConfig: tpv.config,
         empresaNombre: empresa?.nombre || '',
         empresaCif: empresa?.cif || '',
         empresaDireccion: empresa?.direccion
-          ? `${empresa.direccion.calle}, ${empresa.direccion.ciudad}`
+          ? `${empresa.direccion.calle || ''}, ${empresa.direccion.ciudad || ''}`
           : '',
       },
       ultimaActualizacion: new Date(),

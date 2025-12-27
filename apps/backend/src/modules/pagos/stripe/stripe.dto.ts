@@ -78,8 +78,10 @@ export const CreateRefundSchema = z.object({
 // ============================================
 
 export const CreateCheckoutSessionSchema = z.object({
-  planSlug: z.string(),
+  planSlug: z.string().optional(), // Opcional si solo compra add-ons
   tipoSuscripcion: z.enum(['mensual', 'anual']),
+  addOns: z.array(z.string()).optional(), // Slugs de add-ons a comprar
+  onlyAddOns: z.boolean().optional(), // Si true, solo compra add-ons (sin plan)
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),
 });

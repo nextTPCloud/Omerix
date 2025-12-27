@@ -21,6 +21,9 @@ export interface IUsuarioEmpresa extends Document {
   // Vinculación con empleado en esta empresa (para fichaje)
   personalId?: Types.ObjectId;
 
+  // PIN para acceso a TPV en esta empresa (4-6 digitos)
+  pinTPV?: string;
+
   // Estado
   activo: boolean;
 
@@ -80,6 +83,18 @@ const UsuarioEmpresaSchema = new Schema<IUsuarioEmpresa>(
       index: true,
     },
 
+    // PIN para acceso a TPV en esta empresa (4-6 digitos)
+    pinTPV: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: function (v: string) {
+          return !v || /^\d{4,6}$/.test(v);
+        },
+        message: 'El PIN debe tener entre 4 y 6 digitos',
+      },
+    },
+
     activo: {
       type: Boolean,
       default: true,
@@ -127,6 +142,9 @@ UsuarioEmpresaSchema.index({ usuarioId: 1, activo: 1 });
 
 // Índice para buscar usuarios de una empresa
 UsuarioEmpresaSchema.index({ empresaId: 1, activo: 1 });
+
+// Índice para login TPV por PIN en una empresa
+UsuarioEmpresaSchema.index({ empresaId: 1, pinTPV: 1, activo: 1 });
 
 // ============================================
 // MÉTODOS ESTÁTICOS

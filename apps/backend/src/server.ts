@@ -139,8 +139,32 @@ const PORT = config.port;
 // ============================================
 // MIDDLEWARES BÁSICOS
 // ============================================
+// CORS - permitir todos los origenes en desarrollo
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:3003',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
+  'http://127.0.0.1:3003',
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Permitir requests sin origin (curl, postman, etc)
+    if (!origin) return callback(null, true);
+    // Permitir origenes en la lista
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    // En desarrollo, permitir cualquier localhost
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json());

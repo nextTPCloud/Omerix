@@ -9,7 +9,14 @@ import { tpvSyncService } from './tpv-sync.service';
 export async function generarTokenActivacion(req: Request, res: Response) {
   try {
     const empresaId = (req as any).empresaId;
-    const usuarioId = (req as any).usuario._id;
+    const usuarioId = (req as any).userId || (req as any).usuarioId;
+
+    if (!empresaId) {
+      return res.status(400).json({ ok: false, error: 'empresaId no disponible' });
+    }
+    if (!usuarioId) {
+      return res.status(400).json({ ok: false, error: 'usuarioId no disponible' });
+    }
 
     const resultado = await tpvService.generarTokenActivacion(empresaId, usuarioId);
 
@@ -27,15 +34,18 @@ export async function generarTokenActivacion(req: Request, res: Response) {
 /**
  * Activa un TPV usando el token
  * POST /api/tpv/activar (publica, no requiere auth normal)
+ * almacenId es opcional - se puede configurar despues
  */
 export async function activarTPV(req: Request, res: Response) {
   try {
     const { token, nombre, almacenId } = req.body;
 
-    if (!token || !nombre || !almacenId) {
+    console.log('[TPV Activar] Recibido:', { token, nombre, almacenId });
+
+    if (!token || !nombre) {
       return res.status(400).json({
         ok: false,
-        error: 'Token, nombre y almacenId son requeridos',
+        error: 'Token y nombre son requeridos',
       });
     }
 
@@ -46,11 +56,14 @@ export async function activarTPV(req: Request, res: Response) {
 
     const resultado = await tpvService.activarTPV(token, nombre, almacenId, deviceInfo);
 
+    console.log('[TPV Activar] Exito:', resultado.tpvId);
+
     res.json({
       ok: true,
       ...resultado,
     });
   } catch (error: any) {
+    console.error('[TPV Activar] Error:', error.message);
     res.status(400).json({ ok: false, error: error.message });
   }
 }
@@ -197,7 +210,7 @@ export async function actualizarTPV(req: Request, res: Response) {
 export async function desactivarTPV(req: Request, res: Response) {
   try {
     const empresaId = (req as any).empresaId;
-    const usuarioId = (req as any).usuario._id;
+    const usuarioId = (req as any).userId || (req as any).usuarioId;
     const { id } = req.params;
     const { motivo } = req.body;
 
@@ -254,6 +267,24 @@ export async function revocarTokenTPV(req: Request, res: Response) {
     await tpvService.revocarTokenTPV(id, empresaId);
 
     res.json({ ok: true, mensaje: 'Token revocado. El TPV debera volver a autenticarse.' });
+  } catch (error: any) {
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Elimina un TPV permanentemente
+ * DELETE /api/tpv/:id
+ */
+export async function eliminarTPV(req: Request, res: Response) {
+  try {
+    const empresaId = (req as any).empresaId;
+    const usuarioId = (req as any).userId || (req as any).usuarioId;
+    const { id } = req.params;
+
+    await tpvService.eliminarTPV(id, empresaId, usuarioId);
+
+    res.json({ ok: true, mensaje: 'TPV eliminado correctamente' });
   } catch (error: any) {
     res.status(400).json({ ok: false, error: error.message });
   }
