@@ -116,13 +116,17 @@ const DEFAULT_PRODUCTOS_CONFIG = {
     { key: 'nombre', visible: true, orden: 1 },
     { key: 'descripcion', visible: false, orden: 2 },
     { key: 'familia', visible: true, orden: 3 },
-    { key: 'codigoBarras', visible: false, orden: 4 },
-    { key: 'precioBase', visible: false, orden: 5 },
-    { key: 'precioVenta', visible: true, orden: 6 },
-    { key: 'stockCantidad', visible: true, orden: 7 },
-    { key: 'stockMinimo', visible: false, orden: 8 },
-    { key: 'activo', visible: true, orden: 9 },
-    { key: 'visible', visible: false, orden: 10 },
+    { key: 'tipo', visible: false, orden: 4 },
+    { key: 'codigoBarras', visible: false, orden: 5 },
+    { key: 'precioCompra', visible: false, orden: 6 },
+    { key: 'precioVenta', visible: true, orden: 7 },
+    { key: 'pvp', visible: true, orden: 8 },
+    { key: 'margen', visible: false, orden: 9 },
+    { key: 'unidadMedida', visible: false, orden: 10 },
+    { key: 'stockCantidad', visible: true, orden: 11 },
+    { key: 'stockMinimo', visible: false, orden: 12 },
+    { key: 'activo', visible: true, orden: 13 },
+    { key: 'visible', visible: false, orden: 14 },
   ] as ColumnaConfig[],
   sortConfig: {
     key: 'createdAt',
@@ -190,9 +194,13 @@ export default function ProductosPage() {
     { key: 'nombre', label: 'Nombre', sortable: true },
     { key: 'descripcion', label: 'Descripción', sortable: false },
     { key: 'familia', label: 'Familia', sortable: false },
+    { key: 'tipo', label: 'Tipo', sortable: false },
     { key: 'codigoBarras', label: 'Código de Barras', sortable: false },
-    { key: 'precioBase', label: 'Precio Base', sortable: true },
-    { key: 'precioVenta', label: 'Precio Venta', sortable: true },
+    { key: 'precioCompra', label: 'P. Compra', sortable: true },
+    { key: 'precioVenta', label: 'P. Venta', sortable: true },
+    { key: 'pvp', label: 'PVP', sortable: true },
+    { key: 'margen', label: 'Margen %', sortable: true },
+    { key: 'unidadMedida', label: 'Unidad', sortable: false },
     { key: 'stockCantidad', label: 'Stock', sortable: true },
     { key: 'stockMinimo', label: 'Stock Mínimo', sortable: false },
     { key: 'activo', label: 'Activo', sortable: false },
@@ -870,6 +878,22 @@ export default function ProductosPage() {
                             ]}
                           />
                         )}
+                        {columna.key === 'tipo' && (
+                          <TableSelect
+                            value={String(columnFilters[columna.key] || '')}
+                            onValueChange={(value) =>
+                              handleColumnFilterChange(columna.key, value)
+                            }
+                            placeholder="Todos"
+                            options={[
+                              { value: '', label: 'Todos' },
+                              { value: 'simple', label: 'Simple' },
+                              { value: 'compuesto', label: 'Compuesto/Kit' },
+                              { value: 'variantes', label: 'Con Variantes' },
+                              { value: 'servicio', label: 'Servicio' },
+                            ]}
+                          />
+                        )}
                         {columna.key === 'codigoBarras' && (
                           <Input
                             placeholder="Filtrar código..."
@@ -878,9 +902,9 @@ export default function ProductosPage() {
                             className="h-7 text-xs placeholder:text-muted-foreground"
                           />
                         )}
-                        {columna.key === 'precioBase' && (
+                        {columna.key === 'precioCompra' && (
                           <Input
-                            placeholder="Filtrar precio..."
+                            placeholder="Filtrar..."
                             value={String(columnFilters[columna.key] || '')}
                             onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
                             className="h-7 text-xs placeholder:text-muted-foreground"
@@ -888,7 +912,31 @@ export default function ProductosPage() {
                         )}
                         {columna.key === 'precioVenta' && (
                           <Input
-                            placeholder="Filtrar precio..."
+                            placeholder="Filtrar..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
+                        {columna.key === 'pvp' && (
+                          <Input
+                            placeholder="Filtrar..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
+                        {columna.key === 'margen' && (
+                          <Input
+                            placeholder="Filtrar..."
+                            value={String(columnFilters[columna.key] || '')}
+                            onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
+                            className="h-7 text-xs placeholder:text-muted-foreground"
+                          />
+                        )}
+                        {columna.key === 'unidadMedida' && (
+                          <Input
+                            placeholder="Filtrar..."
                             value={String(columnFilters[columna.key] || '')}
                             onChange={(e) => handleColumnFilterChange(columna.key, e.target.value)}
                             className="h-7 text-xs placeholder:text-muted-foreground"
@@ -987,14 +1035,33 @@ export default function ProductosPage() {
                             {columna.key === 'familia' && (
                               <span>{producto.familia?.nombre || '-'}</span>
                             )}
+                            {columna.key === 'tipo' && (
+                              <Badge variant="outline" className="text-xs">
+                                {producto.tipo === 'compuesto' ? 'Kit' :
+                                 producto.tipo === 'variantes' ? 'Variantes' :
+                                 producto.tipo === 'servicio' ? 'Servicio' :
+                                 producto.tipo === 'materia_prima' ? 'M. Prima' : 'Simple'}
+                              </Badge>
+                            )}
                             {columna.key === 'codigoBarras' && (
                               <span className="font-mono">{producto.codigoBarras || '-'}</span>
                             )}
-                            {columna.key === 'precioBase' && (
-                              <span>{producto.precios.compra.toFixed(2)} €</span>
+                            {columna.key === 'precioCompra' && (
+                              <span>{(producto.precios?.compra || 0).toFixed(2)} €</span>
                             )}
                             {columna.key === 'precioVenta' && (
-                              <span className="font-medium">{producto.precios.venta.toFixed(2)} €</span>
+                              <span className="font-medium">{(producto.precios?.venta || 0).toFixed(2)} €</span>
+                            )}
+                            {columna.key === 'pvp' && (
+                              <span className="font-semibold text-primary">{(producto.precios?.pvp || 0).toFixed(2)} €</span>
+                            )}
+                            {columna.key === 'margen' && (
+                              <span className={producto.precios?.margen && producto.precios.margen > 0 ? 'text-green-600' : 'text-red-600'}>
+                                {(producto.precios?.margen || 0).toFixed(1)}%
+                              </span>
+                            )}
+                            {columna.key === 'unidadMedida' && (
+                              <span>{producto.unidadMedida || '-'}</span>
                             )}
                             {columna.key === 'stockCantidad' && (
                               <div className="flex items-center gap-2">

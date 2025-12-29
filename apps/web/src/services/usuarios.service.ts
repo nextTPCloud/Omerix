@@ -75,6 +75,7 @@ export interface UpdateUsuarioDTO {
   personalId?: string | null;  // Vinculación con empleado
   activo?: boolean;
   avatar?: string;
+  pinTPV?: string;  // PIN para acceso a TPV (4-6 dígitos)
 }
 
 /**

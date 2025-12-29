@@ -1,15 +1,18 @@
 import mongoose from 'mongoose';
-import { Producto } from '../productos/Producto';
-import { Cliente } from '../clientes/Cliente';
-import { Familia } from '../familias/Familia';
-import { TipoImpuesto } from '../tipos-impuesto/TipoImpuesto';
-import { FormaPago } from '../formas-pago/FormaPago';
-import { Almacen } from '../almacenes/Almacen';
-import { Tarifa } from '../tarifas/Tarifa';
-import { Oferta } from '../ofertas/Oferta';
-import Usuario from '../usuarios/Usuario';
 import UsuarioEmpresa from '../usuarios/UsuarioEmpresa';
-import TPVRegistrado from './TPVRegistrado';
+import Empresa from '../empresa/Empresa';
+import { databaseManager } from '../../services/database-manager.service';
+import {
+  getProductoModel,
+  getClienteModel,
+  getFamiliaModel,
+  getTiposImpuestoModel,
+  getFormaPagoModel,
+  getAlmacenModel,
+  getTarifaModel,
+  getOfertaModel,
+  getTPVRegistradoModel,
+} from '../../utils/dynamic-models.helper';
 
 // Interfaces para datos sincronizados
 export interface IDatosSincronizacion {
@@ -61,6 +64,20 @@ export interface IVentaOffline {
 
 export class TPVSyncService {
   /**
+   * Obtener la configuracion de BD de una empresa
+   */
+  private async getDbConfig(empresaId: string) {
+    const empresa = await Empresa.findById(empresaId);
+    if (!empresa) {
+      throw new Error('Empresa no encontrada');
+    }
+    if (!empresa.databaseConfig) {
+      throw new Error('Configuracion de base de datos no encontrada para esta empresa');
+    }
+    return empresa.databaseConfig;
+  }
+
+  /**
    * Descarga todos los datos necesarios para el TPV
    */
   async descargarDatos(
@@ -68,8 +85,11 @@ export class TPVSyncService {
     empresaId: string,
     ultimaSync?: Date
   ): Promise<IDatosSincronizacion> {
-    // Verificar que todos los modelos estan cargados
-    const modelos = {
+    // Obtener dbConfig para modelos dinamicos
+    const dbConfig = await this.getDbConfig(empresaId);
+
+    // Obtener modelos dinamicos
+    const [
       Producto,
       Familia,
       Cliente,
@@ -78,25 +98,27 @@ export class TPVSyncService {
       Almacen,
       Tarifa,
       Oferta,
-      UsuarioEmpresa,
-    };
+      TPVRegistrado,
+    ] = await Promise.all([
+      getProductoModel(empresaId, dbConfig),
+      getFamiliaModel(empresaId, dbConfig),
+      getClienteModel(empresaId, dbConfig),
+      getTiposImpuestoModel(empresaId, dbConfig),
+      getFormaPagoModel(empresaId, dbConfig),
+      getAlmacenModel(empresaId, dbConfig),
+      getTarifaModel(empresaId, dbConfig),
+      getOfertaModel(empresaId, dbConfig),
+      getTPVRegistradoModel(empresaId, dbConfig),
+    ]);
 
-    for (const [nombre, modelo] of Object.entries(modelos)) {
-      if (!modelo) {
-        console.error(`[TPV Sync] Modelo ${nombre} no esta cargado`);
-        throw new Error(`Modelo ${nombre} no disponible`);
-      }
-    }
-
-    // Obtener datos del TPV con su almacen
-    const tpv = await TPVRegistrado.findOne({ _id: tpvId, empresaId })
+    // Obtener datos del TPV con su almacen (BD de empresa)
+    const tpv = await TPVRegistrado.findById(tpvId)
       .populate('almacenId', 'codigo nombre');
     if (!tpv) {
       throw new Error('TPV no encontrado');
     }
 
-    // Obtener empresa
-    const Empresa = mongoose.model('Empresa');
+    // Obtener empresa (BD principal)
     const empresa = await Empresa.findById(empresaId);
 
     // Filtro de fecha si es sincronizacion incremental
@@ -104,7 +126,7 @@ export class TPVSyncService {
       ? { updatedAt: { $gte: ultimaSync } }
       : {};
 
-    // Cargar datos en paralelo
+    // Cargar datos en paralelo (ya no necesitan empresaId porque cada BD es por empresa)
     const [
       productos,
       familias,
@@ -118,30 +140,30 @@ export class TPVSyncService {
     ] = await Promise.all([
       // Productos activos
       Producto.find({
-        empresaId,
         activo: true,
         ...filtroFecha,
       }).select({
         _id: 1,
-        codigo: 1,
+        sku: 1,
         nombre: 1,
         descripcion: 1,
         familiaId: 1,
         tipoImpuestoId: 1,
-        precioVenta: 1,
+        precios: 1,
         codigoBarras: 1,
-        imagen: 1,
+        imagenes: 1,
         unidadMedida: 1,
-        ventaPorPeso: 1,
-        stockMinimo: 1,
-        controlStock: 1,
-        modificadores: 1,
+        stock: 1,
+        gestionaStock: 1,
+        tieneVariantes: 1,
         variantes: 1,
+        usarEnTPV: 1,
+        permiteDescuento: 1,
+        iva: 1,
       }),
 
       // Familias activas
       Familia.find({
-        empresaId,
         activo: true,
         ...filtroFecha,
       }).select({
@@ -150,13 +172,12 @@ export class TPVSyncService {
         nombre: 1,
         color: 1,
         orden: 1,
-        familiaId: 1, // Padre
+        padreId: 1,
         imagen: 1,
       }),
 
       // Clientes activos
       Cliente.find({
-        empresaId,
         activo: true,
         ...filtroFecha,
       }).select({
@@ -175,7 +196,6 @@ export class TPVSyncService {
 
       // Tipos de impuesto
       TipoImpuesto.find({
-        empresaId,
         activo: true,
       }).select({
         _id: 1,
@@ -187,7 +207,6 @@ export class TPVSyncService {
 
       // Formas de pago activas
       FormaPago.find({
-        empresaId,
         activo: true,
       }).select({
         _id: 1,
@@ -200,7 +219,6 @@ export class TPVSyncService {
 
       // Almacenes
       Almacen.find({
-        empresaId,
         activo: true,
       }).select({
         _id: 1,
@@ -211,7 +229,6 @@ export class TPVSyncService {
 
       // Tarifas activas
       Tarifa.find({
-        empresaId,
         activo: true,
         ...filtroFecha,
       }).select({
@@ -226,7 +243,6 @@ export class TPVSyncService {
 
       // Ofertas activas (vigentes)
       Oferta.find({
-        empresaId,
         activo: true,
         fechaInicio: { $lte: new Date() },
         $or: [
@@ -246,7 +262,7 @@ export class TPVSyncService {
         prioridad: 1,
       }),
 
-      // Usuarios con PIN para TPV (desde UsuarioEmpresa)
+      // Usuarios con PIN para TPV (desde UsuarioEmpresa en BD principal)
       UsuarioEmpresa.find({
         empresaId,
         activo: true,
@@ -313,8 +329,12 @@ export class TPVSyncService {
       tickets: [] as Array<{ idLocal: string; ticketId: string; numero: string }>,
     };
 
-    // Verificar TPV
-    const tpv = await TPVRegistrado.findOne({ _id: tpvId, empresaId });
+    // Obtener modelo dinamico
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+
+    // Verificar TPV (sin filtro empresaId porque la BD ya es de la empresa)
+    const tpv = await TPVRegistrado.findOne({ _id: tpvId });
     if (!tpv) {
       throw new Error('TPV no encontrado');
     }
@@ -355,15 +375,21 @@ export class TPVSyncService {
     empresaId: string,
     productosIds?: string[]
   ): Promise<Array<{ productoId: string; stock: number }>> {
-    const tpv = await TPVRegistrado.findOne({ _id: tpvId, empresaId });
+    // Obtener modelo dinamico
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+
+    const tpv = await TPVRegistrado.findOne({ _id: tpvId });
     if (!tpv) {
       throw new Error('TPV no encontrado');
     }
 
-    const Stock = mongoose.model('Stock');
+    // Stock esta en la BD de empresa - obtener conexion dinamica
+    const connection = await databaseManager.getConnection(empresaId, dbConfig);
+    const Stock = connection.model('Stock');
 
+    // Sin filtro empresaId porque la BD ya es de la empresa
     const filtro: any = {
-      empresaId,
       almacenId: tpv.almacenId,
     };
 
@@ -390,8 +416,10 @@ export class TPVSyncService {
     empresaId: string,
     fecha: Date
   ): Promise<any[]> {
-    // Obtener movimientos de caja del dia
-    const Caja = mongoose.model('Caja');
+    // Obtener modelo dinamico de Caja
+    const dbConfig = await this.getDbConfig(empresaId);
+    const connection = await databaseManager.getConnection(empresaId, dbConfig);
+    const Caja = connection.model('Caja');
 
     const iniciodia = new Date(fecha);
     iniciodia.setHours(0, 0, 0, 0);
@@ -399,8 +427,8 @@ export class TPVSyncService {
     const finDia = new Date(fecha);
     finDia.setHours(23, 59, 59, 999);
 
+    // Sin filtro empresaId porque la BD ya es de la empresa
     const cajas = await Caja.find({
-      empresaId,
       tpvId,
       fechaApertura: { $gte: iniciodia, $lte: finDia },
     });

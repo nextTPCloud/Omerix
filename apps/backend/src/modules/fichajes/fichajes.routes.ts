@@ -11,6 +11,8 @@ router.use(tenantMiddleware);
 
 /**
  * Middleware que permite acceso si:
+ * - El usuario es superadmin (rol global), O
+ * - El usuario tiene rol admin en la empresa, O
  * - El usuario tiene permiso accesoRRHH, O
  * - El usuario tiene personalId (es empleado fichando)
  */
@@ -24,8 +26,13 @@ const requireFichajeAccess = (req: Request, res: Response, next: NextFunction) =
     });
   }
 
-  // Superadmin siempre tiene acceso
-  if (user.rol === 'superadmin') {
+  // Superadmin siempre tiene acceso (verificar rol global, no rol de empresa)
+  if (user.esSuperadmin || user.rolGlobal === 'superadmin') {
+    return next();
+  }
+
+  // Admin de empresa tiene acceso completo a fichajes
+  if (user.rol === 'admin') {
     return next();
   }
 

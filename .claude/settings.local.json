@@ -25,7 +25,18 @@
       "Bash(cmd /c \"cd /d C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\tpv && npm ls --depth=0\")",
       "Bash(dir \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\tpv\\\\web\")",
       "Bash(dir \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\tpv\\\\backend\")",
-      "Bash(cmd /c \"cd /d C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\tpv\\\\web && npm ls --depth=0 2>&1\")"
+      "Bash(cmd /c \"cd /d C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\tpv\\\\web && npm ls --depth=0 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend && npx tsc --noEmit 2>&1 | head -50\")",
+      "Bash(cmd /c \"cd /d C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend && npx tsc --noEmit\")",
+      "Bash(cd:*)",
+      "Bash(cmd /c \"cd /d C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend && npx ts-node src/scripts/check-license-tpv.ts\")",
+      "Bash(cmd /c:*)",
+      "Bash(powershell -Command \"cd C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend; npx ts-node --transpile-only src/scripts/seed-full-test-data.ts 2>&1\":*)",
+      "Bash(powershell -Command \"cd C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend; npx ts-node --transpile-only -e \\\\\"\nconst mongoose = require\\('mongoose'\\);\nrequire\\('dotenv'\\).config\\({ path: './.env' }\\);\nconst Licencia = require\\('./src/modules/licencias/Licencia'\\).default;\nconst Empresa = require\\('./src/modules/empresa/Empresa'\\).default;\n\nasync function check\\(\\) {\n  await mongoose.connect\\(process.env.MONGODB_URI || 'mongodb://localhost:27017/omerix'\\);\n  console.log\\('Licencias:'\\);\n  const licencias = await Licencia.find\\(\\).lean\\(\\);\n  licencias.forEach\\(l => console.log\\('  -', l._id, 'empresa:', l.empresaId\\)\\);\n  \n  console.log\\('Empresas:'\\);\n  const empresas = await Empresa.find\\(\\).lean\\(\\);\n  empresas.forEach\\(e => console.log\\('  -', e._id, e.nombre\\)\\);\n  \n  await mongoose.disconnect\\(\\);\n}\ncheck\\(\\);\n\\\\\" 2>&1\":*)",
+      "Bash(powershell -Command \"cd C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend; node -e \"\"\nrequire\\(''dotenv''\\).config\\({ path: ''./.env'' }\\);\nconsole.log\\(''MONGODB_URI:'', process.env.MONGODB_URI ? ''existe'' : ''no definido''\\);\n\"\" 2>&1\")",
+      "Bash(powershell -Command \"cd C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend; npx ts-node --transpile-only src/scripts/check-db.ts 2>&1\")",
+      "Bash(powershell:*)",
+      "WebFetch(domain:localhost)"
     ]
   }
 }

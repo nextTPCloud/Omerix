@@ -242,6 +242,8 @@ export const authMiddleware = async (
     req.user = {
       ...usuario.toObject(),
       rol: rolCodigo,
+      rolGlobal: usuario.rol, // Preservar rol global original (superadmin, etc.)
+      esSuperadmin: usuario.rol === 'superadmin', // Flag directo para verificaciones
       personalId,
       permisos: {
         ...usuario.permisos,
@@ -329,8 +331,8 @@ export const optionalAuth = async (
  */
 export const requireModuloContratado = (modulo: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    // Superadmin siempre tiene acceso
-    if (req.userRole === 'superadmin') {
+    // Superadmin siempre tiene acceso (verificar rol global)
+    if (req.user?.esSuperadmin || req.userRole === 'superadmin') {
       return next();
     }
 
@@ -364,8 +366,8 @@ export const requireModuleAccess = (modulo: ModuloAcceso) => {
         });
       }
 
-      // Superadmin siempre tiene acceso
-      if (req.userRole === 'superadmin') {
+      // Superadmin siempre tiene acceso (verificar rol global)
+      if (req.user?.esSuperadmin || req.userRole === 'superadmin') {
         return next();
       }
 
@@ -439,8 +441,8 @@ export const requirePermission = (resource: Resource, action: Action) => {
         });
       }
 
-      // Superadmin siempre tiene acceso
-      if (req.userRole === 'superadmin' || req.userRole === 'admin') {
+      // Superadmin/Admin siempre tienen acceso
+      if (req.user?.esSuperadmin || req.userRole === 'superadmin' || req.userRole === 'admin') {
         return next();
       }
 
@@ -478,8 +480,8 @@ export const requireSpecialPermission = (permiso: keyof IPermisosEspeciales) => 
         });
       }
 
-      // Superadmin siempre tiene acceso
-      if (req.userRole === 'superadmin' || req.userRole === 'admin') {
+      // Superadmin/Admin siempre tienen acceso
+      if (req.user?.esSuperadmin || req.userRole === 'superadmin' || req.userRole === 'admin') {
         return next();
       }
 
@@ -521,8 +523,8 @@ export const requireModuleAndPermission = (
         });
       }
 
-      // Superadmin/Admin siempre tiene acceso
-      if (req.userRole === 'superadmin' || req.userRole === 'admin') {
+      // Superadmin/Admin siempre tienen acceso
+      if (req.user?.esSuperadmin || req.userRole === 'superadmin' || req.userRole === 'admin') {
         return next();
       }
 

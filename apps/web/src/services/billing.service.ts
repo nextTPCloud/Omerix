@@ -59,6 +59,7 @@ export interface ILicencia {
   }
   addOns: Array<{
     nombre: string
+    slug: string
     precioMensual: number
     activo: boolean
     fechaActivacion: Date
@@ -204,8 +205,10 @@ class BillingService {
    * Crear sesion de checkout en Stripe
    */
   async crearCheckoutSession(params: {
-    planSlug: string
+    planSlug?: string
     tipoSuscripcion: 'mensual' | 'anual'
+    addOns?: string[]
+    onlyAddOns?: boolean
     successUrl: string
     cancelUrl: string
   }): Promise<ApiResponse<{ sessionId: string; url: string }>> {

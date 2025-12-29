@@ -418,11 +418,28 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    group: 'Punto de Venta',
+    icon: Grid3X3,
+    moduloLicencia: 'tpv',
+    items: [
+      {
+        title: 'Terminales TPV',
+        href: '/configuracion/tpv',
+        icon: Grid3X3,
+      },
+    ],
+  },
+  {
     group: 'Restauración',
     icon: UtensilsCrossed,
     permiso: 'accesoTPV',
     moduloLicencia: 'restauracion',
     items: [
+      {
+        title: 'Terminales TPV',
+        href: '/configuracion/tpv',
+        icon: Grid3X3,
+      },
       {
         title: 'Zonas Preparación',
         href: '/zonas-preparacion',

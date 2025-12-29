@@ -3,6 +3,8 @@ import Plan from './Plan';
 import AddOn from './AddOn';
 import Stripe from 'stripe';
 import config from '../../config/env';
+import Empresa from '../empresa/Empresa';
+import { getTPVRegistradoModel } from '../../utils/dynamic-models.helper';
 
 const stripe = new Stripe(config.stripe.secretKey, {
   apiVersion: '2025-10-29.clover',
@@ -20,6 +22,24 @@ export class LicenciasService {
     }
 
     const plan = licencia.planId as any;
+
+    // Recalcular conteo de TPVs automáticamente (multi-tenant)
+    try {
+      const empresa = await Empresa.findById(empresaId);
+      if (empresa?.databaseConfig) {
+        const TPVRegistrado = await getTPVRegistradoModel(empresaId, empresa.databaseConfig);
+        const conteoReal = await TPVRegistrado.countDocuments({ estado: 'activo' });
+
+        // Actualizar si hay diferencia
+        if (licencia.usoActual?.tpvsActuales !== conteoReal) {
+          licencia.usoActual = licencia.usoActual || {};
+          licencia.usoActual.tpvsActuales = conteoReal;
+          await licencia.save();
+        }
+      }
+    } catch (error) {
+      console.warn('No se pudo recalcular TPVs:', error);
+    }
 
     return {
       licencia: {
@@ -516,6 +536,50 @@ export class LicenciasService {
         disponible: permisosDisponibles.includes(p.key),
         requiereUpgrade: !permisosDisponibles.includes(p.key),
       })),
+    };
+  }
+
+  // ============================================
+  // RECALCULAR CONTEO DE TPVS
+  // ============================================
+
+  /**
+   * Recalcula el conteo de TPVs activos desde la BD de la empresa
+   * Útil después de migrar a multi-tenant
+   */
+  async recalcularConteoTPVs(empresaId: string) {
+    // Obtener empresa y su configuración de BD
+    const empresa = await Empresa.findById(empresaId);
+    if (!empresa) {
+      throw new Error('Empresa no encontrada');
+    }
+    if (!empresa.databaseConfig) {
+      throw new Error('Configuración de base de datos no encontrada');
+    }
+
+    // Obtener modelo de TPVRegistrado de la BD de empresa
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, empresa.databaseConfig);
+
+    // Contar TPVs activos en la BD de empresa
+    const conteoReal = await TPVRegistrado.countDocuments({ estado: 'activo' });
+
+    // Actualizar la licencia con el conteo correcto
+    const licencia = await Licencia.findOneAndUpdate(
+      { empresaId },
+      { $set: { 'usoActual.tpvsActuales': conteoReal } },
+      { new: true }
+    );
+
+    if (!licencia) {
+      throw new Error('Licencia no encontrada');
+    }
+
+    console.log(`✅ Conteo de TPVs recalculado para empresa ${empresaId}: ${conteoReal}`);
+
+    return {
+      success: true,
+      tpvsActuales: conteoReal,
+      message: `Conteo actualizado: ${conteoReal} TPVs activos`,
     };
   }
 }

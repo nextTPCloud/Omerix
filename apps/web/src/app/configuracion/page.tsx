@@ -63,6 +63,7 @@ import {
   Cpu,
   Users,
   Tag,
+  Monitor,
 } from 'lucide-react'
 import { CertificadoConfig } from '@/components/configuracion/CertificadoConfig'
 import { VerifactuConfig } from '@/components/configuracion/VerifactuConfig'
@@ -670,6 +671,10 @@ export default function ConfiguracionEmpresaPage() {
             <TabsTrigger value="usuarios" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Usuarios
+            </TabsTrigger>
+            <TabsTrigger value="tpv" className="flex items-center gap-2">
+              <Monitor className="h-4 w-4" />
+              TPV
             </TabsTrigger>
           </TabsList>
 
@@ -2208,6 +2213,29 @@ export default function ConfiguracionEmpresaPage() {
           {/* ============================================ */}
           <TabsContent value="precios" className="space-y-6 mt-6">
             <PreciosConfig />
+          </TabsContent>
+
+          {/* ============================================ */}
+          {/* TAB: TPV */}
+          {/* ============================================ */}
+          <TabsContent value="tpv" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Monitor className="h-5 w-5" />
+                  Terminales Punto de Venta
+                </CardTitle>
+                <CardDescription>
+                  Gestiona los TPVs de tu empresa, registra nuevos terminales y configura sus perifericos
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={() => router.push('/configuracion/tpv')} className="w-full">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Abrir Configuracion de TPV
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 

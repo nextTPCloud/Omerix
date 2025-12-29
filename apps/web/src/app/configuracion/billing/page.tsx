@@ -410,29 +410,76 @@ export default function BillingPage() {
 
             {/* Modulos incluidos */}
             <div>
-              <h4 className="text-sm font-medium text-slate-700 mb-2">Modulos incluidos</h4>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-slate-700">Modulos incluidos</h4>
+                <Link href="/checkout">
+                  <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Añadir módulos
+                  </Button>
+                </Link>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {plan.modulosIncluidos.includes('*') ? (
                   <Badge variant="outline" className="bg-blue-50 text-blue-700">Todos los modulos</Badge>
                 ) : (
-                  plan.modulosIncluidos.map((modulo) => (
-                    <Badge key={modulo} variant="outline" className="capitalize">
-                      {modulo}
-                    </Badge>
-                  ))
+                  <>
+                    {plan.modulosIncluidos.map((modulo) => (
+                      <Badge key={modulo} variant="outline" className="capitalize">
+                        {modulo}
+                      </Badge>
+                    ))}
+                    {/* Añadir módulos de add-ons activos */}
+                    {license.addOns?.filter(a => a.activo).map((addon) => {
+                      // Mapear slug de addon a módulo visible
+                      const moduloNombre = addon.slug === 'rrhh' || addon.slug === 'rrhh-fichaje'
+                        ? 'RRHH / Fichaje'
+                        : addon.slug === 'tpv' || addon.slug === 'restauracion'
+                          ? 'TPV / Restauración'
+                          : addon.nombre
+                      return (
+                        <Badge key={addon.slug} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                          {moduloNombre}
+                        </Badge>
+                      )
+                    })}
+                  </>
                 )}
               </div>
 
-              {/* Add-ons contratados */}
+              {/* Add-ons contratados con detalles */}
               {license.addOns && license.addOns.filter(a => a.activo).length > 0 && (
-                <div className="mt-3">
-                  <h4 className="text-sm font-medium text-slate-700 mb-2">Add-ons</h4>
-                  <div className="flex flex-wrap gap-2">
+                <div className="mt-4 p-3 bg-purple-50 rounded-lg">
+                  <h4 className="text-sm font-medium text-purple-800 mb-2">Add-ons contratados</h4>
+                  <div className="space-y-2">
                     {license.addOns.filter(a => a.activo).map((addon) => (
-                      <Badge key={addon.nombre} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                        {addon.nombre} (+{addon.precioMensual}€/mes)
-                      </Badge>
+                      <div key={addon.nombre} className="flex items-center justify-between text-sm">
+                        <span className="text-purple-700">{addon.nombre}</span>
+                        <span className="font-medium text-purple-800">+{addon.precioMensual}€/mes</span>
+                      </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Información de TPVs disponibles */}
+              {(plan.limites.tpvsActivos > 0 || license.addOns?.some(a => a.slug === 'tpv' && a.activo)) && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-800">Terminales TPV</p>
+                        <p className="text-xs text-blue-600">
+                          {license?.usoActual?.tpvsActuales ?? 0} de {plan.limites.tpvsActivos} TPVs registrados
+                        </p>
+                      </div>
+                    </div>
+                    <Link href="/configuracion/tpv">
+                      <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
+                        Gestionar TPVs
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               )}
@@ -517,6 +564,18 @@ export default function BillingPage() {
               used={license?.usoActual?.clientesActuales ?? 0}
               limit={plan?.limites?.clientes ?? -1}
               icon={Users}
+            />
+            <UsageBar
+              label="TPVs activos"
+              used={license?.usoActual?.tpvsActuales ?? 0}
+              limit={plan?.limites?.tpvsActivos ?? 0}
+              icon={Monitor}
+            />
+            <UsageBar
+              label="Almacenamiento"
+              used={license?.usoActual?.almacenamientoUsadoGB ?? 0}
+              limit={plan?.limites?.almacenamientoGB ?? -1}
+              icon={HardDrive}
             />
           </div>
         </CardContent>

@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ITPVRegistrado extends Document {
   _id: mongoose.Types.ObjectId;
-  empresaId: mongoose.Types.ObjectId;
+  // empresaId ya no es necesario - cada empresa tiene su propia BD
 
   // Identificacion
   codigo: string;              // "TPV-001" (auto-generado)
@@ -93,15 +93,11 @@ export interface ITPVRegistrado extends Document {
 
 const TPVRegistradoSchema = new Schema<ITPVRegistrado>(
   {
-    empresaId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Empresa',
-      required: true,
-      index: true,
-    },
+    // empresaId ya no es necesario - cada empresa tiene su propia BD
     codigo: {
       type: String,
       required: true,
+      unique: true, // Unico dentro de la BD de empresa
     },
     nombre: {
       type: String,
@@ -207,8 +203,12 @@ const TPVRegistradoSchema = new Schema<ITPVRegistrado>(
   }
 );
 
-// Indices
-TPVRegistradoSchema.index({ empresaId: 1, codigo: 1 }, { unique: true });
+// Indices - Ya no necesitan empresaId porque cada empresa tiene su propia BD
 TPVRegistradoSchema.index({ estado: 1 });
+TPVRegistradoSchema.index({ deviceId: 1 }, { unique: true });
 
-export default mongoose.model<ITPVRegistrado>('TPVRegistrado', TPVRegistradoSchema);
+// Exportar el schema para modelos dinamicos (NO exportar modelo para evitar colecciones en BD principal)
+export { TPVRegistradoSchema };
+
+// NO exportar modelo por defecto - solo se usa via dynamic-models.helper.ts
+// Si se necesita compatibilidad temporal, usar el helper getTPVRegistradoModel

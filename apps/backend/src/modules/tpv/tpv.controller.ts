@@ -74,12 +74,12 @@ export async function activarTPV(req: Request, res: Response) {
  */
 export async function loginTPV(req: Request, res: Response) {
   try {
-    const { tpvId, tpvSecret, pin } = req.body;
+    const { empresaId, tpvId, tpvSecret, pin } = req.body;
 
-    if (!tpvId || !tpvSecret || !pin) {
+    if (!empresaId || !tpvId || !tpvSecret || !pin) {
       return res.status(400).json({
         ok: false,
-        error: 'tpvId, tpvSecret y pin son requeridos',
+        error: 'empresaId, tpvId, tpvSecret y pin son requeridos',
       });
     }
 
@@ -87,7 +87,7 @@ export async function loginTPV(req: Request, res: Response) {
       ip: req.ip || req.socket.remoteAddress || 'unknown',
     };
 
-    const resultado = await tpvService.loginTPV(tpvId, tpvSecret, pin, deviceInfo);
+    const resultado = await tpvService.loginTPV(empresaId, tpvId, tpvSecret, pin, deviceInfo);
 
     res.json({
       ok: true,
@@ -104,16 +104,16 @@ export async function loginTPV(req: Request, res: Response) {
  */
 export async function heartbeat(req: Request, res: Response) {
   try {
-    const { tpvId, sesionId, cajaId } = req.body;
+    const { empresaId, tpvId, sesionId, cajaId } = req.body;
 
-    if (!tpvId || !sesionId) {
+    if (!empresaId || !tpvId || !sesionId) {
       return res.status(400).json({
         ok: false,
-        error: 'tpvId y sesionId son requeridos',
+        error: 'empresaId, tpvId y sesionId son requeridos',
       });
     }
 
-    const resultado = await tpvService.heartbeat(tpvId, sesionId, cajaId);
+    const resultado = await tpvService.heartbeat(empresaId, tpvId, sesionId, cajaId);
 
     res.json(resultado);
   } catch (error: any) {
@@ -127,16 +127,16 @@ export async function heartbeat(req: Request, res: Response) {
  */
 export async function logoutTPV(req: Request, res: Response) {
   try {
-    const { sesionId } = req.body;
+    const { empresaId, sesionId } = req.body;
 
-    if (!sesionId) {
+    if (!empresaId || !sesionId) {
       return res.status(400).json({
         ok: false,
-        error: 'sesionId es requerido',
+        error: 'empresaId y sesionId son requeridos',
       });
     }
 
-    await tpvService.logoutTPV(sesionId);
+    await tpvService.logoutTPV(empresaId, sesionId);
 
     res.json({ ok: true });
   } catch (error: any) {
@@ -298,22 +298,22 @@ export async function eliminarTPV(req: Request, res: Response) {
  */
 export async function descargarDatos(req: Request, res: Response) {
   try {
-    const { tpvId, tpvSecret, ultimaSync } = req.body;
+    const { empresaId, tpvId, tpvSecret, ultimaSync } = req.body;
 
-    if (!tpvId || !tpvSecret) {
+    if (!empresaId || !tpvId || !tpvSecret) {
       return res.status(400).json({
         ok: false,
-        error: 'tpvId y tpvSecret son requeridos',
+        error: 'empresaId, tpvId y tpvSecret son requeridos',
       });
     }
 
     // Verificar credenciales del TPV
-    const tpv = await tpvService.verificarCredencialesTPV(tpvId, tpvSecret);
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
 
     // Descargar datos
     const datos = await tpvSyncService.descargarDatos(
       tpvId,
-      tpv.empresaId.toString(),
+      empresaId,
       ultimaSync ? new Date(ultimaSync) : undefined
     );
 
@@ -329,22 +329,22 @@ export async function descargarDatos(req: Request, res: Response) {
  */
 export async function subirVentas(req: Request, res: Response) {
   try {
-    const { tpvId, tpvSecret, ventas } = req.body;
+    const { empresaId, tpvId, tpvSecret, ventas } = req.body;
 
-    if (!tpvId || !tpvSecret || !ventas) {
+    if (!empresaId || !tpvId || !tpvSecret || !ventas) {
       return res.status(400).json({
         ok: false,
-        error: 'tpvId, tpvSecret y ventas son requeridos',
+        error: 'empresaId, tpvId, tpvSecret y ventas son requeridos',
       });
     }
 
     // Verificar credenciales del TPV
-    const tpv = await tpvService.verificarCredencialesTPV(tpvId, tpvSecret);
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
 
     // Subir ventas
     const resultado = await tpvSyncService.subirVentas(
       tpvId,
-      tpv.empresaId.toString(),
+      empresaId,
       ventas
     );
 
@@ -360,22 +360,22 @@ export async function subirVentas(req: Request, res: Response) {
  */
 export async function obtenerStock(req: Request, res: Response) {
   try {
-    const { tpvId, tpvSecret, productosIds } = req.body;
+    const { empresaId, tpvId, tpvSecret, productosIds } = req.body;
 
-    if (!tpvId || !tpvSecret) {
+    if (!empresaId || !tpvId || !tpvSecret) {
       return res.status(400).json({
         ok: false,
-        error: 'tpvId y tpvSecret son requeridos',
+        error: 'empresaId, tpvId y tpvSecret son requeridos',
       });
     }
 
     // Verificar credenciales del TPV
-    const tpv = await tpvService.verificarCredencialesTPV(tpvId, tpvSecret);
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
 
     // Obtener stock
     const stock = await tpvSyncService.obtenerStock(
       tpvId,
-      tpv.empresaId.toString(),
+      empresaId,
       productosIds
     );
 

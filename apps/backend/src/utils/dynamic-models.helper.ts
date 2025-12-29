@@ -43,6 +43,8 @@ import { Dashboard, IDashboard } from '../modules/dashboard/Dashboard';
 import { Inventario, IInventario } from '../modules/inventarios/Inventario';
 import { Traspaso, ITraspaso } from '../modules/traspasos/Traspaso';
 import { PresupuestoCompra, IPresupuestoCompra } from '../modules/presupuestos-compra/PresupuestoCompra';
+import { TPVRegistradoSchema, ITPVRegistrado } from '../modules/tpv/TPVRegistrado';
+import { SesionTPVSchema, ISesionTPV } from '../modules/tpv/SesionTPV';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -757,6 +759,36 @@ export const getPresupuestoCompraModel = async (
 };
 
 /**
+ * Obtener modelo de TPVRegistrado para una empresa específica
+ */
+export const getTPVRegistradoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ITPVRegistrado>> => {
+  return databaseManager.getModel<ITPVRegistrado>(
+    empresaId,
+    dbConfig,
+    'TPVRegistrado',
+    TPVRegistradoSchema
+  );
+};
+
+/**
+ * Obtener modelo de SesionTPV para una empresa específica
+ */
+export const getSesionTPVModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ISesionTPV>> => {
+  return databaseManager.getModel<ISesionTPV>(
+    empresaId,
+    dbConfig,
+    'SesionTPV',
+    SesionTPVSchema
+  );
+};
+
+/**
  * Objeto con todos los modelos por empresa
  * Se puede extender con más modelos según sea necesario
  */
@@ -803,6 +835,8 @@ export const EmpresaModels = {
   Inventario: getInventarioModel,
   Traspaso: getTraspasoModel,
   PresupuestoCompra: getPresupuestoCompraModel,
+  TPVRegistrado: getTPVRegistradoModel,
+  SesionTPV: getSesionTPVModel,
 };
 
 /**

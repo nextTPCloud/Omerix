@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ISesionTPV extends Document {
   _id: mongoose.Types.ObjectId;
-  empresaId: mongoose.Types.ObjectId;
+  // empresaId ya no es necesario - cada empresa tiene su propia BD
   usuarioId: mongoose.Types.ObjectId;
   tpvId: mongoose.Types.ObjectId;
 
@@ -32,16 +32,12 @@ export interface ISesionTPV extends Document {
 
 const SesionTPVSchema = new Schema<ISesionTPV>(
   {
-    empresaId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Empresa',
-      required: true,
-      index: true,
-    },
+    // empresaId ya no es necesario - cada empresa tiene su propia BD
     usuarioId: {
       type: Schema.Types.ObjectId,
       ref: 'Usuario',
       required: true,
+      index: true,
     },
     tpvId: {
       type: Schema.Types.ObjectId,
@@ -93,8 +89,8 @@ const SesionTPVSchema = new Schema<ISesionTPV>(
   }
 );
 
-// Indices para consultas frecuentes
-SesionTPVSchema.index({ empresaId: 1, activa: 1, heartbeatUltimo: 1 });
+// Indices para consultas frecuentes - Ya no necesitan empresaId
+SesionTPVSchema.index({ activa: 1, heartbeatUltimo: 1 });
 SesionTPVSchema.index({ tpvId: 1, activa: 1 });
 SesionTPVSchema.index({ usuarioId: 1, activa: 1 });
 
@@ -109,4 +105,8 @@ SesionTPVSchema.methods.isReallyActive = function (): boolean {
   return diff < TIMEOUT_MS;
 };
 
-export default mongoose.model<ISesionTPV>('SesionTPV', SesionTPVSchema);
+// Exportar el schema para modelos dinamicos (NO exportar modelo para evitar colecciones en BD principal)
+export { SesionTPVSchema };
+
+// NO exportar modelo por defecto - solo se usa via dynamic-models.helper.ts
+// Si se necesita compatibilidad temporal, usar el helper getSesionTPVModel

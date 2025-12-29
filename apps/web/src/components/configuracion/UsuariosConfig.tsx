@@ -64,6 +64,7 @@ import { personalService } from '@/services/personal.service'
 import { Personal } from '@/types/personal.types'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAuthStore } from '@/stores/authStore'
+import { useLicense } from '@/hooks/useLicense'
 
 // Helper para extraer el ID del personalId (puede venir como string o como objeto populado)
 const getPersonalId = (personalId: string | IPersonalPopulated | undefined): string => {
@@ -101,6 +102,10 @@ interface UsuariosConfigProps {
 export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
   const { canGestionarUsuarios } = usePermissions()
   const { user } = useAuthStore()
+  const { hasModule } = useLicense()
+
+  // Verificar si tiene módulo RRHH para vincular empleados
+  const tieneRRHH = hasModule('rrhh')
 
   const [usuarios, setUsuarios] = useState<IUsuario[]>([])
   const [rolesDisponibles, setRolesDisponibles] = useState<RolDisponible[]>([])
@@ -120,7 +125,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
   const [isNewUsuario, setIsNewUsuario] = useState(false)
 
   // Formulario del usuario
-  const [formData, setFormData] = useState<Partial<CreateUsuarioDTO & { avatar?: string; personalId?: string }>>({
+  const [formData, setFormData] = useState<Partial<CreateUsuarioDTO & { avatar?: string; personalId?: string; pinTPV?: string }>>({
     email: '',
     password: '',
     nombre: '',
@@ -129,6 +134,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
     rol: 'vendedor',
     personalId: '',
     activo: true,
+    pinTPV: '',
   })
   const [showPassword, setShowPassword] = useState(false)
 
@@ -146,14 +152,15 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
   const loadData = useCallback(async () => {
     try {
       setIsLoading(true)
-      const [usuariosRes, rolesRes, personalRes] = await Promise.all([
+
+      // Cargar usuarios y roles siempre
+      const [usuariosRes, rolesRes] = await Promise.all([
         usuariosService.getAll({
           busqueda: busqueda || undefined,
           activo: filtroActivo,
           rol: filtroRol as RoleType || undefined,
         }),
         usuariosService.getRolesDisponibles(),
-        personalService.getAll({ activo: true, limit: 100 }),
       ])
 
       if (usuariosRes.success && usuariosRes.data) {
@@ -165,15 +172,23 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
         setRolesDisponibles(rolesRes.data)
       }
 
-      if (personalRes.success && personalRes.data) {
-        setPersonalList(personalRes.data)
+      // Solo cargar personal si tiene módulo RRHH
+      if (tieneRRHH) {
+        try {
+          const personalRes = await personalService.getAll({ activo: true, limit: 100 })
+          if (personalRes.success && personalRes.data) {
+            setPersonalList(personalRes.data)
+          }
+        } catch {
+          // Ignorar error si no tiene acceso a RRHH
+        }
       }
     } catch (error: any) {
       toast.error(error.message || 'Error al cargar usuarios')
     } finally {
       setIsLoading(false)
     }
-  }, [busqueda, filtroActivo, filtroRol])
+  }, [busqueda, filtroActivo, filtroRol, tieneRRHH])
 
   useEffect(() => {
     loadData()
@@ -192,6 +207,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
       rol: (rolesDisponibles.find(r => r.codigo !== 'superadmin')?.codigo || 'vendedor') as Exclude<RoleType, 'superadmin'>,
       personalId: '',
       activo: true,
+      pinTPV: '',
     })
     setShowPassword(false)
     setShowDialog(true)
@@ -209,6 +225,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
       rol: usuario.rol as Exclude<RoleType, 'superadmin'>,
       personalId: getPersonalId(usuario.personalId), // Extraer ID del objeto populado
       activo: usuario.activo,
+      pinTPV: (usuario as any).pinTPV || '',
     })
     setShowDialog(true)
   }
@@ -243,6 +260,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
           rol: formData.rol as Exclude<RoleType, 'superadmin'>,
           personalId: formData.personalId || null,
           activo: formData.activo,
+          pinTPV: formData.pinTPV || undefined,
         }
         const response = await usuariosService.update(editingUsuario._id, updateData)
         if (response.success) {
@@ -441,7 +459,7 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
                   <TableHead>Usuario</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Rol</TableHead>
-                  <TableHead>Personal vinculado</TableHead>
+                  {tieneRRHH && <TableHead>Personal vinculado</TableHead>}
                   <TableHead className="text-center">2FA</TableHead>
                   <TableHead className="text-center">Estado</TableHead>
                   <TableHead className="w-40"></TableHead>
@@ -485,15 +503,17 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
                         {usuariosService.getNombreRol(usuario.rol)}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      {getPersonalNombreFromList(usuario.personalId, personalList) ? (
-                        <span className="text-sm">
-                          {getPersonalNombreFromList(usuario.personalId, personalList)}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Sin vincular</span>
-                      )}
-                    </TableCell>
+                    {tieneRRHH && (
+                      <TableCell>
+                        {getPersonalNombreFromList(usuario.personalId, personalList) ? (
+                          <span className="text-sm">
+                            {getPersonalNombreFromList(usuario.personalId, personalList)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Sin vincular</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="text-center">
                       {usuario.twoFactorEnabled ? (
                         <TooltipProvider>
@@ -713,24 +733,47 @@ export function UsuariosConfig({ onUsuariosChange }: UsuariosConfigProps) {
               </p>
             </div>
 
-            {/* Personal vinculado (para fichaje) */}
+            {/* Personal vinculado (para fichaje) - solo si tiene módulo RRHH */}
+            {tieneRRHH && (
+              <div className="space-y-2">
+                <Label htmlFor="personalId">Empleado vinculado</Label>
+                <SearchableSelect
+                  value={formData.personalId || ''}
+                  onValueChange={value => setFormData({ ...formData, personalId: value || '' })}
+                  placeholder="Sin vincular (no puede fichar)"
+                  searchPlaceholder="Buscar empleado..."
+                  emptyMessage="No se encontraron empleados"
+                  allowClear
+                  options={personalList.map(p => ({
+                    value: p._id,
+                    label: `${p.nombre} ${p.apellidos}`,
+                    description: p.codigo,
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Vincula este usuario a un empleado para que pueda fichar
+                </p>
+              </div>
+            )}
+
+            {/* PIN para TPV */}
             <div className="space-y-2">
-              <Label htmlFor="personalId">Empleado vinculado</Label>
-              <SearchableSelect
-                value={formData.personalId || ''}
-                onValueChange={value => setFormData({ ...formData, personalId: value || '' })}
-                placeholder="Sin vincular (no puede fichar)"
-                searchPlaceholder="Buscar empleado..."
-                emptyMessage="No se encontraron empleados"
-                allowClear
-                options={personalList.map(p => ({
-                  value: p._id,
-                  label: `${p.nombre} ${p.apellidos}`,
-                  description: p.codigo,
-                }))}
+              <Label htmlFor="pinTPV">PIN TPV</Label>
+              <Input
+                id="pinTPV"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={formData.pinTPV || ''}
+                onChange={e => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 6)
+                  setFormData({ ...formData, pinTPV: value })
+                }}
+                placeholder="4-6 dígitos"
               />
               <p className="text-xs text-muted-foreground">
-                Vincula este usuario a un empleado para que pueda fichar
+                PIN numérico de 4-6 dígitos para acceder al TPV
               </p>
             </div>
 

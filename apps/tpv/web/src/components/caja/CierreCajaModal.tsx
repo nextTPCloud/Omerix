@@ -93,7 +93,14 @@ export function CierreCajaModal({
     });
   };
 
+  // Verificar si se requiere justificación (hay diferencia significativa)
+  const requiereJustificacion = Math.abs(diferencia) > 0.01; // Tolerancia de 1 céntimo
+  const puedeConfirmar = !requiereJustificacion || observaciones.trim().length >= 10;
+
   const handleConfirm = () => {
+    if (requiereJustificacion && observaciones.trim().length < 10) {
+      return; // No permitir cierre sin justificación
+    }
     onConfirm(arqueoReal, observaciones, conteo);
     resetForm();
   };
@@ -275,15 +282,24 @@ export function CierreCajaModal({
 
             {/* Observaciones */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Observaciones
+              <label className={`block text-sm font-medium mb-1 ${requiereJustificacion ? 'text-red-600' : 'text-gray-700'}`}>
+                Observaciones {requiereJustificacion && <span className="text-red-500">*</span>}
               </label>
               <textarea
                 value={observaciones}
                 onChange={(e) => setObservaciones(e.target.value)}
-                placeholder="Notas sobre el cierre..."
-                className="w-full p-2 border rounded-lg resize-none h-16 text-sm"
+                placeholder={requiereJustificacion ? "OBLIGATORIO: Explica el motivo del descuadre (min. 10 caracteres)..." : "Notas sobre el cierre..."}
+                className={`w-full p-2 border rounded-lg resize-none h-16 text-sm ${
+                  requiereJustificacion && observaciones.trim().length < 10
+                    ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-200'
+                    : ''
+                }`}
               />
+              {requiereJustificacion && observaciones.trim().length < 10 && (
+                <p className="text-xs text-red-500 mt-1">
+                  Debes justificar el descuadre de {diferencia >= 0 ? '+' : ''}{diferencia.toFixed(2)} € (mín. 10 caracteres)
+                </p>
+              )}
             </div>
 
             {/* Estado final */}
@@ -311,8 +327,14 @@ export function CierreCajaModal({
           <Button variant="secondary" size="lg" className="flex-1" onClick={handleClose}>
             Cancelar
           </Button>
-          <Button variant="danger" size="lg" className="flex-1" onClick={handleConfirm}>
-            Cerrar Caja
+          <Button
+            variant="danger"
+            size="lg"
+            className="flex-1"
+            onClick={handleConfirm}
+            disabled={!puedeConfirmar}
+          >
+            {requiereJustificacion && !puedeConfirmar ? 'Justifica el descuadre' : 'Cerrar Caja'}
           </Button>
         </div>
       </div>

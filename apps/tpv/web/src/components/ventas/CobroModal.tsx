@@ -10,6 +10,8 @@ import {
   Check,
   X,
   Plus,
+  Gift,
+  Printer,
 } from 'lucide-react';
 
 type MetodoPago = 'efectivo' | 'tarjeta' | 'bizum';
@@ -22,7 +24,7 @@ interface Pago {
 interface CobroModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (pagos: Pago[], cambio: number) => void;
+  onConfirm: (pagos: Pago[], cambio: number, opciones: { esTicketRegalo?: boolean; imprimir?: boolean }) => void;
   total: number;
 }
 
@@ -30,6 +32,7 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [metodoPagoActual, setMetodoPagoActual] = useState<MetodoPago>('efectivo');
   const [importeActual, setImporteActual] = useState('');
+  const [esTicketRegalo, setEsTicketRegalo] = useState(false);
 
   // Reset al abrir
   useEffect(() => {
@@ -37,6 +40,7 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
       setPagos([]);
       setMetodoPagoActual('efectivo');
       setImporteActual('');
+      setEsTicketRegalo(false);
     }
   }, [isOpen]);
 
@@ -95,7 +99,7 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
     setPagos([...pagos, { metodo, importe: pendiente }]);
   };
 
-  const handleConfirmar = () => {
+  const handleConfirmar = (imprimir: boolean) => {
     // Si hay importe en el input, agregarlo primero
     let pagosFinales = [...pagos];
     if (importeNumerico > 0) {
@@ -105,7 +109,7 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
     const totalFinal = pagosFinales.reduce((acc, p) => acc + p.importe, 0);
     if (totalFinal < total) return;
 
-    onConfirm(pagosFinales, cambio);
+    onConfirm(pagosFinales, cambio, { esTicketRegalo, imprimir });
   };
 
   const puedeConfirmar = totalPagado + importeNumerico >= total;
@@ -290,20 +294,50 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
           </div>
         </div>
 
+        {/* Ticket Regalo */}
+        <div className="flex items-center justify-between p-3 mt-4 bg-pink-50 rounded-xl border border-pink-200">
+          <div className="flex items-center gap-3">
+            <Gift className="w-5 h-5 text-pink-600" />
+            <div>
+              <p className="font-medium text-pink-700">Ticket Regalo</p>
+              <p className="text-xs text-pink-500">El ticket no mostrara precios</p>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={esTicketRegalo}
+              onChange={(e) => setEsTicketRegalo(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
+          </label>
+        </div>
+
         {/* Acciones */}
-        <div className="flex gap-3 mt-4 pt-4 border-t">
-          <Button variant="secondary" size="lg" className="flex-1" onClick={onClose}>
+        <div className="flex gap-2 mt-4 pt-4 border-t">
+          <Button variant="secondary" size="lg" onClick={onClose}>
             Cancelar
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
+            className="flex-1"
+            onClick={() => handleConfirmar(false)}
+            disabled={!puedeConfirmar}
+            icon={<Check className="w-5 h-5" />}
+          >
+            Confirmar
           </Button>
           <Button
             variant="success"
             size="lg"
             className="flex-1"
-            onClick={handleConfirmar}
+            onClick={() => handleConfirmar(true)}
             disabled={!puedeConfirmar}
-            icon={<Check className="w-5 h-5" />}
+            icon={<Printer className="w-5 h-5" />}
           >
-            Confirmar Cobro
+            Cobrar e Imprimir
           </Button>
         </div>
       </div>

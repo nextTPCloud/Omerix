@@ -1,13 +1,14 @@
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import TPVRegistrado, { ITPVRegistrado } from './TPVRegistrado';
+import { ITPVRegistrado } from './TPVRegistrado';
 import TPVActivationToken, { ITPVActivationToken } from './TPVActivationToken';
-import SesionTPV, { ISesionTPV } from './SesionTPV';
+import { ISesionTPV } from './SesionTPV';
 import Licencia from '../licencias/Licencia';
-import Empresa from '../empresa/Empresa';
+import Empresa, { IDatabaseConfig } from '../empresa/Empresa';
 import Usuario from '../usuarios/Usuario';
 import UsuarioEmpresa from '../usuarios/UsuarioEmpresa';
-import mongoose from 'mongoose';
+import mongoose, { Model } from 'mongoose';
+import { getTPVRegistradoModel, getSesionTPVModel } from '../../utils/dynamic-models.helper';
 
 // Generar token corto (8 caracteres alfanumericos, facil de escribir)
 function generarTokenCorto(): string {
@@ -30,6 +31,20 @@ function generarSecretoSeguro(): string {
 }
 
 export class TPVService {
+  /**
+   * Obtener la configuracion de BD de una empresa
+   */
+  private async getDbConfig(empresaId: string): Promise<IDatabaseConfig> {
+    const empresa = await Empresa.findById(empresaId);
+    if (!empresa) {
+      throw new Error('Empresa no encontrada');
+    }
+    if (!empresa.databaseConfig) {
+      throw new Error('Configuracion de base de datos no encontrada para esta empresa');
+    }
+    return empresa.databaseConfig;
+  }
+
   /**
    * Genera un token de activacion para registrar un nuevo TPV
    */
@@ -61,9 +76,11 @@ export class TPVService {
       limiteTPVs += addonTPV.cantidad || 1;
     }
 
-    // 3. Verificar TPVs actuales
+    // 3. Verificar TPVs actuales - Usar modelo dinamico
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+
     const tpvsActivos = await TPVRegistrado.countDocuments({
-      empresaId,
       estado: { $ne: 'desactivado' },
     });
 
@@ -81,7 +98,7 @@ export class TPVService {
       existe = !!(await TPVActivationToken.findOne({ token }));
     }
 
-    // 5. Crear registro de token
+    // 5. Crear registro de token (en BD principal)
     const expiraEn = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
 
     await TPVActivationToken.create({
@@ -113,7 +130,7 @@ export class TPVService {
     serverUrl: string;
     config: ITPVRegistrado['config'];
   }> {
-    // 1. Buscar y validar token
+    // 1. Buscar y validar token (en BD principal)
     console.log('[TPV Service] Buscando token:', token);
 
     // Primero buscar el token sin validaciones para debug
@@ -139,14 +156,18 @@ export class TPVService {
       throw new Error('Token invalido o expirado');
     }
 
-    // 2. Verificar almacen si se proporciona
+    const empresaId = activationToken.empresaId.toString();
+
+    // Obtener modelo dinamico para TPV
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+
+    // 2. Verificar almacen si se proporciona (usando modelo dinamico de Almacen)
     let almacenIdFinal: string | undefined = undefined;
     if (almacenId) {
-      const Almacen = mongoose.model('Almacen');
-      const almacen = await Almacen.findOne({
-        _id: almacenId,
-        empresaId: activationToken.empresaId,
-      });
+      const { getAlmacenModel } = await import('../../utils/dynamic-models.helper');
+      const Almacen = await getAlmacenModel(empresaId, dbConfig);
+      const almacen = await Almacen.findById(almacenId);
 
       if (!almacen) {
         throw new Error('Almacen no encontrado');
@@ -155,17 +176,14 @@ export class TPVService {
     }
 
     // 3. Generar codigo de TPV
-    const tpvCount = await TPVRegistrado.countDocuments({
-      empresaId: activationToken.empresaId,
-    });
+    const tpvCount = await TPVRegistrado.countDocuments({});
     const codigo = `TPV-${String(tpvCount + 1).padStart(3, '0')}`;
 
     // 4. Generar secret
     const tpvSecret = generarSecretoSeguro();
 
-    // 5. Crear TPV
+    // 5. Crear TPV (en BD de empresa, sin empresaId)
     const tpv = await TPVRegistrado.create({
-      empresaId: activationToken.empresaId,
       codigo,
       nombre,
       deviceId: uuidv4(),
@@ -185,26 +203,26 @@ export class TPVService {
       versionApp: deviceInfo.version,
     });
 
-    // 6. Marcar token como usado
+    // 6. Marcar token como usado (en BD principal)
     activationToken.usado = true;
     activationToken.tpvId = tpv._id;
     activationToken.usadoEn = new Date();
     activationToken.usadoDesdeIP = deviceInfo.ip;
     await activationToken.save();
 
-    // 7. Actualizar contador en licencia
+    // 7. Actualizar contador en licencia (en BD principal)
     await Licencia.updateOne(
-      { empresaId: activationToken.empresaId },
+      { empresaId },
       { $inc: { 'usoActual.tpvsActuales': 1 } }
     );
 
     // 8. Obtener datos de empresa
-    const empresa = await Empresa.findById(activationToken.empresaId);
+    const empresa = await Empresa.findById(empresaId);
 
     return {
       tpvId: tpv._id.toString(),
       tpvSecret, // Solo se devuelve UNA vez
-      empresaId: activationToken.empresaId.toString(),
+      empresaId,
       empresaNombre: empresa?.nombre || '',
       serverUrl: process.env.API_URL || '',
       config: tpv.config,
@@ -215,6 +233,7 @@ export class TPVService {
    * Valida login de usuario en TPV y crea sesion
    */
   async loginTPV(
+    empresaId: string,
     tpvId: string,
     tpvSecret: string,
     pin: string,
@@ -223,7 +242,12 @@ export class TPVService {
     usuario: { id: string; nombre: string; permisos: any };
     sesionId: string;
   }> {
-    // 1. Verificar TPV
+    // Obtener modelos dinamicos
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
+    // 1. Verificar TPV (en BD de empresa)
     const tpv = await TPVRegistrado.findById(tpvId);
     if (!tpv || tpv.estado !== 'activo') {
       throw new Error('TPV no encontrado o inactivo');
@@ -234,9 +258,9 @@ export class TPVService {
       throw new Error('Credenciales de TPV invalidas');
     }
 
-    // 2. Buscar relacion usuario-empresa por PIN
+    // 2. Buscar relacion usuario-empresa por PIN (UsuarioEmpresa sigue en BD principal)
     const usuarioEmpresa = await UsuarioEmpresa.findOne({
-      empresaId: tpv.empresaId,
+      empresaId,
       pinTPV: pin,
       activo: true,
     }).populate('usuarioId');
@@ -252,17 +276,16 @@ export class TPVService {
     }
 
     // 3. Verificar limite de usuarios simultaneos
-    await this.verificarLimiteUsuarios(tpv.empresaId.toString(), usuario._id.toString());
+    await this.verificarLimiteUsuarios(empresaId, usuario._id.toString());
 
-    // 4. Cerrar sesiones anteriores del usuario en este TPV
+    // 4. Cerrar sesiones anteriores del usuario en este TPV (en BD de empresa)
     await SesionTPV.updateMany(
       { usuarioId: usuario._id, tpvId: tpv._id, activa: true },
       { activa: false, finSesion: new Date(), motivoFin: 'logout' }
     );
 
-    // 5. Crear nueva sesion
+    // 5. Crear nueva sesion (en BD de empresa, sin empresaId)
     const sesion = await SesionTPV.create({
-      empresaId: tpv.empresaId,
       usuarioId: usuario._id,
       tpvId: tpv._id,
       ip: deviceInfo.ip,
@@ -327,8 +350,10 @@ export class TPVService {
     limiteUsuarios += plan.limites?.tpvs || 0;
 
     // 3. Contar sesiones activas (excluyendo este usuario si ya tiene sesion)
+    const dbConfig = await this.getDbConfig(empresaId);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
     const sesionesActivas = await SesionTPV.countDocuments({
-      empresaId,
       activa: true,
       usuarioId: { $ne: usuarioId },
       heartbeatUltimo: { $gte: new Date(Date.now() - 60000) }, // Ultimos 60s
@@ -346,10 +371,15 @@ export class TPVService {
    * Procesa heartbeat de un TPV
    */
   async heartbeat(
+    empresaId: string,
     tpvId: string,
     sesionId: string,
     cajaId?: string
   ): Promise<{ ok: boolean }> {
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
     await SesionTPV.updateOne(
       { _id: sesionId, tpvId, activa: true },
       {
@@ -370,7 +400,10 @@ export class TPVService {
   /**
    * Cierra sesion de usuario en TPV
    */
-  async logoutTPV(sesionId: string): Promise<void> {
+  async logoutTPV(empresaId: string, sesionId: string): Promise<void> {
+    const dbConfig = await this.getDbConfig(empresaId);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
     await SesionTPV.updateOne(
       { _id: sesionId },
       {
@@ -385,7 +418,10 @@ export class TPVService {
    * Lista TPVs de una empresa
    */
   async listarTPVs(empresaId: string): Promise<ITPVRegistrado[]> {
-    return TPVRegistrado.find({ empresaId })
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+
+    return TPVRegistrado.find({})
       .populate('almacenId', 'codigo nombre')
       .sort({ codigo: 1 });
   }
@@ -394,7 +430,10 @@ export class TPVService {
    * Obtiene un TPV por ID
    */
   async obtenerTPV(tpvId: string, empresaId: string): Promise<ITPVRegistrado | null> {
-    return TPVRegistrado.findOne({ _id: tpvId, empresaId })
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+
+    return TPVRegistrado.findById(tpvId)
       .populate('almacenId', 'codigo nombre');
   }
 
@@ -406,8 +445,11 @@ export class TPVService {
     empresaId: string,
     datos: Partial<Pick<ITPVRegistrado, 'nombre' | 'almacenId' | 'serieFactura' | 'config'>>
   ): Promise<ITPVRegistrado | null> {
-    return TPVRegistrado.findOneAndUpdate(
-      { _id: tpvId, empresaId },
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+
+    return TPVRegistrado.findByIdAndUpdate(
+      tpvId,
       { $set: datos },
       { new: true }
     );
@@ -422,7 +464,11 @@ export class TPVService {
     usuarioId: string,
     motivo: string
   ): Promise<void> {
-    const tpv = await TPVRegistrado.findOne({ _id: tpvId, empresaId });
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
+    const tpv = await TPVRegistrado.findById(tpvId);
     if (!tpv) {
       throw new Error('TPV no encontrado');
     }
@@ -444,7 +490,7 @@ export class TPVService {
     tpv.fechaDesactivacion = new Date();
     await tpv.save();
 
-    // Decrementar contador en licencia
+    // Decrementar contador en licencia (en BD principal)
     await Licencia.updateOne(
       { empresaId },
       { $inc: { 'usoActual.tpvsActuales': -1 } }
@@ -455,8 +501,10 @@ export class TPVService {
    * Obtiene sesiones activas de una empresa
    */
   async obtenerSesionesActivas(empresaId: string): Promise<ISesionTPV[]> {
+    const dbConfig = await this.getDbConfig(empresaId);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
     return SesionTPV.find({
-      empresaId,
       activa: true,
       heartbeatUltimo: { $gte: new Date(Date.now() - 60000) },
     }).sort({ inicioSesion: -1 });
@@ -469,8 +517,11 @@ export class TPVService {
     sesionId: string,
     empresaId: string
   ): Promise<void> {
+    const dbConfig = await this.getDbConfig(empresaId);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
     await SesionTPV.updateOne(
-      { _id: sesionId, empresaId },
+      { _id: sesionId },
       {
         activa: false,
         finSesion: new Date(),
@@ -480,9 +531,12 @@ export class TPVService {
   }
 
   /**
-   * Limpia sesiones zombies (sin heartbeat reciente)
+   * Limpia sesiones zombies (sin heartbeat reciente) para una empresa
    */
-  async limpiarSesionesZombies(): Promise<number> {
+  async limpiarSesionesZombies(empresaId: string): Promise<number> {
+    const dbConfig = await this.getDbConfig(empresaId);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
     const resultado = await SesionTPV.updateMany(
       {
         activa: true,
@@ -502,8 +556,12 @@ export class TPVService {
    * Revoca el token de un TPV (fuerza re-autenticacion)
    */
   async revocarTokenTPV(tpvId: string, empresaId: string): Promise<void> {
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
     await TPVRegistrado.updateOne(
-      { _id: tpvId, empresaId },
+      { _id: tpvId },
       { $inc: { tokenVersion: 1 } }
     );
 
@@ -523,7 +581,11 @@ export class TPVService {
     empresaId: string,
     usuarioId: string
   ): Promise<void> {
-    const tpv = await TPVRegistrado.findOne({ _id: tpvId, empresaId });
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
+    const tpv = await TPVRegistrado.findById(tpvId);
     if (!tpv) {
       throw new Error('TPV no encontrado');
     }
@@ -544,7 +606,7 @@ export class TPVService {
       { activa: false, finSesion: new Date(), motivoFin: 'eliminado' }
     );
 
-    // Decrementar contador en licencia solo si estaba activo
+    // Decrementar contador en licencia solo si estaba activo (en BD principal)
     if (tpv.estado !== 'desactivado') {
       await Licencia.updateOne(
         { empresaId },
@@ -556,19 +618,24 @@ export class TPVService {
     await SesionTPV.deleteMany({ tpvId });
 
     // Eliminar el TPV
-    await TPVRegistrado.deleteOne({ _id: tpvId, empresaId });
+    await TPVRegistrado.deleteOne({ _id: tpvId });
 
-    // Eliminar tokens de activacion asociados (si los hay)
+    // Eliminar tokens de activacion asociados (en BD principal)
     await TPVActivationToken.deleteMany({ tpvId });
   }
 
   /**
    * Verifica credenciales del TPV (para endpoints de sync)
+   * Requiere empresaId porque el TPV ya conoce su empresa
    */
   async verificarCredencialesTPV(
+    empresaId: string,
     tpvId: string,
     tpvSecret: string
   ): Promise<ITPVRegistrado> {
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+
     const tpv = await TPVRegistrado.findById(tpvId);
 
     if (!tpv) {

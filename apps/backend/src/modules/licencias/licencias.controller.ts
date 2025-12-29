@@ -218,3 +218,23 @@ export const getPermisosDisponibles = async (req: Request, res: Response) => {
     });
   }
 };
+
+// Recalcular conteo de TPVs
+export const recalcularConteoTPVs = async (req: Request, res: Response) => {
+  try {
+    const empresaId = req.empresaId!;
+
+    const result = await licenciasService.recalcularConteoTPVs(empresaId);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error('Error recalculando conteo TPVs:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error recalculando conteo de TPVs',
+    });
+  }
+};

@@ -48,6 +48,7 @@ const limitMapping: Record<string, string> = {
   whatsappEsteMes: 'whatsappMes',
 }
 
+
 export function useLicense(): UseLicenseReturn {
   const { isAuthenticated, user } = useAuthStore()
   const [license, setLicense] = useState<ILicencia | null>(null)
@@ -107,9 +108,12 @@ export function useLicense(): UseLicenseReturn {
     // Verificar si esta en los modulos del plan
     if (plan.modulosIncluidos.includes(moduleName)) return true
 
+    // Caso especial: si el plan tiene tpvsActivos > 0, tiene acceso al modulo TPV
+    if (moduleName === 'tpv' && plan.limites?.tpvsActivos > 0) return true
+
     // Verificar si tiene el modulo como add-on activo
     if (license?.addOns) {
-      return license.addOns.some(addon => addon.nombre === moduleName && addon.activo)
+      return license.addOns.some(addon => addon.slug === moduleName && addon.activo)
     }
 
     return false

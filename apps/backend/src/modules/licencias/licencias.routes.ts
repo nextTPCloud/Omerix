@@ -12,6 +12,7 @@ import {
   toggleRenovacionAutomatica,
   getEstadoRenovacion,
   getPermisosDisponibles,
+  recalcularConteoTPVs,
 } from './licencias.controller';
 
 const router = Router();
@@ -211,5 +212,19 @@ router.put('/renovacion', toggleRenovacionAutomatica);
  *         description: Lista de permisos y su disponibilidad
  */
 router.get('/permisos-disponibles', getPermisosDisponibles);
+
+/**
+ * @swagger
+ * /api/licencias/recalcular-tpvs:
+ *   post:
+ *     summary: Recalcular conteo de TPVs desde la BD de empresa
+ *     tags: [Licencias]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Conteo recalculado
+ */
+router.post('/recalcular-tpvs', recalcularConteoTPVs);
 
 export default router;

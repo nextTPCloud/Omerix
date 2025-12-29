@@ -42,7 +42,8 @@ interface ComponenteKit {
 export function TabKit({ formData, setFormData, isEditing }: TabKitProps) {
   const [productos, setProductos] = useState<Producto[]>([])
   const [loadingProductos, setLoadingProductos] = useState(true)
-  const [autoCalcularPrecio, setAutoCalcularPrecio] = useState(true)
+  // autoCalcularPrecio: false por defecto para no sobreescribir precios existentes al cargar
+  const [autoCalcularPrecio, setAutoCalcularPrecio] = useState(false)
   const [tiposImpuesto, setTiposImpuesto] = useState<TipoImpuesto[]>([])
   const [mostrarPVP, setMostrarPVP] = useState(true) // Mostrar columna PVP
 

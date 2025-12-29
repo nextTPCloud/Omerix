@@ -252,7 +252,7 @@ const addOnsDisponibles: IAddOnLocal[] = [
 export default function CheckoutPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { plan: currentPlan, isTrial } = useLicense()
+  const { plan: currentPlan, isTrial, license, isActive } = useLicense()
 
   const [selectedPlan, setSelectedPlan] = useState<IPlan | null>(null)
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([])
@@ -263,6 +263,12 @@ export default function CheckoutPage() {
   const [discount, setDiscount] = useState(0)
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [onlyAddOns, setOnlyAddOns] = useState(false) // Solo comprar add-ons
+
+  // Verificar si el usuario ya tiene un plan activo (no trial)
+  const hasActivePlan = !!(isActive && !isTrial && currentPlan)
+  // Verificar si el plan seleccionado es el mismo que el actual
+  const isSamePlan = !!(selectedPlan && currentPlan && selectedPlan.slug === currentPlan.slug)
 
   // Toggle add-on selection
   const toggleAddOn = (slug: string) => {
@@ -283,11 +289,14 @@ export default function CheckoutPage() {
     return total + precio
   }, 0)
 
-  // Obtener plan de query params
+  // Obtener plan y add-ons de query params
   useEffect(() => {
     const planSlug = searchParams.get('plan')
     const cycle = searchParams.get('cycle') as 'mensual' | 'anual'
+    const addonsParam = searchParams.get('addons')
+    const onlyAddonsParam = searchParams.get('onlyAddons')
 
+    // Solo preseleccionar plan si viene explícitamente en la URL
     if (planSlug) {
       const plan = planesDisponibles.find(p => p.slug === planSlug)
       if (plan) {
@@ -295,13 +304,32 @@ export default function CheckoutPage() {
       }
     }
 
+    // Si viene con onlyAddons=true y tiene plan activo, activar modo solo add-ons
+    if (onlyAddonsParam === 'true' && hasActivePlan && currentPlan) {
+      setOnlyAddOns(true)
+      // Solo en este caso preseleccionar el plan actual
+      const plan = planesDisponibles.find(p => p.slug === currentPlan.slug)
+      if (plan) {
+        setSelectedPlan(plan)
+      }
+    }
+
+    // Preseleccionar add-ons si vienen en params
+    if (addonsParam) {
+      const addons = addonsParam.split(',')
+      setSelectedAddOns(addons.filter(slug => addOnsDisponibles.some(a => a.slug === slug)))
+    }
+
     if (cycle === 'mensual' || cycle === 'anual') {
       setBillingCycle(cycle)
     }
-  }, [searchParams])
+  }, [searchParams, hasActivePlan, currentPlan])
 
   // Calcular precios (IVA ya incluido en el precio)
-  const planPrice = selectedPlan
+  // Si tiene plan activo y es el mismo, o si solo compra add-ons, no cobrar el plan
+  const shouldChargePlan = !onlyAddOns && (!hasActivePlan || !isSamePlan)
+
+  const planPrice = selectedPlan && shouldChargePlan
     ? billingCycle === 'anual'
       ? selectedPlan.precio.anual
       : selectedPlan.precio.mensual
@@ -313,6 +341,13 @@ export default function CheckoutPage() {
   // El IVA ya está incluido en el precio (21%)
   const baseImponible = total / 1.21
   const ivaIncluido = total - baseImponible
+
+  // Determinar tipo de operacion
+  const operationType = onlyAddOns || (hasActivePlan && isSamePlan)
+    ? 'addons' // Solo add-ons
+    : hasActivePlan && !isSamePlan
+      ? 'upgrade' // Cambio de plan
+      : 'new' // Nueva suscripcion
 
   const handleApplyPromo = () => {
     // Simulacion de codigos promocionales
@@ -333,8 +368,15 @@ export default function CheckoutPage() {
   }
 
   const handleCheckout = async () => {
-    if (!selectedPlan) {
+    // Si solo add-ons, no requiere plan
+    if (operationType !== 'addons' && !selectedPlan) {
       toast.error('Selecciona un plan')
+      return
+    }
+
+    // Si solo add-ons, requiere al menos un add-on seleccionado
+    if (operationType === 'addons' && selectedAddOns.length === 0) {
+      toast.error('Selecciona al menos un add-on')
       return
     }
 
@@ -349,8 +391,10 @@ export default function CheckoutPage() {
       if (paymentMethod === 'stripe') {
         // Crear sesion de Stripe Checkout
         const response = await billingService.crearCheckoutSession({
-          planSlug: selectedPlan.slug,
+          planSlug: operationType === 'addons' ? undefined : selectedPlan?.slug,
           tipoSuscripcion: billingCycle,
+          addOns: selectedAddOns.length > 0 ? selectedAddOns : undefined,
+          onlyAddOns: operationType === 'addons',
           successUrl: `${window.location.origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}/checkout/cancel`,
         })
@@ -472,7 +516,15 @@ export default function CheckoutPage() {
                   className={`relative cursor-pointer transition-all hover:shadow-lg ${
                     plan.slug === 'profesional' ? 'border-blue-500 border-2 shadow-md' : 'border-slate-200'
                   } ${esActual ? 'ring-2 ring-green-500' : ''}`}
-                  onClick={() => setSelectedPlan(plan)}
+                  onClick={() => {
+                    setSelectedPlan(plan)
+                    // Si es el plan actual y tiene add-ons, marcar como solo add-ons
+                    if (esActual && hasActivePlan) {
+                      setOnlyAddOns(true)
+                    } else {
+                      setOnlyAddOns(false)
+                    }
+                  }}
                 >
                   {plan.slug === 'profesional' && (
                     <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600">
@@ -522,10 +574,12 @@ export default function CheckoutPage() {
                     </ul>
 
                     <Button
-                      className={`w-full ${plan.slug === 'profesional' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                      variant={plan.slug === 'profesional' ? 'default' : 'outline'}
+                      className={`w-full ${plan.slug === 'profesional' ? 'bg-blue-600 hover:bg-blue-700' : ''} ${esActual ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                      variant={plan.slug === 'profesional' || esActual ? 'default' : 'outline'}
                     >
-                      {esActual ? 'Plan actual' : 'Seleccionar'}
+                      {esActual
+                        ? (selectedAddOns.length > 0 ? 'Añadir módulos' : 'Tu plan actual')
+                        : 'Seleccionar'}
                     </Button>
                   </CardContent>
                 </Card>
@@ -589,16 +643,32 @@ export default function CheckoutPage() {
                   <div>
                     <p className="font-medium">Add-ons seleccionados: {selectedAddOns.length}</p>
                     <p className="text-sm text-muted-foreground">
-                      Selecciona un plan para continuar con el pago
+                      {hasActivePlan
+                        ? `Añadir a tu plan ${currentPlan?.nombre}`
+                        : 'Selecciona un plan para continuar con el pago'}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-2xl font-bold">+{addOnsTotal}€</p>
+                    <p className="text-2xl font-bold">{addOnsTotal}€</p>
                     <p className="text-xs text-muted-foreground">
                       {billingCycle === 'anual' ? '/año' : '/mes'}
                     </p>
                   </div>
                 </div>
+                {/* Boton para comprar solo add-ons si tiene plan activo */}
+                {hasActivePlan && (
+                  <Button
+                    className="w-full mt-4"
+                    onClick={() => {
+                      setOnlyAddOns(true)
+                      // Preseleccionar el plan actual para pasar a la pantalla de pago
+                      const plan = planesDisponibles.find(p => p.slug === currentPlan?.slug)
+                      if (plan) setSelectedPlan(plan)
+                    }}
+                  >
+                    Comprar Add-ons ({addOnsTotal}€/{billingCycle === 'anual' ? 'año' : 'mes'})
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -621,7 +691,11 @@ export default function CheckoutPage() {
         </Link>
         <h1 className="text-2xl font-bold">Completar Compra</h1>
         <p className="text-muted-foreground">
-          Finaliza tu suscripcion al Plan {selectedPlan.nombre}
+          {operationType === 'addons'
+            ? `Añadir módulos a tu plan ${currentPlan?.nombre || selectedPlan?.nombre}`
+            : operationType === 'upgrade'
+              ? `Cambiar a Plan ${selectedPlan?.nombre}`
+              : `Finaliza tu suscripcion al Plan ${selectedPlan?.nombre}`}
         </p>
       </div>
 
@@ -814,13 +888,25 @@ export default function CheckoutPage() {
               <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-medium">Plan {selectedPlan.nombre}</p>
+                    <p className="font-medium">
+                      {operationType === 'addons'
+                        ? `Plan actual: ${currentPlan?.nombre || selectedPlan?.nombre}`
+                        : `Plan ${selectedPlan?.nombre}`}
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      Facturacion {billingCycle}
+                      {operationType === 'addons'
+                        ? 'Añadiendo módulos extra'
+                        : `Facturacion ${billingCycle}`}
                     </p>
                   </div>
                   <Badge variant="secondary">
-                    {isTrial ? 'Upgrade desde Trial' : 'Cambio de plan'}
+                    {operationType === 'addons'
+                      ? 'Solo Add-ons'
+                      : operationType === 'upgrade'
+                        ? 'Cambio de plan'
+                        : isTrial
+                          ? 'Upgrade desde Trial'
+                          : 'Nueva suscripción'}
                   </Badge>
                 </div>
               </div>
@@ -829,12 +915,15 @@ export default function CheckoutPage() {
 
               {/* Desglose de precios */}
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Plan {selectedPlan.nombre} ({billingCycle})
-                  </span>
-                  <span>{planPrice.toFixed(2)}€</span>
-                </div>
+                {/* Solo mostrar precio del plan si se va a cobrar */}
+                {shouldChargePlan && selectedPlan && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Plan {selectedPlan.nombre} ({billingCycle})
+                    </span>
+                    <span>{planPrice.toFixed(2)}€</span>
+                  </div>
+                )}
 
                 {/* Add-ons seleccionados */}
                 {selectedAddOns.map(slug => {
