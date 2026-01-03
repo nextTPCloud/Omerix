@@ -3,6 +3,8 @@ import Empresa, { IDatabaseConfig } from '@/modules/empresa/Empresa';
 import { getModeloTerminal, ITerminal } from './Terminal';
 import { TerminalesService } from './terminales.service';
 import { logger } from '@/config/logger';
+import Licencia from '@/modules/licencias/Licencia';
+import Plan from '@/modules/licencias/Plan';
 
 // ============================================
 // SCHEDULER DE SINCRONIZACIÓN DE TERMINALES
@@ -61,7 +63,39 @@ class TerminalSyncScheduler {
   }
 
   /**
+   * Verificar si una empresa tiene el módulo RRHH activo (en plan o add-on)
+   */
+  private async tieneModuloRRHH(empresaId: mongoose.Types.ObjectId): Promise<boolean> {
+    try {
+      // Buscar licencia de la empresa
+      const licencia = await Licencia.findOne({ empresaId }).populate('planId');
+      if (!licencia) return false;
+
+      const plan = licencia.planId as any;
+
+      // Verificar si el módulo RRHH está en el plan
+      const modulosRRHH = ['rrhh', 'fichajes', 'terminales'];
+      const tieneEnPlan = plan?.modulosIncluidos?.some((m: string) =>
+        modulosRRHH.includes(m.toLowerCase())
+      );
+      if (tieneEnPlan) return true;
+
+      // Verificar si tiene add-on de RRHH activo
+      const tieneAddOn = licencia.addOns?.some(
+        (addon) => addon.activo && modulosRRHH.includes(addon.slug?.toLowerCase())
+      );
+      if (tieneAddOn) return true;
+
+      return false;
+    } catch (error: any) {
+      logger.warn(`Error verificando módulo RRHH para empresa ${empresaId}: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
    * Cargar todos los terminales activos de todas las empresas
+   * Solo carga terminales de empresas con módulo RRHH activo
    */
   private async loadAllTerminales(): Promise<void> {
     try {
@@ -70,6 +104,13 @@ class TerminalSyncScheduler {
 
       for (const empresa of empresas) {
         if (!empresa.databaseConfig) continue;
+
+        // Verificar que la empresa tenga el módulo RRHH
+        const tieneRRHH = await this.tieneModuloRRHH(empresa._id);
+        if (!tieneRRHH) {
+          logger.debug(`Empresa ${empresa.nombre} no tiene módulo RRHH, omitiendo terminales`);
+          continue;
+        }
 
         try {
           await this.loadTerminalesEmpresa(empresa._id, empresa.databaseConfig);

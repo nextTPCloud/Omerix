@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { formasPagoService } from '@/services/formas-pago.service'
+import { cuentasBancariasService, CuentaBancariaSelector } from '@/services/cuentas-bancarias.service'
 import { UpdateFormaPagoDTO, TipoFormaPago, TIPOS_FORMA_PAGO, TIPOS_PASARELA } from '@/types/forma-pago.types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { ArrowLeft, Save, CreditCard, Settings, Palette, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -50,6 +52,7 @@ export default function EditarFormaPagoPage() {
 
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancariaSelector[]>([])
   const [formData, setFormData] = useState<UpdateFormaPagoDTO>({
     codigo: '',
     nombre: '',
@@ -59,6 +62,8 @@ export default function EditarFormaPagoPage() {
     color: '#3B82F6',
     requiereDatosBancarios: false,
     comision: 0,
+    cuentaBancariaId: null,
+    cuentaBancariaNombre: '',
     orden: 0,
     activo: true,
   })
@@ -68,9 +73,18 @@ export default function EditarFormaPagoPage() {
     const cargar = async () => {
       try {
         setIsLoading(true)
-        const response = await formasPagoService.getById(id)
-        if (response.success && response.data) {
-          const fp = response.data
+        // Cargar forma de pago y cuentas bancarias en paralelo
+        const [fpResponse, cuentasResponse] = await Promise.all([
+          formasPagoService.getById(id),
+          cuentasBancariasService.getForSelector(),
+        ])
+
+        if (cuentasResponse.success) {
+          setCuentasBancarias(cuentasResponse.data)
+        }
+
+        if (fpResponse.success && fpResponse.data) {
+          const fp = fpResponse.data
           setFormData({
             codigo: fp.codigo || '',
             nombre: fp.nombre || '',
@@ -81,6 +95,8 @@ export default function EditarFormaPagoPage() {
             requiereDatosBancarios: fp.requiereDatosBancarios || false,
             configuracionPasarela: fp.configuracionPasarela,
             comision: fp.comision || 0,
+            cuentaBancariaId: fp.cuentaBancariaId || null,
+            cuentaBancariaNombre: fp.cuentaBancariaNombre || '',
             orden: fp.orden || 0,
             activo: fp.activo !== undefined ? fp.activo : true,
           })
@@ -315,6 +331,35 @@ export default function EditarFormaPagoPage() {
                     onChange={(e) => setFormData({ ...formData, comision: Number(e.target.value) })}
                   />
                   <p className="text-xs text-muted-foreground">Comisión aplicada al usar esta forma de pago</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cuentaBancaria">Cuenta Bancaria Predeterminada</Label>
+                  <SearchableSelect
+                    options={[
+                      { value: '', label: 'Sin cuenta predeterminada' },
+                      ...cuentasBancarias.map(cuenta => ({
+                        value: cuenta._id,
+                        label: cuenta.nombre,
+                        description: cuenta.predeterminada ? 'Cuenta predeterminada' : `IBAN: ...${cuenta.iban.slice(-4)}`,
+                      }))
+                    ]}
+                    value={formData.cuentaBancariaId || ''}
+                    onValueChange={(value) => {
+                      const cuenta = cuentasBancarias.find(c => c._id === value)
+                      setFormData({
+                        ...formData,
+                        cuentaBancariaId: value || null,
+                        cuentaBancariaNombre: cuenta?.nombre || '',
+                      })
+                    }}
+                    placeholder="Seleccionar cuenta bancaria"
+                    searchPlaceholder="Buscar cuenta..."
+                    emptyMessage="No hay cuentas bancarias"
+                    allowClear
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Los movimientos con esta forma de pago se asociarán a esta cuenta
+                  </p>
                 </div>
               </div>
 

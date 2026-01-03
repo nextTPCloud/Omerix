@@ -272,30 +272,30 @@ export function VerifactuConfig() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Select
-                value={config.certificadoId || ''}
-                onValueChange={(value) => handleChange('certificadoId', value)}
-              >
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Selecciona certificado" />
-                </SelectTrigger>
-                <SelectContent>
-                  {certificados.length === 0 ? (
-                    <SelectItem value="" disabled>
-                      No hay certificados disponibles
-                    </SelectItem>
-                  ) : (
-                    certificados.map((cert) => (
+              {certificados.length === 0 ? (
+                <div className="w-64 px-3 py-2 text-sm text-muted-foreground border rounded-md bg-muted/50">
+                  No hay certificados disponibles
+                </div>
+              ) : (
+                <Select
+                  value={config.certificadoId || ''}
+                  onValueChange={(value) => handleChange('certificadoId', value)}
+                >
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="Selecciona certificado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {certificados.map((cert) => (
                       <SelectItem key={cert._id} value={cert._id}>
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="h-4 w-4 text-green-600" />
                           {cert.nombre}
                         </div>
                       </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 

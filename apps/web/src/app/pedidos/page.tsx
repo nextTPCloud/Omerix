@@ -139,13 +139,16 @@ const DEFAULT_CONFIG = {
   columnas: [
     { key: 'codigo', visible: true, orden: 0 },
     { key: 'clienteNombre', visible: true, orden: 1 },
-    { key: 'titulo', visible: true, orden: 2 },
-    { key: 'estado', visible: true, orden: 3 },
-    { key: 'prioridad', visible: true, orden: 4 },
-    { key: 'fecha', visible: true, orden: 5 },
-    { key: 'fechaEntregaComprometida', visible: true, orden: 6 },
-    { key: 'totalPedido', visible: true, orden: 7 },
-    { key: 'agenteComercial', visible: false, orden: 8 },
+    { key: 'clienteNif', visible: false, orden: 2 },
+    { key: 'clienteEmail', visible: false, orden: 3 },
+    { key: 'clienteTelefono', visible: false, orden: 4 },
+    { key: 'titulo', visible: true, orden: 5 },
+    { key: 'estado', visible: true, orden: 6 },
+    { key: 'prioridad', visible: true, orden: 7 },
+    { key: 'fecha', visible: true, orden: 8 },
+    { key: 'fechaEntregaComprometida', visible: true, orden: 9 },
+    { key: 'totalPedido', visible: true, orden: 10 },
+    { key: 'agenteComercial', visible: false, orden: 11 },
   ] as ColumnaConfig[],
   sortConfig: {
     key: 'fechaCreacion',
@@ -225,6 +228,9 @@ export default function PedidosPage() {
   const [columnasDisponibles] = useState([
     { key: 'codigo', label: 'Código', sortable: true },
     { key: 'clienteNombre', label: 'Cliente', sortable: true },
+    { key: 'clienteNif', label: 'NIF/CIF', sortable: true },
+    { key: 'clienteEmail', label: 'Email', sortable: true },
+    { key: 'clienteTelefono', label: 'Teléfono', sortable: true },
     { key: 'titulo', label: 'Título', sortable: true },
     { key: 'estado', label: 'Estado', sortable: true },
     { key: 'prioridad', label: 'Prioridad', sortable: true },
@@ -992,6 +998,27 @@ export default function PedidosPage() {
     return clienteNombre || '-'
   }
 
+  const getClienteNif = (clienteId: any) => {
+    if (typeof clienteId === 'object' && clienteId !== null) {
+      return clienteId.nif || clienteId.cif || '-'
+    }
+    return '-'
+  }
+
+  const getClienteEmail = (clienteId: any) => {
+    if (typeof clienteId === 'object' && clienteId !== null) {
+      return clienteId.email || '-'
+    }
+    return '-'
+  }
+
+  const getClienteTelefono = (clienteId: any) => {
+    if (typeof clienteId === 'object' && clienteId !== null) {
+      return clienteId.telefono || '-'
+    }
+    return '-'
+  }
+
   const getAgenteNombre = (agenteId: any) => {
     if (typeof agenteId === 'object' && agenteId !== null) {
       return `${agenteId.nombre} ${agenteId.apellidos || ''}`.trim()
@@ -1358,6 +1385,42 @@ export default function PedidosPage() {
                     </th>
                   )}
 
+                  {columnasVisibles.includes('clienteNif') && (
+                    <th className={`${densityClasses.header} text-left min-w-[120px]`}>
+                      <button
+                        onClick={() => handleSort('clienteNif')}
+                        className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
+                      >
+                        NIF/CIF
+                        {getSortIcon('clienteNif')}
+                      </button>
+                    </th>
+                  )}
+
+                  {columnasVisibles.includes('clienteEmail') && (
+                    <th className={`${densityClasses.header} text-left min-w-[180px]`}>
+                      <button
+                        onClick={() => handleSort('clienteEmail')}
+                        className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
+                      >
+                        Email
+                        {getSortIcon('clienteEmail')}
+                      </button>
+                    </th>
+                  )}
+
+                  {columnasVisibles.includes('clienteTelefono') && (
+                    <th className={`${densityClasses.header} text-left min-w-[130px]`}>
+                      <button
+                        onClick={() => handleSort('clienteTelefono')}
+                        className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
+                      >
+                        Teléfono
+                        {getSortIcon('clienteTelefono')}
+                      </button>
+                    </th>
+                  )}
+
                   {columnasVisibles.includes('titulo') && (
                     <th className={`${densityClasses.header} text-left w-[220px]`}>
                       <button
@@ -1469,6 +1532,39 @@ export default function PedidosPage() {
                         className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.clienteNombre || ''}
                         onChange={(e) => handleColumnFilterInput('clienteNombre', e.target.value)}
+                      />
+                    </th>
+                  )}
+
+                  {columnasVisibles.includes('clienteNif') && (
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Filtrar..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        value={columnFiltersInput.clienteNif || ''}
+                        onChange={(e) => handleColumnFilterInput('clienteNif', e.target.value)}
+                      />
+                    </th>
+                  )}
+
+                  {columnasVisibles.includes('clienteEmail') && (
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Filtrar..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        value={columnFiltersInput.clienteEmail || ''}
+                        onChange={(e) => handleColumnFilterInput('clienteEmail', e.target.value)}
+                      />
+                    </th>
+                  )}
+
+                  {columnasVisibles.includes('clienteTelefono') && (
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Filtrar..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        value={columnFiltersInput.clienteTelefono || ''}
+                        onChange={(e) => handleColumnFilterInput('clienteTelefono', e.target.value)}
                       />
                     </th>
                   )}
@@ -1612,6 +1708,26 @@ export default function PedidosPage() {
                             <div className="max-w-[200px] truncate" title={getClienteNombre(pedido.clienteId, pedido.clienteNombre)}>
                               {getClienteNombre(pedido.clienteId, pedido.clienteNombre)}
                             </div>
+                          </td>
+                        )}
+
+                        {columnasVisibles.includes('clienteNif') && (
+                          <td className={`${densityClasses.cell} ${densityClasses.text} text-muted-foreground`}>
+                            {getClienteNif(pedido.clienteId)}
+                          </td>
+                        )}
+
+                        {columnasVisibles.includes('clienteEmail') && (
+                          <td className={`${densityClasses.cell} ${densityClasses.text} text-muted-foreground`}>
+                            <div className="max-w-[180px] truncate" title={getClienteEmail(pedido.clienteId)}>
+                              {getClienteEmail(pedido.clienteId)}
+                            </div>
+                          </td>
+                        )}
+
+                        {columnasVisibles.includes('clienteTelefono') && (
+                          <td className={`${densityClasses.cell} ${densityClasses.text} text-muted-foreground`}>
+                            {getClienteTelefono(pedido.clienteId)}
                           </td>
                         )}
 

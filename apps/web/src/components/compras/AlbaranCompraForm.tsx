@@ -44,6 +44,7 @@ import {
   ChevronRight,
   AlertCircle,
   Loader2,
+  Settings,
 } from 'lucide-react'
 import {
   Dialog,
@@ -54,6 +55,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import {
   AlbaranCompra,
@@ -66,6 +68,10 @@ import {
 import { proveedoresService } from '@/services/proveedores.service'
 import { productosService } from '@/services/productos.service'
 import { almacenesService } from '@/services/almacenes.service'
+import { formasPagoService } from '@/services/formas-pago.service'
+import { terminosPagoService } from '@/services/terminos-pago.service'
+import { FormaPago } from '@/types/forma-pago.types'
+import { TerminoPago } from '@/types/termino-pago.types'
 import { SearchableSelect, EditableSearchableSelect } from '@/components/ui/searchable-select'
 import { DateInput } from '@/components/ui/date-picker'
 import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
@@ -198,6 +204,14 @@ export function AlbaranCompraForm({
   const [observaciones, setObservaciones] = useState(albaran?.observaciones || '')
   const [observacionesAlmacen, setObservacionesAlmacen] = useState(albaran?.observacionesAlmacen || '')
 
+  // Condiciones
+  const [formaPagoId, setFormaPagoId] = useState((albaran as any)?.condiciones?.formaPagoId || '')
+  const [terminoPagoId, setTerminoPagoId] = useState((albaran as any)?.condiciones?.terminoPagoId || '')
+  const [garantia, setGarantia] = useState((albaran as any)?.condiciones?.garantia || '')
+  const [portesPagados, setPortesPagados] = useState((albaran as any)?.condiciones?.portesPagados ?? true)
+  const [importePortes, setImportePortes] = useState((albaran as any)?.condiciones?.importePortes || 0)
+  const [observacionesEntrega, setObservacionesEntrega] = useState((albaran as any)?.condiciones?.observacionesEntrega || '')
+
   // Almacen por defecto
   const [almacenDefaultId, setAlmacenDefaultId] = useState('')
 
@@ -211,6 +225,8 @@ export function AlbaranCompraForm({
   const [proveedores, setProveedores] = useState<ProveedorOption[]>([])
   const [productos, setProductos] = useState<ProductoOption[]>([])
   const [almacenes, setAlmacenes] = useState<AlmacenOption[]>([])
+  const [formasPago, setFormasPago] = useState<FormaPago[]>([])
+  const [terminosPago, setTerminosPago] = useState<TerminoPago[]>([])
   const [loadingProveedores, setLoadingProveedores] = useState(false)
   const [loadingProductos, setLoadingProductos] = useState(false)
 
@@ -240,6 +256,8 @@ export function AlbaranCompraForm({
     cargarProveedores()
     cargarProductos()
     cargarAlmacenes()
+    cargarFormasPago()
+    cargarTerminosPago()
   }, [])
 
   useEffect(() => {
@@ -328,6 +346,28 @@ export function AlbaranCompraForm({
       }
     } catch (error) {
       console.error('Error al cargar almacenes:', error)
+    }
+  }
+
+  const cargarFormasPago = async () => {
+    try {
+      const response = await formasPagoService.getAll({ activo: true })
+      if (response.success && response.data) {
+        setFormasPago(response.data)
+      }
+    } catch (error) {
+      console.error('Error al cargar formas de pago:', error)
+    }
+  }
+
+  const cargarTerminosPago = async () => {
+    try {
+      const response = await terminosPagoService.getAll({ activo: true })
+      if (response.success && response.data) {
+        setTerminosPago(response.data)
+      }
+    } catch (error) {
+      console.error('Error al cargar términos de pago:', error)
     }
   }
 
@@ -796,7 +836,15 @@ export function AlbaranCompraForm({
       descuentoGlobalImporte: totales.descuentoGlobalImporte,
       observaciones: observaciones || undefined,
       observacionesAlmacen: observacionesAlmacen || undefined,
-    }
+      condiciones: {
+        formaPagoId: formaPagoId || undefined,
+        terminoPagoId: terminoPagoId || undefined,
+        garantia: garantia || undefined,
+        portesPagados,
+        importePortes: portesPagados ? 0 : importePortes,
+        observacionesEntrega: observacionesEntrega || undefined,
+      },
+    } as any
   }
 
   // Ejecutar el submit (con o sin actualización de precios)
@@ -893,7 +941,7 @@ export function AlbaranCompraForm({
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="proveedor" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Proveedor</span>
@@ -908,6 +956,10 @@ export function AlbaranCompraForm({
           <TabsTrigger value="recepcion" className="flex items-center gap-2">
             <Warehouse className="h-4 w-4" />
             <span className="hidden sm:inline">Recepcion</span>
+          </TabsTrigger>
+          <TabsTrigger value="condiciones" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Condiciones</span>
           </TabsTrigger>
           <TabsTrigger value="resumen" className="flex items-center gap-2">
             <Calculator className="h-4 w-4" />
@@ -1071,6 +1123,8 @@ export function AlbaranCompraForm({
             onNombreChange={handleNombreChange}
             productoRefs={productoRefs}
             cantidadRefs={cantidadRefs}
+            onCantidadKeyDown={handleCantidadKeyDown}
+            onCtrlEnterPress={agregarLinea}
           />
 
           {/* Resumen rapido */}
@@ -1199,6 +1253,97 @@ export function AlbaranCompraForm({
               placeholder="Notas para el almacen (incidencias en la recepcion, etc.)"
               rows={3}
             />
+          </Card>
+        </TabsContent>
+
+        {/* ============================================ */}
+        {/* TAB CONDICIONES */}
+        {/* ============================================ */}
+        <TabsContent value="condiciones" className="space-y-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Settings className="h-5 w-5 text-primary" />
+              Condiciones de Pago y Entrega
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Forma de Pago</Label>
+                <SearchableSelect
+                  options={formasPago.map(fp => ({
+                    value: fp._id,
+                    label: fp.nombre,
+                    sublabel: fp.descripcion,
+                  }))}
+                  value={formaPagoId}
+                  onValueChange={(value) => setFormaPagoId(value)}
+                  placeholder="Seleccionar forma de pago..."
+                />
+              </div>
+
+              <div>
+                <Label>Termino de Pago</Label>
+                <SearchableSelect
+                  options={terminosPago.map(tp => ({
+                    value: tp._id,
+                    label: tp.nombre,
+                    sublabel: tp.descripcion || `${tp.diasVencimiento || 0} dias`,
+                  }))}
+                  value={terminoPagoId}
+                  onValueChange={(value) => setTerminoPagoId(value)}
+                  placeholder="Seleccionar termino de pago..."
+                />
+              </div>
+
+              <div>
+                <Label>Garantia</Label>
+                <Input
+                  value={garantia}
+                  onChange={(e) => setGarantia(e.target.value)}
+                  placeholder="Ej: 2 anos, 6 meses..."
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label>Portes</Label>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="portes-pagados"
+                      checked={portesPagados}
+                      onCheckedChange={setPortesPagados}
+                    />
+                    <Label htmlFor="portes-pagados" className="font-normal cursor-pointer">
+                      Portes pagados
+                    </Label>
+                  </div>
+                  {!portesPagados && (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={importePortes}
+                        onChange={(e) => setImportePortes(parseFloat(e.target.value) || 0)}
+                        placeholder="Importe"
+                        className="w-[120px]"
+                      />
+                      <span className="text-sm text-muted-foreground">EUR</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <Label>Observaciones de Entrega</Label>
+                <Textarea
+                  value={observacionesEntrega}
+                  onChange={(e) => setObservacionesEntrega(e.target.value)}
+                  placeholder="Instrucciones especiales de entrega, horarios, contacto..."
+                  rows={3}
+                />
+              </div>
+            </div>
           </Card>
         </TabsContent>
 

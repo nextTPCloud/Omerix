@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { tpvService } from './tpv.service';
-import { tpvSyncService } from './tpv-sync.service';
+import { tpvSyncService, ICrearTicketTPV } from './tpv-sync.service';
 
 /**
  * Genera token de activacion para registrar un nuevo TPV
@@ -92,6 +92,32 @@ export async function loginTPV(req: Request, res: Response) {
     res.json({
       ok: true,
       ...resultado,
+    });
+  } catch (error: any) {
+    res.status(401).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Verificar PIN sin crear sesion (para PIN por ticket)
+ * POST /api/tpv/verificar-pin
+ */
+export async function verificarPin(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, pin } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret || !pin) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId, tpvSecret y pin son requeridos',
+      });
+    }
+
+    const resultado = await tpvService.verificarPinTPV(empresaId, tpvId, tpvSecret, pin);
+
+    res.json({
+      ok: true,
+      usuario: resultado,
     });
   } catch (error: any) {
     res.status(401).json({ ok: false, error: error.message });
@@ -230,7 +256,25 @@ export async function obtenerSesiones(req: Request, res: Response) {
   try {
     const empresaId = (req as any).empresaId;
 
-    const sesiones = await tpvService.obtenerSesionesActivas(empresaId);
+    const sesionesRaw = await tpvService.obtenerSesionesActivas(empresaId);
+
+    // Mapear campos al formato esperado por el frontend
+    const sesiones = sesionesRaw.map((s: any) => ({
+      _id: s._id.toString(),
+      tpvId: s.tpvId.toString(),
+      usuarioId: s.usuarioId.toString(),
+      usuario: {
+        nombre: s.usuarioNombre?.split(' ')[0] || '',
+        apellidos: s.usuarioNombre?.split(' ').slice(1).join(' ') || '',
+      },
+      cajaId: s.cajaId?.toString(),
+      estado: s.activa ? 'activa' : 'cerrada',
+      inicioSesion: s.inicioSesion,
+      finSesion: s.finSesion,
+      ultimoHeartbeat: s.heartbeatUltimo,
+      ventasRealizadas: 0, // TODO: calcular desde ventas
+      totalVentas: 0, // TODO: calcular desde ventas
+    }));
 
     res.json({ ok: true, sesiones });
   } catch (error: any) {
@@ -381,6 +425,185 @@ export async function obtenerStock(req: Request, res: Response) {
 
     res.json({ ok: true, stock });
   } catch (error: any) {
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Crea un ticket (factura simplificada) desde el TPV
+ * POST /api/tpv/sync/ticket
+ */
+export async function crearTicket(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, ticket } = req.body;
+
+    console.log('[TPV Crear Ticket] Recibido:', {
+      empresaId,
+      tpvId,
+      lineas: ticket?.lineas?.length,
+      total: ticket?.total,
+    });
+
+    if (!empresaId || !tpvId || !tpvSecret || !ticket) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId, tpvSecret y ticket son requeridos',
+      });
+    }
+
+    // Verificar credenciales del TPV
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    console.log('[TPV Crear Ticket] Credenciales verificadas');
+
+    // Crear ticket
+    const resultado = await tpvSyncService.crearTicket(
+      tpvId,
+      empresaId,
+      ticket as ICrearTicketTPV
+    );
+
+    console.log('[TPV Crear Ticket] Resultado:', resultado);
+    res.json({ ok: true, ...resultado });
+  } catch (error: any) {
+    console.error('[TPV Crear Ticket] Error:', error.message);
+    console.error('[TPV Crear Ticket] Stack:', error.stack);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Obtiene vencimientos pendientes de cobro/pago
+ * POST /api/tpv/sync/vencimientos-pendientes
+ */
+export async function obtenerVencimientosPendientes(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, tipo, busqueda, limite } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId y tpvSecret son requeridos',
+      });
+    }
+
+    // Verificar credenciales del TPV
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+
+    // Obtener vencimientos pendientes
+    const vencimientos = await tpvSyncService.obtenerVencimientosPendientes(
+      empresaId,
+      tipo,
+      busqueda,
+      limite
+    );
+
+    res.json({ ok: true, vencimientos });
+  } catch (error: any) {
+    console.error('[TPV Vencimientos] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Busca vencimiento por numero de factura
+ * POST /api/tpv/sync/buscar-factura
+ */
+export async function buscarVencimientoPorFactura(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, numeroFactura } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret || !numeroFactura) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId, tpvSecret y numeroFactura son requeridos',
+      });
+    }
+
+    // Verificar credenciales del TPV
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+
+    // Buscar vencimientos de la factura
+    const vencimientos = await tpvSyncService.buscarVencimientoPorFactura(
+      empresaId,
+      numeroFactura
+    );
+
+    res.json({ ok: true, vencimientos });
+  } catch (error: any) {
+    console.error('[TPV Buscar Factura] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Registra el cobro/pago de un vencimiento desde TPV
+ * POST /api/tpv/sync/cobrar-vencimiento
+ */
+export async function cobrarVencimiento(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, vencimientoId, importe, metodo, formaPagoId, referencia, observaciones, usuarioId } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret || !vencimientoId || !importe || !metodo || !usuarioId) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId, tpvSecret, vencimientoId, importe, metodo y usuarioId son requeridos',
+      });
+    }
+
+    // Verificar credenciales del TPV
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+
+    // Cobrar vencimiento
+    const resultado = await tpvSyncService.cobrarVencimiento(
+      tpvId,
+      empresaId,
+      vencimientoId,
+      {
+        importe,
+        metodo,
+        formaPagoId,
+        referencia,
+        observaciones,
+        usuarioId,
+      }
+    );
+
+    res.json({ ok: true, ...resultado });
+  } catch (error: any) {
+    console.error('[TPV Cobrar Vencimiento] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Sincroniza un movimiento de caja desde el TPV (entrada/salida o cierre)
+ * POST /api/tpv/sync/movimiento-caja
+ */
+export async function sincronizarMovimientoCaja(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, tipo, datos } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret || !tipo || !datos) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId, tpvSecret, tipo y datos son requeridos',
+      });
+    }
+
+    // Verificar credenciales del TPV
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+
+    // Sincronizar movimiento
+    const resultado = await tpvSyncService.sincronizarMovimientoCaja(
+      tpvId,
+      empresaId,
+      tipo,
+      datos
+    );
+
+    res.json({ ok: true, ...resultado });
+  } catch (error: any) {
+    console.error('[TPV Movimiento Caja] Error:', error.message);
     res.status(400).json({ ok: false, error: error.message });
   }
 }

@@ -313,6 +313,52 @@ export class TPVService {
   }
 
   /**
+   * Verificar PIN sin crear sesion (para PIN por ticket)
+   */
+  async verificarPinTPV(
+    empresaId: string,
+    tpvId: string,
+    tpvSecret: string,
+    pin: string
+  ): Promise<{ id: string; nombre: string }> {
+    // Obtener modelos dinamicos
+    const dbConfig = await this.getDbConfig(empresaId);
+    const TPVRegistrado = await getTPVRegistradoModel(empresaId, dbConfig);
+
+    // 1. Verificar TPV (en BD de empresa)
+    const tpv = await TPVRegistrado.findById(tpvId);
+    if (!tpv || tpv.estado !== 'activo') {
+      throw new Error('TPV no encontrado o inactivo');
+    }
+
+    // Verificar secret
+    if (hashToken(tpvSecret) !== tpv.secretHash) {
+      throw new Error('Credenciales de TPV invalidas');
+    }
+
+    // 2. Buscar usuario por PIN
+    const usuarioEmpresa = await UsuarioEmpresa.findOne({
+      empresaId,
+      pinTPV: pin,
+      activo: true,
+    }).populate('usuarioId');
+
+    if (!usuarioEmpresa || !usuarioEmpresa.usuarioId) {
+      throw new Error('PIN incorrecto');
+    }
+
+    const usuario = usuarioEmpresa.usuarioId as any;
+    if (!usuario.activo) {
+      throw new Error('Usuario inactivo');
+    }
+
+    return {
+      id: usuario._id.toString(),
+      nombre: usuario.nombre,
+    };
+  }
+
+  /**
    * Verifica el limite de usuarios simultaneos
    */
   async verificarLimiteUsuarios(

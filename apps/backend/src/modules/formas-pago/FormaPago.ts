@@ -34,6 +34,8 @@ export interface IFormaPago extends Document {
   requiereDatosBancarios: boolean;
   configuracionPasarela?: IConfiguracionPasarela;
   comision?: number; // Porcentaje de comisión
+  cuentaBancariaId?: Types.ObjectId; // Cuenta bancaria predeterminada para esta forma de pago
+  cuentaBancariaNombre?: string; // Nombre denormalizado de la cuenta
   orden: number;
   activo: boolean;
   createdAt: Date;
@@ -123,6 +125,14 @@ const FormaPagoSchema = new Schema<IFormaPago>(
       min: 0,
       max: 100,
       default: 0,
+    },
+    cuentaBancariaId: {
+      type: Schema.Types.ObjectId,
+      ref: 'CuentaBancaria',
+    },
+    cuentaBancariaNombre: {
+      type: String,
+      trim: true,
     },
     orden: {
       type: Number,

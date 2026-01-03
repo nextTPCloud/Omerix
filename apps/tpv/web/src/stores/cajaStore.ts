@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useSyncStore } from './syncStore';
 
 // Tipos
 type EstadoCaja = 'abierta' | 'cerrada';
@@ -105,8 +106,9 @@ export const useCajaStore = create<CajaState>()(
 
       // Abrir caja
       abrirCaja: ({ usuarioId, usuarioNombre, importeInicial }) => {
+        const movimientoId = Date.now().toString();
         const movimiento: Movimiento = {
-          id: Date.now().toString(),
+          id: movimientoId,
           tipo: 'apertura',
           importe: importeInicial,
           metodoPago: 'efectivo',
@@ -130,15 +132,28 @@ export const useCajaStore = create<CajaState>()(
           totalVentas: 0,
           numeroVentas: 0,
         });
+
+        // Agregar a cola de sincronización
+        useSyncStore.getState().agregarACola({
+          entidad: 'movimiento',
+          entidadId: movimientoId,
+          operacion: 'crear',
+          datos: {
+            ...movimiento,
+            cajaId: get().id,
+            cajaNombre: get().nombre,
+          },
+        });
       },
 
       // Cerrar caja
       cerrarCaja: ({ usuarioId, usuarioNombre, arqueoReal, observaciones }) => {
         const arqueoTeorico = get().getArqueoTeorico();
         const diferencia = arqueoReal.total - arqueoTeorico.total;
+        const movimientoId = Date.now().toString();
 
         const movimiento: Movimiento = {
-          id: Date.now().toString(),
+          id: movimientoId,
           tipo: 'cierre',
           importe: arqueoTeorico.total,
           descripcion: observaciones,
@@ -152,13 +167,34 @@ export const useCajaStore = create<CajaState>()(
           movimientos: [...state.movimientos, movimiento],
         }));
 
+        // Agregar cierre a cola de sincronización
+        useSyncStore.getState().agregarACola({
+          entidad: 'caja',
+          entidadId: movimientoId,
+          operacion: 'crear',
+          datos: {
+            tipo: 'cierre',
+            cajaId: get().id,
+            cajaNombre: get().nombre,
+            arqueoTeorico,
+            arqueoReal,
+            diferencia,
+            observaciones,
+            movimientos: get().movimientos,
+            fecha: new Date(),
+            usuarioId,
+            usuarioNombre,
+          },
+        });
+
         return { arqueoTeorico, diferencia };
       },
 
-      // Registrar venta
+      // Registrar venta (también agrega a cola de sincronización)
       registrarVenta: ({ ventaId, importe, metodoPago, usuarioId, usuarioNombre }) => {
+        const movimientoId = Date.now().toString();
         const movimiento: Movimiento = {
-          id: Date.now().toString(),
+          id: movimientoId,
           tipo: 'venta',
           importe,
           metodoPago,
@@ -188,14 +224,18 @@ export const useCajaStore = create<CajaState>()(
 
           return updates as CajaState;
         });
+
+        // El movimiento de venta se sincroniza junto con la factura simplificada
+        // No se agrega individualmente para evitar duplicados
       },
 
-      // Registrar movimiento manual
+      // Registrar movimiento manual (entrada/salida de caja)
       registrarMovimiento: ({ tipo, importe, descripcion, usuarioId, usuarioNombre }) => {
         const importeReal = tipo === 'salida' ? -importe : importe;
+        const movimientoId = Date.now().toString();
 
         const movimiento: Movimiento = {
-          id: Date.now().toString(),
+          id: movimientoId,
           tipo,
           importe: importeReal,
           metodoPago: 'efectivo',
@@ -209,6 +249,20 @@ export const useCajaStore = create<CajaState>()(
           movimientos: [...state.movimientos, movimiento],
           totalEfectivo: state.totalEfectivo + importeReal,
         }));
+
+        // Agregar a cola de sincronización para enviar al cloud
+        useSyncStore.getState().agregarACola({
+          entidad: 'movimiento',
+          entidadId: movimientoId,
+          operacion: 'crear',
+          datos: {
+            ...movimiento,
+            importeOriginal: importe,
+            cajaId: get().id,
+            cajaNombre: get().nombre,
+            almacenId: get().almacenId,
+          },
+        });
       },
 
       // Obtener arqueo teórico

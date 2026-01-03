@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import {
@@ -12,6 +12,7 @@ import {
   XCircle,
   Loader2,
 } from 'lucide-react';
+import { useDataStore } from '@/stores/dataStore';
 
 interface StockAlmacen {
   almacenId: string;
@@ -20,7 +21,7 @@ interface StockAlmacen {
   stockMinimo: number;
 }
 
-interface Producto {
+interface ProductoStock {
   id: string;
   codigo: string;
   nombre: string;
@@ -35,39 +36,6 @@ interface ConsultaStockModalProps {
   almacenes: Array<{ id: string; nombre: string }>;
 }
 
-// Datos de ejemplo (en producción vendrían de la API)
-const productosEjemplo: Producto[] = [
-  {
-    id: '1',
-    codigo: 'PROD001',
-    nombre: 'Producto de ejemplo 1',
-    stocks: [
-      { almacenId: '1', almacenNombre: 'Almacén Principal', stock: 50, stockMinimo: 10 },
-      { almacenId: '2', almacenNombre: 'Almacén Secundario', stock: 25, stockMinimo: 5 },
-    ],
-    stockTotal: 75,
-  },
-  {
-    id: '2',
-    codigo: 'PROD002',
-    nombre: 'Producto de ejemplo 2',
-    stocks: [
-      { almacenId: '1', almacenNombre: 'Almacén Principal', stock: 3, stockMinimo: 10 },
-      { almacenId: '2', almacenNombre: 'Almacén Secundario', stock: 0, stockMinimo: 5 },
-    ],
-    stockTotal: 3,
-  },
-  {
-    id: '3',
-    codigo: 'PROD003',
-    nombre: 'Producto de ejemplo 3',
-    stocks: [
-      { almacenId: '1', almacenNombre: 'Almacén Principal', stock: 0, stockMinimo: 10 },
-    ],
-    stockTotal: 0,
-  },
-];
-
 export function ConsultaStockModal({
   isOpen,
   onClose,
@@ -75,31 +43,49 @@ export function ConsultaStockModal({
 }: ConsultaStockModalProps) {
   const [busqueda, setBusqueda] = useState('');
   const [almacenFiltro, setAlmacenFiltro] = useState<string>('todos');
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
+  const [productoSeleccionado, setProductoSeleccionado] = useState<ProductoStock | null>(null);
+
+  // Obtener productos del store
+  const { productos: productosSync, almacenes: almacenesSync, obtenerStockProducto } = useDataStore();
 
   // Buscar productos
-  useEffect(() => {
-    if (!busqueda.trim()) {
-      setProductos([]);
-      return;
-    }
+  const productosFiltrados = useMemo(() => {
+    if (!busqueda.trim() || busqueda.length < 2) return [];
 
-    setLoading(true);
-    // Simular búsqueda (en producción sería una llamada a la API)
-    const timer = setTimeout(() => {
-      const filtrados = productosEjemplo.filter(
-        (p) =>
-          p.codigo.toLowerCase().includes(busqueda.toLowerCase()) ||
-          p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-      );
-      setProductos(filtrados);
-      setLoading(false);
-    }, 300);
+    const term = busqueda.toLowerCase();
+    return productosSync
+      .filter((p: any) =>
+        p.codigo?.toLowerCase().includes(term) ||
+        p.sku?.toLowerCase().includes(term) ||
+        p.nombre?.toLowerCase().includes(term) ||
+        p.codigoBarras?.includes(term)
+      )
+      .slice(0, 20) // Limitar resultados
+      .map((p: any) => {
+        // Obtener stock del producto
+        const stockData = p.stock || [];
+        const stocks: StockAlmacen[] = almacenesSync.map((alm: any) => {
+          const stockAlmacen = Array.isArray(stockData)
+            ? stockData.find((s: any) => s.almacenId === alm._id)
+            : null;
+          return {
+            almacenId: alm._id,
+            almacenNombre: alm.nombre,
+            stock: stockAlmacen?.cantidad ?? stockAlmacen?.stockActual ?? 0,
+            stockMinimo: p.stockMinimo || 5,
+          };
+        });
 
-    return () => clearTimeout(timer);
-  }, [busqueda]);
+        return {
+          id: p._id,
+          codigo: p.sku || p.codigo || '',
+          nombre: p.nombre,
+          imagen: p.imagenes?.[0],
+          stocks,
+          stockTotal: stocks.reduce((acc, s) => acc + s.stock, 0),
+        };
+      });
+  }, [busqueda, productosSync, almacenesSync]);
 
   const getStockStatus = (stock: number, stockMinimo: number) => {
     if (stock === 0) return { color: 'red', icon: XCircle, label: 'Sin stock' };
@@ -113,16 +99,24 @@ export function ConsultaStockModal({
     onClose();
   };
 
+  // Reset al cerrar
+  useEffect(() => {
+    if (!isOpen) {
+      setBusqueda('');
+      setProductoSeleccionado(null);
+    }
+  }, [isOpen]);
+
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Consulta de Stock" size="xl">
       <div className="p-6">
-        {/* Búsqueda */}
+        {/* Busqueda */}
         <div className="flex gap-4 mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar por código o nombre..."
+              placeholder="Buscar por codigo, SKU o nombre (min. 2 caracteres)..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full h-12 pl-10 pr-4 border rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none"
@@ -145,38 +139,34 @@ export function ConsultaStockModal({
 
         {/* Contenido */}
         <div className="min-h-[400px]">
-          {/* Loading */}
-          {loading && (
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-            </div>
-          )}
-
-          {/* Sin búsqueda */}
-          {!loading && !busqueda && (
+          {/* Sin busqueda */}
+          {busqueda.length < 2 && (
             <div className="flex flex-col items-center justify-center h-64 text-gray-400">
               <Package className="w-16 h-16 mb-4" />
-              <p>Introduce un código o nombre para buscar</p>
+              <p>Introduce al menos 2 caracteres para buscar</p>
+              <p className="text-sm mt-2">Puedes buscar por codigo, SKU, nombre o codigo de barras</p>
             </div>
           )}
 
           {/* Sin resultados */}
-          {!loading && busqueda && productos.length === 0 && (
+          {busqueda.length >= 2 && productosFiltrados.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 text-gray-400">
               <Search className="w-16 h-16 mb-4" />
-              <p>No se encontraron productos</p>
+              <p>No se encontraron productos para "{busqueda}"</p>
             </div>
           )}
 
           {/* Resultados */}
-          {!loading && productos.length > 0 && !productoSeleccionado && (
+          {productosFiltrados.length > 0 && !productoSeleccionado && (
             <div className="space-y-3">
-              {productos.map((producto) => {
-                const status = getStockStatus(
-                  producto.stockTotal,
-                  producto.stocks.reduce((min, s) => min + s.stockMinimo, 0)
-                );
+              {productosFiltrados.map((producto) => {
+                const status = getStockStatus(producto.stockTotal, 10);
                 const StatusIcon = status.icon;
+                const colorClasses = {
+                  red: 'bg-red-100 text-red-600',
+                  amber: 'bg-amber-100 text-amber-600',
+                  green: 'bg-green-100 text-green-600',
+                };
 
                 return (
                   <button
@@ -185,19 +175,21 @@ export function ConsultaStockModal({
                     className="w-full p-4 bg-white border rounded-xl hover:border-primary-500 hover:shadow-md transition-all text-left"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                        <Package className="w-8 h-8 text-gray-400" />
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                        {producto.imagen ? (
+                          <img src={producto.imagen} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <Package className="w-8 h-8 text-gray-400" />
+                        )}
                       </div>
                       <div className="flex-1">
                         <p className="text-sm text-gray-500">{producto.codigo}</p>
                         <p className="font-semibold text-gray-800">{producto.nombre}</p>
                       </div>
                       <div className="text-right">
-                        <div
-                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full bg-${status.color}-100`}
-                        >
-                          <StatusIcon className={`w-4 h-4 text-${status.color}-600`} />
-                          <span className={`text-sm font-medium text-${status.color}-700`}>
+                        <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full ${colorClasses[status.color as keyof typeof colorClasses]}`}>
+                          <StatusIcon className="w-4 h-4" />
+                          <span className="text-sm font-medium">
                             {producto.stockTotal} uds.
                           </span>
                         </div>
@@ -214,8 +206,12 @@ export function ConsultaStockModal({
             <div>
               {/* Cabecera producto */}
               <div className="flex items-center gap-4 mb-6 p-4 bg-gray-50 rounded-xl">
-                <div className="w-20 h-20 bg-white rounded-lg flex items-center justify-center border">
-                  <Package className="w-10 h-10 text-gray-400" />
+                <div className="w-20 h-20 bg-white rounded-lg flex items-center justify-center border overflow-hidden">
+                  {productoSeleccionado.imagen ? (
+                    <img src={productoSeleccionado.imagen} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <Package className="w-10 h-10 text-gray-400" />
+                  )}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm text-gray-500">{productoSeleccionado.codigo}</p>
@@ -229,10 +225,10 @@ export function ConsultaStockModal({
                 </Button>
               </div>
 
-              {/* Stock por almacén */}
+              {/* Stock por almacen */}
               <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <MapPin className="w-5 h-5" />
-                Stock por almacén
+                Stock por almacen
               </h3>
               <div className="space-y-3">
                 {productoSeleccionado.stocks
@@ -240,6 +236,12 @@ export function ConsultaStockModal({
                   .map((stock) => {
                     const status = getStockStatus(stock.stock, stock.stockMinimo);
                     const StatusIcon = status.icon;
+                    const colorClasses = {
+                      red: { bg: 'bg-red-100', text: 'text-red-600' },
+                      amber: { bg: 'bg-amber-100', text: 'text-amber-600' },
+                      green: { bg: 'bg-green-100', text: 'text-green-600' },
+                    };
+                    const colors = colorClasses[status.color as keyof typeof colorClasses];
 
                     return (
                       <div
@@ -247,20 +249,18 @@ export function ConsultaStockModal({
                         className="flex items-center justify-between p-4 bg-white border rounded-xl"
                       >
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`w-10 h-10 rounded-full bg-${status.color}-100 flex items-center justify-center`}
-                          >
-                            <StatusIcon className={`w-5 h-5 text-${status.color}-600`} />
+                          <div className={`w-10 h-10 rounded-full ${colors.bg} flex items-center justify-center`}>
+                            <StatusIcon className={`w-5 h-5 ${colors.text}`} />
                           </div>
                           <div>
                             <p className="font-medium text-gray-800">{stock.almacenNombre}</p>
                             <p className="text-sm text-gray-500">
-                              Stock mínimo: {stock.stockMinimo} uds.
+                              Stock minimo: {stock.stockMinimo} uds.
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className={`text-2xl font-bold text-${status.color}-600`}>
+                          <p className={`text-2xl font-bold ${colors.text}`}>
                             {stock.stock}
                           </p>
                           <p className="text-sm text-gray-500">unidades</p>

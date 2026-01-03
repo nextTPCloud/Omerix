@@ -21,6 +21,8 @@ import { FormaPago, IFormaPago } from '../modules/formas-pago/FormaPago';
 import { Vencimiento, IVencimiento } from '../models/Vencimiento';
 import { Pagare, IPagare } from '../modules/tesoreria/Pagare';
 import { Recibo, IRecibo } from '../modules/tesoreria/Recibo';
+import MovimientoBancario, { IMovimientoBancario } from '../modules/tesoreria/models/MovimientoBancario';
+import CuentaBancaria, { ICuentaBancaria } from '../modules/cuentas-bancarias/models/CuentaBancaria';
 import { Personal, IPersonal } from '../modules/personal/Personal';
 import { AgenteComercial, IAgenteComercial } from '../modules/agentes-comerciales/AgenteComercial';
 import { Proyecto, IProyecto } from '../modules/proyectos/Proyecto';
@@ -45,6 +47,8 @@ import { Traspaso, ITraspaso } from '../modules/traspasos/Traspaso';
 import { PresupuestoCompra, IPresupuestoCompra } from '../modules/presupuestos-compra/PresupuestoCompra';
 import { TPVRegistradoSchema, ITPVRegistrado } from '../modules/tpv/TPVRegistrado';
 import { SesionTPVSchema, ISesionTPV } from '../modules/tpv/SesionTPV';
+import MovimientoExtracto, { IMovimientoExtracto } from '../modules/tesoreria/models/MovimientoExtracto';
+import ImportacionExtracto, { IImportacionExtracto } from '../modules/tesoreria/models/ImportacionExtracto';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -368,6 +372,38 @@ export const getReciboModel = async (
     dbConfig,
     'Recibo',
     ReciboSchema
+  );
+};
+
+/**
+ * Obtener modelo de MovimientoBancario para una empresa específica
+ */
+export const getMovimientoBancarioModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IMovimientoBancario>> => {
+  const MovimientoBancarioSchema = MovimientoBancario.schema;
+  return databaseManager.getModel<IMovimientoBancario>(
+    empresaId,
+    dbConfig,
+    'MovimientoBancario',
+    MovimientoBancarioSchema
+  );
+};
+
+/**
+ * Obtener modelo de CuentaBancaria para una empresa específica
+ */
+export const getCuentaBancariaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ICuentaBancaria>> => {
+  const CuentaBancariaSchema = CuentaBancaria.schema;
+  return databaseManager.getModel<ICuentaBancaria>(
+    empresaId,
+    dbConfig,
+    'CuentaBancaria',
+    CuentaBancariaSchema
   );
 };
 
@@ -789,6 +825,38 @@ export const getSesionTPVModel = async (
 };
 
 /**
+ * Obtener modelo de MovimientoExtracto para una empresa específica
+ */
+export const getMovimientoExtractoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IMovimientoExtracto>> => {
+  const MovimientoExtractoSchema = MovimientoExtracto.schema;
+  return databaseManager.getModel<IMovimientoExtracto>(
+    empresaId,
+    dbConfig,
+    'MovimientoExtracto',
+    MovimientoExtractoSchema
+  );
+};
+
+/**
+ * Obtener modelo de ImportacionExtracto para una empresa específica
+ */
+export const getImportacionExtractoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IImportacionExtracto>> => {
+  const ImportacionExtractoSchema = ImportacionExtracto.schema;
+  return databaseManager.getModel<IImportacionExtracto>(
+    empresaId,
+    dbConfig,
+    'ImportacionExtracto',
+    ImportacionExtractoSchema
+  );
+};
+
+/**
  * Objeto con todos los modelos por empresa
  * Se puede extender con más modelos según sea necesario
  */
@@ -813,6 +881,8 @@ export const EmpresaModels = {
   Vencimiento: getVencimientoModel,
   Pagare: getPagareModel,
   Recibo: getReciboModel,
+  MovimientoBancario: getMovimientoBancarioModel,
+  CuentaBancaria: getCuentaBancariaModel,
   Personal: getPersonalModel,
   AgenteComercial: getAgenteComercialModel,
   Proyecto: getProyectoModel,
@@ -837,6 +907,8 @@ export const EmpresaModels = {
   PresupuestoCompra: getPresupuestoCompraModel,
   TPVRegistrado: getTPVRegistradoModel,
   SesionTPV: getSesionTPVModel,
+  MovimientoExtracto: getMovimientoExtractoModel,
+  ImportacionExtracto: getImportacionExtractoModel,
 };
 
 /**

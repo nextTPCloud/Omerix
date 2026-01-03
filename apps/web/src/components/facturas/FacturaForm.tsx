@@ -898,7 +898,7 @@ export function FacturaForm({
 
   // Handler para cuando se presiona Enter en el campo de cantidad
   const handleCantidadKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
       e.preventDefault()
       handleAddLinea(TipoLinea.PRODUCTO)
     } else if (e.key === 'ArrowDown') {
@@ -1270,7 +1270,7 @@ export function FacturaForm({
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="cliente" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Cliente</span>
@@ -1292,6 +1292,10 @@ export function FacturaForm({
                 {numVencimientos}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="condiciones" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Condiciones</span>
           </TabsTrigger>
           <TabsTrigger value="fiscal" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
@@ -1858,6 +1862,117 @@ export function FacturaForm({
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: CONDICIONES */}
+        <TabsContent value="condiciones" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Condiciones Comerciales</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="formaPagoId">Forma de Pago</Label>
+                <SearchableSelect
+                  options={formasPagoOptions}
+                  value={formData.condiciones?.formaPagoId || ''}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, formaPagoId: value || undefined }
+                  }))}
+                  placeholder="Seleccionar forma de pago..."
+                  searchPlaceholder="Buscar..."
+                  emptyMessage="No hay formas de pago"
+                  allowClear
+                  loading={loadingOptions}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="terminoPagoId">Termino de Pago</Label>
+                <SearchableSelect
+                  options={terminosPagoOptions}
+                  value={formData.condiciones?.terminoPagoId || ''}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, terminoPagoId: value || undefined }
+                  }))}
+                  placeholder="Seleccionar termino de pago..."
+                  searchPlaceholder="Buscar..."
+                  emptyMessage="No hay terminos de pago"
+                  allowClear
+                  loading={loadingOptions}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="garantia">Garantia</Label>
+                <Input
+                  id="garantia"
+                  value={formData.condiciones?.garantia || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: {
+                      ...prev.condiciones!,
+                      garantia: e.target.value,
+                    },
+                  }))}
+                  placeholder="Ej: 2 anos"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <Label htmlFor="portesPagados" className="cursor-pointer">Portes Pagados</Label>
+                <Switch
+                  id="portesPagados"
+                  checked={formData.condiciones?.portesPagados || false}
+                  onCheckedChange={(checked) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: {
+                      ...prev.condiciones!,
+                      portesPagados: checked,
+                    },
+                  }))}
+                />
+              </div>
+
+              {!formData.condiciones?.portesPagados && (
+                <div className="space-y-2">
+                  <Label htmlFor="portesImporte">Importe Portes</Label>
+                  <Input
+                    id="portesImporte"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.condiciones?.portesImporte || 0}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      condiciones: {
+                        ...prev.condiciones!,
+                        portesImporte: parseFloat(e.target.value) || 0,
+                      },
+                    }))}
+                  />
+                </div>
+              )}
+
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="observacionesEntrega">Observaciones de Entrega</Label>
+                <Textarea
+                  id="observacionesEntrega"
+                  value={formData.condiciones?.observacionesEntrega || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: {
+                      ...prev.condiciones!,
+                      observacionesEntrega: e.target.value,
+                    },
+                  }))}
+                  rows={3}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

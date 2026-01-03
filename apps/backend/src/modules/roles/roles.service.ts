@@ -459,6 +459,8 @@ class RolesService {
       { codigo: 'accesoAlmacen', nombre: 'Acceso Almacén', descripcion: 'Acceder al módulo de almacén/stock', tipo: 'boolean', grupo: 'Acceso a Módulos' },
       { codigo: 'accesoContabilidad', nombre: 'Acceso Contabilidad', descripcion: 'Acceder a informes financieros y contabilidad', tipo: 'boolean', grupo: 'Acceso a Módulos' },
       { codigo: 'accesoTPV', nombre: 'Acceso TPV', descripcion: 'Acceder al terminal punto de venta', tipo: 'boolean', grupo: 'Acceso a Módulos' },
+      { codigo: 'accesoCobroVencimientosTPV', nombre: 'Cobrar Vencimientos en TPV', descripcion: 'Cobrar facturas pendientes desde el TPV', tipo: 'boolean', grupo: 'TPV' },
+      { codigo: 'accesoPagoVencimientosTPV', nombre: 'Pagar Vencimientos en TPV', descripcion: 'Pagar facturas de proveedores desde el TPV', tipo: 'boolean', grupo: 'TPV' },
       { codigo: 'accesoRRHH', nombre: 'Acceso RRHH', descripcion: 'Acceder al módulo de recursos humanos y personal', tipo: 'boolean', grupo: 'Acceso a Módulos' },
       { codigo: 'accesoInformes', nombre: 'Acceso Informes', descripcion: 'Acceder al módulo de informes personalizados', tipo: 'boolean', grupo: 'Acceso a Módulos' },
       { codigo: 'accesoTesoreria', nombre: 'Acceso Tesorería', descripcion: 'Acceder al módulo de tesorería (cobros, pagos, recibos)', tipo: 'boolean', grupo: 'Acceso a Módulos' },

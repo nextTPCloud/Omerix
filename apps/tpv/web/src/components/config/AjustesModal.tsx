@@ -115,8 +115,18 @@ export function AjustesModal({ isOpen, onClose }: AjustesModalProps) {
     }
   };
 
+  const [mensajeSync, setMensajeSync] = useState<{ tipo: 'exito' | 'error'; texto: string } | null>(null);
+
   const handleSincronizar = async () => {
-    await sincronizarDatos(true);
+    setMensajeSync(null);
+    const exito = await sincronizarDatos(false); // Sync completa, no incremental
+    if (exito) {
+      setMensajeSync({ tipo: 'exito', texto: 'Sincronización completada correctamente' });
+    } else {
+      setMensajeSync({ tipo: 'error', texto: 'Error al sincronizar. Verifica la conexión.' });
+    }
+    // Limpiar mensaje después de 5 segundos
+    setTimeout(() => setMensajeSync(null), 5000);
   };
 
   const tabs = [
@@ -167,7 +177,19 @@ export function AjustesModal({ isOpen, onClose }: AjustesModalProps) {
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div>
                       <p className="font-medium">Almacen asignado</p>
-                      <p className="text-sm text-gray-500">{tpvConfig?.almacenId || 'No asignado'}</p>
+                      <p className="text-sm text-gray-500">
+                        {(() => {
+                          const almacen = useDataStore.getState().almacenes.find((a: any) => a._id === tpvConfig?.almacenId);
+                          return almacen?.nombre || tpvConfig?.almacenId || 'No asignado';
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">Serie de facturas</p>
+                      <p className="text-sm text-gray-500">{tpvConfig?.serieFactura || 'No configurada'}</p>
                     </div>
                   </div>
 
@@ -419,6 +441,19 @@ export function AjustesModal({ isOpen, onClose }: AjustesModalProps) {
                         : 'Nunca sincronizado'}
                     </p>
                   </div>
+
+                  {/* Mensaje de feedback */}
+                  {mensajeSync && (
+                    <div
+                      className={`p-3 rounded-lg text-sm font-medium ${
+                        mensajeSync.tipo === 'exito'
+                          ? 'bg-green-50 text-green-700 border border-green-200'
+                          : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}
+                    >
+                      {mensajeSync.texto}
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-3">

@@ -30,6 +30,8 @@ export interface FormaPago {
   requiereDatosBancarios: boolean
   configuracionPasarela?: ConfiguracionPasarela
   comision?: number
+  cuentaBancariaId?: string
+  cuentaBancariaNombre?: string
   orden: number
   activo: boolean
   tipoLabel?: string
@@ -47,6 +49,8 @@ export interface CreateFormaPagoDTO {
   requiereDatosBancarios?: boolean
   configuracionPasarela?: ConfiguracionPasarela
   comision?: number
+  cuentaBancariaId?: string
+  cuentaBancariaNombre?: string
   orden?: number
   activo?: boolean
 }
@@ -61,6 +65,8 @@ export interface UpdateFormaPagoDTO {
   requiereDatosBancarios?: boolean
   configuracionPasarela?: ConfiguracionPasarela
   comision?: number
+  cuentaBancariaId?: string | null
+  cuentaBancariaNombre?: string
   orden?: number
   activo?: boolean
 }

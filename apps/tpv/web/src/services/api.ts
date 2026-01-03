@@ -2,6 +2,8 @@
 // SERVICIO API TPV
 // ===========================================
 
+import { useSyncStore } from '../stores/syncStore';
+
 const BACKEND_LOCAL_URL = 'http://localhost:3011';
 const CLOUD_API_URL = process.env.NEXT_PUBLIC_CLOUD_API_URL || 'http://localhost:3001/api';
 
@@ -250,6 +252,25 @@ class TPVApi {
   }
 
   /**
+   * Verificar PIN sin crear sesion (para PIN por ticket)
+   */
+  async verificarPin(pin: string): Promise<{
+    ok: boolean;
+    usuario: { id: string; nombre: string };
+  }> {
+    if (!tpvCredentials) {
+      throw new Error('TPV no activado');
+    }
+
+    return this.post('/tpv/verificar-pin', {
+      empresaId: tpvCredentials.empresaId,
+      tpvId: tpvCredentials.tpvId,
+      tpvSecret: tpvCredentials.tpvSecret,
+      pin,
+    }, { useLocal: false });
+  }
+
+  /**
    * Logout de usuario
    */
   async logoutUsuario(sesionId: string): Promise<{ ok: boolean }> {
@@ -355,6 +376,103 @@ class TPVApi {
   }
 
   /**
+   * Crea un ticket (factura simplificada) en el servidor
+   * Si falla la conexión (modo offline), lo guarda en la cola de sincronización
+   * Devuelve datos de Verifactu para imprimir en el ticket
+   */
+  async crearTicket(ticket: {
+    clienteId?: string;
+    clienteNombre?: string;
+    clienteNif?: string;
+    lineas: Array<{
+      productoId: string;
+      varianteId?: string;
+      codigo: string;
+      nombre: string;
+      cantidad: number;
+      precioUnitario: number;
+      descuento: number;
+      iva: number;
+      esKit?: boolean;
+      componentesKit?: Array<{
+        productoId: string;
+        nombre: string;
+        cantidad: number;
+      }>;
+    }>;
+    subtotal: number;
+    descuentoTotal: number;
+    total: number;
+    pagos: Array<{
+      metodo: 'efectivo' | 'tarjeta' | 'bizum' | 'transferencia';
+      importe: number;
+    }>;
+    cambio: number;
+    usuarioId: string;
+    usuarioNombre: string;
+    esTicketRegalo?: boolean;
+  }): Promise<{
+    ok: boolean;
+    ticketId: string;
+    codigo: string;
+    serie: string;
+    numero: number;
+    fecha: string;
+    offline?: boolean;
+    verifactu?: {
+      hash: string;
+      hashAnterior?: string;
+      urlQR: string;
+      datosQR: string;
+    };
+  }> {
+    if (!tpvCredentials) {
+      throw new Error('TPV no activado');
+    }
+
+    try {
+      // Intentar enviar al servidor
+      const response = await this.post('/tpv/sync/ticket', {
+        empresaId: tpvCredentials.empresaId,
+        tpvId: tpvCredentials.tpvId,
+        tpvSecret: tpvCredentials.tpvSecret,
+        ticket,
+      }, { useLocal: false });
+
+      return response;
+    } catch (error) {
+      // Si falla (offline), guardar en cola de sincronización
+      const ticketOfflineId = `offline_${Date.now()}`;
+      const ticketConDatos = {
+        ...ticket,
+        empresaId: tpvCredentials.empresaId,
+        tpvId: tpvCredentials.tpvId,
+        fechaLocal: new Date().toISOString(),
+      };
+
+      // Agregar a la cola de sincronización
+      useSyncStore.getState().agregarACola({
+        entidad: 'venta',
+        entidadId: ticketOfflineId,
+        operacion: 'crear',
+        datos: ticketConDatos,
+      });
+
+      // Devolver respuesta offline
+      return {
+        ok: true,
+        ticketId: ticketOfflineId,
+        codigo: `OFF-${ticketOfflineId.slice(-8)}`,
+        serie: 'OFFLINE',
+        numero: parseInt(ticketOfflineId.slice(-6)) || 0,
+        fecha: new Date().toISOString(),
+        offline: true,
+        // No hay verifactu en modo offline
+      };
+    }
+  }
+
+  /**
    * Verifica conexion con el servidor cloud
    * El endpoint de health está en la raíz: /health
    */
@@ -371,6 +489,94 @@ class TPVApi {
       return false;
     }
   }
+
+  // ===========================================
+  // VENCIMIENTOS (Cobro/Pago facturas)
+  // ===========================================
+
+  /**
+   * Obtiene vencimientos pendientes de cobro o pago
+   */
+  async obtenerVencimientosPendientes(params?: {
+    tipo?: 'cobro' | 'pago';
+    busqueda?: string;
+    limite?: number;
+  }): Promise<{
+    ok: boolean;
+    vencimientos: IVencimientoTPV[];
+  }> {
+    if (!tpvCredentials) {
+      throw new Error('TPV no activado');
+    }
+
+    return this.post('/tpv/sync/vencimientos-pendientes', {
+      empresaId: tpvCredentials.empresaId,
+      tpvId: tpvCredentials.tpvId,
+      tpvSecret: tpvCredentials.tpvSecret,
+      ...params,
+    }, { useLocal: false });
+  }
+
+  /**
+   * Busca vencimientos por numero de factura
+   */
+  async buscarVencimientoPorFactura(numeroFactura: string): Promise<{
+    ok: boolean;
+    vencimientos: IVencimientoTPV[];
+  }> {
+    if (!tpvCredentials) {
+      throw new Error('TPV no activado');
+    }
+
+    return this.post('/tpv/sync/buscar-factura', {
+      empresaId: tpvCredentials.empresaId,
+      tpvId: tpvCredentials.tpvId,
+      tpvSecret: tpvCredentials.tpvSecret,
+      numeroFactura,
+    }, { useLocal: false });
+  }
+
+  /**
+   * Registra el cobro o pago de un vencimiento
+   */
+  async cobrarVencimiento(data: {
+    vencimientoId: string;
+    formaPagoId: string;
+    observaciones?: string;
+  }): Promise<{
+    ok: boolean;
+    vencimiento: IVencimientoTPV;
+    movimiento: { _id: string; codigo: string };
+  }> {
+    if (!tpvCredentials) {
+      throw new Error('TPV no activado');
+    }
+
+    return this.post('/tpv/sync/cobrar-vencimiento', {
+      empresaId: tpvCredentials.empresaId,
+      tpvId: tpvCredentials.tpvId,
+      tpvSecret: tpvCredentials.tpvSecret,
+      ...data,
+    }, { useLocal: false });
+  }
+}
+
+// Interface para vencimientos
+export interface IVencimientoTPV {
+  _id: string;
+  tipo: 'cobro' | 'pago';
+  documentoTipo: 'factura' | 'ticket' | 'recibo' | 'otro';
+  documentoId?: string;
+  documentoNumero?: string;
+  entidadId?: string;
+  entidadNombre?: string;
+  fechaEmision: string;
+  fechaVencimiento: string;
+  importe: number;
+  importePagado: number;
+  importePendiente: number;
+  estado: 'pendiente' | 'parcial' | 'pagado' | 'vencido' | 'anulado';
+  diasVencido?: number;
 }
 
 export const tpvApi = new TPVApi();

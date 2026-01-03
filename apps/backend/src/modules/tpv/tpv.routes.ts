@@ -5,6 +5,7 @@ import {
   generarTokenActivacion,
   activarTPV,
   loginTPV,
+  verificarPin,
   heartbeat,
   logoutTPV,
   listarTPVs,
@@ -18,6 +19,11 @@ import {
   descargarDatos,
   subirVentas,
   obtenerStock,
+  crearTicket,
+  obtenerVencimientosPendientes,
+  buscarVencimientoPorFactura,
+  cobrarVencimiento,
+  sincronizarMovimientoCaja,
 } from './tpv.controller';
 
 const router = Router();
@@ -84,6 +90,35 @@ router.post('/activar', activarTPV);
  *         description: Login exitoso
  */
 router.post('/login', loginTPV);
+
+/**
+ * @swagger
+ * /api/tpv/verificar-pin:
+ *   post:
+ *     summary: Verifica PIN sin crear sesion (para PIN por ticket)
+ *     tags: [TPV]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tpvId
+ *               - tpvSecret
+ *               - pin
+ *             properties:
+ *               tpvId:
+ *                 type: string
+ *               tpvSecret:
+ *                 type: string
+ *               pin:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: PIN verificado
+ */
+router.post('/verificar-pin', verificarPin);
 
 /**
  * @swagger
@@ -228,6 +263,191 @@ router.post('/sync/subir', subirVentas);
  *         description: Stock obtenido
  */
 router.post('/sync/stock', obtenerStock);
+
+/**
+ * @swagger
+ * /api/tpv/sync/ticket:
+ *   post:
+ *     summary: Crea un ticket (factura simplificada) desde el TPV
+ *     tags: [TPV]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - empresaId
+ *               - tpvId
+ *               - tpvSecret
+ *               - ticket
+ *             properties:
+ *               empresaId:
+ *                 type: string
+ *               tpvId:
+ *                 type: string
+ *               tpvSecret:
+ *                 type: string
+ *               ticket:
+ *                 type: object
+ *                 properties:
+ *                   lineas:
+ *                     type: array
+ *                   total:
+ *                     type: number
+ *                   pagos:
+ *                     type: array
+ *     responses:
+ *       200:
+ *         description: Ticket creado con datos de Verifactu
+ */
+router.post('/sync/ticket', crearTicket);
+
+/**
+ * @swagger
+ * /api/tpv/sync/vencimientos-pendientes:
+ *   post:
+ *     summary: Obtiene vencimientos pendientes de cobro/pago
+ *     tags: [TPV]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - empresaId
+ *               - tpvId
+ *               - tpvSecret
+ *             properties:
+ *               empresaId:
+ *                 type: string
+ *               tpvId:
+ *                 type: string
+ *               tpvSecret:
+ *                 type: string
+ *               tipo:
+ *                 type: string
+ *                 enum: [cobro, pago]
+ *                 description: Filtrar por tipo (cobro=clientes, pago=proveedores)
+ *               busqueda:
+ *                 type: string
+ *                 description: Buscar por nombre cliente/proveedor o numero factura
+ *               limite:
+ *                 type: number
+ *                 description: Limite de resultados (default 50)
+ *     responses:
+ *       200:
+ *         description: Lista de vencimientos pendientes
+ */
+router.post('/sync/vencimientos-pendientes', obtenerVencimientosPendientes);
+
+/**
+ * @swagger
+ * /api/tpv/sync/buscar-factura:
+ *   post:
+ *     summary: Busca vencimientos por numero de factura
+ *     tags: [TPV]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - empresaId
+ *               - tpvId
+ *               - tpvSecret
+ *               - numeroFactura
+ *             properties:
+ *               empresaId:
+ *                 type: string
+ *               tpvId:
+ *                 type: string
+ *               tpvSecret:
+ *                 type: string
+ *               numeroFactura:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Vencimientos de la factura
+ */
+router.post('/sync/buscar-factura', buscarVencimientoPorFactura);
+
+/**
+ * @swagger
+ * /api/tpv/sync/cobrar-vencimiento:
+ *   post:
+ *     summary: Registra el cobro/pago de un vencimiento desde TPV
+ *     tags: [TPV]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - empresaId
+ *               - tpvId
+ *               - tpvSecret
+ *               - vencimientoId
+ *               - formaPagoId
+ *             properties:
+ *               empresaId:
+ *                 type: string
+ *               tpvId:
+ *                 type: string
+ *               tpvSecret:
+ *                 type: string
+ *               vencimientoId:
+ *                 type: string
+ *               formaPagoId:
+ *                 type: string
+ *               observaciones:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Vencimiento cobrado/pagado y movimiento bancario creado
+ */
+router.post('/sync/cobrar-vencimiento', cobrarVencimiento);
+
+/**
+ * @swagger
+ * /api/tpv/sync/movimiento-caja:
+ *   post:
+ *     summary: Sincroniza un movimiento de caja desde el TPV (entrada/salida o cierre)
+ *     tags: [TPV]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - empresaId
+ *               - tpvId
+ *               - tpvSecret
+ *               - tipo
+ *               - datos
+ *             properties:
+ *               empresaId:
+ *                 type: string
+ *               tpvId:
+ *                 type: string
+ *               tpvSecret:
+ *                 type: string
+ *               tipo:
+ *                 type: string
+ *                 enum: [movimiento, caja]
+ *                 description: Tipo de movimiento (movimiento=entrada/salida manual, caja=apertura/cierre)
+ *               datos:
+ *                 type: object
+ *                 description: Datos del movimiento
+ *     responses:
+ *       200:
+ *         description: Movimiento sincronizado correctamente
+ */
+router.post('/sync/movimiento-caja', sincronizarMovimientoCaja);
 
 // ===== RUTAS PROTEGIDAS (para la web de administracion) =====
 router.use(authMiddleware);

@@ -158,6 +158,7 @@ async function seedPlans() {
           'compras',
           'inventario',
           'informes',
+          'tesoreria',
         ],
         activo: true,
         visible: true,

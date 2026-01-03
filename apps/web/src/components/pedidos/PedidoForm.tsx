@@ -495,6 +495,14 @@ export function PedidoForm({
   const handleClienteChange = (clienteId: string) => {
     const cliente = clientes.find(c => c._id === clienteId)
     if (cliente) {
+      // Obtener ID de forma de pago y término de pago del cliente
+      const formaPagoIdCliente = typeof cliente.formaPagoId === 'object'
+        ? (cliente.formaPagoId as any)?._id
+        : cliente.formaPagoId
+      const terminoPagoIdCliente = typeof cliente.terminoPagoId === 'object'
+        ? (cliente.terminoPagoId as any)?._id
+        : cliente.terminoPagoId
+
       setFormData(prev => ({
         ...prev,
         clienteId,
@@ -502,6 +510,11 @@ export function PedidoForm({
         clienteNif: cliente.nif,
         clienteEmail: cliente.email,
         clienteTelefono: cliente.telefono,
+        condiciones: {
+          ...prev.condiciones,
+          formaPagoId: formaPagoIdCliente || prev.condiciones?.formaPagoId,
+          terminoPagoId: terminoPagoIdCliente || prev.condiciones?.terminoPagoId,
+        },
       }))
       setDireccionesCliente(cliente.direcciones || [])
     } else {
@@ -741,7 +754,7 @@ export function PedidoForm({
 
   // Handler para cuando se presiona Enter en el campo de cantidad
   const handleCantidadKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
       e.preventDefault()
       handleAddLinea(TipoLinea.PRODUCTO)
     } else if (e.key === 'ArrowDown') {

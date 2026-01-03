@@ -140,14 +140,17 @@ const DEFAULT_CONFIG = {
   columnas: [
     { key: 'codigo', visible: true, orden: 0 },
     { key: 'clienteNombre', visible: true, orden: 1 },
-    { key: 'tipo', visible: true, orden: 2 },
-    { key: 'estado', visible: true, orden: 3 },
-    { key: 'fecha', visible: true, orden: 4 },
-    { key: 'fechaVencimiento', visible: true, orden: 5 },
-    { key: 'totalFactura', visible: true, orden: 6 },
-    { key: 'importePendiente', visible: true, orden: 7 },
-    { key: 'diasVencimiento', visible: true, orden: 8 },
-    { key: 'agenteComercial', visible: false, orden: 9 },
+    { key: 'clienteNif', visible: false, orden: 2 },
+    { key: 'clienteEmail', visible: false, orden: 3 },
+    { key: 'clienteTelefono', visible: false, orden: 4 },
+    { key: 'tipo', visible: true, orden: 5 },
+    { key: 'estado', visible: true, orden: 6 },
+    { key: 'fecha', visible: true, orden: 7 },
+    { key: 'fechaVencimiento', visible: true, orden: 8 },
+    { key: 'totalFactura', visible: true, orden: 9 },
+    { key: 'importePendiente', visible: true, orden: 10 },
+    { key: 'diasVencimiento', visible: true, orden: 11 },
+    { key: 'agenteComercial', visible: false, orden: 12 },
   ] as ColumnaConfig[],
   sortConfig: {
     key: 'fechaCreacion',
@@ -275,6 +278,9 @@ export default function FacturasPage() {
   const [columnasDisponibles] = useState([
     { key: 'codigo', label: 'Código', sortable: true },
     { key: 'clienteNombre', label: 'Cliente', sortable: true },
+    { key: 'clienteNif', label: 'NIF/CIF', sortable: true },
+    { key: 'clienteEmail', label: 'Email', sortable: true },
+    { key: 'clienteTelefono', label: 'Teléfono', sortable: true },
     { key: 'tipo', label: 'Tipo', sortable: true },
     { key: 'estado', label: 'Estado', sortable: true },
     { key: 'fecha', label: 'Fecha', sortable: true },
@@ -1247,6 +1253,27 @@ export default function FacturasPage() {
     return clienteNombre || '-'
   }
 
+  const getClienteNif = (clienteId: any, clienteNif?: string) => {
+    if (typeof clienteId === 'object' && clienteId !== null) {
+      return clienteId.nif || clienteId.cif || '-'
+    }
+    return clienteNif || '-'
+  }
+
+  const getClienteEmail = (clienteId: any, clienteEmail?: string) => {
+    if (typeof clienteId === 'object' && clienteId !== null) {
+      return clienteId.email || '-'
+    }
+    return clienteEmail || '-'
+  }
+
+  const getClienteTelefono = (clienteId: any, clienteTelefono?: string) => {
+    if (typeof clienteId === 'object' && clienteId !== null) {
+      return clienteId.telefono || '-'
+    }
+    return clienteTelefono || '-'
+  }
+
   const getAgenteNombre = (agenteId: any) => {
     if (typeof agenteId === 'object' && agenteId !== null) {
       return `${agenteId.nombre} ${agenteId.apellidos || ''}`.trim()
@@ -1619,6 +1646,42 @@ export default function FacturasPage() {
                     </th>
                   )}
 
+                  {columnasVisibles.includes('clienteNif') && (
+                    <th className={`${densityClasses.header} text-left min-w-[120px]`}>
+                      <button
+                        onClick={() => handleSort('clienteNif')}
+                        className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
+                      >
+                        NIF/CIF
+                        {getSortIcon('clienteNif')}
+                      </button>
+                    </th>
+                  )}
+
+                  {columnasVisibles.includes('clienteEmail') && (
+                    <th className={`${densityClasses.header} text-left min-w-[180px]`}>
+                      <button
+                        onClick={() => handleSort('clienteEmail')}
+                        className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
+                      >
+                        Email
+                        {getSortIcon('clienteEmail')}
+                      </button>
+                    </th>
+                  )}
+
+                  {columnasVisibles.includes('clienteTelefono') && (
+                    <th className={`${densityClasses.header} text-left min-w-[130px]`}>
+                      <button
+                        onClick={() => handleSort('clienteTelefono')}
+                        className="flex items-center hover:text-primary text-xs font-semibold uppercase tracking-wider transition-colors"
+                      >
+                        Teléfono
+                        {getSortIcon('clienteTelefono')}
+                      </button>
+                    </th>
+                  )}
+
                   {columnasVisibles.includes('tipo') && (
                     <th className={`${densityClasses.header} text-left min-w-[100px]`}>
                       <button
@@ -1736,6 +1799,39 @@ export default function FacturasPage() {
                         className="h-7 text-xs placeholder:text-muted-foreground"
                         value={columnFiltersInput.clienteNombre || ''}
                         onChange={(e) => handleColumnFilterInput('clienteNombre', e.target.value)}
+                      />
+                    </th>
+                  )}
+
+                  {columnasVisibles.includes('clienteNif') && (
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Filtrar..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        value={columnFiltersInput.clienteNif || ''}
+                        onChange={(e) => handleColumnFilterInput('clienteNif', e.target.value)}
+                      />
+                    </th>
+                  )}
+
+                  {columnasVisibles.includes('clienteEmail') && (
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Filtrar..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        value={columnFiltersInput.clienteEmail || ''}
+                        onChange={(e) => handleColumnFilterInput('clienteEmail', e.target.value)}
+                      />
+                    </th>
+                  )}
+
+                  {columnasVisibles.includes('clienteTelefono') && (
+                    <th className="px-3 py-1.5">
+                      <Input
+                        placeholder="Filtrar..."
+                        className="h-7 text-xs placeholder:text-muted-foreground"
+                        value={columnFiltersInput.clienteTelefono || ''}
+                        onChange={(e) => handleColumnFilterInput('clienteTelefono', e.target.value)}
                       />
                     </th>
                   )}
@@ -1885,6 +1981,26 @@ export default function FacturasPage() {
                           <div className="max-w-[200px] truncate" title={getClienteNombre(factura.clienteId, factura.clienteNombre)}>
                             {getClienteNombre(factura.clienteId, factura.clienteNombre)}
                           </div>
+                        </td>
+                      )}
+
+                      {columnasVisibles.includes('clienteNif') && (
+                        <td className={`${densityClasses.cell} ${densityClasses.text} text-muted-foreground`}>
+                          {getClienteNif(factura.clienteId, factura.clienteNif)}
+                        </td>
+                      )}
+
+                      {columnasVisibles.includes('clienteEmail') && (
+                        <td className={`${densityClasses.cell} ${densityClasses.text} text-muted-foreground`}>
+                          <div className="max-w-[180px] truncate" title={getClienteEmail(factura.clienteId, factura.clienteEmail)}>
+                            {getClienteEmail(factura.clienteId, factura.clienteEmail)}
+                          </div>
+                        </td>
+                      )}
+
+                      {columnasVisibles.includes('clienteTelefono') && (
+                        <td className={`${densityClasses.cell} ${densityClasses.text} text-muted-foreground`}>
+                          {getClienteTelefono(factura.clienteId, factura.clienteTelefono)}
                         </td>
                       )}
 

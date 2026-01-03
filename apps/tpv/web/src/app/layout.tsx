@@ -7,6 +7,11 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Tralok TPV',
   description: 'Punto de Venta Tralok',
+  icons: {
+    icon: '/tralok-icon.svg',
+    shortcut: '/tralok-icon.svg',
+    apple: '/tralok-icon.svg',
+  },
 };
 
 export default function RootLayout({

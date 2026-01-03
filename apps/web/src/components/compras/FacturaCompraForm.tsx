@@ -44,6 +44,7 @@ import {
   ChevronRight,
   AlertCircle,
   Loader2,
+  Settings,
 } from 'lucide-react'
 import {
   Dialog,
@@ -54,6 +55,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import {
   FacturaCompra,
@@ -66,6 +68,10 @@ import {
 } from '@/types/factura-compra.types'
 import { proveedoresService } from '@/services/proveedores.service'
 import { productosService } from '@/services/productos.service'
+import { formasPagoService } from '@/services/formas-pago.service'
+import { terminosPagoService } from '@/services/terminos-pago.service'
+import { FormaPago } from '@/types/forma-pago.types'
+import { TerminoPago } from '@/types/termino-pago.types'
 import { SearchableSelect, EditableSearchableSelect } from '@/components/ui/searchable-select'
 import { DateInput } from '@/components/ui/date-picker'
 import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
@@ -223,6 +229,18 @@ export function FacturaCompraForm({
   // Descuento global
   const [descuentoGlobalPorcentaje, setDescuentoGlobalPorcentaje] = useState(factura?.descuentoGlobalPorcentaje || 0)
 
+  // Condiciones de pago
+  const [formaPagoId, setFormaPagoId] = useState<string>(factura?.formaPagoId || '')
+  const [terminoPagoId, setTerminoPagoId] = useState<string>(factura?.terminoPagoId || '')
+  const [formasPago, setFormasPago] = useState<FormaPago[]>([])
+  const [terminosPago, setTerminosPago] = useState<TerminoPago[]>([])
+
+  // Condiciones adicionales
+  const [garantia, setGarantia] = useState(factura?.condiciones?.garantia || '')
+  const [portesPagados, setPortesPagados] = useState(factura?.condiciones?.portesPagados ?? true)
+  const [importePortes, setImportePortes] = useState(factura?.condiciones?.importePortes || 0)
+  const [observacionesEntrega, setObservacionesEntrega] = useState(factura?.condiciones?.observacionesEntrega || '')
+
   // Lineas
   const [lineas, setLineas] = useState<LineaFormulario[]>([])
 
@@ -261,6 +279,8 @@ export function FacturaCompraForm({
   useEffect(() => {
     cargarProveedores()
     cargarProductos()
+    cargarFormasPago()
+    cargarTerminosPago()
   }, [])
 
   useEffect(() => {
@@ -346,6 +366,28 @@ export function FacturaCompraForm({
     }
   }
 
+  const cargarFormasPago = async () => {
+    try {
+      const response = await formasPagoService.getActivas()
+      if (response.success && response.data) {
+        setFormasPago(response.data)
+      }
+    } catch (error) {
+      console.error('Error al cargar formas de pago:', error)
+    }
+  }
+
+  const cargarTerminosPago = async () => {
+    try {
+      const response = await terminosPagoService.getActivos()
+      if (response.success && response.data) {
+        setTerminosPago(response.data)
+      }
+    } catch (error) {
+      console.error('Error al cargar términos de pago:', error)
+    }
+  }
+
   const cargarProveedor = async (id: string) => {
     try {
       const response = await proveedoresService.getById(id)
@@ -356,6 +398,13 @@ export function FacturaCompraForm({
         setProveedorNif(prov.nif || '')
         setProveedorEmail(prov.email || '')
         setProveedorTelefono(prov.telefono || '')
+        // Establecer forma de pago y término de pago del proveedor si existen
+        if (prov.formaPagoId && !isEditing) {
+          setFormaPagoId(prov.formaPagoId)
+        }
+        if (prov.terminoPagoId && !isEditing) {
+          setTerminoPagoId(prov.terminoPagoId)
+        }
       }
     } catch (error) {
       console.error('Error al cargar proveedor:', error)
@@ -754,6 +803,35 @@ export function FacturaCompraForm({
     setVencimientos(nuevosVencimientos)
   }
 
+  // Generar vencimientos desde el término de pago seleccionado
+  const generarVencimientosDesdeTermino = useCallback(() => {
+    if (!terminoPagoId) return
+
+    const terminoPago = terminosPago.find(t => t._id === terminoPagoId)
+    if (!terminoPago || !terminoPago.vencimientos || terminoPago.vencimientos.length === 0) return
+
+    const totalFactura = totales.totalFactura
+    if (totalFactura <= 0) return
+
+    const nuevosVencimientos: VencimientoFormulario[] = terminoPago.vencimientos.map((venc, idx) => {
+      const fechaBase = new Date(fechaFacturaProveedor || fecha)
+      fechaBase.setDate(fechaBase.getDate() + venc.dias)
+
+      const importe = Math.round((totalFactura * venc.porcentaje / 100) * 100) / 100
+
+      return {
+        numero: idx + 1,
+        fechaVencimiento: fechaBase.toISOString().split('T')[0],
+        importe,
+        importePagado: 0,
+        importePendiente: importe,
+        pagado: false,
+      }
+    })
+
+    setVencimientos(nuevosVencimientos)
+  }, [terminoPagoId, terminosPago, totales.totalFactura, fechaFacturaProveedor, fecha])
+
   // ============================================
   // CALCULOS DE TOTALES
   // ============================================
@@ -833,6 +911,8 @@ export function FacturaCompraForm({
       proveedorNif,
       proveedorEmail: proveedorEmail || undefined,
       proveedorTelefono: proveedorTelefono || undefined,
+      formaPagoId: formaPagoId || undefined,
+      terminoPagoId: terminoPagoId || undefined,
       albaranesCompraIds: defaultAlbaranIds,
       titulo: titulo || undefined,
       descripcion: descripcion || undefined,
@@ -888,6 +968,14 @@ export function FacturaCompraForm({
       descuentoGlobalPorcentaje,
       descuentoGlobalImporte: totales.descuentoGlobalImporte,
       observaciones: observaciones || undefined,
+      condiciones: {
+        formaPagoId: formaPagoId || undefined,
+        terminoPagoId: terminoPagoId || undefined,
+        garantia: garantia || undefined,
+        portesPagados,
+        importePortes: !portesPagados ? importePortes : undefined,
+        observacionesEntrega: observacionesEntrega || undefined,
+      },
     }
   }
 
@@ -979,7 +1067,7 @@ export function FacturaCompraForm({
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="proveedor" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">Proveedor</span>
@@ -990,6 +1078,10 @@ export function FacturaCompraForm({
             {lineas.length > 0 && (
               <Badge variant="secondary" className="ml-1">{lineas.length}</Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="condiciones" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Condiciones</span>
           </TabsTrigger>
           <TabsTrigger value="vencimientos" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
@@ -1158,6 +1250,9 @@ export function FacturaCompraForm({
             onProductoSelect={seleccionarProducto}
             onNombreChange={handleNombreChange}
             productoRefs={productoRefs}
+            cantidadRefs={cantidadRefs}
+            onCantidadKeyDown={handleCantidadKeyDown}
+            onCtrlEnterPress={agregarLinea}
           />
 
           {/* Resumen rapido */}
@@ -1192,6 +1287,92 @@ export function FacturaCompraForm({
         </TabsContent>
 
         {/* ============================================ */}
+        {/* TAB CONDICIONES */}
+        {/* ============================================ */}
+        <TabsContent value="condiciones" className="space-y-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Settings className="h-5 w-5 text-primary" />
+              Condiciones de Pago y Entrega
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Forma de Pago</Label>
+                <SearchableSelect
+                  options={formasPago.map(fp => ({
+                    value: fp._id,
+                    label: fp.nombre,
+                    sublabel: fp.descripcion,
+                  }))}
+                  value={formaPagoId}
+                  onValueChange={setFormaPagoId}
+                  placeholder="Seleccionar forma de pago..."
+                />
+              </div>
+
+              <div>
+                <Label>Termino de Pago</Label>
+                <SearchableSelect
+                  options={terminosPago.map(tp => ({
+                    value: tp._id,
+                    label: tp.nombre,
+                    sublabel: tp.descripcion || `${tp.diasVencimiento || 0} dias`,
+                  }))}
+                  value={terminoPagoId}
+                  onValueChange={setTerminoPagoId}
+                  placeholder="Seleccionar termino de pago..."
+                />
+              </div>
+
+              <div>
+                <Label>Garantia</Label>
+                <Input
+                  value={garantia}
+                  onChange={(e) => setGarantia(e.target.value)}
+                  placeholder="Ej: 2 años, 6 meses..."
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="portesPagados">Portes Pagados</Label>
+                  <Switch
+                    id="portesPagados"
+                    checked={portesPagados}
+                    onCheckedChange={setPortesPagados}
+                  />
+                </div>
+
+                {!portesPagados && (
+                  <div>
+                    <Label>Importe Portes</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={importePortes}
+                      onChange={(e) => setImportePortes(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="md:col-span-2">
+                <Label>Observaciones de Entrega</Label>
+                <Textarea
+                  value={observacionesEntrega}
+                  onChange={(e) => setObservacionesEntrega(e.target.value)}
+                  placeholder="Instrucciones de entrega, direccion, horarios..."
+                  rows={3}
+                />
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* ============================================ */}
         {/* TAB VENCIMIENTOS */}
         {/* ============================================ */}
         <TabsContent value="vencimientos" className="space-y-6">
@@ -1201,7 +1382,18 @@ export function FacturaCompraForm({
                 <Calendar className="h-5 w-5 text-primary" />
                 Vencimientos de Pago
               </h3>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                {terminoPagoId && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={generarVencimientosDesdeTermino}
+                    title="Generar vencimientos según el término de pago seleccionado"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Según término
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => generarVencimientosAutomaticos(1, 30)}>
                   1 Venc. (30d)
                 </Button>
@@ -1211,7 +1403,7 @@ export function FacturaCompraForm({
                 <Button variant="outline" size="sm" onClick={() => generarVencimientosAutomaticos(3, 30)}>
                   3 Venc.
                 </Button>
-                <Button onClick={agregarVencimiento} size="sm">
+                <Button onClick={agregarVencimiento} size="sm" variant="outline">
                   <Plus className="h-4 w-4 mr-2" />
                   Agregar
                 </Button>

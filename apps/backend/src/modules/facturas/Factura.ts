@@ -773,17 +773,19 @@ const FacturaSchema = new Schema<IFactura, IFacturaModel>({
   clienteId: {
     type: Schema.Types.ObjectId,
     ref: 'Cliente',
-    required: [true, 'El cliente es obligatorio'],
+    required: false, // No obligatorio para facturas simplificadas (TPV)
   },
   clienteNombre: {
     type: String,
     required: true,
     trim: true,
+    default: 'Cliente Contado',
   },
   clienteNif: {
     type: String,
-    required: true,
+    required: false, // No obligatorio para facturas simplificadas
     trim: true,
+    default: '',
   },
   clienteEmail: { type: String, trim: true },
   clienteTelefono: { type: String, trim: true },

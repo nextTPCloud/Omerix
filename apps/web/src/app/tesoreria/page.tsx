@@ -43,6 +43,7 @@ import {
   Building2,
   ChevronRight,
   Banknote,
+  Link,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -243,7 +244,7 @@ export default function TesoreriaPage() {
         </div>
 
         {/* Accesos rápidos */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-6">
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/tesoreria/cobros')}>
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -298,6 +299,36 @@ export default function TesoreriaPage() {
                 <div>
                   <p className="font-medium">Recibos</p>
                   <p className="text-sm text-muted-foreground">{stats?.recibosPendientes || 0} pendientes</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/tesoreria/movimientos')}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-full bg-purple-100 p-2">
+                  <Banknote className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="font-medium">Movimientos</p>
+                  <p className="text-sm text-muted-foreground">Entradas y salidas</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/tesoreria/conciliacion')}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="rounded-full bg-cyan-100 p-2">
+                  <Link className="h-5 w-5 text-cyan-600" />
+                </div>
+                <div>
+                  <p className="font-medium">Conciliación</p>
+                  <p className="text-sm text-muted-foreground">Extractos bancarios</p>
                 </div>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />

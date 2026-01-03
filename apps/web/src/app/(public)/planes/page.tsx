@@ -24,6 +24,28 @@ import {
 // Sincronizados con seed-plans.ts
 const planes = [
   {
+    slug: 'solo-fichaje',
+    nombre: 'Solo Fichaje',
+    descripcion: 'Control horario y fichajes',
+    precioMensual: 15,
+    precioAnual: 150,
+    destacado: false,
+    limites: {
+      usuariosSimultaneos: 5,
+      usuariosTotales: 10,
+      facturasMes: 0,
+      productosCatalogo: 0,
+      almacenes: 0,
+      clientes: 0,
+      almacenamientoGB: 1
+    },
+    modulos: ['rrhh', 'calendarios'],
+    soporte: 'Email',
+    integraciones: false,
+    api: false,
+    esFichaje: true
+  },
+  {
     slug: 'starter',
     nombre: 'Starter',
     descripcion: 'Para autonomos que empiezan',
@@ -125,14 +147,13 @@ const modulosInfo: ModuloInfo[] = [
   { slug: 'compras', nombre: 'Compras' },
   { slug: 'inventario', nombre: 'Inventario y Stock' },
   { slug: 'informes', nombre: 'Informes y Estadisticas' },
-  { slug: 'contabilidad', nombre: 'Contabilidad' },
-  { slug: 'proyectos', nombre: 'Proyectos y Tareas' },
-  { slug: 'crm', nombre: 'CRM' },
   { slug: 'tesoreria', nombre: 'Tesoreria' },
   { slug: 'calendarios', nombre: 'Calendarios' },
-  { slug: 'tpv', nombre: 'TPV' },
-  { slug: 'rrhh', nombre: 'Recursos Humanos', addon: true },
-  { slug: 'restauracion', nombre: 'Restauracion', addon: true }
+  { slug: 'rrhh', nombre: 'Recursos Humanos / Fichaje', addon: true },
+  { slug: 'tpv', nombre: 'TPV (Punto de Venta)', addon: true },
+  { slug: 'proyectos', nombre: 'Proyectos / Servicios', addon: true },
+  { slug: 'contabilidad', nombre: 'Contabilidad', addon: true },
+  { slug: 'crm', nombre: 'CRM Completo', addon: true },
 ]
 
 // FAQ
@@ -209,24 +230,43 @@ function PlanCard({ plan, anual }: { plan: typeof planes[0], anual: boolean }) {
               {plan.limites.usuariosTotales === -1 ? 'Ilimitados' : plan.limites.usuariosTotales}
             </span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Facturas/mes</span>
-            <span className="font-medium">
-              {plan.limites.facturasMes === -1 ? 'Ilimitadas' : plan.limites.facturasMes.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Productos</span>
-            <span className="font-medium">
-              {plan.limites.productosCatalogo === -1 ? 'Ilimitados' : plan.limites.productosCatalogo.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Almacenes</span>
-            <span className="font-medium">
-              {plan.limites.almacenes === -1 ? 'Ilimitados' : plan.limites.almacenes}
-            </span>
-          </div>
+          {'esFichaje' in plan && plan.esFichaje ? (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Control horario</span>
+                <span className="font-medium text-green-600">Incluido</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Fichajes</span>
+                <span className="font-medium text-green-600">Incluido</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Calendarios</span>
+                <span className="font-medium text-green-600">Incluido</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Facturas/mes</span>
+                <span className="font-medium">
+                  {plan.limites.facturasMes === -1 ? 'Ilimitadas' : plan.limites.facturasMes.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Productos</span>
+                <span className="font-medium">
+                  {plan.limites.productosCatalogo === -1 ? 'Ilimitados' : plan.limites.productosCatalogo.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Almacenes</span>
+                <span className="font-medium">
+                  {plan.limites.almacenes === -1 ? 'Ilimitados' : plan.limites.almacenes}
+                </span>
+              </div>
+            </>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Almacenamiento</span>
             <span className="font-medium">{plan.limites.almacenamientoGB} GB</span>
@@ -301,7 +341,7 @@ function TablaComparativa() {
         <tbody>
           {/* Limites */}
           <tr className="bg-slate-50">
-            <td colSpan={4} className="py-3 px-4 font-semibold text-slate-700">Limites</td>
+            <td colSpan={6} className="py-3 px-4 font-semibold text-slate-700">Limites</td>
           </tr>
           <tr className="border-b border-slate-100">
             <td className="py-3 px-4 text-slate-600">Usuarios simultaneos</td>
@@ -362,7 +402,7 @@ function TablaComparativa() {
 
           {/* Modulos */}
           <tr className="bg-slate-50">
-            <td colSpan={4} className="py-3 px-4 font-semibold text-slate-700">Modulos</td>
+            <td colSpan={6} className="py-3 px-4 font-semibold text-slate-700">Modulos</td>
           </tr>
           {modulosInfo.map(modulo => (
             <tr key={modulo.slug} className="border-b border-slate-100">
@@ -408,7 +448,7 @@ function TablaComparativa() {
 
           {/* Soporte y extras */}
           <tr className="bg-slate-50">
-            <td colSpan={4} className="py-3 px-4 font-semibold text-slate-700">Soporte y extras</td>
+            <td colSpan={6} className="py-3 px-4 font-semibold text-slate-700">Soporte y extras</td>
           </tr>
           <tr className="border-b border-slate-100">
             <td className="py-3 px-4 text-slate-600">Tipo de soporte</td>
@@ -485,7 +525,7 @@ export default function PlanesPage() {
         </div>
 
         {/* Cards de planes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-20">
           {planes.map(plan => (
             <PlanCard key={plan.slug} plan={plan} anual={anual} />
           ))}

@@ -197,7 +197,13 @@ export default function AlbaranDetallePage({ params }: PageProps) {
 
   const formatDate = (date: string | Date | undefined) => {
     if (!date) return '-'
-    return new Date(date).toLocaleDateString('es-ES')
+    try {
+      const d = new Date(date)
+      if (isNaN(d.getTime())) return '-'
+      return d.toLocaleDateString('es-ES')
+    } catch {
+      return '-'
+    }
   }
 
   if (loading) {
@@ -640,6 +646,110 @@ export default function AlbaranDetallePage({ params }: PageProps) {
                 </CardContent>
               </Card>
             )}
+
+            {/* Condiciones de Entrega */}
+            {albaran.condicionesEntrega && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Condiciones de Entrega
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {albaran.condicionesEntrega}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tags */}
+            {albaran.tags && albaran.tags.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Etiquetas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {albaran.tags.map((tag, i) => (
+                      <Badge key={i} variant="secondary">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Historial de cambios */}
+            {albaran.historial && albaran.historial.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Historial de Cambios
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {albaran.historial.slice(0, 10).map((entry, i) => (
+                      <div key={i} className="flex items-start gap-3 text-sm border-b pb-2 last:border-0">
+                        <div className="text-muted-foreground min-w-[100px]">
+                          {formatDate(entry.fecha)}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{entry.accion}</p>
+                          {entry.descripcion && (
+                            <p className="text-muted-foreground text-xs">{entry.descripcion}</p>
+                          )}
+                        </div>
+                        {entry.usuarioId && (
+                          <span className="text-xs text-muted-foreground">
+                            por {typeof entry.usuarioId === 'object' ? entry.usuarioId.nombre : entry.usuarioId}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Información del Sistema */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm text-muted-foreground">Sistema</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Creado:</span>
+                  <span>{albaran.fechaCreacion ? formatDate(albaran.fechaCreacion) : '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Modificado:</span>
+                  <span>{albaran.fechaModificacion ? formatDate(albaran.fechaModificacion) : '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Creado por:</span>
+                  <span>
+                    {albaran.creadoPor
+                      ? (typeof albaran.creadoPor === 'object' ? albaran.creadoPor.nombre : albaran.creadoPor)
+                      : '-'}
+                  </span>
+                </div>
+                {albaran.modificadoPor && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Modificado por:</span>
+                    <span>
+                      {typeof albaran.modificadoPor === 'object'
+                        ? albaran.modificadoPor.nombre
+                        : albaran.modificadoPor}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

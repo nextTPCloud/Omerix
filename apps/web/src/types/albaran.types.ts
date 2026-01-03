@@ -168,6 +168,15 @@ export interface IBultos {
   descripcion?: string;
 }
 
+export interface ICondicionesComerciales {
+  formaPagoId?: string;
+  terminoPagoId?: string;
+  garantia?: string;
+  portesPagados: boolean;
+  portesImporte?: number;
+  observacionesEntrega?: string;
+}
+
 export interface IDesgloseIva {
   tipo: number;
   base: number;
@@ -237,6 +246,7 @@ export interface IAlbaran {
   observaciones?: string;
   observacionesInternas?: string;
   condicionesEntrega?: string;
+  condiciones?: ICondicionesComerciales;
   tags?: string[];
   activo: boolean;
   bloqueado: boolean;
@@ -298,6 +308,7 @@ export interface CreateAlbaranDTO {
   observaciones?: string;
   observacionesInternas?: string;
   condicionesEntrega?: string;
+  condiciones?: Partial<ICondicionesComerciales>;
   tags?: string[];
   mostrarCostes?: boolean;
   mostrarMargenes?: boolean;

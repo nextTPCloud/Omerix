@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Empresa from '../modules/empresa/Empresa';
+import { logger } from '../config/logger';
 
 // Extender Request para incluir propiedades de tenant
 declare global {
@@ -24,8 +25,6 @@ export const tenantMiddleware = async (
 ) => {
   try {
     let empresaId: any = req.empresaId;
-    console.log('🔍 DEBUG empresaId ORIGINAL:', empresaId);
-    console.log('🔍 DEBUG empresaId TYPE:', typeof empresaId);
 
     if (!empresaId) {
       return res.status(401).json({
@@ -36,14 +35,12 @@ export const tenantMiddleware = async (
 
     // Si empresaId es un objeto (populate), extraer el _id
     if (typeof empresaId === 'object' && empresaId._id) {
-      console.log('🔍 Es un objeto, extrayendo _id');
       empresaId = String(empresaId._id);
       req.empresaId = empresaId;
     }
 
     // Convertir a string si es ObjectId
     if (empresaId instanceof mongoose.Types.ObjectId) {
-      console.log('🔍 Es un ObjectId, convirtiendo a string');
       empresaId = String(empresaId);
       req.empresaId = empresaId;
     }
@@ -52,19 +49,12 @@ export const tenantMiddleware = async (
     empresaId = String(empresaId);
     req.empresaId = empresaId;
 
-    console.log('🔍 DEBUG empresaId FINAL:', empresaId);
-    console.log('🔍 DEBUG isValid:', mongoose.Types.ObjectId.isValid(empresaId));
-
     // Validar que empresaId es un ObjectId válido
     if (!mongoose.Types.ObjectId.isValid(empresaId)) {
-      console.error('❌ ID de empresa inválido:', empresaId);
+      logger.warn('ID de empresa inválido:', { empresaId, type: typeof empresaId });
       return res.status(400).json({
         success: false,
         message: 'ID de empresa inválido',
-        debug: {
-          empresaId: empresaId,
-          type: typeof empresaId,
-        },
       });
     }
 
@@ -93,7 +83,6 @@ export const tenantMiddleware = async (
     if (!empresa.databaseConfig) {
       // Si es empresa plataforma Y el usuario es superadmin, permitir acceso
       if (empresa.esPlatforma && req.userRole === 'superadmin') {
-        console.log('🔓 Bypass: Superadmin accediendo a empresa plataforma');
         req.empresaDbConfig = null as any;
         req.dbConfig = null as any;
         req.esPlatforma = true;
@@ -110,10 +99,9 @@ export const tenantMiddleware = async (
     req.empresaDbConfig = empresa.databaseConfig;
     req.dbConfig = empresa.databaseConfig; // Alias para compatibilidad
 
-    console.log(`🏢 Tenant: ${empresaId} | DB: ${empresa.databaseConfig.name}`);
     next();
   } catch (error: any) {
-    console.error('Error en tenantMiddleware:', error);
+    logger.error('Error en tenantMiddleware:', error);
     res.status(500).json({
       success: false,
       message: 'Error en verificación de tenant',

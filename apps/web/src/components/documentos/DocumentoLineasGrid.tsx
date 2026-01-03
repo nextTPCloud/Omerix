@@ -126,6 +126,8 @@ interface DocumentoLineasGridProps {
 
   // Handlers de teclado
   onCantidadKeyDown?: (e: React.KeyboardEvent, index: number) => void
+  // Handler global para Ctrl+Enter (añadir línea desde cualquier campo)
+  onCtrlEnterPress?: () => void
 
   // Handler específico para albaranes (entregar todo)
   onEntregarTodo?: (index: number) => void
@@ -162,6 +164,7 @@ export function DocumentoLineasGrid({
   cantidadRefs,
   productoRefs,
   onCantidadKeyDown,
+  onCtrlEnterPress,
   onEntregarTodo,
 }: DocumentoLineasGridProps) {
   // Configuración de columnas
@@ -182,6 +185,19 @@ export function DocumentoLineasGrid({
     await guardarColumnas()
     toast.success('Configuración de columnas guardada')
   }
+
+  // Handler global para Ctrl+Enter (añadir línea desde cualquier campo)
+  const handleGridKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (onCtrlEnterPress) {
+        onCtrlEnterPress()
+      } else {
+        onAddLinea()
+      }
+    }
+  }, [onCtrlEnterPress, onAddLinea])
 
   // Tipos de línea para el selector
   const tiposLinea = TIPOS_LINEA_OPTIONS
@@ -637,7 +653,7 @@ export function DocumentoLineasGrid({
   }
 
   return (
-    <Card>
+    <Card onKeyDown={handleGridKeyDown}>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle>Líneas del documento</CardTitle>

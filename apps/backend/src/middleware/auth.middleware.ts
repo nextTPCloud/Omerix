@@ -315,7 +315,6 @@ export const optionalAuth = async (
         req.userRole = payload.rol;
       } catch (error) {
         // Token inválido, pero no bloqueamos la petición
-        console.log('Token inválido en optional auth, continuando sin auth');
       }
     }
 

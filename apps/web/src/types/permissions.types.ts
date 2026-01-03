@@ -36,6 +36,8 @@ export interface IPermisosEspeciales {
   accesoAlmacen: boolean;
   accesoContabilidad: boolean;
   accesoTPV: boolean;
+  accesoCobroVencimientosTPV: boolean;
+  accesoPagoVencimientosTPV: boolean;
   accesoRRHH: boolean;
   accesoInformes: boolean;
   accesoTesoreria: boolean;
@@ -160,6 +162,8 @@ export const PERMISOS_ESPECIALES_DEFAULT: IPermisosEspeciales = {
   accesoAlmacen: false,
   accesoContabilidad: false,
   accesoTPV: false,
+  accesoCobroVencimientosTPV: false,
+  accesoPagoVencimientosTPV: false,
   accesoRRHH: false,
   accesoInformes: false,
   accesoTesoreria: false,
@@ -191,6 +195,8 @@ export const PERMISOS_ESPECIALES_ADMIN: IPermisosEspeciales = {
   accesoAlmacen: true,
   accesoContabilidad: true,
   accesoTPV: true,
+  accesoCobroVencimientosTPV: true,
+  accesoPagoVencimientosTPV: true,
   accesoRRHH: true,
   accesoInformes: true,
   accesoTesoreria: true,

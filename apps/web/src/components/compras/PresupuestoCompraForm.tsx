@@ -58,9 +58,13 @@ import { useLineasConfig } from '@/hooks/useLineasConfig'
 import { proveedoresService } from '@/services/proveedores.service'
 import { productosService } from '@/services/productos.service'
 import { seriesDocumentosService } from '@/services/series-documentos.service'
+import { formasPagoService } from '@/services/formas-pago.service'
+import { terminosPagoService } from '@/services/terminos-pago.service'
 
 // Types
 import { Proveedor } from '@/types/proveedor.types'
+import { FormaPago } from '@/types/forma-pago.types'
+import { TerminoPago } from '@/types/termino-pago.types'
 import { Producto, Variante } from '@/types/producto.types'
 import { ISerieDocumento } from '@/types/serie-documento.types'
 import { toast } from 'sonner'
@@ -185,6 +189,8 @@ export function PresupuestoCompraForm({
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
   const [seriesDocumentos, setSeriesDocumentos] = useState<ISerieDocumento[]>([])
+  const [formasPago, setFormasPago] = useState<FormaPago[]>([])
+  const [terminosPago, setTerminosPago] = useState<TerminoPago[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
 
   // Configuración de columnas visibles (no se usa directamente, DocumentoLineasGrid lo maneja internamente)
@@ -219,6 +225,10 @@ export function PresupuestoCompraForm({
     fechaValidez: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     lineas: [],
     descuentoGlobalPorcentaje: 0,
+    condiciones: {
+      formaPagoId: '',
+      terminoPagoId: '',
+    },
   })
 
   // Lineas del formulario
@@ -244,13 +254,17 @@ export function PresupuestoCompraForm({
     const loadOptions = async () => {
       try {
         setLoadingOptions(true)
-        const [proveedoresRes, productosRes] = await Promise.all([
+        const [proveedoresRes, productosRes, formasPagoRes, terminosPagoRes] = await Promise.all([
           proveedoresService.getAll({ activo: true, limit: 100 }),
           productosService.getAll({ activo: true, limit: 100 }),
+          formasPagoService.getAll({ activo: true }),
+          terminosPagoService.getAll({ activo: true }),
         ])
 
         if (proveedoresRes.success) setProveedores(proveedoresRes.data || [])
         if (productosRes.success) setProductos(productosRes.data || [])
+        if (formasPagoRes.success) setFormasPago(formasPagoRes.data || [])
+        if (terminosPagoRes.success) setTerminosPago(terminosPagoRes.data || [])
         // Presupuestos de compra no usan series por ahora
         setSeriesDocumentos([])
       } catch (error) {
@@ -289,6 +303,10 @@ export function PresupuestoCompraForm({
         descuentoGlobalPorcentaje: presupuesto.descuentoGlobalPorcentaje || 0,
         observaciones: presupuesto.observaciones,
         condicionesProveedor: presupuesto.condicionesProveedor,
+        condiciones: {
+          formaPagoId: (presupuesto as any).condiciones?.formaPagoId || '',
+          terminoPagoId: (presupuesto as any).condiciones?.terminoPagoId || '',
+        },
         tags: presupuesto.tags,
       })
 
@@ -361,6 +379,14 @@ export function PresupuestoCompraForm({
   const handleProveedorChange = (proveedorId: string) => {
     const proveedor = proveedores.find(p => p._id === proveedorId)
     if (proveedor) {
+      // Obtener ID de forma de pago y término de pago del proveedor
+      const formaPagoIdProveedor = typeof proveedor.formaPagoId === 'object'
+        ? (proveedor.formaPagoId as any)?._id
+        : proveedor.formaPagoId
+      const terminoPagoIdProveedor = typeof proveedor.terminoPagoId === 'object'
+        ? (proveedor.terminoPagoId as any)?._id
+        : proveedor.terminoPagoId
+
       setFormData(prev => ({
         ...prev,
         proveedorId: proveedor._id,
@@ -368,6 +394,11 @@ export function PresupuestoCompraForm({
         proveedorNif: proveedor.nif || '',
         proveedorEmail: proveedor.email,
         proveedorTelefono: proveedor.telefono,
+        condiciones: {
+          ...prev.condiciones,
+          formaPagoId: formaPagoIdProveedor || prev.condiciones?.formaPagoId,
+          terminoPagoId: terminoPagoIdProveedor || prev.condiciones?.terminoPagoId,
+        },
       }))
     }
   }
@@ -1005,11 +1036,56 @@ export function PresupuestoCompraForm({
             cantidadRefs={cantidadRefs}
             productoRefs={productoRefs}
             onCantidadKeyDown={handleCantidadKeyDown as any}
+            onCtrlEnterPress={handleAddLinea}
           />
         </TabsContent>
 
         {/* Tab Condiciones */}
         <TabsContent value="condiciones" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Condiciones de Pago</CardTitle>
+              <CardDescription>Forma y términos de pago para este documento</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Forma de Pago</Label>
+                  <SearchableSelect
+                    options={formasPago.map(fp => ({
+                      value: fp._id,
+                      label: fp.nombre,
+                      subtitle: fp.descripcion,
+                    }))}
+                    value={formData.condiciones?.formaPagoId || ''}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      condiciones: { ...prev.condiciones, formaPagoId: value }
+                    }))}
+                    placeholder="Seleccionar forma de pago..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Término de Pago</Label>
+                  <SearchableSelect
+                    options={terminosPago.map(tp => ({
+                      value: tp._id,
+                      label: tp.nombre,
+                      subtitle: tp.descripcion || `${tp.diasVencimiento || 0} días`,
+                    }))}
+                    value={formData.condiciones?.terminoPagoId || ''}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      condiciones: { ...prev.condiciones, terminoPagoId: value }
+                    }))}
+                    placeholder="Seleccionar término de pago..."
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Observaciones</CardTitle>

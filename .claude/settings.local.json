@@ -36,7 +36,9 @@
       "Bash(powershell -Command \"cd C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend; node -e \"\"\nrequire\\(''dotenv''\\).config\\({ path: ''./.env'' }\\);\nconsole.log\\(''MONGODB_URI:'', process.env.MONGODB_URI ? ''existe'' : ''no definido''\\);\n\"\" 2>&1\")",
       "Bash(powershell -Command \"cd C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend; npx ts-node --transpile-only src/scripts/check-db.ts 2>&1\")",
       "Bash(powershell:*)",
-      "WebFetch(domain:localhost)"
+      "WebFetch(domain:localhost)",
+      "Bash(dir \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\web\\\\src\\\\app\")",
+      "Bash(del \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\web\\\\src\\\\app\\\\favicon.ico\")"
     ]
   }
 }

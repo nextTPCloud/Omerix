@@ -29,6 +29,9 @@ import {
   HardDrive,
   Sparkles,
   Plus,
+  Wrench,
+  Calculator,
+  Users,
 } from 'lucide-react'
 
 // Mapeo de iconos para add-ons
@@ -38,6 +41,9 @@ const iconMap: Record<string, any> = {
   UserPlus,
   HardDrive,
   Sparkles,
+  Wrench,
+  Calculator,
+  Users,
 }
 
 // Planes disponibles (sincronizado con seed-plans.ts)
@@ -201,6 +207,36 @@ const addOnsDisponibles: IAddOnLocal[] = [
     esRecurrente: true,
   },
   {
+    slug: 'proyectos',
+    nombre: 'Módulo Servicios',
+    descripcion: 'Proyectos, partes de trabajo, maquinaria y tipos de gasto',
+    icono: 'Wrench',
+    tipo: 'modulo',
+    precioMensual: 15,
+    precioAnual: 150,
+    esRecurrente: true,
+  },
+  {
+    slug: 'contabilidad',
+    nombre: 'Módulo Contabilidad',
+    descripcion: 'Gestión contable completa, asientos, balances y cuentas anuales',
+    icono: 'Calculator',
+    tipo: 'modulo',
+    precioMensual: 20,
+    precioAnual: 200,
+    esRecurrente: true,
+  },
+  {
+    slug: 'crm',
+    nombre: 'CRM Completo',
+    descripcion: 'Gestión de clientes, oportunidades, pipeline de ventas y seguimiento',
+    icono: 'Users',
+    tipo: 'modulo',
+    precioMensual: 15,
+    precioAnual: 150,
+    esRecurrente: true,
+  },
+  {
     slug: 'usuario-extra',
     nombre: 'Usuario Extra',
     descripcion: 'Añade un usuario adicional (+1 sesion)',
@@ -267,8 +303,9 @@ export default function CheckoutPage() {
 
   // Verificar si el usuario ya tiene un plan activo (no trial)
   const hasActivePlan = !!(isActive && !isTrial && currentPlan)
-  // Verificar si el plan seleccionado es el mismo que el actual
-  const isSamePlan = !!(selectedPlan && currentPlan && selectedPlan.slug === currentPlan.slug)
+  // Verificar si el plan seleccionado es el mismo que el actual (comparación case-insensitive)
+  const isSamePlan = !!(selectedPlan && currentPlan &&
+    selectedPlan.slug?.toLowerCase() === currentPlan.slug?.toLowerCase())
 
   // Toggle add-on selection
   const toggleAddOn = (slug: string) => {
@@ -326,8 +363,10 @@ export default function CheckoutPage() {
   }, [searchParams, hasActivePlan, currentPlan])
 
   // Calcular precios (IVA ya incluido en el precio)
-  // Si tiene plan activo y es el mismo, o si solo compra add-ons, no cobrar el plan
-  const shouldChargePlan = !onlyAddOns && (!hasActivePlan || !isSamePlan)
+  // Modo solo add-ons: explícito O automático (tiene plan activo, mismo plan, y hay add-ons)
+  const isAddOnOnlyMode = onlyAddOns || (hasActivePlan && isSamePlan)
+  // Solo cobrar plan si NO es modo add-ons Y (no tiene plan activo O cambió de plan)
+  const shouldChargePlan = !isAddOnOnlyMode && (!hasActivePlan || !isSamePlan)
 
   const planPrice = selectedPlan && shouldChargePlan
     ? billingCycle === 'anual'
@@ -343,7 +382,7 @@ export default function CheckoutPage() {
   const ivaIncluido = total - baseImponible
 
   // Determinar tipo de operacion
-  const operationType = onlyAddOns || (hasActivePlan && isSamePlan)
+  const operationType = isAddOnOnlyMode
     ? 'addons' // Solo add-ons
     : hasActivePlan && !isSamePlan
       ? 'upgrade' // Cambio de plan
@@ -527,7 +566,7 @@ export default function CheckoutPage() {
                   }}
                 >
                   {plan.slug === 'profesional' && (
-                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600">
+                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 whitespace-nowrap">
                       Mas popular
                     </Badge>
                   )}

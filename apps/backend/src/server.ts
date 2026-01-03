@@ -45,6 +45,10 @@ import formasPagoRoutes from './modules/formas-pago/formas-pago.routes';
 import vencimientosRoutes from './modules/tesoreria/vencimientos.routes';
 import pagaresRoutes from './modules/tesoreria/pagares.routes';
 import recibosRoutes from './modules/tesoreria/recibos.routes';
+import movimientosBancariosRoutes from './modules/tesoreria/movimientos-bancarios.routes';
+import conciliacionRoutes from './modules/tesoreria/conciliacion.routes';
+import previsionesRoutes from './modules/tesoreria/previsiones.routes';
+import cuentasBancariasRoutes from './modules/cuentas-bancarias/cuentas-bancarias.routes';
 
 // Importar rutas de factura electrónica
 import facturaERoutes from './modules/facturae/facturae.routes';
@@ -355,6 +359,10 @@ app.use('/api/formas-pago', formasPagoRoutes);
 app.use('/api/vencimientos', vencimientosRoutes);
 app.use('/api/pagares', pagaresRoutes);
 app.use('/api/recibos', recibosRoutes);
+app.use('/api/movimientos-bancarios', movimientosBancariosRoutes);
+app.use('/api/conciliacion', conciliacionRoutes);
+app.use('/api/previsiones', previsionesRoutes);
+app.use('/api/cuentas-bancarias', cuentasBancariasRoutes);
 
 // Rutas de factura electrónica (FacturaE/FACE)
 app.use('/api/facturae', facturaERoutes);

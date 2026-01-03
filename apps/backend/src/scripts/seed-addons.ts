@@ -4,6 +4,7 @@
  * Precios (IVA incluido):
  * - Módulo RRHH/Fichaje: 6€/mes (como add-on, standalone es 15€)
  * - Módulo TPV: 25€/mes
+ * - Módulo Servicios: 15€/mes (proyectos, partes de trabajo, maquinaria)
  * - Usuario extra: 5€/mes
  * - 10 GB extra: 3€/mes
  * - 50 GB extra: 10€/mes
@@ -77,6 +78,72 @@ async function seedAddOns() {
           tpvs: 2,
         },
         orden: 2,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        nombre: 'Módulo Servicios',
+        slug: 'proyectos',
+        descripcion: 'Proyectos, partes de trabajo, maquinaria y tipos de gasto',
+        icono: 'Wrench',
+        tipo: 'modulo',
+        precioMensual: 15,
+        precioAnual: 150, // 2 meses gratis
+        esRecurrente: true,
+        caracteristicas: [
+          'Gestión de proyectos',
+          'Partes de trabajo',
+          'Control de maquinaria',
+          'Tipos de gasto',
+          'Informes de rentabilidad',
+        ],
+        orden: 3,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        nombre: 'Módulo Contabilidad',
+        slug: 'contabilidad',
+        descripcion: 'Gestión contable completa, asientos, balances y cuentas anuales',
+        icono: 'Calculator',
+        tipo: 'modulo',
+        precioMensual: 20,
+        precioAnual: 200, // 2 meses gratis
+        esRecurrente: true,
+        caracteristicas: [
+          'Plan General Contable',
+          'Asientos automáticos',
+          'Libro diario y mayor',
+          'Balance y cuenta de resultados',
+          'Cuentas anuales',
+        ],
+        orden: 4,
+        activo: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        _id: new mongoose.Types.ObjectId(),
+        nombre: 'CRM Completo',
+        slug: 'crm',
+        descripcion: 'Gestión de clientes, oportunidades, pipeline de ventas y seguimiento',
+        icono: 'Users',
+        tipo: 'modulo',
+        precioMensual: 15,
+        precioAnual: 150, // 2 meses gratis
+        esRecurrente: true,
+        caracteristicas: [
+          'Pipeline de ventas',
+          'Gestión de oportunidades',
+          'Seguimiento de clientes',
+          'Automatizaciones',
+          'Informes de ventas',
+        ],
+        orden: 5,
         activo: true,
         createdAt: new Date(),
         updatedAt: new Date(),

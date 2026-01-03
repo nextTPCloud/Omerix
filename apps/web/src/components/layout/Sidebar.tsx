@@ -208,19 +208,13 @@ const menuGroups: MenuGroup[] = [
           { title: 'Nueva factura compra', href: '/compras/facturas/nuevo' },
         ],
       },
-      // Configuración integrada en Compras
-      {
-        title: 'Tipos de Gasto',
-        href: '/tipos-gasto',
-        icon: Tag,
-      },
-    ],
+      ],
   },
   {
     group: 'Tesorería',
     icon: Wallet,
-    permiso: 'accesoContabilidad',
-    moduloLicencia: 'contabilidad',
+    // Sin permiso requerido - solo necesita el módulo de licencia
+    moduloLicencia: 'tesoreria',
     items: [
       {
         title: 'Vencimientos',
@@ -244,6 +238,21 @@ const menuGroups: MenuGroup[] = [
         title: 'Movimientos',
         href: '/tesoreria/movimientos',
         icon: Wallet,
+      },
+      {
+        title: 'Cuentas Bancarias',
+        href: '/tesoreria/cuentas-bancarias',
+        icon: Landmark,
+      },
+      {
+        title: 'Conciliación',
+        href: '/tesoreria/conciliacion',
+        icon: CheckSquare,
+      },
+      {
+        title: 'Previsiones',
+        href: '/tesoreria/previsiones',
+        icon: TrendingUp,
       },
       // Configuración integrada en Tesorería
       {
@@ -394,6 +403,11 @@ const menuGroups: MenuGroup[] = [
         title: 'Maquinaria',
         href: '/maquinaria',
         icon: Truck,
+      },
+      {
+        title: 'Tipos de Gasto',
+        href: '/tipos-gasto',
+        icon: Tag,
       },
     ],
   },

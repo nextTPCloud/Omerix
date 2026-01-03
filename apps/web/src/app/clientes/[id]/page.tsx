@@ -931,13 +931,17 @@ export default function ClienteDetailPage() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Fecha de Creación</p>
                     <p className="text-sm">
-                      {new Date(cliente.createdAt).toLocaleString('es-ES')}
+                      {cliente.createdAt && !isNaN(new Date(cliente.createdAt).getTime())
+                        ? new Date(cliente.createdAt).toLocaleString('es-ES')
+                        : '-'}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Última Actualización</p>
                     <p className="text-sm">
-                      {new Date(cliente.updatedAt).toLocaleString('es-ES')}
+                      {cliente.updatedAt && !isNaN(new Date(cliente.updatedAt).getTime())
+                        ? new Date(cliente.updatedAt).toLocaleString('es-ES')
+                        : '-'}
                     </p>
                   </div>
                   <div>

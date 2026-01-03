@@ -170,9 +170,28 @@ interface StockItem {
   stock: number;
 }
 
+// Configuración de empresa para tickets
+interface EmpresaConfig {
+  empresaNombre: string;
+  empresaNombreComercial?: string;
+  empresaCif: string;
+  empresaTelefono?: string;
+  empresaEmail?: string;
+  empresaDireccion: string;
+  textoLOPD?: string;
+  condicionesVenta?: string;
+  verifactu?: {
+    entorno: 'test' | 'production';
+    generarQR: boolean;
+    sistemaFiscal?: string;
+  } | null;
+}
+
 interface DataState {
   // Datos sincronizados
   productos: Producto[];
+  // Configuración de empresa
+  empresaConfig: EmpresaConfig | null;
   familias: Familia[];
   clientes: Cliente[];
   tiposImpuesto: TipoImpuesto[];
@@ -217,6 +236,7 @@ export const useDataStore = create<DataState>()(
     (set, get) => ({
       // Estado inicial
       productos: [],
+      empresaConfig: null,
       familias: [],
       clientes: [],
       tiposImpuesto: [],
@@ -270,6 +290,18 @@ export const useDataStore = create<DataState>()(
                 tarifas: datos.tarifas,
                 ofertas: datos.ofertas,
                 usuarios: datos.usuarios,
+                // Guardar configuración de empresa para tickets
+                empresaConfig: datos.config ? {
+                  empresaNombre: datos.config.empresaNombre || '',
+                  empresaNombreComercial: datos.config.empresaNombreComercial,
+                  empresaCif: datos.config.empresaCif || '',
+                  empresaTelefono: datos.config.empresaTelefono,
+                  empresaEmail: datos.config.empresaEmail,
+                  empresaDireccion: datos.config.empresaDireccion || '',
+                  textoLOPD: datos.config.textoLOPD,
+                  condicionesVenta: datos.config.condicionesVenta,
+                  verifactu: datos.config.verifactu,
+                } : null,
                 ultimaSync: new Date(datos.ultimaActualizacion),
                 sincronizando: false,
               });
@@ -317,6 +349,7 @@ export const useDataStore = create<DataState>()(
       limpiarDatos: () => {
         set({
           productos: [],
+          empresaConfig: null,
           familias: [],
           clientes: [],
           tiposImpuesto: [],
@@ -393,9 +426,11 @@ export const useDataStore = create<DataState>()(
       },
 
       // Calcular precio con detalles (tarifa, oferta, etc.)
+      // IMPORTANTE: Usar PVP (precio con IVA) para mostrar al cliente
       calcularPrecioConDetalles: (producto, clienteId) => {
         const { clientes, tarifas, ofertas } = get();
-        const precioBase = producto.precios?.venta ?? producto.precios?.pvp ?? producto.precioVenta ?? 0;
+        // PVP tiene prioridad porque es el precio final con IVA que ve el cliente
+        const precioBase = producto.precios?.pvp ?? producto.precios?.venta ?? producto.precioVenta ?? 0;
         let precio = precioBase;
         let origen: 'base' | 'tarifa' | 'oferta' = 'base';
         let tarifaNombre: string | undefined;
@@ -467,6 +502,7 @@ export const useDataStore = create<DataState>()(
       name: 'tpv-data-storage',
       partialize: (state) => ({
         productos: state.productos,
+        empresaConfig: state.empresaConfig,
         familias: state.familias,
         clientes: state.clientes,
         tiposImpuesto: state.tiposImpuesto,

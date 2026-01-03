@@ -38,6 +38,8 @@ export interface IPermisosEspeciales {
   accesoAlmacen: boolean;          // Acceso al módulo de almacén
   accesoContabilidad: boolean;     // Acceso a contabilidad/informes financieros
   accesoTPV: boolean;              // Acceso al TPV
+  accesoCobroVencimientosTPV: boolean;   // Cobrar vencimientos desde TPV
+  accesoPagoVencimientosTPV: boolean;    // Pagar vencimientos desde TPV
   accesoRRHH: boolean;             // Acceso al módulo de RRHH/Personal
   accesoInformes: boolean;         // Acceso al módulo de informes
   accesoTesoreria: boolean;        // Acceso al módulo de tesorería
@@ -182,6 +184,8 @@ export const PERMISOS_ESPECIALES_DEFAULT: IPermisosEspeciales = {
   accesoAlmacen: false,
   accesoContabilidad: false,
   accesoTPV: false,
+  accesoCobroVencimientosTPV: false,
+  accesoPagoVencimientosTPV: false,
   accesoRRHH: false,
   accesoInformes: false,
   accesoTesoreria: false,
@@ -213,6 +217,8 @@ export const PERMISOS_ESPECIALES_ADMIN: IPermisosEspeciales = {
   accesoAlmacen: true,
   accesoContabilidad: true,
   accesoTPV: true,
+  accesoCobroVencimientosTPV: true,
+  accesoPagoVencimientosTPV: true,
   accesoRRHH: true,
   accesoInformes: true,
   accesoTesoreria: true,
@@ -843,6 +849,8 @@ const PermisosEspecialesSchema = new Schema<IPermisosEspeciales>({
   accesoAlmacen: { type: Boolean, default: false },
   accesoContabilidad: { type: Boolean, default: false },
   accesoTPV: { type: Boolean, default: false },
+  accesoCobroVencimientosTPV: { type: Boolean, default: false },
+  accesoPagoVencimientosTPV: { type: Boolean, default: false },
   accesoRRHH: { type: Boolean, default: false },
   accesoInformes: { type: Boolean, default: false },
   accesoTesoreria: { type: Boolean, default: false },

@@ -59,10 +59,15 @@ export default function EditarProductoPage({ params }: EditarProductoPageProps) 
       setProducto(prod);
 
       // Cargar datos en el formulario
+      // Nota: familiaId puede venir como string ID o como objeto poblado
+      const familiaId = typeof prod.familiaId === 'object' && prod.familiaId
+        ? (prod.familiaId as any)._id
+        : prod.familiaId;
+
       setFormData({
         nombre: prod.nombre,
         descripcion: prod.descripcion || '',
-        familiaId: prod.familiaId || '',
+        familiaId: familiaId || '',
         codigoBarras: prod.codigoBarras || '',
         precios: {
           compra: prod.precios?.compra || 0,

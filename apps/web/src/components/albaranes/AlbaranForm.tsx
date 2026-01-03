@@ -11,6 +11,7 @@ import {
   IDatosTransporte,
   IDatosEntrega,
   IBultos,
+  ICondicionesComerciales,
   TipoLinea,
   TipoAlbaran,
   EstadoAlbaran,
@@ -89,6 +90,8 @@ import { almacenesService } from '@/services/almacenes.service'
 import { seriesDocumentosService } from '@/services/series-documentos.service'
 import { albaranesService } from '@/services/albaranes.service'
 import { empresaService } from '@/services/empresa.service'
+import { formasPagoService } from '@/services/formas-pago.service'
+import { terminosPagoService } from '@/services/terminos-pago.service'
 import { ISerieDocumento } from '@/types/serie-documento.types'
 
 // Types
@@ -97,6 +100,8 @@ import { AgenteComercial } from '@/types/agente-comercial.types'
 import { IProyecto } from '@/types/proyecto.types'
 import { Producto, Variante } from '@/types/producto.types'
 import { Almacen } from '@/types/almacen.types'
+import { FormaPago } from '@/types/forma-pago.types'
+import { TerminoPago } from '@/types/termino-pago.types'
 import { toast } from 'sonner'
 
 // Componente de selección de variantes
@@ -135,6 +140,8 @@ export function AlbaranForm({
   const [proyectos, setProyectos] = useState<IProyecto[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
   const [almacenes, setAlmacenes] = useState<Almacen[]>([])
+  const [formasPago, setFormasPago] = useState<FormaPago[]>([])
+  const [terminosPago, setTerminosPago] = useState<TerminoPago[]>([])
   const [seriesDocumentos, setSeriesDocumentos] = useState<ISerieDocumento[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
 
@@ -201,6 +208,9 @@ export function AlbaranForm({
     datosTransporte: {
       portesPagados: false,
     },
+    condiciones: {
+      portesPagados: false,
+    },
     descuentoGlobalPorcentaje: 0,
     mostrarCostes: true,
     mostrarMargenes: true,
@@ -224,7 +234,7 @@ export function AlbaranForm({
     const loadOptions = async () => {
       try {
         setLoadingOptions(true)
-        const [clientesRes, agentesRes, proyectosRes, productosRes, almacenesRes, seriesRes, empresaRes] = await Promise.all([
+        const [clientesRes, agentesRes, proyectosRes, productosRes, almacenesRes, seriesRes, empresaRes, formasPagoRes, terminosPagoRes] = await Promise.all([
           clientesService.getAll({ activo: true, limit: 100 }),
           agentesService.getAll({ activo: true, limit: 100 }),
           proyectosService.getAll({ activo: 'true', limit: 100 }),
@@ -232,6 +242,8 @@ export function AlbaranForm({
           almacenesService.getAll({ activo: 'true', limit: 100 }).catch(() => ({ success: true, data: [] })),
           seriesDocumentosService.getByTipoDocumento('albaran', true).catch(() => ({ success: true, data: [] })),
           empresaService.getMiEmpresa().catch(() => ({ success: false, data: undefined })),
+          formasPagoService.getAll({ activo: 'true', limit: 100 }).catch(() => ({ success: true, data: [] })),
+          terminosPagoService.getAll({ activo: 'true', limit: 100 }).catch(() => ({ success: true, data: [] })),
         ])
 
         if (clientesRes.success) setClientes(clientesRes.data || [])
@@ -239,6 +251,8 @@ export function AlbaranForm({
         if (proyectosRes.success) setProyectos(proyectosRes.data || [])
         if (productosRes.success) setProductos(productosRes.data || [])
         if (almacenesRes.success) setAlmacenes(almacenesRes.data || [])
+        if (formasPagoRes.success) setFormasPago(formasPagoRes.data || [])
+        if (terminosPagoRes.success) setTerminosPago(terminosPagoRes.data || [])
 
         // Cargar configuración de decimales de la empresa
         if (empresaRes.success && empresaRes.data) {
@@ -369,6 +383,7 @@ export function AlbaranForm({
         observaciones: initialData.observaciones,
         observacionesInternas: initialData.observacionesInternas,
         condicionesEntrega: initialData.condicionesEntrega,
+        condiciones: initialData.condiciones || { portesPagados: false },
         tags: initialData.tags,
         mostrarCostes: initialData.mostrarCostes,
         mostrarMargenes: initialData.mostrarMargenes,
@@ -485,6 +500,22 @@ export function AlbaranForm({
     }))
   }, [seriesDocumentos])
 
+  const formasPagoOptions = React.useMemo(() => {
+    return formasPago.map((fp) => ({
+      value: fp._id,
+      label: fp.nombre,
+      description: fp.descripcion || undefined,
+    }))
+  }, [formasPago])
+
+  const terminosPagoOptions = React.useMemo(() => {
+    return terminosPago.map((tp) => ({
+      value: tp._id,
+      label: tp.nombre,
+      description: tp.diasPlazo ? `${tp.diasPlazo} días` : undefined,
+    }))
+  }, [terminosPago])
+
   // Handler para cambio de serie
   const handleSerieChange = async (serieId: string) => {
     const serie = seriesDocumentos.find(s => s._id === serieId)
@@ -541,6 +572,14 @@ export function AlbaranForm({
   const handleClienteChange = (clienteId: string) => {
     const cliente = clientes.find(c => c._id === clienteId)
     if (cliente) {
+      // Obtener ID de forma de pago y término de pago del cliente
+      const formaPagoIdCliente = typeof cliente.formaPagoId === 'object'
+        ? (cliente.formaPagoId as any)?._id
+        : cliente.formaPagoId
+      const terminoPagoIdCliente = typeof cliente.terminoPagoId === 'object'
+        ? (cliente.terminoPagoId as any)?._id
+        : cliente.terminoPagoId
+
       setFormData(prev => ({
         ...prev,
         clienteId,
@@ -548,6 +587,11 @@ export function AlbaranForm({
         clienteNif: cliente.nif,
         clienteEmail: cliente.email,
         clienteTelefono: cliente.telefono,
+        condiciones: {
+          ...prev.condiciones,
+          formaPagoId: formaPagoIdCliente || prev.condiciones?.formaPagoId,
+          terminoPagoId: terminoPagoIdCliente || prev.condiciones?.terminoPagoId,
+        },
       }))
       setDireccionesCliente(cliente.direcciones || [])
     } else {
@@ -779,7 +823,7 @@ export function AlbaranForm({
 
   // Handler para cuando se presiona Enter en el campo de cantidad
   const handleCantidadKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
       e.preventDefault()
       handleAddLinea(TipoLinea.PRODUCTO)
     } else if (e.key === 'ArrowDown') {
@@ -1043,7 +1087,7 @@ export function AlbaranForm({
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="cliente" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Cliente</span>
@@ -1064,6 +1108,10 @@ export function AlbaranForm({
           <TabsTrigger value="transporte" className="flex items-center gap-2">
             <Truck className="h-4 w-4" />
             <span className="hidden sm:inline">Transporte</span>
+          </TabsTrigger>
+          <TabsTrigger value="condiciones" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Condiciones</span>
           </TabsTrigger>
           <TabsTrigger value="otros" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -2000,6 +2048,117 @@ export function AlbaranForm({
                     </div>
                   </>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: CONDICIONES */}
+        <TabsContent value="condiciones" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Condiciones Comerciales</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="formaPagoId">Forma de Pago</Label>
+                <SearchableSelect
+                  options={formasPagoOptions}
+                  value={formData.condiciones?.formaPagoId || ''}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, formaPagoId: value || undefined }
+                  }))}
+                  placeholder="Seleccionar forma de pago..."
+                  searchPlaceholder="Buscar..."
+                  emptyMessage="No hay formas de pago"
+                  allowClear
+                  loading={loadingOptions}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="terminoPagoId">Término de Pago</Label>
+                <SearchableSelect
+                  options={terminosPagoOptions}
+                  value={formData.condiciones?.terminoPagoId || ''}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: { ...prev.condiciones!, terminoPagoId: value || undefined }
+                  }))}
+                  placeholder="Seleccionar término de pago..."
+                  searchPlaceholder="Buscar..."
+                  emptyMessage="No hay términos de pago"
+                  allowClear
+                  loading={loadingOptions}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="garantia">Garantía</Label>
+                <Input
+                  id="garantia"
+                  value={formData.condiciones?.garantia || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: {
+                      ...prev.condiciones!,
+                      garantia: e.target.value,
+                    },
+                  }))}
+                  placeholder="Ej: 2 años"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <Label htmlFor="portesPagados" className="cursor-pointer">Portes Pagados</Label>
+                <Switch
+                  id="portesPagados"
+                  checked={formData.condiciones?.portesPagados || false}
+                  onCheckedChange={(checked) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: {
+                      ...prev.condiciones!,
+                      portesPagados: checked,
+                    },
+                  }))}
+                />
+              </div>
+
+              {!formData.condiciones?.portesPagados && (
+                <div className="space-y-2">
+                  <Label htmlFor="portesImporte">Importe Portes</Label>
+                  <Input
+                    id="portesImporte"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.condiciones?.portesImporte || 0}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      condiciones: {
+                        ...prev.condiciones!,
+                        portesImporte: parseFloat(e.target.value) || 0,
+                      },
+                    }))}
+                  />
+                </div>
+              )}
+
+              <div className="md:col-span-2 space-y-2">
+                <Label htmlFor="observacionesEntrega">Observaciones de Entrega</Label>
+                <Textarea
+                  id="observacionesEntrega"
+                  value={formData.condiciones?.observacionesEntrega || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    condiciones: {
+                      ...prev.condiciones!,
+                      observacionesEntrega: e.target.value,
+                    },
+                  }))}
+                  rows={3}
+                />
               </div>
             </CardContent>
           </Card>

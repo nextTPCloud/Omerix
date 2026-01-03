@@ -275,6 +275,10 @@ export interface CreatePresupuestoCompraDTO {
   descuentoGlobalImporte?: number
   observaciones?: string
   condicionesProveedor?: string
+  condiciones?: {
+    formaPagoId?: string
+    terminoPagoId?: string
+  }
   tags?: string[]
   activo?: boolean
 }

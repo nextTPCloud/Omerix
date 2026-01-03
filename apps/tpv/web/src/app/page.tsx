@@ -26,6 +26,7 @@ import {
   Percent,
   Star,
   Layers,
+  FileText,
 } from 'lucide-react';
 
 // Components
@@ -42,6 +43,8 @@ import { VentasAparcadasModal } from '@/components/ventas/VentasAparcadasModal';
 import { VariantesModal } from '@/components/productos/VariantesModal';
 import { KitModal } from '@/components/productos/KitModal';
 import { SelectClienteModal, type ClienteSeleccionado } from '@/components/ventas/SelectClienteModal';
+import { PinVerificacionModal } from '@/components/ventas/PinVerificacionModal';
+import { CobroVencimientosModal } from '@/components/ventas/CobroVencimientosModal';
 import { Button } from '@/components/ui/Button';
 import ActivacionTPV from '@/components/auth/ActivacionTPV';
 import LoginPIN from '@/components/auth/LoginPIN';
@@ -50,6 +53,8 @@ import LoginPIN from '@/components/auth/LoginPIN';
 import { useAuthStore } from '@/stores/authStore';
 import { useDataStore, type Producto as ProductoSync, type Variante } from '@/stores/dataStore';
 import { useCajaStore } from '@/stores/cajaStore';
+import { printerService } from '@/services/printer.service';
+import { tpvApi } from '@/services/api';
 import { useVentasAparcadasStore } from '@/stores/ventasAparcadasStore';
 import { usePerfilStore } from '@/stores/perfilStore';
 
@@ -71,6 +76,7 @@ interface LineaVenta {
   precioUnitario: number;
   descuento: number;
   total: number;
+  iva: number; // Porcentaje de IVA (21, 10, 4, 0)
   esKit?: boolean;
   componentesKit?: ComponenteKitLinea[];
 }
@@ -78,6 +84,8 @@ interface LineaVenta {
 interface Producto {
   id: string;
   codigo: string;
+  codigoBarras?: string;
+  sku?: string;
   nombre: string;
   precio: number;
   precioBase?: number;
@@ -157,16 +165,18 @@ export default function TPVPage() {
   const desactivarTPV = useAuthStore((state) => state.desactivarTPV);
 
   // Data Store - datos sincronizados reales
+  const dataStore = useDataStore();
   const {
     productos: productosSync,
     familias,
     almacenes,
+    empresaConfig,
     sincronizarDatos,
     sincronizando,
     obtenerStockProducto,
     calcularPrecioProducto,
     calcularPrecioConDetalles,
-  } = useDataStore();
+  } = dataStore;
 
   // Caja Store - persistencia automatica
   const cajaStore = useCajaStore();
@@ -206,6 +216,8 @@ export default function TPVPage() {
       return {
         id: p._id,
         codigo: p.sku || p.codigo || '',
+        codigoBarras: p.codigoBarras || '',
+        sku: p.sku || '',
         nombre: p.nombre,
         // Usar el precio final calculado (con tarifa/oferta aplicada)
         precio: precioInfo.precioFinal,
@@ -274,6 +286,26 @@ export default function TPVPage() {
   const [showKit, setShowKit] = useState(false);
   const [productoKit, setProductoKit] = useState<ProductoSync | null>(null);
   const [showCliente, setShowCliente] = useState(false);
+  const [showPinVerificacion, setShowPinVerificacion] = useState(false);
+  const [showVencimientos, setShowVencimientos] = useState(false);
+
+  // Configuracion de ajustes del TPV
+  const [tpvSettings, setTpvSettings] = useState<{ pinPorTicket: boolean }>({ pinPorTicket: false });
+
+  // Cargar ajustes del TPV
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('tpv_settings');
+      if (saved) {
+        try {
+          const settings = JSON.parse(saved);
+          setTpvSettings({ pinPorTicket: settings.pinPorTicket ?? false });
+        } catch (e) {
+          console.error('Error cargando ajustes:', e);
+        }
+      }
+    }
+  }, []);
 
   // Hora actual
   const [horaActual, setHoraActual] = useState(new Date());
@@ -290,13 +322,17 @@ export default function TPVPage() {
 
   // Filtrar productos usando datos reales
   const productosFiltrados = useMemo(() => {
+    const terminoBusqueda = busqueda.toLowerCase();
+
     // Si está en favoritos, mostrar solo los favoritos
     if (categoriaActiva === 'favoritos') {
       return productosFavoritos.filter((p) => {
         const matchBusqueda =
           !busqueda ||
-          p.codigo.toLowerCase().includes(busqueda.toLowerCase()) ||
-          p.nombre.toLowerCase().includes(busqueda.toLowerCase());
+          p.codigo.toLowerCase().includes(terminoBusqueda) ||
+          p.nombre.toLowerCase().includes(terminoBusqueda) ||
+          p.codigoBarras?.toLowerCase().includes(terminoBusqueda) ||
+          p.sku?.toLowerCase().includes(terminoBusqueda);
         return matchBusqueda;
       });
     }
@@ -304,8 +340,10 @@ export default function TPVPage() {
     return productosUI.filter((p) => {
       const matchBusqueda =
         !busqueda ||
-        p.codigo.toLowerCase().includes(busqueda.toLowerCase()) ||
-        p.nombre.toLowerCase().includes(busqueda.toLowerCase());
+        p.codigo.toLowerCase().includes(terminoBusqueda) ||
+        p.nombre.toLowerCase().includes(terminoBusqueda) ||
+        p.codigoBarras?.toLowerCase().includes(terminoBusqueda) ||
+        p.sku?.toLowerCase().includes(terminoBusqueda);
       const matchCategoria = categoriaActiva === null || p.categoria === categoriaActiva;
       return matchBusqueda && matchCategoria;
     });
@@ -323,18 +361,60 @@ export default function TPVPage() {
       }
     }
 
-    // Si el producto es un kit/compuesto, abrir modal de kit
-    // Verificar tanto por tipo como por presencia de componentesKit
+    // Si el producto es un kit/compuesto, verificar si tiene componentes opcionales
     const productoCompleto = getProductoSync(producto.id);
     if (productoCompleto && productoCompleto.componentesKit && productoCompleto.componentesKit.length > 0) {
-      // Es un kit aunque no tenga tipo: 'compuesto' explícitamente
-      setProductoKit(productoCompleto);
-      setShowKit(true);
+      // Verificar si hay componentes opcionales
+      const tieneOpcionales = productoCompleto.componentesKit.some((c: any) => c.opcional);
+
+      if (tieneOpcionales) {
+        // Tiene opcionales: abrir modal para seleccionar
+        setProductoKit(productoCompleto);
+        setShowKit(true);
+        return;
+      }
+
+      // Pack simple (todos obligatorios): añadir directamente con componentes
+      const productos = dataStore.productos;
+      const componentesParaLinea = productoCompleto.componentesKit.map((comp: any) => {
+        const prod = productos.find((p) => p._id === comp.productoId);
+        return {
+          productoId: comp.productoId,
+          nombre: prod?.nombre || 'Componente',
+          cantidad: comp.cantidad || 1,
+          precioUnitario: comp.precioUnitario ?? prod?.precios?.venta ?? prod?.precioVenta ?? 0,
+        };
+      });
+
+      // Calcular precio del kit (usar PVP - precio con IVA)
+      const precioKit = productoCompleto.precios?.pvp ?? productoCompleto.precios?.venta ?? productoCompleto.precioVenta ?? 0;
+      // Obtener IVA del producto (default 21%)
+      const ivaKit = productoCompleto.impuestos?.iva ?? productoCompleto.iva ?? 21;
+
+      setLineas((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          productoId: productoCompleto._id,
+          codigo: productoCompleto.sku || productoCompleto.codigo,
+          nombre: productoCompleto.nombre,
+          cantidad: 1,
+          precioUnitario: precioKit,
+          descuento: 0,
+          total: precioKit,
+          iva: ivaKit,
+          esKit: true,
+          componentesKit: componentesParaLinea,
+        },
+      ]);
       return;
     }
 
     // Producto simple: agregar directamente
-    agregarProductoSimple(producto.id, producto.codigo, producto.nombre, producto.precio);
+    // Obtener IVA del producto (default 21%)
+    const productoParaIva = getProductoSync(producto.id);
+    const ivaProducto = productoParaIva?.impuestos?.iva ?? productoParaIva?.iva ?? 21;
+    agregarProductoSimple(producto.id, producto.codigo, producto.nombre, producto.precio, undefined, ivaProducto);
   }, [getProductoSync]);
 
   // Agregar producto simple (sin variantes)
@@ -343,7 +423,8 @@ export default function TPVPage() {
     codigo: string,
     nombre: string,
     precio: number,
-    varianteId?: string
+    varianteId?: string,
+    iva: number = 21
   ) => {
     setLineas((prev) => {
       // Para productos con variante, buscar por productoId + varianteId
@@ -372,6 +453,7 @@ export default function TPVPage() {
           precioUnitario: precio,
           descuento: 0,
           total: precio,
+          iva,
         },
       ];
     });
@@ -379,10 +461,10 @@ export default function TPVPage() {
 
   // Handler para cuando se selecciona una variante
   const handleSeleccionarVariante = useCallback((variante: Variante, producto: ProductoSync) => {
-    // Determinar el precio de la variante
-    let precio = variante.precios.venta ?? variante.precios.pvp ?? 0;
+    // Determinar el precio de la variante (usar PVP - precio con IVA)
+    let precio = variante.precios.pvp ?? variante.precios.venta ?? 0;
     if (variante.precios.usarPrecioBase) {
-      precio = producto.precios?.venta ?? producto.precios?.pvp ?? producto.precioVenta ?? 0;
+      precio = producto.precios?.pvp ?? producto.precios?.venta ?? producto.precioVenta ?? 0;
     }
 
     // Crear nombre con la combinación
@@ -391,7 +473,9 @@ export default function TPVPage() {
       .join(' / ');
     const nombreCompleto = `${producto.nombre} (${combinacionStr})`;
 
-    agregarProductoSimple(producto._id, variante.sku, nombreCompleto, precio, variante._id);
+    // Obtener IVA del producto (default 21%)
+    const ivaProducto = (producto as any).impuestos?.iva ?? (producto as any).iva ?? 21;
+    agregarProductoSimple(producto._id, variante.sku, nombreCompleto, precio, variante._id, ivaProducto);
   }, [agregarProductoSimple]);
 
   // Handler para cuando se confirma un kit
@@ -406,6 +490,9 @@ export default function TPVPage() {
       precioUnitario: comp.precioUnitario ?? comp.producto?.precios?.venta ?? comp.producto?.precioVenta ?? 0,
     }));
 
+    // Obtener IVA del kit (default 21%)
+    const ivaKit = productoKit.impuestos?.iva ?? productoKit.iva ?? 21;
+
     // Agregar el kit como una línea con sus componentes
     setLineas((prev) => [
       ...prev,
@@ -418,6 +505,7 @@ export default function TPVPage() {
         precioUnitario: precioTotal,
         descuento: 0,
         total: precioTotal,
+        iva: ivaKit,
         esKit: true,
         componentesKit: componentesParaLinea,
       },
@@ -682,13 +770,77 @@ export default function TPVPage() {
     setShowMovimientoCaja(false);
   };
 
-  const handleCobro = (
+  const handleCobro = async (
     pagos: Array<{ metodo: string; importe: number }>,
     cambio: number,
     opciones: { esTicketRegalo?: boolean; imprimir?: boolean }
   ) => {
-    // Registrar cada pago en la caja
-    const ventaId = Date.now().toString();
+    // Datos del ticket para enviar al servidor
+    const ticketData = {
+      clienteId: clienteSeleccionado?._id,
+      clienteNombre: clienteSeleccionado?.nombre,
+      clienteNif: clienteSeleccionado?.nif,
+      lineas: lineas.map(l => ({
+        productoId: l.productoId,
+        varianteId: l.varianteId,
+        codigo: l.codigo,
+        nombre: l.nombre,
+        cantidad: l.cantidad,
+        precioUnitario: l.precioUnitario,
+        descuento: l.descuento,
+        iva: l.iva || 21,
+        esKit: l.esKit,
+        componentesKit: l.componentesKit?.map(c => ({
+          productoId: c.productoId,
+          nombre: c.nombre,
+          cantidad: c.cantidad,
+        })),
+      })),
+      subtotal,
+      descuentoTotal: descuento,
+      total,
+      pagos: pagos.map(p => ({
+        metodo: p.metodo as 'efectivo' | 'tarjeta' | 'bizum' | 'transferencia',
+        importe: p.importe,
+      })),
+      cambio,
+      usuarioId: usuario?.id || '',
+      usuarioNombre: usuario?.nombre || 'Usuario',
+      esTicketRegalo: opciones.esTicketRegalo,
+    };
+
+    // Intentar crear ticket en el servidor (si online)
+    let ticketServidor: {
+      ok: boolean;
+      ticketId?: string;
+      codigo?: string;
+      serie?: string;
+      numero?: number;
+      fecha?: string;
+      verifactu?: {
+        hash: string;
+        hashAnterior?: string;
+        urlQR: string;
+        datosQR: string;
+      };
+    } | null = null;
+
+    if (online) {
+      try {
+        ticketServidor = await tpvApi.crearTicket(ticketData);
+        console.log('[TPV] Ticket creado en servidor:', ticketServidor);
+      } catch (error) {
+        console.error('[TPV] Error al crear ticket en servidor:', error);
+        // TODO: Guardar en cola offline para sincronizar después
+      }
+    }
+
+    // Usar datos del servidor si están disponibles, sino generar localmente
+    const ventaId = ticketServidor?.ticketId || Date.now().toString();
+    const numeroTicket = ticketServidor?.codigo || `${tpvConfig?.serieFactura || 'FS'}${new Date().getFullYear()}-${ventaId.slice(-5).padStart(5, '0')}`;
+    const serieTicket = ticketServidor?.serie || tpvConfig?.serieFactura || 'FS';
+
+    // Registrar cada pago en la caja local
     pagos.forEach((pago) => {
       const metodoPago = pago.metodo === 'efectivo' ? 'efectivo' :
                          pago.metodo === 'tarjeta' ? 'tarjeta' :
@@ -708,19 +860,99 @@ export default function TPVPage() {
       }
     });
 
-    // TODO: Agregar venta a cola de sync si offline
-
     // Imprimir si se solicita
     if (opciones.imprimir) {
-      // TODO: Implementar impresión real
-      console.log('Imprimir ticket:', { esTicketRegalo: opciones.esTicketRegalo });
+      // Calcular desglose de IVA real por tipo
+      const ivaMap = new Map<number, { base: number; cuota: number }>();
+      lineas.forEach(l => {
+        const ivaLinea = l.iva || 21;
+        const totalLinea = l.total;
+        const baseLinea = totalLinea / (1 + ivaLinea / 100);
+        const cuotaLinea = totalLinea - baseLinea;
+
+        if (ivaMap.has(ivaLinea)) {
+          const actual = ivaMap.get(ivaLinea)!;
+          ivaMap.set(ivaLinea, {
+            base: actual.base + baseLinea,
+            cuota: actual.cuota + cuotaLinea,
+          });
+        } else {
+          ivaMap.set(ivaLinea, { base: baseLinea, cuota: cuotaLinea });
+        }
+      });
+
+      const impuestos = Array.from(ivaMap.entries()).map(([porcentaje, valores]) => ({
+        nombre: porcentaje === 0 ? 'Exento' : `IVA ${porcentaje}%`,
+        porcentaje,
+        base: Number(valores.base.toFixed(2)),
+        cuota: Number(valores.cuota.toFixed(2)),
+      }));
+
+      // Preparar datos para impresión
+      const datosTicket = {
+        empresa: {
+          nombre: empresaConfig?.empresaNombre || tpvConfig?.empresaNombre || 'Empresa',
+          nombreComercial: empresaConfig?.empresaNombreComercial,
+          nif: empresaConfig?.empresaCif || '',
+          direccion: empresaConfig?.empresaDireccion || '',
+          telefono: empresaConfig?.empresaTelefono,
+          email: empresaConfig?.empresaEmail,
+          textoLOPD: empresaConfig?.textoLOPD,
+        },
+        numero: numeroTicket,
+        serie: serieTicket,
+        fecha: ticketServidor?.fecha ? new Date(ticketServidor.fecha) : new Date(),
+        cajaNombre,
+        vendedorNombre: usuario?.nombre || 'Usuario',
+        clienteNombre: clienteSeleccionado?.nombre,
+        clienteNif: clienteSeleccionado?.nif,
+        lineas: lineas.map(l => ({
+          codigo: l.codigo,
+          nombre: l.nombre,
+          cantidad: l.cantidad,
+          precioUnitario: l.precioUnitario,
+          descuento: l.descuento,
+          total: l.total,
+          iva: l.iva || 21,
+          esKit: l.esKit,
+          componentesKit: l.componentesKit?.map(c => ({
+            nombre: c.nombre,
+            cantidad: c.cantidad,
+          })),
+        })),
+        subtotal,
+        descuento,
+        impuestos,
+        total,
+        pagos,
+        cambio,
+        // Datos Verifactu reales del servidor
+        verifactu: ticketServidor?.verifactu ? {
+          hash: ticketServidor.verifactu.hash,
+          urlQR: ticketServidor.verifactu.urlQR,
+          datosQR: ticketServidor.verifactu.datosQR,
+          generarQR: true,
+        } : undefined,
+        esTicketRegalo: opciones.esTicketRegalo,
+      };
+
+      // Imprimir usando el navegador (fallback hasta tener impresora térmica)
+      printerService.printBrowser(datosTicket);
     }
 
     // Limpiar venta
     limpiarVenta();
     setShowCobro(false);
 
-    console.log('Venta completada:', { pagos, cambio, total, opciones });
+    console.log('Venta completada:', {
+      pagos,
+      cambio,
+      total,
+      opciones,
+      ticketId: ventaId,
+      ticketNumero: numeroTicket,
+      guardadoEnServidor: !!ticketServidor?.ok,
+    });
   };
 
   // Manejar código de barras
@@ -894,6 +1126,9 @@ export default function TPVPage() {
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setShowHistorial(true)} title="Historial de Tickets">
               <BarChart3 className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowVencimientos(true)} title="Cobrar/Pagar Facturas">
+              <FileText className="w-5 h-5" />
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setShowAjustes(true)} title="Ajustes">
               <Settings className="w-5 h-5" />
@@ -1098,8 +1333,12 @@ export default function TPVPage() {
                     <div className="flex items-start justify-between mb-1">
                       <div className="flex-1 min-w-0 pr-2">
                         <div
-                          className="font-medium text-sm text-gray-800 break-words flex items-center gap-1"
-                          title={linea.nombre}
+                          className="font-medium text-sm text-gray-800 break-words flex items-center gap-1 cursor-help"
+                          title={
+                            linea.esKit && linea.componentesKit && linea.componentesKit.length > 0
+                              ? `${linea.nombre}\n\nIncluye:\n${linea.componentesKit.map(c => `  • ${c.cantidad > 1 ? c.cantidad + 'x ' : ''}${c.nombre}`).join('\n')}`
+                              : linea.nombre
+                          }
                         >
                           {linea.esKit && (
                             <Layers className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
@@ -1108,7 +1347,14 @@ export default function TPVPage() {
                         </div>
                         <div className="text-xs text-gray-400">
                           {linea.codigo}
-                          {linea.esKit && <span className="ml-1 text-orange-500">(Kit)</span>}
+                          {linea.esKit && linea.componentesKit && linea.componentesKit.length > 0 && (
+                            <span
+                              className="ml-1 text-orange-500 cursor-help"
+                              title={`Contiene: ${linea.componentesKit.map(c => `${c.cantidad > 1 ? c.cantidad + 'x ' : ''}${c.nombre}`).join(', ')}`}
+                            >
+                              ({linea.componentesKit.length} productos)
+                            </span>
+                          )}
                         </div>
                       </div>
                       <button
@@ -1258,7 +1504,13 @@ export default function TPVPage() {
                 variant="success"
                 size="xl"
                 className="col-span-3 h-16 text-xl"
-                onClick={() => setShowCobro(true)}
+                onClick={() => {
+                  if (tpvSettings.pinPorTicket) {
+                    setShowPinVerificacion(true);
+                  } else {
+                    setShowCobro(true);
+                  }
+                }}
                 disabled={lineas.length === 0}
                 icon={<CreditCard className="w-6 h-6" />}
               >
@@ -1292,6 +1544,18 @@ export default function TPVPage() {
         onClose={() => setShowCobro(false)}
         onConfirm={handleCobro}
         total={total}
+      />
+
+      <PinVerificacionModal
+        isOpen={showPinVerificacion}
+        onClose={() => setShowPinVerificacion(false)}
+        onSuccess={(usuarioVerificado) => {
+          setShowPinVerificacion(false);
+          // PIN correcto, abrir modal de cobro
+          setShowCobro(true);
+          console.log('PIN verificado para:', usuarioVerificado.nombre);
+        }}
+        mensaje="Introduce tu PIN para realizar el cobro"
       />
 
       <ConsultaStockModal
@@ -1374,6 +1638,13 @@ export default function TPVPage() {
         onClose={() => setShowCliente(false)}
         onSelect={setClienteSeleccionado}
         clienteActual={clienteSeleccionado}
+      />
+
+      {/* Modal Cobro Vencimientos */}
+      <CobroVencimientosModal
+        isOpen={showVencimientos}
+        onClose={() => setShowVencimientos(false)}
+        tipo="todos"
       />
     </>
   );

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import Licencia from '../modules/licencias/Licencia';
+import { logger } from '../config/logger';
 
 // Extender Request para incluir licencia
 declare global {
@@ -256,9 +257,9 @@ export const resetMonthlyCounters = async () => {
         },
       }
     );
-    console.log('✅ Contadores mensuales reseteados');
+    logger.info('Contadores mensuales reseteados');
   } catch (error) {
-    console.error('Error reseteando contadores:', error);
+    logger.error('Error reseteando contadores mensuales:', error);
   }
 };
 
@@ -275,8 +276,8 @@ export const resetDailyCounters = async () => {
         },
       }
     );
-    console.log('✅ Contadores diarios reseteados');
+    logger.info('Contadores diarios reseteados');
   } catch (error) {
-    console.error('Error reseteando contadores:', error);
+    logger.error('Error reseteando contadores diarios:', error);
   }
 };
