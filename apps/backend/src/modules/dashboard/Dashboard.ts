@@ -48,6 +48,20 @@ export enum TipoWidget {
   KPI_SIMPLE = 'kpi_simple',
   KPI_COMPARATIVO = 'kpi_comparativo',
   CONTADOR = 'contador',
+
+  // CRM
+  RESUMEN_CRM = 'resumen_crm',
+  LEADS_RECIENTES = 'leads_recientes',
+  OPORTUNIDADES_PIPELINE = 'oportunidades_pipeline',
+  ACTIVIDADES_CRM_PENDIENTES = 'actividades_crm_pendientes',
+  GRAFICA_PIPELINE_CRM = 'grafica_pipeline_crm',
+  FORECAST_CRM = 'forecast_crm',
+
+  // Contabilidad
+  RESUMEN_CONTABILIDAD = 'resumen_contabilidad',
+  BALANCE_RAPIDO = 'balance_rapido',
+  ULTIMOS_ASIENTOS = 'ultimos_asientos',
+  GRAFICA_INGRESOS_GASTOS = 'grafica_ingresos_gastos',
 }
 
 export enum TamanoWidget {
@@ -460,6 +474,90 @@ export const CATALOGO_WIDGETS: Record<TipoWidget, {
     categoria: 'KPIs',
     tamanosPermitidos: [TamanoWidget.PEQUENO],
     configDefault: { formato: 'numero' },
+  },
+
+  // CRM Widgets
+  [TipoWidget.RESUMEN_CRM]: {
+    nombre: 'Resumen CRM',
+    descripcion: 'Resumen de leads, oportunidades y actividades',
+    categoria: 'CRM',
+    tamanosPermitidos: [TamanoWidget.MEDIANO, TamanoWidget.GRANDE],
+    permisosRequeridos: ['leads.read', 'oportunidades.read'],
+    configDefault: { periodo: 'mes' },
+  },
+  [TipoWidget.LEADS_RECIENTES]: {
+    nombre: 'Leads Recientes',
+    descripcion: 'Últimos leads registrados',
+    categoria: 'CRM',
+    tamanosPermitidos: [TamanoWidget.MEDIANO, TamanoWidget.GRANDE, TamanoWidget.ALTO],
+    permisosRequeridos: ['leads.read'],
+    configDefault: { limite: 10 },
+  },
+  [TipoWidget.OPORTUNIDADES_PIPELINE]: {
+    nombre: 'Pipeline de Oportunidades',
+    descripcion: 'Oportunidades por etapa del pipeline',
+    categoria: 'CRM',
+    tamanosPermitidos: [TamanoWidget.GRANDE, TamanoWidget.ANCHO, TamanoWidget.COMPLETO],
+    permisosRequeridos: ['oportunidades.read'],
+    configDefault: {},
+  },
+  [TipoWidget.ACTIVIDADES_CRM_PENDIENTES]: {
+    nombre: 'Actividades CRM Pendientes',
+    descripcion: 'Actividades programadas pendientes',
+    categoria: 'CRM',
+    tamanosPermitidos: [TamanoWidget.MEDIANO, TamanoWidget.GRANDE],
+    permisosRequeridos: ['actividades-crm.read'],
+    configDefault: { limite: 10 },
+  },
+  [TipoWidget.GRAFICA_PIPELINE_CRM]: {
+    nombre: 'Gráfica Pipeline CRM',
+    descripcion: 'Distribución de oportunidades por etapa',
+    categoria: 'CRM',
+    tamanosPermitidos: [TamanoWidget.MEDIANO, TamanoWidget.GRANDE],
+    permisosRequeridos: ['oportunidades.read'],
+    configDefault: { tipoGrafica: TipoGrafica.CIRCULAR, mostrarLeyenda: true },
+  },
+  [TipoWidget.FORECAST_CRM]: {
+    nombre: 'Forecast de Ventas',
+    descripcion: 'Previsión de ventas basada en oportunidades',
+    categoria: 'CRM',
+    tamanosPermitidos: [TamanoWidget.MEDIANO, TamanoWidget.GRANDE],
+    permisosRequeridos: ['oportunidades.read'],
+    configDefault: { periodo: 'trimestre', formato: 'moneda' },
+  },
+
+  // Contabilidad Widgets
+  [TipoWidget.RESUMEN_CONTABILIDAD]: {
+    nombre: 'Resumen Contable',
+    descripcion: 'Resumen del estado contable',
+    categoria: 'Contabilidad',
+    tamanosPermitidos: [TamanoWidget.MEDIANO, TamanoWidget.GRANDE],
+    permisosRequeridos: ['informes-contables.read'],
+    configDefault: { periodo: 'mes' },
+  },
+  [TipoWidget.BALANCE_RAPIDO]: {
+    nombre: 'Balance Rápido',
+    descripcion: 'Balance de sumas y saldos resumido',
+    categoria: 'Contabilidad',
+    tamanosPermitidos: [TamanoWidget.GRANDE, TamanoWidget.COMPLETO],
+    permisosRequeridos: ['informes-contables.read'],
+    configDefault: {},
+  },
+  [TipoWidget.ULTIMOS_ASIENTOS]: {
+    nombre: 'Últimos Asientos',
+    descripcion: 'Últimos asientos contables registrados',
+    categoria: 'Contabilidad',
+    tamanosPermitidos: [TamanoWidget.MEDIANO, TamanoWidget.GRANDE, TamanoWidget.ALTO],
+    permisosRequeridos: ['asientos.read'],
+    configDefault: { limite: 10 },
+  },
+  [TipoWidget.GRAFICA_INGRESOS_GASTOS]: {
+    nombre: 'Ingresos vs Gastos',
+    descripcion: 'Comparativa de ingresos y gastos',
+    categoria: 'Contabilidad',
+    tamanosPermitidos: [TamanoWidget.GRANDE, TamanoWidget.ANCHO],
+    permisosRequeridos: ['informes-contables.read'],
+    configDefault: { periodo: 'mes', tipoGrafica: TipoGrafica.BARRA, mostrarLeyenda: true },
   },
 };
 

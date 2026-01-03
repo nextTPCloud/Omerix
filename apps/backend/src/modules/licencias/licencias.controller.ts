@@ -113,7 +113,7 @@ export const addAddOn = async (req: Request, res: Response) => {
 export const removeAddOn = async (req: Request, res: Response) => {
   try {
     const empresaId = req.empresaId!;
-    const { addOnSlug } = req.body;
+    const { addOnSlug, cancelarAlRenovar = true } = req.body;
 
     if (!addOnSlug) {
       return res.status(400).json({
@@ -122,7 +122,7 @@ export const removeAddOn = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await licenciasService.removeAddOn(empresaId, addOnSlug);
+    const result = await licenciasService.removeAddOn(empresaId, addOnSlug, cancelarAlRenovar);
 
     res.json(result);
   } catch (error: any) {

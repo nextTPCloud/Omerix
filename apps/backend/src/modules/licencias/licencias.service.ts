@@ -227,7 +227,8 @@ export class LicenciasService {
   }
 
   // Desactivar add-on
-  async removeAddOn(empresaId: string, addOnSlug: string) {
+  // cancelarAlRenovar: true = sigue activo hasta fin de período, false = cancela inmediatamente
+  async removeAddOn(empresaId: string, addOnSlug: string, cancelarAlRenovar: boolean = true) {
     const licencia = await Licencia.findOne({ empresaId });
     if (!licencia) {
       throw new Error('Licencia no encontrada');
@@ -241,22 +242,77 @@ export class LicenciasService {
       throw new Error('Add-on no encontrado en tu licencia');
     }
 
-    // Marcar como inactivo
-    licencia.addOns[addOnIndex].activo = false;
-    licencia.addOns[addOnIndex].fechaCancelacion = new Date();
+    const addOnInfo = licencia.addOns[addOnIndex];
 
-    // Añadir al historial
-    licencia.historial.push({
-      fecha: new Date(),
-      accion: 'ADDON_CANCELADO',
-      motivo: `Add-on cancelado: ${licencia.addOns[addOnIndex].nombre}`,
-    } as any);
+    // Si tiene suscripción en Stripe, cancelar el item de la suscripción
+    if (licencia.stripeSubscriptionId && !cancelarAlRenovar) {
+      try {
+        const Stripe = (await import('stripe')).default;
+        const config = (await import('../../config/env')).default;
+        const stripe = new Stripe(config.stripe.secretKey);
+
+        // Buscar el subscription item correspondiente
+        const subscription = await stripe.subscriptions.retrieve(licencia.stripeSubscriptionId);
+        const addOn = await AddOn.findOne({ slug: addOnSlug });
+
+        if (addOn) {
+          // Buscar el price ID del add-on
+          const priceId = licencia.tipoSuscripcion === 'anual'
+            ? addOn.stripePriceIdAnual
+            : addOn.stripePriceId;
+
+          if (priceId) {
+            // Buscar el item en la suscripción
+            const subscriptionItem = subscription.items.data.find(
+              (item: any) => item.price?.id === priceId
+            );
+
+            if (subscriptionItem) {
+              // Eliminar inmediatamente con prorrateo inverso (genera crédito)
+              await stripe.subscriptionItems.del(subscriptionItem.id, {
+                proration_behavior: 'create_prorations',
+              });
+              console.log(`✅ Add-on ${addOnSlug} eliminado de suscripción Stripe con crédito prorrateado`);
+            }
+          }
+        }
+      } catch (stripeError: any) {
+        console.error('Error cancelando add-on en Stripe:', stripeError.message);
+        // Continuar con la cancelación local
+      }
+    }
+
+    if (cancelarAlRenovar) {
+      // Marcar para no renovar pero mantener activo hasta fin de período
+      licencia.addOns[addOnIndex].cancelarAlRenovar = true;
+      licencia.addOns[addOnIndex].fechaCancelacionProgramada = licencia.fechaRenovacion;
+
+      licencia.historial.push({
+        fecha: new Date(),
+        accion: 'ADDON_CANCELACION_PROGRAMADA',
+        motivo: `Add-on ${addOnInfo.nombre} programado para cancelar en la próxima renovación`,
+      } as any);
+    } else {
+      // Cancelar inmediatamente
+      licencia.addOns[addOnIndex].activo = false;
+      licencia.addOns[addOnIndex].fechaCancelacion = new Date();
+
+      licencia.historial.push({
+        fecha: new Date(),
+        accion: 'ADDON_CANCELADO',
+        motivo: `Add-on cancelado: ${addOnInfo.nombre}`,
+      } as any);
+    }
 
     await licencia.save();
 
     return {
       success: true,
-      message: 'Add-on cancelado correctamente',
+      message: cancelarAlRenovar
+        ? `Add-on ${addOnInfo.nombre} se cancelará en la próxima renovación`
+        : `Add-on ${addOnInfo.nombre} cancelado correctamente`,
+      canceladoInmediatamente: !cancelarAlRenovar,
+      fechaCancelacion: cancelarAlRenovar ? licencia.fechaRenovacion : new Date(),
     };
   }
 

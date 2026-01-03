@@ -13,43 +13,68 @@ export default function PayPalSubscriptionSuccessPage() {
   const router = useRouter()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
+  const [orderId, setOrderId] = useState<string | null>(null)
 
   const subscriptionId = searchParams.get('subscription_id')
   const baToken = searchParams.get('ba_token')
-  const token = searchParams.get('token')
+  const token = searchParams.get('token') // Este es el orderId para Orders
 
   useEffect(() => {
-    const activarSuscripcion = async () => {
-      if (!subscriptionId) {
+    const procesarPago = async () => {
+      // Si viene con token pero sin subscription_id, es una Order (add-ons)
+      const esOrder = token && !subscriptionId
+
+      if (!subscriptionId && !token) {
         setStatus('error')
-        setMessage('No se encontro el ID de la suscripcion')
+        setMessage('No se encontró el ID del pago')
         return
       }
 
       try {
-        // Llamar al backend para confirmar y activar la suscripcion
-        const response = await api.post('/pagos/paypal/subscriptions/activate', {
-          subscriptionId,
-          baToken,
-          token,
-        })
+        if (esOrder) {
+          // Es una Order de PayPal (para add-ons)
+          console.log('Procesando Order de PayPal:', token)
+          setOrderId(token)
 
-        if (response.data.success) {
-          setStatus('success')
-          setMessage('Tu suscripcion ha sido activada correctamente')
+          // Capturar la orden
+          const response = await api.post('/pagos/paypal/orders/capture', {
+            orderId: token,
+          })
+
+          if (response.data.success) {
+            setStatus('success')
+            setMessage('Tu pago ha sido procesado y los add-ons han sido activados')
+          } else {
+            setStatus('error')
+            setMessage(response.data.message || 'Error al procesar el pago')
+          }
         } else {
-          setStatus('error')
-          setMessage(response.data.message || 'Error al activar la suscripcion')
+          // Es una Subscription de PayPal
+          console.log('Activando Subscription de PayPal:', subscriptionId)
+
+          const response = await api.post('/pagos/paypal/subscriptions/activate', {
+            subscriptionId,
+            baToken,
+            token,
+          })
+
+          if (response.data.success) {
+            setStatus('success')
+            setMessage('Tu suscripción ha sido activada correctamente')
+          } else {
+            setStatus('error')
+            setMessage(response.data.message || 'Error al activar la suscripción')
+          }
         }
       } catch (error: any) {
-        console.error('Error activando suscripcion:', error)
+        console.error('Error procesando pago:', error)
         // Aunque falle la activacion automatica, el webhook de PayPal la activara
         setStatus('success')
-        setMessage('Tu pago ha sido procesado. La activacion puede tardar unos minutos.')
+        setMessage('Tu pago ha sido procesado. La activación puede tardar unos minutos.')
       }
     }
 
-    activarSuscripcion()
+    procesarPago()
   }, [subscriptionId, baToken, token])
 
   return (
@@ -91,9 +116,9 @@ export default function PayPalSubscriptionSuccessPage() {
                 <p>Ya puedes disfrutar de todas las funcionalidades de tu nuevo plan.</p>
               </div>
 
-              {subscriptionId && (
+              {(subscriptionId || orderId) && (
                 <div className="text-center text-sm text-slate-500">
-                  <p>ID de suscripcion: {subscriptionId}</p>
+                  <p>ID de {subscriptionId ? 'suscripción' : 'orden'}: {subscriptionId || orderId}</p>
                 </div>
               )}
             </>

@@ -11,6 +11,9 @@ import {
 import { createCheckoutSession } from './stripe/stripe.controller';
 import paypalRoutes from './paypal/paypal.routes';
 import redsysRoutes from './redsys/redsys.routes';
+import { facturacionSuscripcionService } from './facturacion-suscripcion.service';
+import { facturaSuscripcionPDFService } from './factura-suscripcion-pdf.service';
+import { prorrateoService } from '../licencias/prorrateo.service';
 
 const router = Router();
 
@@ -219,5 +222,122 @@ router.get('/metodos/todos', getPaymentMethods);
  *         description: Estadísticas de pagos
  */
 router.get('/estadisticas/resumen', getPaymentStats);
+
+// ============================================
+// FACTURAS DE SUSCRIPCIÓN
+// ============================================
+
+/**
+ * @swagger
+ * /api/pagos/facturas-suscripcion:
+ *   get:
+ *     summary: Obtener facturas de suscripción de la empresa
+ *     tags: [Pagos]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/facturas-suscripcion', async (req, res) => {
+  try {
+    const empresaId = req.empresaId!;
+    const facturas = await facturacionSuscripcionService.getFacturasEmpresa(empresaId);
+
+    res.json({
+      success: true,
+      data: facturas,
+    });
+  } catch (error: any) {
+    console.error('Error obteniendo facturas:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error obteniendo facturas',
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/pagos/facturas-suscripcion/{id}/pdf:
+ *   get:
+ *     summary: Descargar PDF de factura de suscripción
+ *     tags: [Pagos]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/facturas-suscripcion/:id/pdf', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const empresaId = req.empresaId!;
+
+    // Verificar que la factura pertenece a la empresa
+    const factura = await facturacionSuscripcionService.getFacturaById(id);
+    if (!factura) {
+      return res.status(404).json({
+        success: false,
+        message: 'Factura no encontrada',
+      });
+    }
+
+    if (factura.cliente.empresaId.toString() !== empresaId) {
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes permiso para ver esta factura',
+      });
+    }
+
+    // Generar PDF
+    const { pdfBuffer } = await facturaSuscripcionPDFService.generarYGuardarPDF(id);
+
+    // Enviar PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="factura-${factura.numeroFactura}.pdf"`
+    );
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    console.error('Error generando PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error generando PDF',
+    });
+  }
+});
+
+// ============================================
+// PRORRATEO
+// ============================================
+
+/**
+ * @swagger
+ * /api/pagos/prorrateo:
+ *   post:
+ *     summary: Calcular prorrateo para add-ons o cambio de plan
+ *     tags: [Pagos]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/prorrateo', async (req, res) => {
+  try {
+    const empresaId = req.empresaId!;
+    const { addOns, planSlug } = req.body;
+
+    const resumen = await prorrateoService.getResumenProrrateo(
+      empresaId,
+      addOns || [],
+      planSlug
+    );
+
+    res.json({
+      success: true,
+      data: resumen,
+    });
+  } catch (error: any) {
+    console.error('Error calculando prorrateo:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error calculando prorrateo',
+    });
+  }
+});
 
 export default router;

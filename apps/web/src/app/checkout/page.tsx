@@ -301,6 +301,31 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [onlyAddOns, setOnlyAddOns] = useState(false) // Solo comprar add-ons
 
+  // Estado para prorrateo
+  const [prorrateoData, setProrrateoData] = useState<{
+    aplicaProrrata: boolean
+    diasRestantes: number
+    diasCiclo: number
+    fechaRenovacion: string
+    tipoSuscripcion: 'mensual' | 'anual'
+    mensaje: string
+    desglose: Array<{
+      concepto: string
+      precioCompleto: number
+      precioProrrata: number
+    }>
+    totales: {
+      subtotalCompleto: number
+      subtotalProrrata: number
+      ivaCompleto: number
+      ivaProrrata: number
+      totalCompleto: number
+      totalProrrata: number
+      ahorro: number
+    }
+  } | null>(null)
+  const [loadingProrrateo, setLoadingProrrateo] = useState(false)
+
   // Verificar si el usuario ya tiene un plan activo (no trial)
   const hasActivePlan = !!(isActive && !isTrial && currentPlan)
   // Verificar si el plan seleccionado es el mismo que el actual (comparación case-insensitive)
@@ -362,6 +387,35 @@ export default function CheckoutPage() {
     }
   }, [searchParams, hasActivePlan, currentPlan])
 
+  // Efecto para calcular prorrateo cuando se seleccionan add-ons
+  useEffect(() => {
+    const calcularProrrateo = async () => {
+      // Solo calcular si tiene plan activo y hay add-ons seleccionados
+      if (!hasActivePlan || selectedAddOns.length === 0) {
+        setProrrateoData(null)
+        return
+      }
+
+      setLoadingProrrateo(true)
+      try {
+        const response = await billingService.calcularProrrateo({
+          addOns: selectedAddOns,
+        })
+
+        if (response.success && response.data) {
+          setProrrateoData(response.data)
+        }
+      } catch (error) {
+        console.error('Error calculando prorrateo:', error)
+        setProrrateoData(null)
+      } finally {
+        setLoadingProrrateo(false)
+      }
+    }
+
+    calcularProrrateo()
+  }, [hasActivePlan, selectedAddOns])
+
   // Calcular precios (IVA ya incluido en el precio)
   // Modo solo add-ons: explícito O automático (tiene plan activo, mismo plan, y hay add-ons)
   const isAddOnOnlyMode = onlyAddOns || (hasActivePlan && isSamePlan)
@@ -374,12 +428,24 @@ export default function CheckoutPage() {
       : selectedPlan.precio.mensual
     : 0
 
-  const basePrice = planPrice + addOnsTotal
-  const discountAmount = promoApplied ? (basePrice * discount) / 100 : 0
-  const total = basePrice - discountAmount
+  // Calcular precio total de add-ons (normal vs prorrateado)
+  const useProrrateo = prorrateoData?.aplicaProrrata && isAddOnOnlyMode
+  const addOnsTotalFinal = useProrrateo
+    ? prorrateoData!.totales.totalProrrata // Ya incluye IVA
+    : addOnsTotal
+
+  const basePrice = planPrice + (useProrrateo ? 0 : addOnsTotal) // Si hay prorrateo, el total ya viene calculado
+  const priceBeforeDiscount = useProrrateo ? prorrateoData!.totales.totalProrrata : basePrice
+  const discountAmount = promoApplied ? (priceBeforeDiscount * discount) / 100 : 0
+  const total = priceBeforeDiscount - discountAmount
+
   // El IVA ya está incluido en el precio (21%)
-  const baseImponible = total / 1.21
-  const ivaIncluido = total - baseImponible
+  const baseImponible = useProrrateo ? prorrateoData!.totales.subtotalProrrata : total / 1.21
+  const ivaIncluido = useProrrateo ? prorrateoData!.totales.ivaProrrata : total - baseImponible
+
+  // Precio completo (sin prorrateo) para mostrar ahorro
+  const totalSinProrrateo = planPrice + addOnsTotal
+  const ahorroConProrrateo = useProrrateo ? totalSinProrrateo - total : 0
 
   // Determinar tipo de operacion
   const operationType = isAddOnOnlyMode
@@ -439,17 +505,28 @@ export default function CheckoutPage() {
         })
 
         if (response.success && response.data?.url) {
+          // Verificar si es una activación directa (add-ons añadidos a suscripción existente)
+          if (response.data.sessionId?.startsWith('direct-')) {
+            // Los add-ons ya fueron añadidos directamente, mostrar mensaje y redirigir
+            toast.success(response.data.message || 'Add-ons añadidos correctamente')
+            router.push('/checkout/success?session_id=subscription-updated')
+            return
+          }
           // Redirigir a Stripe Checkout
           window.location.href = response.data.url
         } else {
           throw new Error('Error al crear sesion de pago')
         }
       } else if (paymentMethod === 'paypal') {
-        // Crear suscripcion de PayPal
-        const response = await billingService.crearSuscripcionPayPal({
-          planSlug: selectedPlan.slug,
+        // Crear suscripcion de PayPal (con soporte para add-ons)
+        const paypalParams = {
+          planSlug: operationType === 'addons' ? undefined : selectedPlan?.slug,
           tipoSuscripcion: billingCycle,
-        })
+          addOns: selectedAddOns.length > 0 ? selectedAddOns : undefined,
+          onlyAddOns: operationType === 'addons',
+        }
+        console.log('🔵 [Frontend] Enviando a PayPal:', paypalParams)
+        const response = await billingService.crearSuscripcionPayPal(paypalParams)
 
         if (response.success && response.data?.approvalUrl) {
           // Redirigir a PayPal
@@ -458,10 +535,12 @@ export default function CheckoutPage() {
           throw new Error('Error al crear suscripcion de PayPal')
         }
       } else if (paymentMethod === 'redsys') {
-        // Crear pago con Redsys
+        // Crear pago con Redsys (con soporte para add-ons)
         const response = await billingService.crearPagoRedsys({
-          planSlug: selectedPlan.slug,
+          planSlug: operationType === 'addons' ? undefined : selectedPlan?.slug,
           tipoSuscripcion: billingCycle,
+          addOns: selectedAddOns.length > 0 ? selectedAddOns : undefined,
+          onlyAddOns: operationType === 'addons',
         })
 
         if (response.success && response.data) {
@@ -952,6 +1031,27 @@ export default function CheckoutPage() {
 
               <Separator />
 
+              {/* Mensaje de prorrateo */}
+              {useProrrateo && prorrateoData?.mensaje && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Clock className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs text-blue-800 dark:text-blue-200">
+                      <p className="font-medium mb-1">Pago prorrateado</p>
+                      <p>{prorrateoData.mensaje}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Indicador de cargando prorrateo */}
+              {loadingProrrateo && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Calculando prorrateo...</span>
+                </div>
+              )}
+
               {/* Desglose de precios */}
               <div className="space-y-2 text-sm">
                 {/* Solo mostrar precio del plan si se va a cobrar */}
@@ -964,25 +1064,53 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {/* Add-ons seleccionados */}
-                {selectedAddOns.map(slug => {
-                  const addon = addOnsDisponibles.find(a => a.slug === slug)
-                  if (!addon) return null
-                  const precio = billingCycle === 'anual' && addon.precioAnual
-                    ? addon.precioAnual
-                    : addon.precioMensual
-                  return (
-                    <div key={slug} className="flex justify-between text-muted-foreground">
-                      <span>{addon.nombre}</span>
-                      <span>{precio.toFixed(2)}€</span>
+                {/* Add-ons seleccionados - con prorrateo si aplica */}
+                {useProrrateo && prorrateoData?.desglose ? (
+                  // Mostrar desglose con precios prorrateados
+                  prorrateoData.desglose.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        {item.concepto}
+                        {item.precioProrrata < item.precioCompleto && (
+                          <span className="text-xs line-through text-slate-400">
+                            {item.precioCompleto.toFixed(2)}€
+                          </span>
+                        )}
+                      </span>
+                      <span className={item.precioProrrata < item.precioCompleto ? 'text-green-600 font-medium' : ''}>
+                        {item.precioProrrata.toFixed(2)}€
+                      </span>
                     </div>
-                  )
-                })}
+                  ))
+                ) : (
+                  // Mostrar precios normales
+                  selectedAddOns.map(slug => {
+                    const addon = addOnsDisponibles.find(a => a.slug === slug)
+                    if (!addon) return null
+                    const precio = billingCycle === 'anual' && addon.precioAnual
+                      ? addon.precioAnual
+                      : addon.precioMensual
+                    return (
+                      <div key={slug} className="flex justify-between text-muted-foreground">
+                        <span>{addon.nombre}</span>
+                        <span>{precio.toFixed(2)}€</span>
+                      </div>
+                    )
+                  })
+                )}
 
                 {promoApplied && (
                   <div className="flex justify-between text-green-600">
                     <span>Descuento ({discount}%)</span>
                     <span>-{discountAmount.toFixed(2)}€</span>
+                  </div>
+                )}
+
+                {/* Mostrar ahorro por prorrateo */}
+                {useProrrateo && ahorroConProrrateo > 0 && (
+                  <div className="flex justify-between text-green-600 font-medium">
+                    <span>Ahorro prorrateo ({prorrateoData?.diasRestantes} días)</span>
+                    <span>-{ahorroConProrrateo.toFixed(2)}€</span>
                   </div>
                 )}
 

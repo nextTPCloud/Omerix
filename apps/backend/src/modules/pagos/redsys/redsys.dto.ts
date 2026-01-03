@@ -31,8 +31,10 @@ export const CreateRedsysSubscriptionSchema = z.object({
   planId: z.string().optional(),
   planSlug: z.string().optional(),
   tipoSuscripcion: z.enum(['mensual', 'anual']).optional(),
-}).refine(data => data.planId || data.planSlug, {
-  message: 'Se requiere planId o planSlug',
+  addOns: z.array(z.string()).optional(), // Slugs de los add-ons a contratar
+  onlyAddOns: z.boolean().optional(), // Si true, solo cobrar add-ons (no cambiar plan)
+}).refine(data => data.planId || data.planSlug || (data.onlyAddOns && data.addOns && data.addOns.length > 0), {
+  message: 'Se requiere planId, planSlug, o add-ons con onlyAddOns=true',
 });
 
 // ============================================

@@ -50,6 +50,12 @@ import conciliacionRoutes from './modules/tesoreria/conciliacion.routes';
 import previsionesRoutes from './modules/tesoreria/previsiones.routes';
 import cuentasBancariasRoutes from './modules/cuentas-bancarias/cuentas-bancarias.routes';
 
+// Importar rutas de contabilidad
+import contabilidadRoutes from './modules/contabilidad/contabilidad.routes';
+
+// Importar rutas de CRM
+import crmRoutes from './modules/crm/crm.routes';
+
 // Importar rutas de factura electrónica
 import facturaERoutes from './modules/facturae/facturae.routes';
 
@@ -363,6 +369,12 @@ app.use('/api/movimientos-bancarios', movimientosBancariosRoutes);
 app.use('/api/conciliacion', conciliacionRoutes);
 app.use('/api/previsiones', previsionesRoutes);
 app.use('/api/cuentas-bancarias', cuentasBancariasRoutes);
+
+// Rutas de contabilidad
+app.use('/api/contabilidad', contabilidadRoutes);
+
+// Rutas de CRM
+app.use('/api/crm', crmRoutes);
 
 // Rutas de factura electrónica (FacturaE/FACE)
 app.use('/api/facturae', facturaERoutes);

@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import config from '../../../config/env';
 import Pago from '../Pago';
 import Licencia from '../../licencias/Licencia';
+import Plan from '../../licencias/Plan';
+import AddOn from '../../licencias/AddOn';
 import { facturacionSuscripcionService } from '../facturacion-suscripcion.service';
 
 /**
@@ -110,9 +112,58 @@ async function handlePaymentCaptureCompleted(event: any) {
     pago.estadoDetalle = 'Pago completado exitosamente';
     await pago.save();
 
-    // Si es una suscripción, activar la licencia
-    if (pago.concepto === 'suscripcion' && pago.metadata?.licenciaId) {
-      await activarLicencia(String(pago.metadata.licenciaId));
+    const empresaId = String(pago.empresaId);
+
+    // Buscar licencia por paypalOrderId o empresaId
+    const licencia = await Licencia.findOne({
+      $or: [
+        { paypalOrderId: orderId },
+        { empresaId: pago.empresaId }
+      ]
+    });
+
+    if (licencia) {
+      console.log(`🔄 Procesando licencia para empresa ${empresaId}, paypalOrderId: ${orderId}`);
+
+      // Actualizar plan pendiente si existe
+      if (licencia.planPendiente) {
+        const nuevoPlan = await Plan.findById(licencia.planPendiente);
+        if (nuevoPlan) {
+          const planAnterior = await Plan.findById(licencia.planId);
+          licencia.planId = licencia.planPendiente;
+          licencia.historial.push({
+            fecha: new Date(),
+            accion: 'CAMBIO_PLAN',
+            planAnterior: planAnterior?.nombre,
+            planNuevo: nuevoPlan.nombre,
+            motivo: 'Pago PayPal completado',
+          });
+          console.log(`✅ Plan actualizado: ${planAnterior?.nombre || 'N/A'} → ${nuevoPlan.nombre}`);
+        }
+        licencia.planPendiente = undefined;
+      }
+
+      // Activar add-ons pendientes
+      if (licencia.addOnsPendientes && licencia.addOnsPendientes.length > 0) {
+        console.log(`🔄 Activando ${licencia.addOnsPendientes.length} add-ons pendientes:`, licencia.addOnsPendientes);
+        await activarAddOnsPendientes(empresaId, licencia.addOnsPendientes, licencia.tipoSuscripcion);
+      }
+
+      // Activar licencia si estaba en trial
+      if (licencia.estado === 'trial') {
+        licencia.estado = 'activa';
+        licencia.esTrial = false;
+        licencia.historial.push({
+          fecha: new Date(),
+          accion: 'ACTIVACION',
+          motivo: 'Pago PayPal completado exitosamente',
+        });
+      }
+
+      // Limpiar paypalOrderId
+      licencia.paypalOrderId = undefined;
+
+      await licencia.save();
     }
 
     // Generar factura de suscripción y enviar por email
@@ -311,4 +362,83 @@ async function verifyWebhookSignature(req: Request): Promise<boolean> {
     console.error('Error verificando firma de webhook:', error);
     return false;
   }
+}
+
+/**
+ * Activa los add-ons pendientes en una licencia
+ */
+async function activarAddOnsPendientes(
+  empresaId: string,
+  addOnSlugs?: string[],
+  tipoSuscripcion?: 'mensual' | 'anual'
+) {
+  const licencia = await Licencia.findOne({ empresaId });
+  if (!licencia) {
+    console.error('❌ No se encontró licencia para empresa:', empresaId);
+    return;
+  }
+
+  // Usar add-ons pasados como parámetro o los pendientes en la licencia
+  const slugsToActivate = addOnSlugs || licencia.addOnsPendientes || [];
+
+  if (slugsToActivate.length === 0) {
+    console.log('ℹ️ No hay add-ons pendientes para activar');
+    return;
+  }
+
+  console.log(`🔄 Activando ${slugsToActivate.length} add-ons para empresa ${empresaId}:`, slugsToActivate);
+
+  // Obtener los add-ons de la base de datos
+  const addOnsData = await AddOn.find({
+    slug: { $in: slugsToActivate },
+    activo: true,
+  });
+
+  const tipo = tipoSuscripcion || licencia.tipoSuscripcion || 'mensual';
+  const esAnual = tipo === 'anual';
+
+  for (const addon of addOnsData) {
+    // Verificar si ya existe el add-on en la licencia
+    const existeAddOn = licencia.addOns?.find(
+      (a: any) => a.slug === addon.slug && a.activo
+    );
+
+    if (existeAddOn) {
+      console.log(`ℹ️ Add-on ${addon.slug} ya estaba activo`);
+      continue;
+    }
+
+    // Calcular precio según tipo de suscripción
+    const precio = esAnual && addon.precioAnual
+      ? addon.precioAnual
+      : addon.precioMensual;
+
+    // Añadir el add-on a la licencia
+    licencia.addOns.push({
+      addOnId: addon._id,
+      nombre: addon.nombre,
+      slug: addon.slug,
+      cantidad: addon.cantidad || 1,
+      precioMensual: addon.precioMensual,
+      activo: true,
+      fechaActivacion: new Date(),
+    });
+
+    console.log(`✅ Add-on activado: ${addon.nombre} (${addon.slug}) - ${precio}€/${esAnual ? 'año' : 'mes'}`);
+  }
+
+  // Limpiar add-ons pendientes
+  licencia.addOnsPendientes = [];
+
+  // Añadir al historial
+  if (addOnsData.length > 0) {
+    licencia.historial.push({
+      fecha: new Date(),
+      accion: 'ACTIVACION_ADDONS',
+      motivo: `Add-ons activados: ${addOnsData.map(a => a.nombre).join(', ')}`,
+    });
+  }
+
+  await licencia.save();
+  console.log(`✅ Licencia actualizada con ${addOnsData.length} add-ons nuevos`);
 }

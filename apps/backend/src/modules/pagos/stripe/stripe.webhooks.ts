@@ -3,6 +3,8 @@ import Stripe from 'stripe';
 import config from '../../../config/env';
 import Pago from '../Pago';
 import Licencia from '../../licencias/Licencia';
+import Plan from '../../licencias/Plan';
+import AddOn from '../../licencias/AddOn';
 import { facturacionSuscripcionService } from '../facturacion-suscripcion.service';
 
 const stripe = new Stripe(config.stripe.secretKey, {
@@ -68,6 +70,14 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
 
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+        break;
+
+      // ============================================
+      // CHECKOUT SESSION
+      // ============================================
+
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
         break;
 
       // ============================================
@@ -190,6 +200,129 @@ async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) 
   }
 }
 
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+  console.log('✅ Checkout Session completada:', session.id);
+
+  const empresaId = session.metadata?.empresaId;
+  if (!empresaId) {
+    console.log('⚠️ Checkout Session sin empresaId en metadata');
+    return;
+  }
+
+  // Obtener add-ons desde metadata
+  const addOnsString = session.metadata?.addOns;
+  const tipoSuscripcion = session.metadata?.tipoSuscripcion as 'mensual' | 'anual' | undefined;
+  const planSlug = session.metadata?.planSlug;
+  const onlyAddOns = session.metadata?.onlyAddOns === 'true';
+
+  console.log(`🔄 Checkout completado para empresa ${empresaId}:`, {
+    planSlug,
+    addOns: addOnsString,
+    tipoSuscripcion,
+    onlyAddOns,
+  });
+
+  // Actualizar licencia
+  const licencia = await Licencia.findOne({ empresaId });
+  if (!licencia) {
+    console.error('❌ No se encontró licencia para empresa:', empresaId);
+    return;
+  }
+
+  // Actualizar tipo de suscripción
+  if (tipoSuscripcion) {
+    licencia.tipoSuscripcion = tipoSuscripcion;
+  }
+
+  // Actualizar plan si no es solo add-ons
+  if (!onlyAddOns && planSlug) {
+    const nuevoPlan = await Plan.findOne({ slug: planSlug, activo: true });
+    if (nuevoPlan) {
+      const planAnterior = await Plan.findById(licencia.planId);
+      licencia.planId = nuevoPlan._id;
+
+      // Solo añadir al historial si cambió de plan
+      if (planAnterior?.slug !== nuevoPlan.slug) {
+        licencia.historial.push({
+          fecha: new Date(),
+          accion: 'CAMBIO_PLAN',
+          planAnterior: planAnterior?.nombre,
+          planNuevo: nuevoPlan.nombre,
+          motivo: 'Checkout completado',
+        });
+        console.log(`✅ Plan actualizado: ${planAnterior?.nombre || 'N/A'} → ${nuevoPlan.nombre}`);
+      }
+    }
+  }
+
+  // Activar licencia si estaba en trial
+  if (licencia.estado === 'trial') {
+    licencia.estado = 'activa';
+    licencia.esTrial = false;
+    licencia.historial.push({
+      fecha: new Date(),
+      accion: 'ACTIVACION',
+      motivo: 'Checkout completado exitosamente',
+    });
+  }
+
+  await licencia.save();
+
+  // Activar add-ons si hay
+  if (addOnsString) {
+    const addOnSlugs = addOnsString.split(',').filter(Boolean);
+    if (addOnSlugs.length > 0) {
+      console.log(`🔄 Activando ${addOnSlugs.length} add-ons desde Checkout Session`);
+      await activarAddOnsPendientes(empresaId, addOnSlugs, tipoSuscripcion);
+    }
+  }
+
+  // Crear registro de pago y generar factura
+  try {
+    const monto = session.amount_total ? session.amount_total / 100 : 0;
+
+    if (monto > 0) {
+      // Verificar si ya existe un pago para esta sesión
+      const pagoExistente = await Pago.findOne({ transaccionExternaId: session.id });
+
+      if (!pagoExistente) {
+        const pago = await Pago.create({
+          empresaId,
+          concepto: onlyAddOns ? 'addon' : 'suscripcion',
+          descripcion: onlyAddOns
+            ? `Add-ons: ${addOnsString?.split(',').join(', ') || ''}`
+            : `Suscripción Plan ${planSlug || ''} (${tipoSuscripcion})`,
+          cantidad: monto,
+          moneda: (session.currency || 'eur').toUpperCase(),
+          total: monto,
+          pasarela: 'stripe',
+          transaccionExternaId: session.id,
+          clienteExternoId: String(session.customer || ''),
+          estado: 'completado',
+          fechaPago: new Date(),
+          metodoPago: { tipo: 'tarjeta' },
+          metadata: {
+            planSlug,
+            addOns: addOnsString?.split(','),
+            tipoSuscripcion,
+            onlyAddOns,
+          },
+        });
+
+        console.log(`✅ Pago creado desde Checkout Session: ${pago._id}`);
+
+        // Generar factura de suscripción
+        const result = await facturacionSuscripcionService.procesarPagoCompletado(String(pago._id));
+        console.log(`✅ Factura ${result.factura.numeroFactura} generada, email: ${result.emailEnviado}`);
+      }
+    }
+  } catch (error: any) {
+    console.error('Error creando pago/factura desde Checkout:', error.message);
+  }
+
+  console.log(`✅ Checkout Session procesado para empresa ${empresaId}`);
+}
+
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   console.log('✅ Suscripción creada:', subscription.id);
 
@@ -198,7 +331,27 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     const licencia = await Licencia.findOne({ empresaId });
     if (licencia) {
       licencia.stripeSubscriptionId = subscription.id;
+
+      // Actualizar tipo de suscripción si viene en metadata
+      if (subscription.metadata.tipoSuscripcion) {
+        licencia.tipoSuscripcion = subscription.metadata.tipoSuscripcion as 'mensual' | 'anual';
+      }
+
       await licencia.save();
+
+      // Activar add-ons si vienen en metadata
+      const addOnsString = subscription.metadata.addOns;
+      if (addOnsString) {
+        const addOnSlugs = addOnsString.split(',').filter(Boolean);
+        if (addOnSlugs.length > 0) {
+          console.log(`🔄 Activando add-ons desde metadata de suscripción: ${addOnSlugs.join(', ')}`);
+          await activarAddOnsPendientes(
+            empresaId,
+            addOnSlugs,
+            subscription.metadata.tipoSuscripcion as 'mensual' | 'anual'
+          );
+        }
+      }
     }
   }
 }
@@ -341,4 +494,110 @@ async function activarLicencia(licenciaId: string) {
     await licencia.save();
     console.log('✅ Licencia activada:', licenciaId);
   }
+}
+
+/**
+ * Activa los add-ons pendientes en una licencia
+ * @param empresaId - ID de la empresa
+ * @param addOnSlugs - Array de slugs de add-ons a activar (opcional, si no se pasa usa addOnsPendientes de licencia)
+ * @param tipoSuscripcion - Tipo de suscripción para el precio
+ */
+async function activarAddOnsPendientes(
+  empresaId: string,
+  addOnSlugs?: string[],
+  tipoSuscripcion?: 'mensual' | 'anual'
+) {
+  const licencia = await Licencia.findOne({ empresaId });
+  if (!licencia) {
+    console.error('❌ No se encontró licencia para empresa:', empresaId);
+    return;
+  }
+
+  // Usar add-ons pasados como parámetro o los pendientes en la licencia
+  const slugsToActivate = addOnSlugs || licencia.addOnsPendientes || [];
+
+  if (slugsToActivate.length === 0) {
+    console.log('ℹ️ No hay add-ons pendientes para activar');
+    return;
+  }
+
+  console.log(`🔄 Activando ${slugsToActivate.length} add-ons para empresa ${empresaId}:`, slugsToActivate);
+
+  // Obtener los add-ons de la base de datos
+  const addOnsData = await AddOn.find({
+    slug: { $in: slugsToActivate },
+    activo: true,
+  });
+
+  const tipo = tipoSuscripcion || licencia.tipoSuscripcion || 'mensual';
+  const esAnual = tipo === 'anual';
+
+  for (const addon of addOnsData) {
+    // Verificar si ya existe el add-on en la licencia
+    const existeAddOn = licencia.addOns?.find(
+      (a: any) => a.slug === addon.slug && a.activo
+    );
+
+    if (existeAddOn) {
+      console.log(`ℹ️ Add-on ${addon.slug} ya estaba activo`);
+      continue;
+    }
+
+    // Calcular precio según tipo de suscripción
+    const precio = esAnual && addon.precioAnual
+      ? addon.precioAnual
+      : addon.precioMensual;
+
+    // Añadir el add-on a la licencia
+    licencia.addOns.push({
+      addOnId: addon._id,
+      nombre: addon.nombre,
+      slug: addon.slug,
+      cantidad: addon.cantidad || 1,
+      precioMensual: addon.precioMensual,
+      activo: true,
+      fechaActivacion: new Date(),
+    });
+
+    console.log(`✅ Add-on activado: ${addon.nombre} (${addon.slug}) - ${precio}€/${esAnual ? 'año' : 'mes'}`);
+  }
+
+  // Actualizar plan pendiente si existe
+  if (licencia.planPendiente) {
+    const nuevoPlan = await Plan.findById(licencia.planPendiente);
+    if (nuevoPlan) {
+      const planAnterior = await Plan.findById(licencia.planId);
+      licencia.planId = licencia.planPendiente;
+      licencia.historial.push({
+        fecha: new Date(),
+        accion: 'CAMBIO_PLAN',
+        planAnterior: planAnterior?.nombre,
+        planNuevo: nuevoPlan.nombre,
+        motivo: 'Pago completado',
+      });
+      console.log(`✅ Plan actualizado: ${planAnterior?.nombre || 'N/A'} → ${nuevoPlan.nombre}`);
+    }
+    licencia.planPendiente = undefined;
+  }
+
+  // Limpiar add-ons pendientes
+  licencia.addOnsPendientes = [];
+
+  // Activar licencia si estaba en trial
+  if (licencia.estado === 'trial') {
+    licencia.estado = 'activa';
+    licencia.esTrial = false;
+  }
+
+  // Añadir al historial
+  if (addOnsData.length > 0) {
+    licencia.historial.push({
+      fecha: new Date(),
+      accion: 'ACTIVACION_ADDONS',
+      motivo: `Add-ons activados: ${addOnsData.map(a => a.nombre).join(', ')}`,
+    });
+  }
+
+  await licencia.save();
+  console.log(`✅ Licencia actualizada con ${addOnsData.length} add-ons nuevos`);
 }

@@ -173,11 +173,19 @@ class BillingService {
 
   /**
    * Eliminar un add-on
+   * @param addOnSlug - Slug del add-on a eliminar
+   * @param cancelarAlRenovar - true = cancela al renovar (sigue activo), false = cancela inmediatamente
    */
-  async removeAddOn(addOnSlug: string): Promise<ApiResponse<ILicencia>> {
+  async removeAddOn(addOnSlug: string, cancelarAlRenovar: boolean = true): Promise<ApiResponse<{
+    success: boolean
+    message: string
+    canceladoInmediatamente: boolean
+    fechaCancelacion: Date
+  }>> {
     try {
       const response = await api.post(`${this.basePath}/remove-addon`, {
-        addOnSlug
+        addOnSlug,
+        cancelarAlRenovar
       })
       return response.data
     } catch (error: any) {
@@ -211,7 +219,7 @@ class BillingService {
     onlyAddOns?: boolean
     successUrl: string
     cancelUrl: string
-  }): Promise<ApiResponse<{ sessionId: string; url: string }>> {
+  }): Promise<ApiResponse<{ sessionId: string; url: string; message?: string }>> {
     try {
       const response = await api.post('/pagos/checkout/session', params)
       return response.data
@@ -239,8 +247,10 @@ class BillingService {
    * Crear suscripcion de PayPal
    */
   async crearSuscripcionPayPal(params: {
-    planSlug: string
+    planSlug?: string
     tipoSuscripcion: 'mensual' | 'anual'
+    addOns?: string[]
+    onlyAddOns?: boolean
   }): Promise<ApiResponse<{ subscriptionId: string; approvalUrl: string }>> {
     try {
       const response = await api.post('/pagos/paypal/subscriptions', params)
@@ -254,8 +264,10 @@ class BillingService {
    * Crear pago con Redsys
    */
   async crearPagoRedsys(params: {
-    planSlug: string
+    planSlug?: string
     tipoSuscripcion: 'mensual' | 'anual'
+    addOns?: string[]
+    onlyAddOns?: boolean
   }): Promise<ApiResponse<{
     redsysUrl: string
     Ds_SignatureVersion: string
@@ -391,6 +403,76 @@ class BillingService {
       return response.data
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Error al obtener permisos disponibles')
+    }
+  }
+
+  /**
+   * Obtener facturas de suscripción
+   */
+  async getFacturasSuscripcion(): Promise<ApiResponse<Array<{
+    _id: string
+    numeroFactura: string
+    fechaEmision: string
+    fechaPago?: string
+    total: number
+    estado: string
+    planNombre: string
+  }>>> {
+    try {
+      const response = await api.get('/pagos/facturas-suscripcion')
+      return response.data
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Error al obtener facturas')
+    }
+  }
+
+  /**
+   * Descargar PDF de factura de suscripción
+   */
+  async descargarFacturaPDF(facturaId: string): Promise<Blob> {
+    try {
+      const response = await api.get(`/pagos/facturas-suscripcion/${facturaId}/pdf`, {
+        responseType: 'blob',
+      })
+      return response.data
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Error al descargar factura')
+    }
+  }
+
+  /**
+   * Calcular prorrateo para add-ons o cambio de plan
+   */
+  async calcularProrrateo(params: {
+    addOns?: string[]
+    planSlug?: string
+  }): Promise<ApiResponse<{
+    aplicaProrrata: boolean
+    diasRestantes: number
+    diasCiclo: number
+    fechaRenovacion: string
+    tipoSuscripcion: 'mensual' | 'anual'
+    mensaje: string
+    desglose: Array<{
+      concepto: string
+      precioCompleto: number
+      precioProrrata: number
+    }>
+    totales: {
+      subtotalCompleto: number
+      subtotalProrrata: number
+      ivaCompleto: number
+      ivaProrrata: number
+      totalCompleto: number
+      totalProrrata: number
+      ahorro: number
+    }
+  }>> {
+    try {
+      const response = await api.post('/pagos/prorrateo', params)
+      return response.data
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Error al calcular prorrateo')
     }
   }
 }

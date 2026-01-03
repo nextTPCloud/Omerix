@@ -44,8 +44,19 @@ import {
   Tablet,
   Activity,
   RefreshCw,
-  Loader2
+  Loader2,
+  Trash2,
+  MoreVertical,
+  CalendarOff,
+  XCircle
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import Link from 'next/link'
 import { useLicense } from '@/hooks/useLicense'
 import { billingService, IPlan, IAddOn } from '@/services/billing.service'
@@ -201,18 +212,21 @@ export default function BillingPage() {
   const [pasarela, setPasarela] = useState<'stripe' | 'paypal' | null>(null)
   const [togglingRenovacion, setTogglingRenovacion] = useState(false)
 
+  // Estado para cancelación de add-ons
+  const [cancelingAddOn, setCancelingAddOn] = useState<string | null>(null)
+
   useEffect(() => {
     const fetchExtraData = async () => {
       try {
-        const [metodoPagoRes, historialRes, sesionesRes, renovacionRes] = await Promise.all([
+        const [metodoPagoRes, facturasRes, sesionesRes, renovacionRes] = await Promise.all([
           billingService.getMetodoPago().catch(() => ({ success: false, data: null })),
-          billingService.getHistorialPagos().catch(() => ({ success: false, data: [] })),
+          billingService.getFacturasSuscripcion().catch(() => ({ success: false, data: [] })),
           billingService.getSesionesActivasEmpresa().catch(() => ({ success: false, data: { totalSesiones: 0, sesiones: [] } })),
           billingService.getEstadoRenovacion().catch(() => ({ success: false, data: null }))
         ])
 
         if (metodoPagoRes.success) setMetodoPago(metodoPagoRes.data)
-        if (historialRes.success) setHistorial(historialRes.data || [])
+        if (facturasRes.success) setHistorial(facturasRes.data || [])
         if (sesionesRes.success && sesionesRes.data) {
           setTotalSesiones(sesionesRes.data.totalSesiones)
           setSesionesActivas(sesionesRes.data.sesiones)
@@ -232,6 +246,24 @@ export default function BillingPage() {
     if (license) fetchExtraData()
   }, [license])
 
+  // Descargar factura PDF
+  const handleDescargarFactura = async (facturaId: string, numeroFactura: string) => {
+    try {
+      const blob = await billingService.descargarFacturaPDF(facturaId)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `factura-${numeroFactura}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      toast.success('Factura descargada correctamente')
+    } catch (error: any) {
+      toast.error(error.message || 'Error al descargar factura')
+    }
+  }
+
   // Handler para toggle de renovación
   const handleToggleRenovacion = async (activar: boolean) => {
     setTogglingRenovacion(true)
@@ -247,6 +279,23 @@ export default function BillingPage() {
       setRenovacionAutomatica(!activar)
     } finally {
       setTogglingRenovacion(false)
+    }
+  }
+
+  // Handler para cancelar add-on
+  const handleCancelAddOn = async (addOnSlug: string, cancelarAlRenovar: boolean = true) => {
+    setCancelingAddOn(addOnSlug)
+    try {
+      const response = await billingService.removeAddOn(addOnSlug, cancelarAlRenovar)
+      if (response.success) {
+        toast.success(response.message || 'Add-on cancelado correctamente')
+        // Refrescar datos de licencia
+        refetch()
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Error al cancelar add-on')
+    } finally {
+      setCancelingAddOn(null)
     }
   }
 
@@ -449,16 +498,93 @@ export default function BillingPage() {
 
               {/* Add-ons contratados con detalles */}
               {license.addOns && license.addOns.filter(a => a.activo).length > 0 && (
-                <div className="mt-4 p-3 bg-purple-50 rounded-lg">
-                  <h4 className="text-sm font-medium text-purple-800 mb-2">Add-ons contratados</h4>
-                  <div className="space-y-2">
+                <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-100">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold text-purple-800">Add-ons contratados</h4>
+                    <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-200">
+                      {license.addOns.filter(a => a.activo).length} activo{license.addOns.filter(a => a.activo).length !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                  <div className="space-y-3">
                     {license.addOns.filter(a => a.activo).map((addon) => (
-                      <div key={addon.nombre} className="flex items-center justify-between text-sm">
-                        <span className="text-purple-700">{addon.nombre}</span>
-                        <span className="font-medium text-purple-800">+{addon.precioMensual}€/mes</span>
+                      <div key={addon.slug || addon.nombre} className="flex items-center justify-between p-3 bg-white rounded border border-purple-100">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-purple-900">{addon.nombre}</p>
+                            {addon.cancelarAlRenovar && (
+                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                                Se cancela al renovar
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-purple-600">
+                            {addon.fechaActivacion
+                              ? `Activado el ${new Date(addon.fechaActivacion).toLocaleDateString('es-ES')}`
+                              : 'Activado'
+                            }
+                            {' • '}
+                            <span className="text-purple-500">
+                              {addon.cancelarAlRenovar
+                                ? `Activo hasta ${fechaRenovacion ? new Date(fechaRenovacion).toLocaleDateString('es-ES') : 'próxima factura'}`
+                                : `Renueva con el plan (${fechaRenovacion ? new Date(fechaRenovacion).toLocaleDateString('es-ES') : 'próxima factura'})`
+                              }
+                            </span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <span className="font-semibold text-purple-800">
+                              +{license.tipoSuscripcion === 'anual' && addon.precioMensual
+                                ? (addon.precioMensual * 10).toFixed(0)
+                                : addon.precioMensual}€
+                            </span>
+                            <span className="text-xs text-purple-600">/{license.tipoSuscripcion === 'anual' ? 'año' : 'mes'}</span>
+                          </div>
+                          {!addon.cancelarAlRenovar && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  disabled={cancelingAddOn === addon.slug}
+                                >
+                                  {cancelingAddOn === addon.slug ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <MoreVertical className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  className="text-amber-600"
+                                  onClick={() => handleCancelAddOn(addon.slug, true)}
+                                >
+                                  <CalendarOff className="h-4 w-4 mr-2" />
+                                  No renovar
+                                  <span className="text-xs text-slate-500 ml-2">(activo hasta renovación)</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => handleCancelAddOn(addon.slug, false)}
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  Cancelar ahora
+                                  <span className="text-xs text-slate-500 ml-2">(con crédito prorrateado)</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
+                  <p className="mt-3 text-xs text-purple-600 flex items-center gap-1">
+                    <RefreshCw className="h-3 w-3" />
+                    Todos los add-ons se renuevan junto con tu plan para simplificar la facturación
+                  </p>
                 </div>
               )}
 
@@ -645,7 +771,7 @@ export default function BillingPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Historial de facturas</CardTitle>
-          <CardDescription>Tus pagos y facturas anteriores</CardDescription>
+          <CardDescription>Tus facturas de suscripción</CardDescription>
         </CardHeader>
         <CardContent>
           {loadingExtra ? (
@@ -654,6 +780,7 @@ export default function BillingPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Nº Factura</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Concepto</TableHead>
                   <TableHead>Importe</TableHead>
@@ -662,22 +789,32 @@ export default function BillingPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {historial.map((pago: any) => (
-                  <TableRow key={pago._id}>
-                    <TableCell>{new Date(pago.fechaPago).toLocaleDateString()}</TableCell>
-                    <TableCell>{pago.concepto}</TableCell>
-                    <TableCell>{pago.total}€</TableCell>
+                {historial.map((factura: any) => (
+                  <TableRow key={factura._id}>
+                    <TableCell className="font-medium">{factura.numeroFactura}</TableCell>
+                    <TableCell>{new Date(factura.fechaEmision).toLocaleDateString('es-ES')}</TableCell>
+                    <TableCell>{factura.planNombre || 'Suscripción'}</TableCell>
+                    <TableCell>{factura.total?.toFixed(2)}€</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={
-                        pago.estado === 'completado' ? 'bg-green-50 text-green-700' :
-                        pago.estado === 'pendiente' ? 'bg-amber-50 text-amber-700' :
+                        factura.estado === 'pagada' ? 'bg-green-50 text-green-700' :
+                        factura.estado === 'emitida' ? 'bg-amber-50 text-amber-700' :
+                        factura.estado === 'anulada' ? 'bg-red-50 text-red-700' :
                         'bg-slate-50 text-slate-700'
                       }>
-                        {pago.estado}
+                        {factura.estado === 'pagada' ? 'Pagada' :
+                         factura.estado === 'emitida' ? 'Emitida' :
+                         factura.estado === 'anulada' ? 'Anulada' :
+                         factura.estado}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDescargarFactura(factura._id, factura.numeroFactura)}
+                        title="Descargar PDF"
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -688,7 +825,7 @@ export default function BillingPage() {
           ) : (
             <div className="text-center py-8 text-slate-500">
               <FileText className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-              <p>No hay facturas todavia</p>
+              <p>No hay facturas todavía</p>
             </div>
           )}
         </CardContent>

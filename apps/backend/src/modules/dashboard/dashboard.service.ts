@@ -25,6 +25,14 @@ import {
   getPersonalModel,
   getParteTrabajoModel,
   getVencimientoModel,
+  // CRM
+  getLeadModel,
+  getOportunidadModel,
+  getActividadCRMModel,
+  // Contabilidad
+  getCuentaContableModel,
+  getAsientoContableModel,
+  getConfigContableModel,
 } from '../../utils/dynamic-models.helper';
 import { getModeloFichaje } from '../fichajes/Fichaje';
 import { tesoreriaDashboardService } from '../tesoreria/tesoreria-dashboard.service';
@@ -389,6 +397,38 @@ export class DashboardService {
           break;
         case TipoWidget.CONTADOR:
           datos = await this.getContador(widget.config, empresaId, dbConfig);
+          break;
+        // CRM
+        case TipoWidget.RESUMEN_CRM:
+          datos = await this.getResumenCRM(widget.config, empresaId, dbConfig);
+          break;
+        case TipoWidget.LEADS_RECIENTES:
+          datos = await this.getLeadsRecientes(widget.config, empresaId, dbConfig);
+          break;
+        case TipoWidget.OPORTUNIDADES_PIPELINE:
+          datos = await this.getOportunidadesPipeline(widget.config, empresaId, dbConfig);
+          break;
+        case TipoWidget.ACTIVIDADES_CRM_PENDIENTES:
+          datos = await this.getActividadesCRMPendientes(widget.config, empresaId, dbConfig);
+          break;
+        case TipoWidget.GRAFICA_PIPELINE_CRM:
+          datos = await this.getGraficaPipelineCRM(widget.config, empresaId, dbConfig);
+          break;
+        case TipoWidget.FORECAST_CRM:
+          datos = await this.getForecastCRM(widget.config, empresaId, dbConfig);
+          break;
+        // Contabilidad
+        case TipoWidget.RESUMEN_CONTABILIDAD:
+          datos = await this.getResumenContabilidad(widget.config, empresaId, dbConfig);
+          break;
+        case TipoWidget.BALANCE_RAPIDO:
+          datos = await this.getBalanceRapido(widget.config, empresaId, dbConfig);
+          break;
+        case TipoWidget.ULTIMOS_ASIENTOS:
+          datos = await this.getUltimosAsientos(widget.config, empresaId, dbConfig);
+          break;
+        case TipoWidget.GRAFICA_INGRESOS_GASTOS:
+          datos = await this.getGraficaIngresosGastos(widget.config, empresaId, dbConfig);
           break;
         default:
           datos = { mensaje: 'Widget en desarrollo' };
@@ -1489,6 +1529,436 @@ export class DashboardService {
       tipoDocumento,
       periodo: config.periodo,
     };
+  }
+
+  // ============================================
+  // MÉTODOS CRM
+  // ============================================
+
+  /**
+   * Resumen CRM - leads, oportunidades, actividades
+   */
+  private async getResumenCRM(
+    config: IWidget['config'],
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const { fechaDesde, fechaHasta } = this.getFechasFromPeriodo(config.periodo);
+
+    const [Lead, Oportunidad, Actividad] = await Promise.all([
+      getLeadModel(empresaId, dbConfig),
+      getOportunidadModel(empresaId, dbConfig),
+      getActividadCRMModel(empresaId, dbConfig),
+    ]);
+
+    const [leads, oportunidades, actividades, valorPipeline] = await Promise.all([
+      Lead.countDocuments({ createdAt: { $gte: fechaDesde, $lte: fechaHasta } }),
+      Oportunidad.countDocuments({ createdAt: { $gte: fechaDesde, $lte: fechaHasta } }),
+      Actividad.countDocuments({
+        fechaProgramada: { $gte: fechaDesde, $lte: fechaHasta },
+        completada: false,
+      }),
+      Oportunidad.aggregate([
+        { $match: { estado: { $ne: 'perdida' }, cerrada: false } },
+        { $group: { _id: null, total: { $sum: '$valorEstimado' } } },
+      ]),
+    ]);
+
+    return {
+      leads,
+      oportunidades,
+      actividadesPendientes: actividades,
+      valorPipeline: valorPipeline[0]?.total || 0,
+      periodo: config.periodo,
+    };
+  }
+
+  /**
+   * Leads recientes
+   */
+  private async getLeadsRecientes(
+    config: IWidget['config'],
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const Lead = await getLeadModel(empresaId, dbConfig);
+    const limite = config.limite || 10;
+
+    const leads = await Lead.find()
+      .sort({ createdAt: -1 })
+      .limit(limite)
+      .select('nombre empresa email telefono estado etapa createdAt valorEstimado')
+      .lean();
+
+    return leads;
+  }
+
+  /**
+   * Oportunidades en pipeline
+   */
+  private async getOportunidadesPipeline(
+    config: IWidget['config'],
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const Oportunidad = await getOportunidadModel(empresaId, dbConfig);
+
+    const oportunidades = await Oportunidad.aggregate([
+      { $match: { cerrada: false } },
+      {
+        $group: {
+          _id: '$etapa',
+          count: { $sum: 1 },
+          valor: { $sum: '$valorEstimado' },
+          oportunidades: {
+            $push: {
+              _id: '$_id',
+              nombre: '$nombre',
+              clienteNombre: '$clienteNombre',
+              valorEstimado: '$valorEstimado',
+              probabilidad: '$probabilidad',
+              fechaCierreEstimada: '$fechaCierreEstimada',
+            },
+          },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    return oportunidades;
+  }
+
+  /**
+   * Actividades CRM pendientes
+   */
+  private async getActividadesCRMPendientes(
+    config: IWidget['config'],
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const Actividad = await getActividadCRMModel(empresaId, dbConfig);
+    const limite = config.limite || 10;
+
+    const actividades = await Actividad.find({
+      completada: false,
+      fechaProgramada: { $gte: new Date() },
+    })
+      .sort({ fechaProgramada: 1 })
+      .limit(limite)
+      .select('tipo asunto fechaProgramada clienteNombre oportunidadNombre prioridad')
+      .lean();
+
+    return actividades;
+  }
+
+  /**
+   * Gráfica del pipeline CRM
+   */
+  private async getGraficaPipelineCRM(
+    config: IWidget['config'],
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const Oportunidad = await getOportunidadModel(empresaId, dbConfig);
+
+    const datos = await Oportunidad.aggregate([
+      { $match: { cerrada: false } },
+      {
+        $group: {
+          _id: '$etapa',
+          value: { $sum: '$valorEstimado' },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const colores: Record<string, string> = {
+      prospecto: '#94a3b8',
+      calificado: '#3b82f6',
+      propuesta: '#8b5cf6',
+      negociacion: '#f59e0b',
+      cierre: '#10b981',
+    };
+
+    return datos.map((d) => ({
+      name: d._id || 'Sin etapa',
+      value: d.value,
+      count: d.count,
+      color: colores[d._id] || '#6b7280',
+    }));
+  }
+
+  /**
+   * Forecast de ventas CRM
+   */
+  private async getForecastCRM(
+    config: IWidget['config'],
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const Oportunidad = await getOportunidadModel(empresaId, dbConfig);
+    const { fechaDesde, fechaHasta } = this.getFechasFromPeriodo(config.periodo || 'trimestre');
+
+    const [forecast, ganadas] = await Promise.all([
+      Oportunidad.aggregate([
+        {
+          $match: {
+            cerrada: false,
+            fechaCierreEstimada: { $gte: fechaDesde, $lte: fechaHasta },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            valorTotal: { $sum: '$valorEstimado' },
+            valorPonderado: {
+              $sum: { $multiply: ['$valorEstimado', { $divide: ['$probabilidad', 100] }] },
+            },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+      Oportunidad.aggregate([
+        {
+          $match: {
+            cerrada: true,
+            estado: 'ganada',
+            fechaCierre: { $gte: fechaDesde, $lte: fechaHasta },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            valorTotal: { $sum: '$valorEstimado' },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    return {
+      forecastTotal: forecast[0]?.valorTotal || 0,
+      forecastPonderado: forecast[0]?.valorPonderado || 0,
+      oportunidadesAbiertas: forecast[0]?.count || 0,
+      ganado: ganadas[0]?.valorTotal || 0,
+      oportunidadesGanadas: ganadas[0]?.count || 0,
+      periodo: config.periodo || 'trimestre',
+    };
+  }
+
+  // ============================================
+  // MÉTODOS CONTABILIDAD
+  // ============================================
+
+  /**
+   * Resumen contable
+   */
+  private async getResumenContabilidad(
+    config: IWidget['config'],
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const { fechaDesde, fechaHasta } = this.getFechasFromPeriodo(config.periodo);
+
+    const [AsientoContable, CuentaContable] = await Promise.all([
+      getAsientoContableModel(empresaId, dbConfig),
+      getCuentaContableModel(empresaId, dbConfig),
+    ]);
+
+    const [asientosStats, cuentasActivas, ingresoGasto] = await Promise.all([
+      AsientoContable.aggregate([
+        {
+          $match: {
+            fecha: { $gte: fechaDesde, $lte: fechaHasta },
+            estado: 'contabilizado',
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+            totalDebe: { $sum: '$totalDebe' },
+            totalHaber: { $sum: '$totalHaber' },
+          },
+        },
+      ]),
+      CuentaContable.countDocuments({ activa: true, esMovimiento: true }),
+      AsientoContable.aggregate([
+        {
+          $match: {
+            fecha: { $gte: fechaDesde, $lte: fechaHasta },
+            estado: 'contabilizado',
+          },
+        },
+        { $unwind: '$lineas' },
+        {
+          $lookup: {
+            from: 'cuentacontables',
+            localField: 'lineas.cuentaId',
+            foreignField: '_id',
+            as: 'cuenta',
+          },
+        },
+        { $unwind: { path: '$cuenta', preserveNullAndEmptyArrays: true } },
+        {
+          $group: {
+            _id: '$cuenta.tipo',
+            debe: { $sum: '$lineas.debe' },
+            haber: { $sum: '$lineas.haber' },
+          },
+        },
+      ]),
+    ]);
+
+    // Calcular ingresos y gastos
+    const ingresos = ingresoGasto.find((i) => i._id === 'ingreso');
+    const gastos = ingresoGasto.find((i) => i._id === 'gasto');
+
+    return {
+      totalAsientos: asientosStats[0]?.count || 0,
+      cuentasActivas,
+      totalMovimiento: asientosStats[0]?.totalDebe || 0,
+      ingresos: ingresos?.haber || 0,
+      gastos: gastos?.debe || 0,
+      resultado: (ingresos?.haber || 0) - (gastos?.debe || 0),
+      periodo: config.periodo,
+    };
+  }
+
+  /**
+   * Balance rápido (sumas y saldos resumido)
+   */
+  private async getBalanceRapido(
+    config: IWidget['config'],
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const { fechaDesde, fechaHasta } = this.getFechasFromPeriodo(config.periodo || 'anio');
+
+    const AsientoContable = await getAsientoContableModel(empresaId, dbConfig);
+
+    // Agrupar por grupo de cuentas (primer dígito)
+    const balance = await AsientoContable.aggregate([
+      {
+        $match: {
+          fecha: { $gte: fechaDesde, $lte: fechaHasta },
+          estado: 'contabilizado',
+        },
+      },
+      { $unwind: '$lineas' },
+      {
+        $addFields: {
+          grupo: { $substr: ['$lineas.cuentaCodigo', 0, 1] },
+        },
+      },
+      {
+        $group: {
+          _id: '$grupo',
+          debe: { $sum: '$lineas.debe' },
+          haber: { $sum: '$lineas.haber' },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const nombreGrupos: Record<string, string> = {
+      '1': 'Financiación básica',
+      '2': 'Inmovilizado',
+      '3': 'Existencias',
+      '4': 'Acreedores y deudores',
+      '5': 'Cuentas financieras',
+      '6': 'Compras y gastos',
+      '7': 'Ventas e ingresos',
+    };
+
+    return balance.map((b) => ({
+      grupo: b._id,
+      nombre: nombreGrupos[b._id] || `Grupo ${b._id}`,
+      sumaDebe: b.debe,
+      sumaHaber: b.haber,
+      saldoDeudor: b.debe > b.haber ? b.debe - b.haber : 0,
+      saldoAcreedor: b.haber > b.debe ? b.haber - b.debe : 0,
+    }));
+  }
+
+  /**
+   * Últimos asientos contables
+   */
+  private async getUltimosAsientos(
+    config: IWidget['config'],
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const AsientoContable = await getAsientoContableModel(empresaId, dbConfig);
+    const limite = config.limite || 10;
+
+    const asientos = await AsientoContable.find()
+      .sort({ numero: -1 })
+      .limit(limite)
+      .select('numero fecha concepto totalDebe totalHaber estado origenTipo')
+      .lean();
+
+    return asientos;
+  }
+
+  /**
+   * Gráfica de ingresos vs gastos
+   */
+  private async getGraficaIngresosGastos(
+    config: IWidget['config'],
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const { fechaDesde, fechaHasta } = this.getFechasFromPeriodo(config.periodo || 'anio');
+
+    const AsientoContable = await getAsientoContableModel(empresaId, dbConfig);
+
+    const datos = await AsientoContable.aggregate([
+      {
+        $match: {
+          fecha: { $gte: fechaDesde, $lte: fechaHasta },
+          estado: 'contabilizado',
+        },
+      },
+      { $unwind: '$lineas' },
+      {
+        $addFields: {
+          mes: { $month: '$fecha' },
+          grupo: { $substr: ['$lineas.cuentaCodigo', 0, 1] },
+        },
+      },
+      {
+        $match: {
+          grupo: { $in: ['6', '7'] }, // Solo gastos e ingresos
+        },
+      },
+      {
+        $group: {
+          _id: { mes: '$mes', tipo: '$grupo' },
+          total: {
+            $sum: {
+              $cond: [{ $eq: ['$grupo', '7'] }, '$lineas.haber', '$lineas.debe'],
+            },
+          },
+        },
+      },
+      { $sort: { '_id.mes': 1 } },
+    ]);
+
+    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    return meses.map((mes, i) => {
+      const ingresos = datos.find((d) => d._id.mes === i + 1 && d._id.tipo === '7');
+      const gastos = datos.find((d) => d._id.mes === i + 1 && d._id.tipo === '6');
+
+      return {
+        mes,
+        ingresos: ingresos?.total || 0,
+        gastos: gastos?.total || 0,
+        resultado: (ingresos?.total || 0) - (gastos?.total || 0),
+      };
+    });
   }
 }
 

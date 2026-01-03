@@ -95,6 +95,17 @@ export function useLicense(): UseLicenseReturn {
   const isExpired = useMemo(() => license?.estado === 'expirada', [license])
   const isSuspended = useMemo(() => license?.estado === 'suspendida', [license])
 
+  // Mapeo de nombres de módulos a slugs de add-ons
+  // Permite que el sidebar use un nombre y el add-on tenga otro
+  const moduleToAddonSlug: Record<string, string[]> = {
+    'rrhh': ['rrhh', 'rrhh-fichaje'], // El módulo RRHH puede venir de cualquiera de estos add-ons
+    'contabilidad': ['contabilidad'],
+    'tpv': ['tpv'],
+    'proyectos': ['proyectos'],
+    'crm': ['crm'],
+    'restauracion': ['restauracion', 'tpv'], // Restauración también incluido si tiene TPV
+  }
+
   // Verificar si tiene un modulo
   const hasModule = useCallback((moduleName: string): boolean => {
     // Superadmin tiene acceso a todos los modulos
@@ -113,7 +124,12 @@ export function useLicense(): UseLicenseReturn {
 
     // Verificar si tiene el modulo como add-on activo
     if (license?.addOns) {
-      return license.addOns.some(addon => addon.slug === moduleName && addon.activo)
+      // Obtener los posibles slugs de add-on para este módulo
+      const possibleSlugs = moduleToAddonSlug[moduleName] || [moduleName]
+
+      return license.addOns.some(addon =>
+        possibleSlugs.includes(addon.slug) && addon.activo
+      )
     }
 
     return false

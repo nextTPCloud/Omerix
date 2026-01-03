@@ -26,6 +26,13 @@ export interface ILicencia extends Document {
   stripeSubscriptionId?: string;
   paypalSubscriptionId?: string;
 
+  // PayPal Order ID (para órdenes pendientes de captura)
+  paypalOrderId?: string;
+
+  // Campos pendientes (se activan cuando el pago se completa)
+  planPendiente?: mongoose.Types.ObjectId;
+  addOnsPendientes?: string[]; // slugs de add-ons pendientes de activación
+
   // Uso actual (se actualiza en tiempo real)
   usoActual: {
     usuariosSimultaneos: number;
@@ -164,9 +171,16 @@ const LicenciaSchema = new Schema<ILicencia>(
         motivo: String,
       },
     ],
-    // IDs de suscripciones en pasarelas ← AÑADIR ESTO
+    // IDs de suscripciones en pasarelas
     stripeSubscriptionId: String,
     paypalSubscriptionId: String,
+
+    // PayPal Order ID (para órdenes pendientes)
+    paypalOrderId: String,
+
+    // Campos pendientes (se activan cuando el pago se completa)
+    planPendiente: { type: Schema.Types.ObjectId, ref: 'Plan' },
+    addOnsPendientes: [String], // slugs de add-ons
   },
   {
     timestamps: true,

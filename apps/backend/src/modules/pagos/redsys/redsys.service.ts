@@ -3,7 +3,10 @@ import config from '../../../config/env';
 import Pago from '../Pago';
 import Licencia from '../../licencias/Licencia';
 import Plan from '../../licencias/Plan';
+import AddOn from '../../licencias/AddOn';
 import Empresa from '../../empresa/Empresa';
+import { prorrateoService } from '../../licencias/prorrateo.service';
+import { facturacionSuscripcionService } from '../facturacion-suscripcion.service';
 import {
   CreateRedsysPaymentDTO,
   CreateRedsysSubscriptionDTO,
@@ -154,9 +157,50 @@ export class RedsysService {
           pago.metodoPago.ultimos4 = params.Ds_Card_Number.slice(-4);
         }
 
-        // Si es una suscripción, activar la licencia
-        if (pago.concepto === 'suscripcion' && pago.metadata?.licenciaId) {
-          await this.activarLicencia(String(pago.metadata.licenciaId));
+        const empresaId = String(pago.empresaId);
+
+        // Buscar licencia para activar add-ons pendientes
+        const licencia = await Licencia.findOne({ empresaId: pago.empresaId });
+
+        if (licencia) {
+          console.log(`🔄 Procesando licencia Redsys para empresa ${empresaId}`);
+
+          // Actualizar plan pendiente si existe
+          if (licencia.planPendiente) {
+            const nuevoPlan = await Plan.findById(licencia.planPendiente);
+            if (nuevoPlan) {
+              const planAnterior = await Plan.findById(licencia.planId);
+              licencia.planId = licencia.planPendiente;
+              licencia.historial.push({
+                fecha: new Date(),
+                accion: 'CAMBIO_PLAN',
+                planAnterior: planAnterior?.nombre,
+                planNuevo: nuevoPlan.nombre,
+                motivo: 'Pago Redsys completado',
+              });
+              console.log(`✅ Plan actualizado: ${planAnterior?.nombre || 'N/A'} → ${nuevoPlan.nombre}`);
+            }
+            licencia.planPendiente = undefined;
+          }
+
+          // Activar add-ons pendientes
+          if (licencia.addOnsPendientes && licencia.addOnsPendientes.length > 0) {
+            console.log(`🔄 Activando ${licencia.addOnsPendientes.length} add-ons pendientes:`, licencia.addOnsPendientes);
+            await this.activarAddOnsPendientes(empresaId, licencia.addOnsPendientes, licencia.tipoSuscripcion);
+          }
+
+          // Activar licencia si estaba en trial
+          if (licencia.estado === 'trial') {
+            licencia.estado = 'activa';
+            licencia.esTrial = false;
+            licencia.historial.push({
+              fecha: new Date(),
+              accion: 'ACTIVACION',
+              motivo: 'Pago Redsys completado exitosamente',
+            });
+          }
+
+          await licencia.save();
         }
       } else {
         pago.estado = 'fallido';
@@ -167,6 +211,17 @@ export class RedsysService {
       await pago.save();
 
       console.log('✅ Pago de Redsys confirmado:', orderNumber, '- Estado:', pago.estado);
+
+      // Generar factura de suscripción si el pago fue exitoso
+      if (pago.estado === 'completado') {
+        try {
+          const result = await facturacionSuscripcionService.procesarPagoCompletado(String(pago._id));
+          console.log(`✅ Factura ${result.factura.numeroFactura} generada, email: ${result.emailEnviado}`);
+        } catch (facturaError: any) {
+          console.error('Error generando factura de suscripción:', facturaError.message);
+          // No fallar la confirmación por error de facturación
+        }
+      }
 
       return pago;
     } catch (error: any) {
@@ -181,16 +236,106 @@ export class RedsysService {
 
   async createSubscription(empresaId: string, data: CreateRedsysSubscriptionDTO) {
     try {
-      // Obtener plan por ID o slug
-      let plan;
-      if (data.planId) {
-        plan = await Plan.findById(data.planId);
-      } else if (data.planSlug) {
-        plan = await Plan.findOne({ slug: data.planSlug, activo: true });
+      console.log('🔵 [Redsys] createSubscription llamado con:', JSON.stringify(data, null, 2));
+
+      const tipoSuscripcion = data.tipoSuscripcion || 'mensual';
+      const esAnual = tipoSuscripcion === 'anual';
+      const onlyAddOns = data.onlyAddOns === true;
+
+      // Calcular precio total
+      let precioTotal = 0;
+      let descripcion = '';
+      let plan = null;
+
+      // Si NO es solo add-ons, obtener el plan
+      if (!onlyAddOns) {
+        if (data.planId) {
+          plan = await Plan.findById(data.planId);
+        } else if (data.planSlug) {
+          plan = await Plan.findOne({ slug: data.planSlug, activo: true });
+        }
+        if (!plan) {
+          throw new Error('Plan no encontrado');
+        }
+        precioTotal = esAnual ? plan.precio.anual : plan.precio.mensual;
+        descripcion = `Plan ${plan.nombre} (${esAnual ? 'Anual' : 'Mensual'})`;
       }
-      if (!plan) {
-        throw new Error('Plan no encontrado');
+
+      // Calcular precio de add-ons si hay
+      const addOnsSlugs = data.addOns || [];
+      const addOnsDetails: Array<{ nombre: string; precio: number; precioProrrata?: number }> = [];
+      let usaProrrateo = false;
+      let prorrateoInfo: any = null;
+
+      if (addOnsSlugs.length > 0) {
+        const addOnsData = await AddOn.find({
+          slug: { $in: addOnsSlugs },
+          activo: true
+        });
+
+        // Verificar si debe aplicar prorrateo (solo si tiene plan activo y es solo add-ons)
+        const licencia = await Licencia.findOne({ empresaId });
+        const tieneActivaPlan = licencia && licencia.estado === 'activa' && !licencia.esTrial;
+
+        if (onlyAddOns && tieneActivaPlan && addOnsSlugs.length > 0) {
+          try {
+            prorrateoInfo = await prorrateoService.getResumenProrrateo(empresaId, addOnsSlugs);
+            usaProrrateo = prorrateoInfo.aplicaProrrata;
+            console.log('🔵 [Redsys] Prorrateo calculado:', {
+              aplicaProrrata: prorrateoInfo.aplicaProrrata,
+              diasRestantes: prorrateoInfo.diasRestantes,
+              totalCompleto: prorrateoInfo.totales.totalCompleto,
+              totalProrrata: prorrateoInfo.totales.totalProrrata
+            });
+          } catch (e) {
+            console.log('⚠️ [Redsys] No se pudo calcular prorrateo, usando precio completo');
+          }
+        }
+
+        for (const addon of addOnsData) {
+          const precioAddon = esAnual && addon.precioAnual
+            ? addon.precioAnual
+            : addon.precioMensual;
+
+          // Buscar precio prorrateado si aplica
+          let precioProrrata = precioAddon;
+          if (usaProrrateo && prorrateoInfo) {
+            const desgloseItem = prorrateoInfo.desglose.find((d: any) => d.concepto === addon.nombre);
+            if (desgloseItem) {
+              precioProrrata = desgloseItem.precioProrrata;
+            }
+          }
+
+          precioTotal += usaProrrateo ? precioProrrata : precioAddon;
+          addOnsDetails.push({
+            nombre: addon.nombre,
+            precio: precioAddon,
+            precioProrrata: usaProrrateo ? precioProrrata : undefined
+          });
+        }
+
+        if (onlyAddOns) {
+          if (usaProrrateo && prorrateoInfo) {
+            descripcion = `Add-ons (prorrateo ${prorrateoInfo.diasRestantes}d): ${addOnsDetails.map(a => a.nombre).join(', ')}`;
+          } else {
+            descripcion = `Add-ons: ${addOnsDetails.map(a => a.nombre).join(', ')}`;
+          }
+        } else {
+          descripcion += ` + ${addOnsDetails.map(a => a.nombre).join(', ')}`;
+        }
       }
+
+      if (precioTotal <= 0) {
+        throw new Error('El precio total debe ser mayor a 0');
+      }
+
+      // Si se usó prorrateo, usar el total con IVA del servicio
+      if (usaProrrateo && prorrateoInfo) {
+        precioTotal = prorrateoInfo.totales.totalProrrata;
+        console.log(`💳 Redsys: Usando precio prorrateado: ${precioTotal}€`);
+      }
+
+      console.log(`🔵 [Redsys] Creando pago por ${precioTotal}€ - ${descripcion}`);
 
       const empresa = await Empresa.findById(empresaId);
       if (!empresa) {
@@ -202,7 +347,7 @@ export class RedsysService {
 
       // Preparar parámetros para tokenización
       const merchantParameters = {
-        DS_MERCHANT_AMOUNT: this.formatAmount(plan.precio.mensual),
+        DS_MERCHANT_AMOUNT: this.formatAmount(precioTotal),
         DS_MERCHANT_ORDER: orderNumber,
         DS_MERCHANT_MERCHANTCODE: this.merchantCode,
         DS_MERCHANT_CURRENCY: '978', // EUR
@@ -211,8 +356,8 @@ export class RedsysService {
         DS_MERCHANT_MERCHANTURL: `${process.env.BACKEND_URL}/api/pagos/redsys/notification`,
         DS_MERCHANT_URLOK: `${process.env.FRONTEND_URL}/pagos/redsys/subscription/success`,
         DS_MERCHANT_URLKO: `${process.env.FRONTEND_URL}/pagos/redsys/subscription/error`,
-        DS_MERCHANT_MERCHANTNAME: 'Tu ERP SaaS',
-        DS_MERCHANT_PRODUCTDESCRIPTION: `Suscripción ${plan.nombre}`,
+        DS_MERCHANT_MERCHANTNAME: 'Omerix ERP',
+        DS_MERCHANT_PRODUCTDESCRIPTION: descripcion.substring(0, 125), // Redsys limita a 125 caracteres
         DS_MERCHANT_IDENTIFIER: 'REQUIRED', // Solicitar tokenización
       };
 
@@ -230,12 +375,19 @@ export class RedsysService {
         licencia.historial.push({
           fecha: new Date(),
           accion: 'INICIO_SUSCRIPCION',
-          motivo: `Iniciando suscripción a ${plan.nombre}`,
+          motivo: `Iniciando suscripción: ${descripcion}`,
         });
+        // Guardar add-ons pendientes
+        if (addOnsSlugs.length > 0) {
+          licencia.addOnsPendientes = addOnsSlugs;
+        }
+        if (!onlyAddOns && plan) {
+          licencia.planPendiente = plan._id;
+        }
         await licencia.save();
       }
 
-      console.log('✅ Suscripción de Redsys iniciada:', orderNumber);
+      console.log('✅ Suscripción de Redsys iniciada:', orderNumber, '- Precio:', precioTotal, '€');
 
       return {
         redsysUrl: this.getRedsysUrl(),
@@ -456,5 +608,84 @@ export class RedsysService {
       await licencia.save();
       console.log('✅ Licencia activada:', licenciaId);
     }
+  }
+
+  /**
+   * Activa los add-ons pendientes en una licencia
+   */
+  private async activarAddOnsPendientes(
+    empresaId: string,
+    addOnSlugs?: string[],
+    tipoSuscripcion?: 'mensual' | 'anual'
+  ) {
+    const licencia = await Licencia.findOne({ empresaId });
+    if (!licencia) {
+      console.error('❌ No se encontró licencia para empresa:', empresaId);
+      return;
+    }
+
+    // Usar add-ons pasados como parámetro o los pendientes en la licencia
+    const slugsToActivate = addOnSlugs || licencia.addOnsPendientes || [];
+
+    if (slugsToActivate.length === 0) {
+      console.log('ℹ️ No hay add-ons pendientes para activar');
+      return;
+    }
+
+    console.log(`🔄 Activando ${slugsToActivate.length} add-ons para empresa ${empresaId}:`, slugsToActivate);
+
+    // Obtener los add-ons de la base de datos
+    const addOnsData = await AddOn.find({
+      slug: { $in: slugsToActivate },
+      activo: true,
+    });
+
+    const tipo = tipoSuscripcion || licencia.tipoSuscripcion || 'mensual';
+    const esAnual = tipo === 'anual';
+
+    for (const addon of addOnsData) {
+      // Verificar si ya existe el add-on en la licencia
+      const existeAddOn = licencia.addOns?.find(
+        (a: any) => a.slug === addon.slug && a.activo
+      );
+
+      if (existeAddOn) {
+        console.log(`ℹ️ Add-on ${addon.slug} ya estaba activo`);
+        continue;
+      }
+
+      // Calcular precio según tipo de suscripción
+      const precio = esAnual && addon.precioAnual
+        ? addon.precioAnual
+        : addon.precioMensual;
+
+      // Añadir el add-on a la licencia
+      licencia.addOns.push({
+        addOnId: addon._id,
+        nombre: addon.nombre,
+        slug: addon.slug,
+        cantidad: addon.cantidad || 1,
+        precioMensual: addon.precioMensual,
+        activo: true,
+        fechaActivacion: new Date(),
+      });
+
+      console.log(`✅ Add-on activado: ${addon.nombre} (${addon.slug}) - ${precio}€/${esAnual ? 'año' : 'mes'}`);
+    }
+
+    // Limpiar add-ons pendientes
+    licencia.addOnsPendientes = [];
+
+    // Añadir al historial
+    if (addOnsData.length > 0) {
+      licencia.historial.push({
+        fecha: new Date(),
+        accion: 'ACTIVACION_ADDONS',
+        motivo: `Add-ons activados: ${addOnsData.map(a => a.nombre).join(', ')}`,
+      });
+    }
+
+    await licencia.save();
+    console.log(`✅ Licencia actualizada con ${addOnsData.length} add-ons nuevos`);
   }
 }

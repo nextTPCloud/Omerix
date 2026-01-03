@@ -426,6 +426,16 @@ class RolesService {
       { recurso: 'usuarios', nombre: 'Usuarios', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Sistema' },
       { recurso: 'roles', nombre: 'Roles', acciones: ['create', 'read', 'update', 'delete'], grupo: 'Sistema' },
       { recurso: 'configuracion', nombre: 'Configuración', acciones: ['read', 'update'], grupo: 'Sistema' },
+      // CRM
+      { recurso: 'leads', nombre: 'Leads', acciones: ['create', 'read', 'update', 'delete', 'export', 'import'], grupo: 'CRM' },
+      { recurso: 'oportunidades', nombre: 'Oportunidades', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'CRM' },
+      { recurso: 'actividades-crm', nombre: 'Actividades CRM', acciones: ['create', 'read', 'update', 'delete'], grupo: 'CRM' },
+      { recurso: 'pipeline-crm', nombre: 'Pipeline de Ventas', acciones: ['create', 'read', 'update', 'delete'], grupo: 'CRM' },
+      // Contabilidad
+      { recurso: 'cuentas-contables', nombre: 'Plan de Cuentas', acciones: ['create', 'read', 'update', 'delete', 'export', 'import'], grupo: 'Contabilidad' },
+      { recurso: 'asientos', nombre: 'Asientos Contables', acciones: ['create', 'read', 'update', 'delete', 'export'], grupo: 'Contabilidad' },
+      { recurso: 'libros-contables', nombre: 'Libros Contables', acciones: ['read', 'export'], grupo: 'Contabilidad' },
+      { recurso: 'informes-contables', nombre: 'Informes Contables', acciones: ['read', 'export'], grupo: 'Contabilidad' },
     ];
   }
 

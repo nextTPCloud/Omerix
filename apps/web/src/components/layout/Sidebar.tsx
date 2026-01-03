@@ -56,6 +56,13 @@ import {
   CheckSquare,
   FileBarChart,
   Shield,
+  Calculator,
+  Download,
+  PieChart,
+  Target,
+  UserPlus,
+  Phone,
+  Kanban,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFavoritosContext } from '@/contexts/FavoritosContext'
@@ -84,6 +91,7 @@ const iconMap: { [key: string]: any } = {
   Grid3X3, Palette, Database, FileStack, CreditCard, Clock, Landmark,
   Briefcase, UserCog, Star, FolderKanban, CalendarDays, Timer, Fingerprint,
   ArrowRightLeft, ClipboardList, Edit, CheckSquare, FileBarChart,
+  Calculator, Download, PieChart, Target, UserPlus, Phone, Kanban,
 }
 
 // Tipo de permiso requerido para cada grupo
@@ -268,6 +276,47 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    group: 'Contabilidad',
+    icon: Calculator,
+    moduloLicencia: 'contabilidad',
+    items: [
+      {
+        title: 'Panel',
+        href: '/contabilidad',
+        icon: Calculator,
+      },
+      {
+        title: 'Plan de Cuentas',
+        href: '/contabilidad/cuentas',
+        icon: BookOpen,
+      },
+      {
+        title: 'Asientos',
+        icon: FileText,
+        children: [
+          { title: 'Listado asientos', href: '/contabilidad/asientos' },
+          { title: 'Nuevo asiento', href: '/contabilidad/asientos/nuevo' },
+        ],
+      },
+      {
+        title: 'Informes',
+        icon: BarChart3,
+        children: [
+          { title: 'Libro Diario', href: '/contabilidad/informes/libro-diario' },
+          { title: 'Libro Mayor', href: '/contabilidad/informes/libro-mayor' },
+          { title: 'Sumas y Saldos', href: '/contabilidad/informes/sumas-saldos' },
+          { title: 'Balance Situación', href: '/contabilidad/informes/balance' },
+          { title: 'Cuenta Resultados', href: '/contabilidad/informes/resultados' },
+        ],
+      },
+      {
+        title: 'Exportación',
+        href: '/contabilidad/exportar',
+        icon: Download,
+      },
+    ],
+  },
+  {
     group: 'Mi Fichaje',
     icon: Fingerprint,
     requierePersonalId: true, // Solo visible si el usuario tiene empleado vinculado
@@ -412,22 +461,43 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    group: 'Tareas',
-    icon: CheckSquare,
+    group: 'CRM',
+    icon: Target,
     moduloLicencia: 'crm',
     items: [
       {
-        title: 'Tareas',
-        icon: CheckSquare,
+        title: 'Panel CRM',
+        href: '/crm',
+        icon: Target,
+      },
+      {
+        title: 'Leads',
+        icon: UserPlus,
         children: [
-          { title: 'Listado tareas', href: '/tareas' },
-          { title: 'Nueva tarea', href: '/tareas/nuevo' },
+          { title: 'Listado leads', href: '/crm/leads' },
+          { title: 'Nuevo lead', href: '/crm/leads/nuevo' },
         ],
       },
       {
-        title: 'Planificacion',
-        href: '/planificacion',
-        icon: CalendarDays,
+        title: 'Oportunidades',
+        icon: Kanban,
+        children: [
+          { title: 'Pipeline', href: '/crm/oportunidades' },
+          { title: 'Nueva oportunidad', href: '/crm/oportunidades/nueva' },
+        ],
+      },
+      {
+        title: 'Actividades',
+        icon: Phone,
+        children: [
+          { title: 'Listado actividades', href: '/crm/actividades' },
+          { title: 'Nueva actividad', href: '/crm/actividades/nueva' },
+        ],
+      },
+      {
+        title: 'Configuración Pipeline',
+        href: '/crm/configuracion/pipeline',
+        icon: Settings,
       },
     ],
   },

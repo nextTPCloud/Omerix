@@ -579,12 +579,155 @@ export class StripeService {
 
   async createCheckoutSession(empresaId: string, data: CreateCheckoutSessionDTO) {
     try {
+      console.log('🟢 [Stripe] createCheckoutSession llamado con:', JSON.stringify(data, null, 2));
+
       // Obtener o crear customer
       const customerId = await this.getOrCreateCustomer(empresaId);
 
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
       let plan: any = null;
       const addOnSlugs: string[] = data.addOns || [];
+
+      console.log('🟢 [Stripe] Parámetros:', { onlyAddOns: data.onlyAddOns, planSlug: data.planSlug, addOns: addOnSlugs });
+
+      // Verificar si el usuario tiene una suscripción activa en Stripe
+      const licencia = await Licencia.findOne({ empresaId });
+      const existingSubscriptionId = licencia?.stripeSubscriptionId;
+
+      // Si solo compra add-ons y tiene suscripción activa, añadir items a la suscripción existente
+      if (data.onlyAddOns && existingSubscriptionId && addOnSlugs.length > 0) {
+        console.log('🟢 [Stripe] Añadiendo add-ons a suscripción existente:', existingSubscriptionId);
+
+        try {
+          // Verificar que la suscripción existe y está activa
+          const existingSubscription = await stripe.subscriptions.retrieve(existingSubscriptionId);
+
+          if (existingSubscription.status === 'active' || existingSubscription.status === 'trialing') {
+            // Añadir cada add-on como item a la suscripción
+            const addedItems: string[] = [];
+
+            for (const slug of addOnSlugs) {
+              const addOn = await AddOn.findOne({ slug, activo: true });
+              if (!addOn) continue;
+
+              const esAnual = data.tipoSuscripcion === 'anual';
+              const precio = esAnual && addOn.precioAnual
+                ? addOn.precioAnual
+                : addOn.precioMensual;
+
+              // Obtener o crear precio en Stripe
+              let addonPriceId = esAnual ? addOn.stripePriceIdAnual : addOn.stripePriceId;
+
+              if (!addonPriceId) {
+                const stripePrice = await stripe.prices.create({
+                  currency: 'eur',
+                  unit_amount: Math.round(precio * 100),
+                  recurring: addOn.esRecurrente ? {
+                    interval: esAnual ? 'year' : 'month',
+                  } : undefined,
+                  product_data: {
+                    name: `${addOn.nombre} (${esAnual ? 'Anual' : 'Mensual'})`,
+                  },
+                });
+
+                addonPriceId = stripePrice.id;
+                if (esAnual) {
+                  addOn.stripePriceIdAnual = addonPriceId;
+                } else {
+                  addOn.stripePriceId = addonPriceId;
+                }
+                await addOn.save();
+              }
+
+              // Añadir item a la suscripción con proration
+              await stripe.subscriptionItems.create({
+                subscription: existingSubscriptionId,
+                price: addonPriceId,
+                quantity: 1,
+                proration_behavior: 'create_prorations', // Stripe calcula prorrateo automáticamente
+              });
+
+              addedItems.push(addOn.nombre);
+
+              // Activar add-on en la licencia
+              const addOnData = {
+                addOnId: addOn._id,
+                slug: addOn.slug,
+                nombre: addOn.nombre,
+                precioMensual: addOn.precioMensual,
+                cantidad: 1,
+                activo: true,
+                fechaActivacion: new Date(),
+              };
+
+              if (!licencia.addOns) {
+                licencia.addOns = [];
+              }
+
+              // Verificar si ya existe
+              const existingIndex = licencia.addOns.findIndex((a: any) => a.slug === addOn.slug);
+              if (existingIndex >= 0) {
+                licencia.addOns[existingIndex] = addOnData;
+              } else {
+                licencia.addOns.push(addOnData);
+              }
+            }
+
+            await licencia.save();
+
+            console.log('✅ [Stripe] Add-ons añadidos a suscripción existente:', addedItems.join(', '));
+
+            // Calcular monto prorrateado y crear registro de pago + factura
+            try {
+              const prorrateoInfo = await prorrateoService.getResumenProrrateo(empresaId, addOnSlugs);
+
+              if (prorrateoInfo.totales.totalProrrata > 0) {
+                // Crear registro de pago
+                const pago = await Pago.create({
+                  empresaId,
+                  concepto: 'addon',
+                  descripcion: `Add-ons (prorrateo): ${addedItems.join(', ')}`,
+                  cantidad: prorrateoInfo.totales.subtotalProrrata,
+                  moneda: 'EUR',
+                  total: prorrateoInfo.totales.totalProrrata,
+                  pasarela: 'stripe',
+                  transaccionExternaId: `proration-${existingSubscriptionId}-${Date.now()}`,
+                  clienteExternoId: customerId,
+                  estado: 'completado',
+                  fechaPago: new Date(),
+                  metodoPago: { tipo: 'tarjeta' },
+                  metadata: {
+                    addOns: addOnSlugs,
+                    tipoSuscripcion: data.tipoSuscripcion,
+                    esProrrateo: true,
+                    diasRestantes: prorrateoInfo.diasRestantes,
+                  },
+                });
+
+                console.log(`✅ Pago de prorrateo creado: ${pago._id}`);
+
+                // Generar factura
+                const { facturacionSuscripcionService } = await import('../facturacion-suscripcion.service');
+                const result = await facturacionSuscripcionService.procesarPagoCompletado(String(pago._id));
+                console.log(`✅ Factura ${result.factura.numeroFactura} generada`);
+              }
+            } catch (prorrateoError: any) {
+              console.error('Error creando pago/factura de prorrateo:', prorrateoError.message);
+              // No fallar - los add-ons ya están activados
+            }
+
+            // Devolver URL de éxito directamente (no hay checkout, el pago se hace con prorrateo)
+            return {
+              sessionId: 'direct-' + existingSubscriptionId,
+              url: data.successUrl.replace('{CHECKOUT_SESSION_ID}', 'subscription-updated'),
+              message: `Add-ons añadidos: ${addedItems.join(', ')}. El importe prorrateado se cargará a tu método de pago.`,
+            };
+          }
+        } catch (subscriptionError: any) {
+          console.log('⚠️ [Stripe] Suscripción no encontrada o inactiva, creando nueva checkout session');
+          // Continuar con la creación de checkout session normal
+        }
+      }
 
       // Si no es solo add-ons, obtener el plan
       if (!data.onlyAddOns && data.planSlug) {

@@ -3,13 +3,18 @@ import config from '../../../config/env';
 import Pago from '../Pago';
 import Licencia from '../../licencias/Licencia';
 import Plan from '../../licencias/Plan';
+import AddOn from '../../licencias/AddOn';
 import Empresa from '../../empresa/Empresa';
+import { prorrateoService } from '../../licencias/prorrateo.service';
+import { facturacionSuscripcionService } from '../facturacion-suscripcion.service';
 import {
   CreateOrderDTO,
   CreatePayPalSubscriptionDTO,
   CancelPayPalSubscriptionDTO,
   CreatePayPalRefundDTO,
 } from './paypal.dto';
+
+console.log('🔵🔵🔵 [PayPal Service V2] CARGADO - Versión con soporte de add-ons 🔵🔵🔵');
 
 // Configurar cliente de PayPal
 function getPayPalClient() {
@@ -102,7 +107,7 @@ export class PayPalService {
   // ============================================
   // CAPTURAR ORDEN (COMPLETAR PAGO)
   // ============================================
-  
+
   async captureOrder(empresaId: string, orderId: string) {
     try {
         // Capturar la orden en PayPal
@@ -115,41 +120,100 @@ export class PayPalService {
 
         // Actualizar el pago en nuestra BD
         const pago = await Pago.findOne({
-        empresaId,
-        transaccionExternaId: orderId,
+          empresaId,
+          transaccionExternaId: orderId,
         });
 
         if (!pago) {
-        throw new Error('Pago no encontrado');
+          throw new Error('Pago no encontrado');
         }
 
         if (capture.result.status === 'COMPLETED') {
-        pago.estado = 'completado';
-        pago.fechaPago = new Date();
-        pago.estadoDetalle = 'Pago completado exitosamente';
+          pago.estado = 'completado';
+          pago.fechaPago = new Date();
+          pago.estadoDetalle = 'Pago completado exitosamente';
 
-        // Si es una suscripción, activar la licencia
-        if (pago.concepto === 'suscripcion' && pago.metadata?.licenciaId) {
-            await this.activarLicencia(String(pago.metadata.licenciaId));
-        }
+          // Buscar licencia y activar add-ons pendientes
+          const licencia = await Licencia.findOne({
+            $or: [
+              { paypalOrderId: orderId },
+              { empresaId }
+            ]
+          });
+
+          if (licencia) {
+            console.log(`🔄 Procesando licencia para empresa ${empresaId}, orderId: ${orderId}`);
+
+            // Actualizar plan pendiente si existe
+            if (licencia.planPendiente) {
+              const nuevoPlan = await Plan.findById(licencia.planPendiente);
+              if (nuevoPlan) {
+                const planAnterior = await Plan.findById(licencia.planId);
+                licencia.planId = licencia.planPendiente;
+                licencia.historial.push({
+                  fecha: new Date(),
+                  accion: 'CAMBIO_PLAN',
+                  planAnterior: planAnterior?.nombre,
+                  planNuevo: nuevoPlan.nombre,
+                  motivo: 'Pago PayPal completado',
+                });
+                console.log(`✅ Plan actualizado: ${planAnterior?.nombre || 'N/A'} → ${nuevoPlan.nombre}`);
+              }
+              licencia.planPendiente = undefined;
+            }
+
+            // Activar add-ons pendientes
+            if (licencia.addOnsPendientes && licencia.addOnsPendientes.length > 0) {
+              console.log(`🔄 Activando ${licencia.addOnsPendientes.length} add-ons pendientes:`, licencia.addOnsPendientes);
+              await this.activarAddOnsPendientes(empresaId, licencia.addOnsPendientes, licencia.tipoSuscripcion);
+            }
+
+            // Activar licencia si estaba en trial
+            if (licencia.estado === 'trial') {
+              licencia.estado = 'activa';
+              licencia.esTrial = false;
+              licencia.historial.push({
+                fecha: new Date(),
+                accion: 'ACTIVACION',
+                motivo: 'Pago PayPal completado exitosamente',
+              });
+            }
+
+            // Limpiar paypalOrderId
+            licencia.paypalOrderId = undefined;
+
+            await licencia.save();
+            console.log(`✅ Licencia actualizada correctamente`);
+          }
         } else {
-        pago.estado = 'procesando';
-        pago.estadoDetalle = `Estado: ${capture.result.status}`;
+          pago.estado = 'procesando';
+          pago.estadoDetalle = `Estado: ${capture.result.status}`;
         }
 
         await pago.save();
 
         console.log('✅ PayPal Order capturada:', orderId, '- Estado:', pago.estado);
 
+        // Generar factura de suscripción si el pago fue exitoso
+        if (pago.estado === 'completado') {
+          try {
+            const result = await facturacionSuscripcionService.procesarPagoCompletado(String(pago._id));
+            console.log(`✅ Factura ${result.factura.numeroFactura} generada, email: ${result.emailEnviado}`);
+          } catch (facturaError: any) {
+            console.error('Error generando factura de suscripción:', facturaError.message);
+            // No fallar la captura por error de facturación
+          }
+        }
+
         return {
-        pago,
-        capture: capture.result,
+          pago,
+          capture: capture.result,
         };
     } catch (error: any) {
         console.error('Error capturando orden de PayPal:', error);
         throw new Error(`Error capturando orden: ${error.message}`);
     }
- }
+  }
 
   // ============================================
   // OBTENER DETALLES DE ORDEN
@@ -263,87 +327,182 @@ export class PayPalService {
 
     async createSubscription(empresaId: string, data: CreatePayPalSubscriptionDTO) {
     try {
-        // Obtener plan por ID o slug
-        let plan;
-        if (data.planId) {
-          plan = await Plan.findById(data.planId);
-        } else if (data.planSlug) {
-          plan = await Plan.findOne({ slug: data.planSlug, activo: true });
-        }
-        if (!plan) {
-          throw new Error('Plan no encontrado');
-        }
+        console.log('🔵 [PayPal V2] createSubscription llamado con:', JSON.stringify(data, null, 2));
 
-        // Determinar tipo de suscripción
         const tipoSuscripcion = data.tipoSuscripcion || 'mensual';
         const esAnual = tipoSuscripcion === 'anual';
+        const onlyAddOns = data.onlyAddOns === true;
 
-        // Crear plan en PayPal si no existe para este tipo de suscripción
-        // Usamos paypalPlanId para mensual y paypalPlanIdAnual para anual
-        let paypalPlanId = esAnual ? plan.paypalPlanIdAnual : plan.paypalPlanId;
-        if (!paypalPlanId) {
-          paypalPlanId = await this.createPayPalPlan(plan, tipoSuscripcion);
-          if (esAnual) {
-            plan.paypalPlanIdAnual = paypalPlanId;
-          } else {
-            plan.paypalPlanId = paypalPlanId;
+        console.log('🔵 [PayPal V2] Parámetros:', { tipoSuscripcion, esAnual, onlyAddOns, addOns: data.addOns });
+
+        // Calcular precio total
+        let precioTotal = 0;
+        let descripcion = '';
+        let plan = null;
+
+        // Si NO es solo add-ons, obtener el plan
+        if (!onlyAddOns) {
+          if (data.planId) {
+            plan = await Plan.findById(data.planId);
+          } else if (data.planSlug) {
+            plan = await Plan.findOne({ slug: data.planSlug, activo: true });
           }
-          await plan.save();
+          if (!plan) {
+            throw new Error('Plan no encontrado');
+          }
+          precioTotal = esAnual ? plan.precio.anual : plan.precio.mensual;
+          descripcion = `Plan ${plan.nombre} (${esAnual ? 'Anual' : 'Mensual'})`;
         }
 
-        // Crear suscripción en PayPal
-        const subscriptionRequest = {
-        plan_id: paypalPlanId,
-        application_context: {
-            brand_name: 'Tu ERP SaaS',
-            locale: 'es-ES',
-            user_action: 'SUBSCRIBE_NOW',
-            payment_method: {
-            payer_selected: 'PAYPAL',
-            payee_preferred: 'IMMEDIATE_PAYMENT_REQUIRED',
+        // Calcular precio de add-ons si hay
+        const addOnsSlugs = data.addOns || [];
+        const addOnsDetails: Array<{ nombre: string; precio: number; precioProrrata?: number }> = [];
+        let usaProrrateo = false;
+        let prorrateoInfo: any = null;
+
+        if (addOnsSlugs.length > 0) {
+          const addOnsData = await AddOn.find({
+            slug: { $in: addOnsSlugs },
+            activo: true
+          });
+
+          // Verificar si debe aplicar prorrateo (solo si tiene plan activo y es solo add-ons)
+          const licencia = await Licencia.findOne({ empresaId });
+          const tieneActivaPlan = licencia && licencia.estado === 'activa' && !licencia.esTrial;
+
+          if (onlyAddOns && tieneActivaPlan && addOnsSlugs.length > 0) {
+            try {
+              prorrateoInfo = await prorrateoService.getResumenProrrateo(empresaId, addOnsSlugs);
+              usaProrrateo = prorrateoInfo.aplicaProrrata;
+              console.log('🔵 [PayPal] Prorrateo calculado:', {
+                aplicaProrrata: prorrateoInfo.aplicaProrrata,
+                diasRestantes: prorrateoInfo.diasRestantes,
+                totalCompleto: prorrateoInfo.totales.totalCompleto,
+                totalProrrata: prorrateoInfo.totales.totalProrrata
+              });
+            } catch (e) {
+              console.log('⚠️ [PayPal] No se pudo calcular prorrateo, usando precio completo');
+            }
+          }
+
+          for (const addon of addOnsData) {
+            const precioAddon = esAnual && addon.precioAnual
+              ? addon.precioAnual
+              : addon.precioMensual;
+
+            // Buscar precio prorrateado si aplica
+            let precioProrrata = precioAddon;
+            if (usaProrrateo && prorrateoInfo) {
+              const desgloseItem = prorrateoInfo.desglose.find((d: any) => d.concepto === addon.nombre);
+              if (desgloseItem) {
+                precioProrrata = desgloseItem.precioProrrata;
+              }
+            }
+
+            precioTotal += usaProrrateo ? precioProrrata : precioAddon;
+            addOnsDetails.push({
+              nombre: addon.nombre,
+              precio: precioAddon,
+              precioProrrata: usaProrrateo ? precioProrrata : undefined
+            });
+          }
+
+          if (onlyAddOns) {
+            if (usaProrrateo && prorrateoInfo) {
+              descripcion = `Add-ons (prorrateado ${prorrateoInfo.diasRestantes} días): ${addOnsDetails.map(a => a.nombre).join(', ')}`;
+            } else {
+              descripcion = `Add-ons: ${addOnsDetails.map(a => a.nombre).join(', ')}`;
+            }
+          } else {
+            descripcion += ` + ${addOnsDetails.map(a => a.nombre).join(', ')}`;
+          }
+        }
+
+        if (precioTotal <= 0) {
+          throw new Error('El precio total debe ser mayor a 0');
+        }
+
+        // Si se usó prorrateo, usar el total con IVA del servicio
+        if (usaProrrateo && prorrateoInfo) {
+          precioTotal = prorrateoInfo.totales.totalProrrata;
+          console.log(`💳 PayPal: Usando precio prorrateado: ${precioTotal}€`);
+        }
+
+        console.log(`💳 PayPal: Creando orden por ${precioTotal}€ - ${descripcion}`);
+
+        // Para pagos con add-ons o precio custom, usar ORDER en lugar de SUBSCRIPTION
+        // Esto permite un pago único con el precio exacto calculado
+        const request = new paypal.orders.OrdersCreateRequest();
+        request.prefer('return=representation');
+        request.requestBody({
+          intent: 'CAPTURE',
+          purchase_units: [
+            {
+              description: descripcion,
+              amount: {
+                currency_code: 'EUR',
+                value: precioTotal.toFixed(2),
+              },
+              custom_id: empresaId,
             },
+          ],
+          application_context: {
+            brand_name: 'Omerix ERP',
+            landing_page: 'NO_PREFERENCE',
+            user_action: 'PAY_NOW',
             return_url: `${process.env.FRONTEND_URL}/pagos/paypal/subscription/success`,
             cancel_url: `${process.env.FRONTEND_URL}/pagos/paypal/subscription/cancel`,
-        },
-        custom_id: empresaId,
-        };
+          },
+        });
 
-        const response = await fetch(
-        `https://api-m.${config.paypal.mode}.paypal.com/v1/billing/subscriptions`,
-        {
-            method: 'POST',
-            headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${await this.getAccessToken()}`,
-            },
-            body: JSON.stringify(subscriptionRequest),
-        }
-        );
+        const order = await client.execute(request);
 
-        const subscription = await response.json() as any; // ← AÑADIR 'as any'
+        // Crear registro de pago en nuestra BD
+        const pago = await Pago.create({
+          empresaId,
+          concepto: onlyAddOns ? 'addon' : 'suscripcion',
+          descripcion,
+          cantidad: precioTotal,
+          moneda: 'EUR',
+          total: precioTotal,
+          pasarela: 'paypal',
+          transaccionExternaId: order.result.id,
+          estado: 'pendiente',
+          metodoPago: { tipo: 'paypal' },
+          metadata: {
+            planSlug: plan?.slug,
+            planNombre: plan?.nombre,
+            addOns: addOnsSlugs,
+            addOnsDetails,
+            tipoSuscripcion,
+            onlyAddOns,
+          },
+        });
 
-        // Guardar en licencia (incluyendo el nuevo plan)
+        // Guardar add-ons pendientes en licencia (se activarán al capturar pago)
         const licencia = await Licencia.findOne({ empresaId });
         if (licencia) {
-          const planAnterior = licencia.planId;
-          licencia.paypalSubscriptionId = subscription.id;
-          licencia.planId = plan._id; // Actualizar al nuevo plan
-          licencia.tipoSuscripcion = data.tipoSuscripcion || 'mensual';
+          licencia.paypalOrderId = order.result.id; // Guardar order ID para activar después
+          if (!onlyAddOns && plan) {
+            licencia.planPendiente = plan._id;
+          }
+          licencia.addOnsPendientes = addOnsSlugs;
           await licencia.save();
-          console.log(`📋 Licencia actualizada: plan ${planAnterior} → ${plan._id}`);
         }
 
-        console.log('✅ Suscripción de PayPal creada:', subscription.id);
+        console.log('✅ PayPal Order creada:', order.result.id, '- Precio:', precioTotal, '€');
 
         // Obtener el link de aprobación
-        const approvalLink = subscription.links?.find(
-        (link: any) => link.rel === 'approve'
+        const approvalLink = order.result.links?.find(
+          (link: any) => link.rel === 'approve'
         )?.href;
 
         return {
-        subscriptionId: subscription.id,
-        approvalUrl: approvalLink,
-        subscription,
+          subscriptionId: order.result.id, // Mantener el nombre para compatibilidad
+          orderId: order.result.id,
+          approvalUrl: approvalLink,
+          subscription: order.result,
+          pago,
         };
     } catch (error: any) {
         console.error('Error creando suscripción de PayPal:', error);
@@ -572,5 +731,80 @@ export class PayPalService {
       await licencia.save();
       console.log('✅ Licencia activada:', licenciaId);
     }
+  }
+
+  /**
+   * Activa los add-ons pendientes en una licencia
+   */
+  private async activarAddOnsPendientes(
+    empresaId: string,
+    addOnSlugs?: string[],
+    tipoSuscripcion?: 'mensual' | 'anual'
+  ) {
+    const licencia = await Licencia.findOne({ empresaId });
+    if (!licencia) {
+      console.error('❌ No se encontró licencia para empresa:', empresaId);
+      return;
+    }
+
+    // Usar add-ons pasados como parámetro o los pendientes en la licencia
+    const slugsToActivate = addOnSlugs || licencia.addOnsPendientes || [];
+
+    if (slugsToActivate.length === 0) {
+      console.log('ℹ️ No hay add-ons pendientes para activar');
+      return;
+    }
+
+    console.log(`🔄 Activando ${slugsToActivate.length} add-ons para empresa ${empresaId}:`, slugsToActivate);
+
+    // Obtener los add-ons de la base de datos
+    const addOnsData = await AddOn.find({
+      slug: { $in: slugsToActivate },
+      activo: true,
+    });
+
+    const tipo = tipoSuscripcion || licencia.tipoSuscripcion || 'mensual';
+    const esAnual = tipo === 'anual';
+
+    for (const addon of addOnsData) {
+      // Verificar si ya existe el add-on en la licencia
+      const existeAddOn = licencia.addOns?.find(
+        (a: any) => a.slug === addon.slug && a.activo
+      );
+
+      if (existeAddOn) {
+        console.log(`ℹ️ Add-on ${addon.slug} ya estaba activo`);
+        continue;
+      }
+
+      // Añadir el add-on a la licencia
+      licencia.addOns.push({
+        addOnId: addon._id,
+        nombre: addon.nombre,
+        slug: addon.slug,
+        cantidad: addon.cantidad || 1,
+        precioMensual: addon.precioMensual,
+        activo: true,
+        fechaActivacion: new Date(),
+      });
+
+      const precio = esAnual && addon.precioAnual ? addon.precioAnual : addon.precioMensual;
+      console.log(`✅ Add-on activado: ${addon.nombre} (${addon.slug}) - ${precio}€/${esAnual ? 'año' : 'mes'}`);
+    }
+
+    // Limpiar add-ons pendientes
+    licencia.addOnsPendientes = [];
+
+    // Añadir al historial
+    if (addOnsData.length > 0) {
+      licencia.historial.push({
+        fecha: new Date(),
+        accion: 'ACTIVACION_ADDONS',
+        motivo: `Add-ons activados: ${addOnsData.map(a => a.nombre).join(', ')}`,
+      });
+    }
+
+    await licencia.save();
+    console.log(`✅ Licencia actualizada con ${addOnsData.length} add-ons nuevos`);
   }
 }

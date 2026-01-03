@@ -102,6 +102,16 @@ export type RecursoSistema =
   | 'tpv'              // Gestion de TPVs registrados
   | 'tpv-sesiones'     // Ver/cerrar sesiones de TPV
   | 'cajas'            // Cajas registradoras
+  // CRM
+  | 'leads'            // Leads/prospectos
+  | 'oportunidades'    // Oportunidades de venta
+  | 'actividades-crm'  // Actividades CRM (llamadas, reuniones, tareas)
+  | 'pipeline-crm'     // Configuración del pipeline
+  // Contabilidad
+  | 'cuentas-contables'  // Plan de cuentas
+  | 'asientos'           // Asientos contables
+  | 'libros-contables'   // Libro diario, libro mayor
+  | 'informes-contables' // Informes contables (balance, PyG, etc)
   // Otros
   | 'tarifas'
   | 'ofertas'
@@ -286,6 +296,16 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         tpv: ['create', 'read', 'update', 'delete'],
         'tpv-sesiones': ['read', 'delete'],
         cajas: ['create', 'read', 'update', 'delete', 'export'],
+        // CRM
+        leads: ['create', 'read', 'update', 'delete', 'export', 'import'],
+        oportunidades: ['create', 'read', 'update', 'delete', 'export'],
+        'actividades-crm': ['create', 'read', 'update', 'delete'],
+        'pipeline-crm': ['create', 'read', 'update', 'delete'],
+        // Contabilidad
+        'cuentas-contables': ['create', 'read', 'update', 'delete', 'export', 'import'],
+        asientos: ['create', 'read', 'update', 'delete', 'export'],
+        'libros-contables': ['read', 'export'],
+        'informes-contables': ['read', 'export'],
         // Otros
         tarifas: ['create', 'read', 'update', 'delete'],
         ofertas: ['create', 'read', 'update', 'delete'],
@@ -351,6 +371,16 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         tpv: ['create', 'read', 'update'],
         'tpv-sesiones': ['read', 'delete'],
         cajas: ['create', 'read', 'update', 'export'],
+        // CRM
+        leads: ['create', 'read', 'update', 'delete', 'export'],
+        oportunidades: ['create', 'read', 'update', 'delete', 'export'],
+        'actividades-crm': ['create', 'read', 'update', 'delete'],
+        'pipeline-crm': ['read', 'update'],
+        // Contabilidad
+        'cuentas-contables': ['read', 'update', 'export'],
+        asientos: ['create', 'read', 'update', 'export'],
+        'libros-contables': ['read', 'export'],
+        'informes-contables': ['read', 'export'],
         // Otros
         tarifas: ['create', 'read', 'update'],
         ofertas: ['create', 'read', 'update', 'delete'],
@@ -438,6 +468,16 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         tpv: ['read'],
         'tpv-sesiones': [],
         cajas: ['create', 'read', 'update'],
+        // CRM - acceso operativo
+        leads: ['create', 'read', 'update'],
+        oportunidades: ['create', 'read', 'update'],
+        'actividades-crm': ['create', 'read', 'update'],
+        'pipeline-crm': ['read'],
+        // Contabilidad - sin acceso
+        'cuentas-contables': [],
+        asientos: [],
+        'libros-contables': [],
+        'informes-contables': [],
         // Otros
         tarifas: ['read'],
         ofertas: ['read'],
@@ -514,6 +554,16 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         tpv: [],
         'tpv-sesiones': [],
         cajas: [],
+        // CRM - sin acceso
+        leads: [],
+        oportunidades: [],
+        'actividades-crm': [],
+        'pipeline-crm': [],
+        // Contabilidad - sin acceso
+        'cuentas-contables': [],
+        asientos: [],
+        'libros-contables': [],
+        'informes-contables': [],
         // Otros
         tarifas: [],
         ofertas: [],
@@ -584,6 +634,16 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         tpv: [],
         'tpv-sesiones': [],
         cajas: [],
+        // CRM - sin acceso
+        leads: [],
+        oportunidades: [],
+        'actividades-crm': [],
+        'pipeline-crm': [],
+        // Contabilidad - sin acceso
+        'cuentas-contables': [],
+        asientos: [],
+        'libros-contables': [],
+        'informes-contables': [],
         // Otros
         tarifas: [],
         ofertas: [],
@@ -654,6 +714,16 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         tpv: ['read'],
         'tpv-sesiones': ['read'],
         cajas: ['read'],
+        // CRM lectura
+        leads: ['read'],
+        oportunidades: ['read'],
+        'actividades-crm': ['read'],
+        'pipeline-crm': ['read'],
+        // Contabilidad lectura
+        'cuentas-contables': ['read'],
+        asientos: ['read'],
+        'libros-contables': ['read'],
+        'informes-contables': ['read'],
         // Otros lectura
         tarifas: ['read'],
         ofertas: ['read'],
@@ -666,9 +736,11 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         accesoVentas: true,
         accesoCompras: true,
         accesoAlmacen: true,
+        accesoContabilidad: true,
         accesoInformes: true,
         accesoTesoreria: true,
         accesoProyectos: true,
+        accesoCRM: true,
       },
     },
   },
@@ -729,6 +801,16 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         tpv: [],
         'tpv-sesiones': [],
         cajas: [],
+        // CRM - sin acceso
+        leads: [],
+        oportunidades: [],
+        'actividades-crm': [],
+        'pipeline-crm': [],
+        // Contabilidad - sin acceso
+        'cuentas-contables': [],
+        asientos: [],
+        'libros-contables': [],
+        'informes-contables': [],
         // Otros
         tarifas: [],
         ofertas: [],
@@ -803,6 +885,16 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         tpv: [],
         'tpv-sesiones': [],
         cajas: ['read', 'export'],
+        // CRM - sin acceso
+        leads: [],
+        oportunidades: [],
+        'actividades-crm': [],
+        'pipeline-crm': [],
+        // Contabilidad - acceso completo
+        'cuentas-contables': ['read', 'update', 'export'],
+        asientos: ['create', 'read', 'update', 'export'],
+        'libros-contables': ['read', 'export'],
+        'informes-contables': ['read', 'export'],
         // Otros
         tarifas: [],
         ofertas: [],

@@ -49,6 +49,15 @@ import { TPVRegistradoSchema, ITPVRegistrado } from '../modules/tpv/TPVRegistrad
 import { SesionTPVSchema, ISesionTPV } from '../modules/tpv/SesionTPV';
 import MovimientoExtracto, { IMovimientoExtracto } from '../modules/tesoreria/models/MovimientoExtracto';
 import ImportacionExtracto, { IImportacionExtracto } from '../modules/tesoreria/models/ImportacionExtracto';
+// Contabilidad
+import CuentaContable, { ICuentaContable } from '../modules/contabilidad/models/PlanCuentas';
+import AsientoContable, { IAsientoContable } from '../modules/contabilidad/models/AsientoContable';
+import ConfigContable, { IConfigContable } from '../modules/contabilidad/models/ConfigContable';
+// CRM
+import Lead, { ILead } from '../modules/crm/Lead';
+import EtapaPipeline, { IEtapaPipeline } from '../modules/crm/EtapaPipeline';
+import Oportunidad, { IOportunidad } from '../modules/crm/Oportunidad';
+import Actividad, { IActividad } from '../modules/crm/Actividad';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -856,6 +865,126 @@ export const getImportacionExtractoModel = async (
   );
 };
 
+// ============================================
+// CONTABILIDAD
+// ============================================
+
+/**
+ * Obtener modelo de CuentaContable para una empresa específica
+ */
+export const getCuentaContableModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ICuentaContable>> => {
+  const CuentaContableSchema = CuentaContable.schema;
+  return databaseManager.getModel<ICuentaContable>(
+    empresaId,
+    dbConfig,
+    'CuentaContable',
+    CuentaContableSchema
+  );
+};
+
+/**
+ * Obtener modelo de AsientoContable para una empresa específica
+ */
+export const getAsientoContableModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IAsientoContable>> => {
+  const AsientoContableSchema = AsientoContable.schema;
+  return databaseManager.getModel<IAsientoContable>(
+    empresaId,
+    dbConfig,
+    'AsientoContable',
+    AsientoContableSchema
+  );
+};
+
+/**
+ * Obtener modelo de ConfigContable para una empresa específica
+ */
+export const getConfigContableModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IConfigContable>> => {
+  const ConfigContableSchema = ConfigContable.schema;
+  return databaseManager.getModel<IConfigContable>(
+    empresaId,
+    dbConfig,
+    'ConfigContable',
+    ConfigContableSchema
+  );
+};
+
+// ============================================
+// CRM
+// ============================================
+
+/**
+ * Obtener modelo de Lead para una empresa específica
+ */
+export const getLeadModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ILead>> => {
+  const LeadSchema = Lead.schema;
+  return databaseManager.getModel<ILead>(
+    empresaId,
+    dbConfig,
+    'Lead',
+    LeadSchema
+  );
+};
+
+/**
+ * Obtener modelo de EtapaPipeline para una empresa específica
+ */
+export const getEtapaPipelineModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IEtapaPipeline>> => {
+  const EtapaPipelineSchema = EtapaPipeline.schema;
+  return databaseManager.getModel<IEtapaPipeline>(
+    empresaId,
+    dbConfig,
+    'EtapaPipeline',
+    EtapaPipelineSchema
+  );
+};
+
+/**
+ * Obtener modelo de Oportunidad para una empresa específica
+ */
+export const getOportunidadModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IOportunidad>> => {
+  const OportunidadSchema = Oportunidad.schema;
+  return databaseManager.getModel<IOportunidad>(
+    empresaId,
+    dbConfig,
+    'Oportunidad',
+    OportunidadSchema
+  );
+};
+
+/**
+ * Obtener modelo de Actividad CRM para una empresa específica
+ */
+export const getActividadCRMModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IActividad>> => {
+  const ActividadSchema = Actividad.schema;
+  return databaseManager.getModel<IActividad>(
+    empresaId,
+    dbConfig,
+    'ActividadCRM',
+    ActividadSchema
+  );
+};
+
 /**
  * Objeto con todos los modelos por empresa
  * Se puede extender con más modelos según sea necesario
@@ -909,6 +1038,15 @@ export const EmpresaModels = {
   SesionTPV: getSesionTPVModel,
   MovimientoExtracto: getMovimientoExtractoModel,
   ImportacionExtracto: getImportacionExtractoModel,
+  // Contabilidad
+  CuentaContable: getCuentaContableModel,
+  AsientoContable: getAsientoContableModel,
+  ConfigContable: getConfigContableModel,
+  // CRM
+  Lead: getLeadModel,
+  EtapaPipeline: getEtapaPipelineModel,
+  Oportunidad: getOportunidadModel,
+  ActividadCRM: getActividadCRMModel,
 };
 
 /**
