@@ -205,7 +205,7 @@ const TPVRegistradoSchema = new Schema<ITPVRegistrado>(
 
 // Indices - Ya no necesitan empresaId porque cada empresa tiene su propia BD
 TPVRegistradoSchema.index({ estado: 1 });
-TPVRegistradoSchema.index({ deviceId: 1 }, { unique: true });
+// deviceId ya tiene unique: true en la definición del campo
 
 // Exportar el schema para modelos dinamicos (NO exportar modelo para evitar colecciones en BD principal)
 export { TPVRegistradoSchema };

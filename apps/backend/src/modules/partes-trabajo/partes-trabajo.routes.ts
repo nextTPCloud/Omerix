@@ -101,6 +101,41 @@ router.get('/cliente/:clienteId', partesTrabajoController.obtenerPorCliente);
  */
 router.post('/bulk/delete', partesTrabajoController.eliminarMultiples);
 
+/**
+ * @swagger
+ * /api/partes-trabajo/planificacion:
+ *   get:
+ *     summary: Obtener partes para el calendario de planificación
+ *     tags: [PartesTrabajo]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: fechaDesde
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: fechaHasta
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: personalId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: tipo
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de partes para calendario
+ */
+router.get('/planificacion', partesTrabajoController.obtenerParaPlanificacion);
+
 // ============================================
 // RUTAS CRUD BASICAS
 // ============================================
@@ -545,5 +580,57 @@ router.post('/:id/duplicar', partesTrabajoController.duplicar);
  *         description: Parte no encontrado
  */
 router.post('/:id/enviar-email', partesTrabajoController.enviarEmail);
+
+// ============================================
+// RUTAS DE SINCRONIZACIÓN GOOGLE CALENDAR
+// ============================================
+
+/**
+ * @swagger
+ * /api/partes-trabajo/{id}/sync-calendar:
+ *   post:
+ *     summary: Sincronizar todas las jornadas del parte con Google Calendar
+ *     tags: [PartesTrabajo]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del parte de trabajo
+ *     responses:
+ *       200:
+ *         description: Jornadas sincronizadas con Google Calendar
+ */
+router.post('/:id/sync-calendar', partesTrabajoController.sincronizarJornadasCalendar);
+
+/**
+ * @swagger
+ * /api/partes-trabajo/{id}/jornadas/{jornadaIndex}/sync-calendar:
+ *   post:
+ *     summary: Sincronizar una jornada específica con Google Calendar
+ *     tags: [PartesTrabajo]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del parte de trabajo
+ *       - in: path
+ *         name: jornadaIndex
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Índice de la jornada (0-based)
+ *     responses:
+ *       200:
+ *         description: Jornada sincronizada con Google Calendar
+ */
+router.post('/:id/jornadas/:jornadaIndex/sync-calendar', partesTrabajoController.sincronizarJornadaCalendar);
 
 export default router;

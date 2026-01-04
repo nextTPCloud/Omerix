@@ -25,7 +25,12 @@ import {
   ArrowRight,
   Zap,
   Shield,
-  Headphones
+  Headphones,
+  Target,
+  Calendar,
+  Share2,
+  Bell,
+  PieChart,
 } from 'lucide-react'
 
 // Header publico
@@ -256,17 +261,31 @@ function HeroSection() {
 
 // Seccion Modulos
 function ModulosSection() {
-  const modulos = [
+  const modulosCore = [
     { icon: ShoppingCart, nombre: 'Ventas', descripcion: 'Facturas, presupuestos, pedidos, albaranes y control de cobros.', disponible: true },
     { icon: Package, nombre: 'Compras', descripcion: 'Pedidos a proveedores, albaranes de entrada y gestion de pagos.', disponible: true },
     { icon: Warehouse, nombre: 'Inventario', descripcion: 'Multi-almacen, control de stock, traspasos y trazabilidad.', disponible: true },
     { icon: Users, nombre: 'RRHH', descripcion: 'Personal, fichajes, turnos, calendarios y planificacion.', disponible: true },
     { icon: Briefcase, nombre: 'Proyectos', descripcion: 'Gestion de proyectos, tareas, partes de trabajo y rentabilidad.', disponible: true },
-    { icon: BarChart3, nombre: 'Informes', descripcion: 'Informes personalizables, graficos y exportacion a Excel/PDF.', disponible: true },
     { icon: CreditCard, nombre: 'Tesoreria', descripcion: 'Cobros, pagos, vencimientos, remesas y prevision de caja.', disponible: true },
-    { icon: UtensilsCrossed, nombre: 'Restauracion', descripcion: 'Comandas, mesas, carta digital y gestion de cocina.', disponible: true, addon: true },
-    { icon: Monitor, nombre: 'TPV', descripcion: 'Punto de venta tactil, tickets y cierre de caja.', disponible: false, proximamente: true }
   ]
+
+  const modulosPro = [
+    { icon: Target, nombre: 'CRM', descripcion: 'Leads, oportunidades, pipeline de ventas y actividades comerciales.', disponible: true, pro: true },
+    { icon: Calculator, nombre: 'Contabilidad', descripcion: 'Plan de cuentas, asientos, balances, cuenta de resultados y libro mayor.', disponible: true, pro: true },
+    { icon: Share2, nombre: 'Redes Sociales', descripcion: 'Publica en Facebook e Instagram, programa contenido y analiza metricas.', disponible: true, pro: true },
+    { icon: Calendar, nombre: 'Google Calendar', descripcion: 'Sincronizacion bidireccional con partes, tareas y actividades CRM.', disponible: true, pro: true },
+    { icon: Bell, nombre: 'Recordatorios', descripcion: 'Alertas unificadas, notificaciones y seguimiento automatico.', disponible: true, pro: true },
+    { icon: PieChart, nombre: 'Dashboard Pro', descripcion: 'Widgets personalizables de CRM, contabilidad y KPIs avanzados.', disponible: true, pro: true },
+  ]
+
+  const modulosExtra = [
+    { icon: BarChart3, nombre: 'Informes', descripcion: 'Informes personalizables, graficos y exportacion a Excel/PDF.', disponible: true },
+    { icon: UtensilsCrossed, nombre: 'Restauracion', descripcion: 'Comandas, mesas, carta digital y gestion de cocina.', disponible: true, addon: true },
+    { icon: Monitor, nombre: 'TPV', descripcion: 'Punto de venta tactil, tickets y cierre de caja.', disponible: true },
+  ]
+
+  const modulos = [...modulosCore, ...modulosPro, ...modulosExtra]
 
   return (
     <section id="modulos" className="py-20 bg-white">
@@ -281,16 +300,19 @@ function ModulosSection() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {modulos.map((modulo) => (
-            <Card key={modulo.nombre} className={`relative overflow-hidden transition-all hover:shadow-lg ${!modulo.disponible ? 'opacity-75' : ''}`}>
+          {modulos.map((modulo: any) => (
+            <Card key={modulo.nombre} className={`relative overflow-hidden transition-all hover:shadow-lg ${!modulo.disponible ? 'opacity-75' : ''} ${modulo.pro ? 'border-purple-200 bg-purple-50/30' : ''}`}>
               {modulo.proximamente && (
                 <Badge className="absolute top-3 right-3 bg-amber-100 text-amber-700 border-amber-200">Proximamente</Badge>
               )}
               {modulo.addon && (
                 <Badge className="absolute top-3 right-3 bg-purple-100 text-purple-700 border-purple-200">Add-on</Badge>
               )}
+              {modulo.pro && (
+                <Badge className="absolute top-3 right-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">Pro</Badge>
+              )}
               <CardHeader>
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-3 ${modulo.disponible ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-3 ${modulo.pro ? 'bg-purple-100 text-purple-600' : modulo.disponible ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
                   {!modulo.disponible ? <Lock className="h-6 w-6" /> : <modulo.icon className="h-6 w-6" />}
                 </div>
                 <CardTitle className="text-lg">{modulo.nombre}</CardTitle>
@@ -311,7 +333,11 @@ function BeneficiosSection() {
     { icon: Shield, titulo: 'Seguro y fiable', descripcion: 'Datos cifrados, backups automaticos y servidores en la Union Europea.' },
     { icon: Building2, titulo: 'Multi-empresa', descripcion: 'Gestiona varias empresas desde una unica cuenta. Perfecto para grupos.' },
     { icon: FileText, titulo: 'Integracion Hacienda', descripcion: 'Preparado para SII y TicketBAI. Cumple con la normativa fiscal espanola.' },
-    { icon: Calculator, titulo: 'Contabilidad integrada', descripcion: 'Asientos automaticos, balances, cuentas anuales y conexion con asesorias.' },
+    { icon: Target, titulo: 'CRM integrado', descripcion: 'Pipeline de ventas, leads, oportunidades y seguimiento comercial completo.' },
+    { icon: Calendar, titulo: 'Sincronizacion calendario', descripcion: 'Google Calendar bidireccional. Tus citas y tareas siempre sincronizadas.' },
+    { icon: Share2, titulo: 'Redes sociales', descripcion: 'Publica en Facebook e Instagram. Programa contenido y analiza metricas.' },
+    { icon: Bell, titulo: 'Alertas inteligentes', descripcion: 'Recordatorios automaticos de vencimientos, seguimientos y tareas.' },
+    { icon: Calculator, titulo: 'Contabilidad completa', descripcion: 'Plan de cuentas, asientos, balances, cuenta de resultados y libro mayor.' },
     { icon: Headphones, titulo: 'Soporte en espanol', descripcion: 'Equipo local que entiende tu negocio. Respuesta rapida y personalizada.' }
   ]
 
@@ -323,18 +349,14 @@ function BeneficiosSection() {
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">Disenado para empresas espanolas que buscan eficiencia y cumplimiento normativo.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           {beneficios.map((beneficio) => (
-            <div key={beneficio.titulo} className="flex gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 rounded-lg bg-blue-600 text-white flex items-center justify-center">
-                  <beneficio.icon className="h-5 w-5" />
-                </div>
+            <div key={beneficio.titulo} className="flex flex-col items-center text-center p-4 rounded-lg hover:bg-white hover:shadow-md transition-all">
+              <div className="w-12 h-12 rounded-lg bg-blue-600 text-white flex items-center justify-center mb-3">
+                <beneficio.icon className="h-6 w-6" />
               </div>
-              <div>
-                <h3 className="font-semibold text-slate-900 mb-1">{beneficio.titulo}</h3>
-                <p className="text-slate-600 text-sm">{beneficio.descripcion}</p>
-              </div>
+              <h3 className="font-semibold text-slate-900 mb-1">{beneficio.titulo}</h3>
+              <p className="text-slate-600 text-sm">{beneficio.descripcion}</p>
             </div>
           ))}
         </div>

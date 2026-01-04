@@ -385,17 +385,31 @@ export class PartesTrabajoService {
       filter.estado = { $in: estadosArray };
     }
 
-    // Filtros de fecha
+    // Filtros de fecha - usar $lt con día siguiente para incluir todo el día
     if (fechaDesde || fechaHasta) {
       filter.fecha = {};
-      if (fechaDesde) filter.fecha.$gte = new Date(fechaDesde);
-      if (fechaHasta) filter.fecha.$lte = new Date(fechaHasta);
+      if (fechaDesde) {
+        filter.fecha.$gte = new Date(fechaDesde);
+      }
+      if (fechaHasta) {
+        // Añadir un día para incluir todo el día de fechaHasta
+        const fechaHastaDate = new Date(fechaHasta);
+        fechaHastaDate.setDate(fechaHastaDate.getDate() + 1);
+        filter.fecha.$lt = fechaHastaDate;
+      }
     }
 
     if (fechaInicioDesde || fechaInicioHasta) {
       filter.fechaInicio = {};
-      if (fechaInicioDesde) filter.fechaInicio.$gte = new Date(fechaInicioDesde);
-      if (fechaInicioHasta) filter.fechaInicio.$lte = new Date(fechaInicioHasta);
+      if (fechaInicioDesde) {
+        filter.fechaInicio.$gte = new Date(fechaInicioDesde);
+      }
+      if (fechaInicioHasta) {
+        // Añadir un día para incluir todo el día
+        const fechaHastaDate = new Date(fechaInicioHasta);
+        fechaHastaDate.setDate(fechaHastaDate.getDate() + 1);
+        filter.fechaInicio.$lt = fechaHastaDate;
+      }
     }
 
     // Filtros de importe

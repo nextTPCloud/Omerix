@@ -231,24 +231,59 @@ export interface FiltrosInformes {
   incluirCuentasSinMovimiento?: boolean
 }
 
-export interface LibroDiarioItem {
+// Libro Diario - Líneas (endpoint por líneas)
+export interface LineaLibroDiario {
+  asientoNumero: number
+  fecha: Date
+  cuentaCodigo: string
+  cuentaNombre: string
+  concepto: string
+  debe: number
+  haber: number
+  terceroNombre?: string
+  documentoRef?: string
+}
+
+export interface LibroDiarioLineasResponse {
+  lineas: LineaLibroDiario[]
+  resumen: {
+    totalAsientos: number
+    totalDebe: number
+    totalHaber: number
+    diferencia: number
+    cuadrado: boolean
+  }
+  filtros: FiltrosInformes
+  paginacion?: {
+    pagina: number
+    limite: number
+    total: number
+    totalPaginas: number
+  }
+}
+
+// Libro Diario - Por asientos (endpoint por asientos)
+export interface AsientoLibroDiario {
   numero: number
   fecha: Date
   concepto: string
   lineas: LineaAsiento[]
   totalDebe: number
   totalHaber: number
+  cuadrado: boolean
+  origenTipo?: string
+  origenNumero?: string
   estado: EstadoAsiento
 }
 
 export interface LibroDiarioResponse {
-  asientos: LibroDiarioItem[]
-  totales: {
-    debe: number
-    haber: number
+  asientos: AsientoLibroDiario[]
+  paginacion?: {
+    pagina: number
+    limite: number
+    total: number
+    totalPaginas: number
   }
-  filtros: FiltrosInformes
-  generadoEn: Date
 }
 
 export interface LibroMayorMovimiento {
@@ -284,9 +319,20 @@ export interface LibroMayorResponse {
 }
 
 export interface SumasSaldosItem {
-  codigo: string
-  nombre: string
+  cuentaCodigo: string
+  cuentaNombre: string
   nivel: number
+  tipo: string
+  naturaleza: string
+  sumaDebe: number
+  sumaHaber: number
+  saldoDeudor: number
+  saldoAcreedor: number
+}
+
+export interface SumasSaldosGrupo {
+  grupo: string
+  nombre: string
   sumaDebe: number
   sumaHaber: number
   saldoDeudor: number
@@ -295,32 +341,51 @@ export interface SumasSaldosItem {
 
 export interface SumasSaldosResponse {
   lineas: SumasSaldosItem[]
-  totales: {
-    sumaDebe: number
-    sumaHaber: number
-    saldoDeudor: number
-    saldoAcreedor: number
+  resumen: {
+    totalSumaDebe: number
+    totalSumaHaber: number
+    totalSaldoDeudor: number
+    totalSaldoAcreedor: number
+    cuadradoSumas: boolean
+    cuadradoSaldos: boolean
+    diferenciaSumas: number
+    diferenciaSaldos: number
   }
   filtros: FiltrosInformes
-  generadoEn: Date
+  porGrupos?: SumasSaldosGrupo[]
+}
+
+// Balance de Situación
+export interface PartidaBalance {
+  codigo: string
+  nombre: string
+  nivel: number
+  importe: number
+  esSubtotal?: boolean
+  hijos?: PartidaBalance[]
 }
 
 export interface BalanceSituacionResponse {
   activo: {
-    lineas: Array<{ codigo: string; nombre: string; importe: number; nivel: number }>
-    total: number
+    activoNoCorriente: PartidaBalance[]
+    activoCorriente: PartidaBalance[]
+    totalActivoNoCorriente: number
+    totalActivoCorriente: number
+    totalActivo: number
   }
   pasivo: {
-    lineas: Array<{ codigo: string; nombre: string; importe: number; nivel: number }>
-    total: number
+    patrimonioNeto: PartidaBalance[]
+    pasivoNoCorriente: PartidaBalance[]
+    pasivoCorriente: PartidaBalance[]
+    totalPatrimonioNeto: number
+    totalPasivoNoCorriente: number
+    totalPasivoCorriente: number
+    totalPasivoPatrimonio: number
   }
-  patrimonio: {
-    lineas: Array<{ codigo: string; nombre: string; importe: number; nivel: number }>
-    total: number
-  }
-  resultado: number
-  filtros: FiltrosInformes
-  generadoEn: Date
+  cuadra: boolean
+  diferencia: number
+  fecha: Date
+  ejercicio: number
 }
 
 export interface CuentaResultadosResponse {

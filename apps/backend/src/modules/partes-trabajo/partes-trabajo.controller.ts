@@ -16,6 +16,7 @@ import {
 import { EstadoParteTrabajo } from './ParteTrabajo';
 import { sendEmail, emailTemplates } from '../../utils/email';
 import { getEmpresa } from '../empresa/Empresa';
+import { JornadaCalendarSyncService } from './jornada-calendar-sync.service';
 
 // ============================================
 // CONTROLADORES
@@ -736,6 +737,193 @@ export const partesTrabajoController = {
       return res.status(500).json({
         success: false,
         error: error.message || 'Error al enviar el email',
+      });
+    }
+  },
+
+  // ============================================
+  // SINCRONIZACIÓN DE JORNADAS CON GOOGLE CALENDAR
+  // ============================================
+
+  /**
+   * Sincronizar todas las jornadas de un parte con Google Calendar
+   */
+  async sincronizarJornadasCalendar(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuracion de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const { id } = req.params;
+
+      // Crear servicio de sincronización
+      const syncService = new JornadaCalendarSyncService(empresaId);
+
+      // Sincronizar todas las jornadas
+      const resultados = await syncService.sincronizarTodasLasJornadas(id);
+
+      // Contar resultados
+      let exitosos = 0;
+      let errores = 0;
+      for (const jornadaResult of resultados) {
+        for (const personalResult of jornadaResult.resultados) {
+          if (personalResult.success) {
+            exitosos++;
+          } else {
+            errores++;
+          }
+        }
+      }
+
+      return res.json({
+        success: true,
+        data: resultados,
+        message: `Sincronización completada: ${exitosos} eventos sincronizados, ${errores} errores`,
+        stats: {
+          jornadasProcesadas: resultados.length,
+          eventosSincronizados: exitosos,
+          errores,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error al sincronizar jornadas con Calendar:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al sincronizar con Google Calendar',
+      });
+    }
+  },
+
+  /**
+   * Sincronizar una jornada específica con Google Calendar
+   */
+  async sincronizarJornadaCalendar(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuracion de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const { id, jornadaIndex } = req.params;
+
+      // Obtener el parte
+      const parte = await partesTrabajoService.obtenerPorId(
+        id,
+        new mongoose.Types.ObjectId(empresaId),
+        req.empresaDbConfig
+      );
+
+      if (!parte) {
+        return res.status(404).json({
+          success: false,
+          error: 'Parte de trabajo no encontrado',
+        });
+      }
+
+      // Crear servicio de sincronización
+      const syncService = new JornadaCalendarSyncService(empresaId);
+
+      // Sincronizar la jornada específica
+      const resultado = await syncService.sincronizarJornada(parte, parseInt(jornadaIndex));
+
+      return res.json({
+        success: true,
+        data: resultado,
+        message: resultado.sincronizadoCalendar
+          ? 'Jornada sincronizada con Google Calendar'
+          : 'Sincronización parcial - algunos calendarios no disponibles',
+      });
+    } catch (error: any) {
+      console.error('Error al sincronizar jornada con Calendar:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al sincronizar con Google Calendar',
+      });
+    }
+  },
+
+  /**
+   * Obtener partes para planificación (calendario)
+   */
+  async obtenerParaPlanificacion(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuracion de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const { fechaDesde, fechaHasta, personalId, tipo } = req.query;
+
+      if (!fechaDesde || !fechaHasta) {
+        return res.status(400).json({
+          success: false,
+          error: 'Se requiere fechaDesde y fechaHasta',
+        });
+      }
+
+      // Construir query
+      const searchDto: SearchPartesTrabajoDTO = {
+        fechaInicioDesde: fechaDesde as string,
+        fechaInicioHasta: fechaHasta as string,
+        responsableId: personalId as string,
+        tipo: tipo as any,
+        estados: 'planificado,en_curso',
+        activo: 'true',
+        limit: 500,
+        page: 1,
+      };
+
+      const result = await partesTrabajoService.buscar(
+        searchDto,
+        new mongoose.Types.ObjectId(empresaId),
+        req.empresaDbConfig
+      );
+
+      // Transformar para el calendario
+      const eventos = result.partes.map(parte => ({
+        id: parte._id,
+        titulo: parte.titulo || `${parte.tipo} - ${parte.clienteNombre}`,
+        codigo: parte.codigo,
+        tipo: parte.tipo,
+        prioridad: parte.prioridad,
+        estado: parte.estado,
+        clienteNombre: parte.clienteNombre,
+        clienteId: parte.clienteId,
+        responsableNombre: parte.responsableNombre,
+        responsableId: parte.responsableId,
+        fecha: parte.fechaInicio || parte.fecha,
+        fechaFin: parte.fechaFin,
+        esMultiDia: parte.esMultiDia,
+        jornadas: parte.jornadas?.map(j => ({
+          _id: j._id,
+          fecha: j.fecha,
+          horaInicio: j.horaInicio,
+          horaFin: j.horaFin,
+          estado: j.estado,
+          personalCount: j.personal?.length || 0,
+        })) || [],
+      }));
+
+      return res.json({
+        success: true,
+        data: eventos,
+        total: eventos.length,
+      });
+    } catch (error: any) {
+      console.error('Error al obtener partes para planificación:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al obtener partes para planificación',
       });
     }
   },

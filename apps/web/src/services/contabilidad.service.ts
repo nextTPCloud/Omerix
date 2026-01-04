@@ -35,7 +35,19 @@ export const contabilidadService = {
     return response.data
   },
 
+  // Alias para compatibilidad
+  getConfiguracion: async (): Promise<ConfigContable> => {
+    const response = await api.get('/contabilidad/config')
+    return response.data
+  },
+
   updateConfig: async (data: Partial<ConfigContable>): Promise<ConfigContable> => {
+    const response = await api.put('/contabilidad/config', data)
+    return response.data
+  },
+
+  // Alias para compatibilidad
+  updateConfiguracion: async (data: Partial<ConfigContable>): Promise<ConfigContable> => {
     const response = await api.put('/contabilidad/config', data)
     return response.data
   },

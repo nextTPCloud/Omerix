@@ -63,6 +63,9 @@ import {
   UserPlus,
   Phone,
   Kanban,
+  Share2,
+  Bell,
+  Plug,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFavoritosContext } from '@/contexts/FavoritosContext'
@@ -92,6 +95,7 @@ const iconMap: { [key: string]: any } = {
   Briefcase, UserCog, Star, FolderKanban, CalendarDays, Timer, Fingerprint,
   ArrowRightLeft, ClipboardList, Edit, CheckSquare, FileBarChart,
   Calculator, Download, PieChart, Target, UserPlus, Phone, Kanban,
+  Share2, Bell, Plug,
 }
 
 // Tipo de permiso requerido para cada grupo
@@ -444,6 +448,7 @@ const menuGroups: MenuGroup[] = [
         title: 'Partes de Trabajo',
         icon: Wrench,
         children: [
+          { title: 'Planificación', href: '/servicios/planificacion' },
           { title: 'Listado partes', href: '/partes-trabajo' },
           { title: 'Nuevo parte', href: '/partes-trabajo/nuevo' },
         ],
@@ -498,6 +503,50 @@ const menuGroups: MenuGroup[] = [
         title: 'Configuración Pipeline',
         href: '/crm/configuracion/pipeline',
         icon: Settings,
+      },
+    ],
+  },
+  {
+    group: 'Redes Sociales',
+    icon: Share2,
+    moduloLicencia: 'redes-sociales',
+    items: [
+      {
+        title: 'Panel',
+        href: '/redes-sociales',
+        icon: Share2,
+      },
+      {
+        title: 'Publicaciones',
+        href: '/redes-sociales/publicaciones',
+        icon: FileText,
+      },
+      {
+        title: 'Programar',
+        href: '/redes-sociales/programar',
+        icon: Calendar,
+      },
+      {
+        title: 'Cuentas',
+        href: '/redes-sociales/cuentas',
+        icon: Users,
+      },
+    ],
+  },
+  {
+    group: 'Integraciones',
+    icon: Plug,
+    requiereAlgunModulo: true,
+    items: [
+      {
+        title: 'Google Calendar',
+        href: '/integraciones/google-calendar',
+        icon: Calendar,
+      },
+      {
+        title: 'Recordatorios',
+        href: '/recordatorios',
+        icon: Bell,
       },
     ],
   },

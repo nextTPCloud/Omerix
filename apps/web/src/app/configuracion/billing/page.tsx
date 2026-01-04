@@ -269,9 +269,9 @@ export default function BillingPage() {
     setTogglingRenovacion(true)
     try {
       const response = await billingService.toggleRenovacionAutomatica(activar)
-      if (response.success) {
-        setRenovacionAutomatica(response.renovacionAutomatica ?? activar)
-        toast.success(response.message || (activar ? 'Renovación automática activada' : 'Renovación automática desactivada'))
+      if (response.success && response.data) {
+        setRenovacionAutomatica(response.data.renovacionAutomatica ?? activar)
+        toast.success(response.data.message || (activar ? 'Renovación automática activada' : 'Renovación automática desactivada'))
       }
     } catch (error: any) {
       toast.error(error.message || 'Error al actualizar renovación')

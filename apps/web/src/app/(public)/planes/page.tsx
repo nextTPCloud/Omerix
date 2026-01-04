@@ -154,6 +154,8 @@ const modulosInfo: ModuloInfo[] = [
   { slug: 'proyectos', nombre: 'Proyectos / Servicios', addon: true },
   { slug: 'contabilidad', nombre: 'Contabilidad', addon: true },
   { slug: 'crm', nombre: 'CRM Completo', addon: true },
+  { slug: 'redes-sociales', nombre: 'Redes Sociales (Meta)', addon: true },
+  { slug: 'google-calendar', nombre: 'Google Calendar', addon: true },
 ]
 
 // FAQ

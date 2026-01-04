@@ -167,6 +167,75 @@ export interface LineaGasto {
 }
 
 // ============================================
+// JORNADAS DE TRABAJO (Multi-día)
+// ============================================
+
+export type EstadoJornada = 'planificada' | 'confirmada' | 'en_curso' | 'completada' | 'cancelada';
+
+export const ESTADOS_JORNADA = [
+  { value: 'planificada', label: 'Planificada', color: 'blue' },
+  { value: 'confirmada', label: 'Confirmada', color: 'cyan' },
+  { value: 'en_curso', label: 'En Curso', color: 'yellow' },
+  { value: 'completada', label: 'Completada', color: 'green' },
+  { value: 'cancelada', label: 'Cancelada', color: 'red' },
+] as const;
+
+export interface PersonalJornada {
+  personalId: string;
+  usuarioId?: string;
+  nombre: string;
+  cargo?: string;
+  confirmado: boolean;
+  horaEntrada?: string;
+  horaSalida?: string;
+  horasTrabajadas?: number;
+  notas?: string;
+  // Google Calendar sync
+  googleEventId?: string;
+  googleCalendarId?: string;
+}
+
+export interface VehiculoJornada {
+  vehiculoId?: string;
+  nombre: string;
+  matricula?: string;
+  conductorId?: string;
+  conductorNombre?: string;
+  kmInicio?: number;
+  kmFin?: number;
+}
+
+export interface MaquinariaJornada {
+  maquinariaId?: string;
+  nombre: string;
+  codigo?: string;
+  operadorId?: string;
+  operadorNombre?: string;
+  horasUso?: number;
+}
+
+export interface JornadaTrabajo {
+  _id?: string;
+  parteTrabajoId?: string;
+  fecha: string;
+  horaInicio?: string;
+  horaFin?: string;
+  duracionEstimada?: string;
+  estado: EstadoJornada;
+  personal: PersonalJornada[];
+  vehiculos: VehiculoJornada[];
+  maquinaria: MaquinariaJornada[];
+  trabajoRealizado?: string;
+  notas?: string;
+  incidencias?: string;
+  // Para sincronización
+  sincronizadoCalendar: boolean;
+  ultimaSyncCalendar?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// ============================================
 // INTERFACES DE SOPORTE
 // ============================================
 
@@ -277,6 +346,10 @@ export interface ParteTrabajo {
   lineasTransporte: LineaTransporte[];
   lineasGastos: LineaGasto[];
 
+  // Jornadas de trabajo (multi-día)
+  jornadas: JornadaTrabajo[];
+  esMultiDia: boolean;
+
   // Totales
   totales: TotalesParteTrabajo;
 
@@ -353,6 +426,8 @@ export interface CreateParteTrabajoDTO {
   lineasMaquinaria?: Partial<LineaMaquinaria>[];
   lineasTransporte?: Partial<LineaTransporte>[];
   lineasGastos?: Partial<LineaGasto>[];
+  jornadas?: Partial<JornadaTrabajo>[];
+  esMultiDia?: boolean;
   descuentoGlobalPorcentaje?: number;
   descuentoGlobalImporte?: number;
   tags?: string[];

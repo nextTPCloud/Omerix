@@ -867,7 +867,7 @@ PresupuestoSchema.index({ fechaValidez: 1 });
 PresupuestoSchema.index({ activo: 1 });
 PresupuestoSchema.index({ tags: 1 });
 PresupuestoSchema.index({ 'totales.totalPresupuesto': 1 });
-PresupuestoSchema.index({ tokenAccesoPortal: 1 });
+// tokenAccesoPortal ya tiene unique: true en la definición del campo
 
 // ============================================
 // VIRTUALS

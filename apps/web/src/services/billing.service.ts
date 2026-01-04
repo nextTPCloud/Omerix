@@ -61,8 +61,11 @@ export interface ILicencia {
     nombre: string
     slug: string
     precioMensual: number
+    cantidad?: number
     activo: boolean
     fechaActivacion: Date
+    cancelarAlRenovar?: boolean
+    fechaCancelacion?: Date
   }>
 }
 
@@ -73,11 +76,21 @@ export interface IAddOn {
   descripcion?: string
   icono?: string
   tipo: 'modulo' | 'usuarios' | 'almacenamiento' | 'tokens' | 'otro'
-  precioMensual: number
+  // Campos de precio (backend usa precio.mensual/anual)
+  precio?: {
+    mensual: number
+    anual: number
+  }
+  // Aliases para compatibilidad
+  precioMensual?: number
   precioAnual?: number
   unidad?: string
   cantidad?: number
+  tieneCantidad?: boolean
   esRecurrente: boolean
+  permiteMultiples?: boolean
+  cantidadMaxima?: number
+  modulosIncluidos?: string[]
   caracteristicas?: string[]
   limitesExtra?: {
     usuariosTotales?: number
@@ -216,6 +229,7 @@ class BillingService {
     planSlug?: string
     tipoSuscripcion: 'mensual' | 'anual'
     addOns?: string[]
+    addOnsConCantidad?: Array<{ slug: string; cantidad: number }>
     onlyAddOns?: boolean
     successUrl: string
     cancelUrl: string
@@ -250,6 +264,7 @@ class BillingService {
     planSlug?: string
     tipoSuscripcion: 'mensual' | 'anual'
     addOns?: string[]
+    addOnsConCantidad?: Array<{ slug: string; cantidad: number }>
     onlyAddOns?: boolean
   }): Promise<ApiResponse<{ subscriptionId: string; approvalUrl: string }>> {
     try {
@@ -267,6 +282,7 @@ class BillingService {
     planSlug?: string
     tipoSuscripcion: 'mensual' | 'anual'
     addOns?: string[]
+    addOnsConCantidad?: Array<{ slug: string; cantidad: number }>
     onlyAddOns?: boolean
   }): Promise<ApiResponse<{
     redsysUrl: string

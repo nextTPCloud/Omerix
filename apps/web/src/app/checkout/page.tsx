@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { useLicense } from '@/hooks/useLicense'
-import { billingService, IPlan } from '@/services/billing.service'
+import { billingService, IPlan, IAddOn } from '@/services/billing.service'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +32,10 @@ import {
   Wrench,
   Calculator,
   Users,
+  Share2,
+  Calendar,
+  Zap,
+  Database,
 } from 'lucide-react'
 
 // Mapeo de iconos para add-ons
@@ -44,6 +48,17 @@ const iconMap: Record<string, any> = {
   Wrench,
   Calculator,
   Users,
+  Share2,
+  Calendar,
+  Zap,
+  Database,
+  // Mapeo por tipo de addon
+  'redes-sociales': Share2,
+  'google-calendar': Calendar,
+  'tokens': Sparkles,
+  'usuarios': UserPlus,
+  'almacenamiento': HardDrive,
+  'modulo': Zap,
 }
 
 // Planes disponibles (sincronizado con seed-plans.ts)
@@ -171,119 +186,23 @@ const planesDisponibles: IPlan[] = [
   },
 ]
 
-// Add-ons disponibles (IVA incluido)
-interface IAddOnLocal {
-  slug: string
-  nombre: string
-  descripcion: string
-  icono: string
-  tipo: 'modulo' | 'usuarios' | 'almacenamiento' | 'tokens'
-  precioMensual: number
-  precioAnual?: number
-  esRecurrente: boolean
-  cantidad?: number
-  unidad?: string
+// Helper para obtener icono de addon
+const getAddonIcon = (addon: IAddOn) => {
+  // Primero buscar por slug
+  if (iconMap[addon.slug]) return iconMap[addon.slug]
+  // Luego por tipo
+  if (iconMap[addon.tipo]) return iconMap[addon.tipo]
+  // Default
+  return Plus
 }
 
-const addOnsDisponibles: IAddOnLocal[] = [
-  {
-    slug: 'rrhh-fichaje',
-    nombre: 'Módulo RRHH/Fichaje',
-    descripcion: 'Control horario, fichajes, turnos y gestión de personal',
-    icono: 'Clock',
-    tipo: 'modulo',
-    precioMensual: 6,
-    precioAnual: 60,
-    esRecurrente: true,
-  },
-  {
-    slug: 'tpv',
-    nombre: 'Módulo TPV',
-    descripcion: 'Terminal punto de venta para tiendas y hostelería',
-    icono: 'CreditCard',
-    tipo: 'modulo',
-    precioMensual: 25,
-    precioAnual: 250,
-    esRecurrente: true,
-  },
-  {
-    slug: 'proyectos',
-    nombre: 'Módulo Servicios',
-    descripcion: 'Proyectos, partes de trabajo, maquinaria y tipos de gasto',
-    icono: 'Wrench',
-    tipo: 'modulo',
-    precioMensual: 15,
-    precioAnual: 150,
-    esRecurrente: true,
-  },
-  {
-    slug: 'contabilidad',
-    nombre: 'Módulo Contabilidad',
-    descripcion: 'Gestión contable completa, asientos, balances y cuentas anuales',
-    icono: 'Calculator',
-    tipo: 'modulo',
-    precioMensual: 20,
-    precioAnual: 200,
-    esRecurrente: true,
-  },
-  {
-    slug: 'crm',
-    nombre: 'CRM Completo',
-    descripcion: 'Gestión de clientes, oportunidades, pipeline de ventas y seguimiento',
-    icono: 'Users',
-    tipo: 'modulo',
-    precioMensual: 15,
-    precioAnual: 150,
-    esRecurrente: true,
-  },
-  {
-    slug: 'usuario-extra',
-    nombre: 'Usuario Extra',
-    descripcion: 'Añade un usuario adicional (+1 sesion)',
-    icono: 'UserPlus',
-    tipo: 'usuarios',
-    precioMensual: 5,
-    precioAnual: 50,
-    esRecurrente: true,
-    cantidad: 1,
-    unidad: 'usuario',
-  },
-  {
-    slug: 'pack-5-usuarios',
-    nombre: 'Pack 5 Usuarios',
-    descripcion: '5 usuarios adicionales (ahorra 20%)',
-    icono: 'UserPlus',
-    tipo: 'usuarios',
-    precioMensual: 20,
-    precioAnual: 200,
-    esRecurrente: true,
-    cantidad: 5,
-    unidad: 'usuarios',
-  },
-  {
-    slug: 'storage-10gb',
-    nombre: '10 GB Extra',
-    descripcion: 'Amplía tu almacenamiento',
-    icono: 'HardDrive',
-    tipo: 'almacenamiento',
-    precioMensual: 3,
-    precioAnual: 30,
-    esRecurrente: true,
-    cantidad: 10,
-    unidad: 'GB',
-  },
-  {
-    slug: 'tokens-5000',
-    nombre: '5.000 Tokens IA',
-    descripcion: 'Pack de tokens para asistente IA',
-    icono: 'Sparkles',
-    tipo: 'tokens',
-    precioMensual: 8,
-    esRecurrente: false,
-    cantidad: 5000,
-    unidad: 'tokens',
-  },
-]
+// Helper para obtener precio de addon (soporta ambos formatos)
+const getAddonPrecio = (addon: IAddOn, ciclo: 'mensual' | 'anual'): number => {
+  if (ciclo === 'anual') {
+    return addon.precio?.anual || addon.precioAnual || (addon.precio?.mensual || addon.precioMensual || 0) * 10
+  }
+  return addon.precio?.mensual || addon.precioMensual || 0
+}
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -291,7 +210,8 @@ export default function CheckoutPage() {
   const { plan: currentPlan, isTrial, license, isActive } = useLicense()
 
   const [selectedPlan, setSelectedPlan] = useState<IPlan | null>(null)
-  const [selectedAddOns, setSelectedAddOns] = useState<string[]>([])
+  // Cambiado a Record para soportar cantidad: { slug: cantidad }
+  const [selectedAddOns, setSelectedAddOns] = useState<Record<string, number>>({})
   const [billingCycle, setBillingCycle] = useState<'mensual' | 'anual'>('anual')
   const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal' | 'redsys'>('stripe')
   const [promoCode, setPromoCode] = useState('')
@@ -300,6 +220,8 @@ export default function CheckoutPage() {
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [onlyAddOns, setOnlyAddOns] = useState(false) // Solo comprar add-ons
+  const [addOnsDisponibles, setAddOnsDisponibles] = useState<IAddOn[]>([])
+  const [loadingAddOns, setLoadingAddOns] = useState(true)
 
   // Estado para prorrateo
   const [prorrateoData, setProrrateoData] = useState<{
@@ -332,23 +254,117 @@ export default function CheckoutPage() {
   const isSamePlan = !!(selectedPlan && currentPlan &&
     selectedPlan.slug?.toLowerCase() === currentPlan.slug?.toLowerCase())
 
+  // Obtener módulos ya contratados (plan + addons activos)
+  const modulosContratados = useMemo(() => {
+    const modulos = new Set<string>()
+
+    // Módulos del plan actual
+    if (currentPlan?.modulosIncluidos) {
+      // Si tiene '*' (Enterprise), tiene todos los módulos
+      if (currentPlan.modulosIncluidos.includes('*')) {
+        return new Set(['*'])
+      }
+      currentPlan.modulosIncluidos.forEach(m => modulos.add(m))
+    }
+
+    // Si el plan tiene TPVs activos, ya tiene el módulo TPV
+    if (currentPlan?.limites?.tpvsActivos && currentPlan.limites.tpvsActivos > 0) {
+      modulos.add('tpv')
+    }
+
+    // Módulos de addons activos en la licencia
+    if (license?.addOns) {
+      license.addOns.forEach(addon => {
+        if (addon.activo) {
+          modulos.add(addon.slug)
+        }
+      })
+    }
+
+    return modulos
+  }, [currentPlan, license])
+
+  // Cargar add-ons desde el backend y filtrar los ya contratados
+  useEffect(() => {
+    const cargarAddOns = async () => {
+      try {
+        setLoadingAddOns(true)
+        const response = await billingService.getAddOns()
+        if (response.success && response.data) {
+          // Filtrar addons ya contratados
+          const addOnsFiltrados = response.data.filter(addon => {
+            // Si el plan es Enterprise ('*'), solo mostrar:
+            // - Addons que permiten múltiples (tpv-extra)
+            // - Addons de tipo tokens, usuarios, almacenamiento (recursos extra)
+            if (modulosContratados.has('*')) {
+              const tiposPermitidos = ['tokens', 'usuarios', 'almacenamiento', 'otro']
+              if (!addon.permiteMultiples && !tiposPermitidos.includes(addon.tipo)) {
+                return false
+              }
+            }
+
+            // Si el addon es de tipo módulo, verificar si ya está contratado
+            if (addon.tipo === 'modulo') {
+              // Verificar si alguno de sus módulos incluidos ya está contratado
+              if (addon.modulosIncluidos?.some(m => modulosContratados.has(m))) {
+                return false
+              }
+              // Verificar si el propio slug está contratado
+              if (modulosContratados.has(addon.slug)) {
+                return false
+              }
+            }
+
+            // Si el addon ya está activo en la licencia y NO permite múltiples, ocultarlo
+            // Esto aplica a tokens/usuarios/almacenamiento - si ya tienes ese pack, no puedes comprarlo otra vez
+            if (!addon.permiteMultiples && license?.addOns?.some(a => a.slug === addon.slug && a.activo)) {
+              return false
+            }
+
+            return true
+          })
+          setAddOnsDisponibles(addOnsFiltrados)
+        }
+      } catch (error) {
+        console.error('Error cargando add-ons:', error)
+      } finally {
+        setLoadingAddOns(false)
+      }
+    }
+    cargarAddOns()
+  }, [modulosContratados, license])
+
   // Toggle add-on selection
   const toggleAddOn = (slug: string) => {
-    setSelectedAddOns(prev =>
-      prev.includes(slug)
-        ? prev.filter(s => s !== slug)
-        : [...prev, slug]
-    )
+    setSelectedAddOns(prev => {
+      if (prev[slug]) {
+        // Remove addon
+        const { [slug]: _, ...rest } = prev
+        return rest
+      } else {
+        // Add addon with quantity 1
+        return { ...prev, [slug]: 1 }
+      }
+    })
   }
 
-  // Calculate add-ons total
-  const addOnsTotal = selectedAddOns.reduce((total, slug) => {
+  // Update add-on quantity
+  const updateAddOnQuantity = (slug: string, quantity: number) => {
+    const addon = addOnsDisponibles.find(a => a.slug === slug)
+    if (!addon) return
+    const maxQty = addon.cantidadMaxima || 10
+    const validQty = Math.max(1, Math.min(quantity, maxQty))
+    setSelectedAddOns(prev => ({ ...prev, [slug]: validQty }))
+  }
+
+  // Get selected addon slugs as array
+  const selectedAddOnSlugs = Object.keys(selectedAddOns)
+
+  // Calculate add-ons total (with quantities)
+  const addOnsTotal = Object.entries(selectedAddOns).reduce((total, [slug, qty]) => {
     const addon = addOnsDisponibles.find(a => a.slug === slug)
     if (!addon) return total
-    const precio = billingCycle === 'anual' && addon.precioAnual
-      ? addon.precioAnual
-      : addon.precioMensual
-    return total + precio
+    return total + (getAddonPrecio(addon, billingCycle) * qty)
   }, 0)
 
   // Obtener plan y add-ons de query params
@@ -379,7 +395,10 @@ export default function CheckoutPage() {
     // Preseleccionar add-ons si vienen en params
     if (addonsParam) {
       const addons = addonsParam.split(',')
-      setSelectedAddOns(addons.filter(slug => addOnsDisponibles.some(a => a.slug === slug)))
+      const validAddons = addons.filter(slug => addOnsDisponibles.some(a => a.slug === slug))
+      const addOnsRecord: Record<string, number> = {}
+      validAddons.forEach(slug => { addOnsRecord[slug] = 1 })
+      setSelectedAddOns(addOnsRecord)
     }
 
     if (cycle === 'mensual' || cycle === 'anual') {
@@ -391,7 +410,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     const calcularProrrateo = async () => {
       // Solo calcular si tiene plan activo y hay add-ons seleccionados
-      if (!hasActivePlan || selectedAddOns.length === 0) {
+      if (!hasActivePlan || selectedAddOnSlugs.length === 0) {
         setProrrateoData(null)
         return
       }
@@ -399,7 +418,7 @@ export default function CheckoutPage() {
       setLoadingProrrateo(true)
       try {
         const response = await billingService.calcularProrrateo({
-          addOns: selectedAddOns,
+          addOns: selectedAddOnSlugs,
         })
 
         if (response.success && response.data) {
@@ -414,7 +433,7 @@ export default function CheckoutPage() {
     }
 
     calcularProrrateo()
-  }, [hasActivePlan, selectedAddOns])
+  }, [hasActivePlan, selectedAddOnSlugs.join(',')])
 
   // Calcular precios (IVA ya incluido en el precio)
   // Modo solo add-ons: explícito O automático (tiene plan activo, mismo plan, y hay add-ons)
@@ -480,7 +499,7 @@ export default function CheckoutPage() {
     }
 
     // Si solo add-ons, requiere al menos un add-on seleccionado
-    if (operationType === 'addons' && selectedAddOns.length === 0) {
+    if (operationType === 'addons' && selectedAddOnSlugs.length === 0) {
       toast.error('Selecciona al menos un add-on')
       return
     }
@@ -493,12 +512,18 @@ export default function CheckoutPage() {
     setLoading(true)
 
     try {
+      // Preparar addons con cantidades para enviar al backend
+      const addOnsConCantidad = selectedAddOnSlugs.length > 0
+        ? selectedAddOnSlugs.map(slug => ({ slug, cantidad: selectedAddOns[slug] }))
+        : undefined
+
       if (paymentMethod === 'stripe') {
         // Crear sesion de Stripe Checkout
         const response = await billingService.crearCheckoutSession({
           planSlug: operationType === 'addons' ? undefined : selectedPlan?.slug,
           tipoSuscripcion: billingCycle,
-          addOns: selectedAddOns.length > 0 ? selectedAddOns : undefined,
+          addOns: selectedAddOnSlugs.length > 0 ? selectedAddOnSlugs : undefined,
+          addOnsConCantidad,
           onlyAddOns: operationType === 'addons',
           successUrl: `${window.location.origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}/checkout/cancel`,
@@ -522,7 +547,8 @@ export default function CheckoutPage() {
         const paypalParams = {
           planSlug: operationType === 'addons' ? undefined : selectedPlan?.slug,
           tipoSuscripcion: billingCycle,
-          addOns: selectedAddOns.length > 0 ? selectedAddOns : undefined,
+          addOns: selectedAddOnSlugs.length > 0 ? selectedAddOnSlugs : undefined,
+          addOnsConCantidad,
           onlyAddOns: operationType === 'addons',
         }
         console.log('🔵 [Frontend] Enviando a PayPal:', paypalParams)
@@ -539,7 +565,8 @@ export default function CheckoutPage() {
         const response = await billingService.crearPagoRedsys({
           planSlug: operationType === 'addons' ? undefined : selectedPlan?.slug,
           tipoSuscripcion: billingCycle,
-          addOns: selectedAddOns.length > 0 ? selectedAddOns : undefined,
+          addOns: selectedAddOnSlugs.length > 0 ? selectedAddOnSlugs : undefined,
+          addOnsConCantidad,
           onlyAddOns: operationType === 'addons',
         })
 
@@ -696,7 +723,7 @@ export default function CheckoutPage() {
                       variant={plan.slug === 'profesional' || esActual ? 'default' : 'outline'}
                     >
                       {esActual
-                        ? (selectedAddOns.length > 0 ? 'Añadir módulos' : 'Tu plan actual')
+                        ? (selectedAddOnSlugs.length > 0 ? 'Añadir módulos' : 'Tu plan actual')
                         : 'Seleccionar'}
                     </Button>
                   </CardContent>
@@ -713,12 +740,17 @@ export default function CheckoutPage() {
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {addOnsDisponibles.map((addon) => {
-                const Icon = iconMap[addon.icono] || Plus
-                const isSelected = selectedAddOns.includes(addon.slug)
-                const precio = billingCycle === 'anual' && addon.precioAnual
-                  ? addon.precioAnual
-                  : addon.precioMensual
+              {loadingAddOns ? (
+                <div className="col-span-3 flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Cargando add-ons...</span>
+                </div>
+              ) : addOnsDisponibles.map((addon) => {
+                const Icon = getAddonIcon(addon)
+                const isSelected = !!selectedAddOns[addon.slug]
+                const cantidad = selectedAddOns[addon.slug] || 1
+                const precioUnitario = getAddonPrecio(addon, billingCycle)
+                const precioTotal = precioUnitario * cantidad
 
                 return (
                   <Card
@@ -726,7 +758,7 @@ export default function CheckoutPage() {
                     className={`cursor-pointer transition-all hover:shadow-md ${
                       isSelected ? 'border-blue-500 border-2 bg-blue-50 dark:bg-blue-950' : 'border-slate-200'
                     }`}
-                    onClick={() => toggleAddOn(addon.slug)}
+                    onClick={() => !addon.permiteMultiples && toggleAddOn(addon.slug)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
@@ -736,17 +768,83 @@ export default function CheckoutPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <h3 className="font-medium text-sm">{addon.nombre}</h3>
-                            {isSelected && (
+                            {isSelected && !addon.permiteMultiples && (
                               <CheckCircle className="h-5 w-5 text-blue-600" />
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">{addon.descripcion}</p>
-                          <div className="mt-2">
-                            <span className="text-lg font-bold">{precio}€</span>
-                            <span className="text-xs text-muted-foreground">
-                              {addon.esRecurrente ? (billingCycle === 'anual' ? '/año' : '/mes') : ' único'}
-                            </span>
-                          </div>
+
+                          {/* Selector de cantidad para addons que permiten múltiples */}
+                          {addon.permiteMultiples ? (
+                            <div className="mt-3 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  className="w-8 h-8 rounded-md border border-slate-300 flex items-center justify-center hover:bg-slate-100 disabled:opacity-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (cantidad > 1) {
+                                      updateAddOnQuantity(addon.slug, cantidad - 1)
+                                    } else {
+                                      toggleAddOn(addon.slug) // Remove if quantity becomes 0
+                                    }
+                                  }}
+                                  disabled={!isSelected}
+                                >
+                                  -
+                                </button>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={addon.cantidadMaxima || 10}
+                                  value={isSelected ? cantidad : 0}
+                                  className="w-16 h-8 text-center p-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0
+                                    if (val === 0) {
+                                      toggleAddOn(addon.slug)
+                                    } else if (!isSelected) {
+                                      setSelectedAddOns(prev => ({ ...prev, [addon.slug]: val }))
+                                    } else {
+                                      updateAddOnQuantity(addon.slug, val)
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="w-8 h-8 rounded-md border border-slate-300 flex items-center justify-center hover:bg-slate-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (!isSelected) {
+                                      setSelectedAddOns(prev => ({ ...prev, [addon.slug]: 1 }))
+                                    } else {
+                                      updateAddOnQuantity(addon.slug, cantidad + 1)
+                                    }
+                                  }}
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-muted-foreground">
+                                  {precioUnitario}€/{addon.unidad || 'unidad'}
+                                </span>
+                                {isSelected && (
+                                  <span className="text-sm font-bold text-blue-600">
+                                    Total: {precioTotal}€{billingCycle === 'anual' ? '/año' : '/mes'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="mt-2">
+                              <span className="text-lg font-bold">{precioUnitario}€</span>
+                              <span className="text-xs text-muted-foreground">
+                                {addon.esRecurrente ? (billingCycle === 'anual' ? '/año' : '/mes') : ' único'}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -755,11 +853,11 @@ export default function CheckoutPage() {
               })}
             </div>
 
-            {selectedAddOns.length > 0 && (
+            {selectedAddOnSlugs.length > 0 && (
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">Add-ons seleccionados: {selectedAddOns.length}</p>
+                    <p className="font-medium">Add-ons seleccionados: {selectedAddOnSlugs.length}</p>
                     <p className="text-sm text-muted-foreground">
                       {hasActivePlan
                         ? `Añadir a tu plan ${currentPlan?.nombre}`
@@ -1083,17 +1181,19 @@ export default function CheckoutPage() {
                     </div>
                   ))
                 ) : (
-                  // Mostrar precios normales
-                  selectedAddOns.map(slug => {
+                  // Mostrar precios normales (con cantidades)
+                  Object.entries(selectedAddOns).map(([slug, qty]) => {
                     const addon = addOnsDisponibles.find(a => a.slug === slug)
                     if (!addon) return null
-                    const precio = billingCycle === 'anual' && addon.precioAnual
-                      ? addon.precioAnual
-                      : addon.precioMensual
+                    const precioUnitario = getAddonPrecio(addon, billingCycle)
+                    const precioTotal = precioUnitario * qty
                     return (
                       <div key={slug} className="flex justify-between text-muted-foreground">
-                        <span>{addon.nombre}</span>
-                        <span>{precio.toFixed(2)}€</span>
+                        <span>
+                          {addon.nombre}
+                          {qty > 1 && <span className="text-xs ml-1">(x{qty})</span>}
+                        </span>
+                        <span>{precioTotal.toFixed(2)}€</span>
                       </div>
                     )
                   })

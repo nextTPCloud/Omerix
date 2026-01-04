@@ -225,6 +225,62 @@ class PartesTrabajoService {
     const response = await api.post(`${BASE_URL}/${id}/enviar-email`, data);
     return response.data;
   }
+
+  /**
+   * Sincronizar jornadas de un parte con Google Calendar
+   */
+  async syncCalendar(id: string): Promise<{
+    success: boolean;
+    message: string;
+    stats?: {
+      jornadasProcesadas: number;
+      eventosSincronizados: number;
+      errores: number;
+    };
+  }> {
+    const response = await api.post(`${BASE_URL}/${id}/sync-calendar`);
+    return response.data;
+  }
+
+  /**
+   * Sincronizar una jornada específica con Google Calendar
+   */
+  async syncJornadaCalendar(id: string, jornadaIndex: number): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      jornadaId: string;
+      fecha: string;
+      sincronizadoCalendar: boolean;
+      resultados: {
+        personalId: string;
+        personalNombre: string;
+        success: boolean;
+        googleEventId?: string;
+        error?: string;
+      }[];
+    };
+  }> {
+    const response = await api.post(`${BASE_URL}/${id}/jornadas/${jornadaIndex}/sync-calendar`);
+    return response.data;
+  }
+
+  /**
+   * Obtener partes para planificación (calendario)
+   */
+  async getPlanificacion(params: {
+    fechaDesde: string;
+    fechaHasta: string;
+    personalId?: string;
+    tipo?: string;
+  }): Promise<{
+    success: boolean;
+    data: any[];
+    total: number;
+  }> {
+    const response = await api.get(`${BASE_URL}/planificacion`, { params });
+    return response.data;
+  }
 }
 
 export const partesTrabajoService = new PartesTrabajoService();

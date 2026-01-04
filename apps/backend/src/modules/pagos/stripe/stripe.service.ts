@@ -227,9 +227,9 @@ export class StripeService {
 
           // Crear precio del add-on en Stripe si no existe
           let addOnPriceId = esAnual ? addOn.stripePriceIdAnual : addOn.stripePriceId;
-          const addOnPrecio = esAnual
-            ? (addOn.precioAnual || addOn.precioMensual * 12)
-            : addOn.precioMensual;
+          const precioMensual = addOn.precio?.mensual ?? 0;
+          const precioAnual = addOn.precio?.anual ?? (precioMensual * 10);
+          const addOnPrecio = esAnual ? precioAnual : precioMensual;
 
           if (!addOnPriceId) {
             const addOnPrice = await stripe.prices.create({
@@ -588,7 +588,15 @@ export class StripeService {
       let plan: any = null;
       const addOnSlugs: string[] = data.addOns || [];
 
-      console.log('🟢 [Stripe] Parámetros:', { onlyAddOns: data.onlyAddOns, planSlug: data.planSlug, addOns: addOnSlugs });
+      // Crear mapa de cantidades desde addOnsConCantidad
+      const cantidadPorSlug: Record<string, number> = {};
+      if (data.addOnsConCantidad) {
+        for (const item of data.addOnsConCantidad) {
+          cantidadPorSlug[item.slug] = item.cantidad;
+        }
+      }
+
+      console.log('🟢 [Stripe] Parámetros:', { onlyAddOns: data.onlyAddOns, planSlug: data.planSlug, addOns: addOnSlugs, cantidades: cantidadPorSlug });
 
       // Verificar si el usuario tiene una suscripción activa en Stripe
       const licencia = await Licencia.findOne({ empresaId });
@@ -610,10 +618,13 @@ export class StripeService {
               const addOn = await AddOn.findOne({ slug, activo: true });
               if (!addOn) continue;
 
+              // Obtener cantidad (default 1)
+              const cantidad = cantidadPorSlug[slug] || 1;
+
               const esAnual = data.tipoSuscripcion === 'anual';
-              const precio = esAnual && addOn.precioAnual
-                ? addOn.precioAnual
-                : addOn.precioMensual;
+              const precioMensualAddon = addOn.precio?.mensual ?? 0;
+              const precioAnualAddon = addOn.precio?.anual ?? (precioMensualAddon * 10);
+              const precio = esAnual ? precioAnualAddon : precioMensualAddon;
 
               // Obtener o crear precio en Stripe
               let addonPriceId = esAnual ? addOn.stripePriceIdAnual : addOn.stripePriceId;
@@ -639,23 +650,23 @@ export class StripeService {
                 await addOn.save();
               }
 
-              // Añadir item a la suscripción con proration
+              // Añadir item a la suscripción con proration (con cantidad)
               await stripe.subscriptionItems.create({
                 subscription: existingSubscriptionId,
                 price: addonPriceId,
-                quantity: 1,
+                quantity: cantidad,
                 proration_behavior: 'create_prorations', // Stripe calcula prorrateo automáticamente
               });
 
-              addedItems.push(addOn.nombre);
+              addedItems.push(cantidad > 1 ? `${addOn.nombre} (x${cantidad})` : addOn.nombre);
 
               // Activar add-on en la licencia
               const addOnData = {
                 addOnId: addOn._id,
                 slug: addOn.slug,
                 nombre: addOn.nombre,
-                precioMensual: addOn.precioMensual,
-                cantidad: 1,
+                precioMensual: addOn.precio?.mensual ?? 0,
+                cantidad: cantidad,
                 activo: true,
                 fechaActivacion: new Date(),
               };
@@ -783,9 +794,12 @@ export class StripeService {
         const addOns = await AddOn.find({ slug: { $in: addOnSlugs }, activo: true });
 
         for (const addOn of addOns) {
-          const precio = data.tipoSuscripcion === 'anual' && addOn.precioAnual
-            ? addOn.precioAnual
-            : addOn.precioMensual;
+          // Obtener cantidad (default 1)
+          const cantidad = cantidadPorSlug[addOn.slug] || 1;
+
+          const precioMensualItem = addOn.precio?.mensual ?? 0;
+          const precioAnualItem = addOn.precio?.anual ?? (precioMensualItem * 10);
+          const precio = data.tipoSuscripcion === 'anual' ? precioAnualItem : precioMensualItem;
 
           // Crear precio en Stripe para el add-on
           const stripePriceKey = data.tipoSuscripcion === 'anual'
@@ -813,7 +827,7 @@ export class StripeService {
 
           lineItems.push({
             price: addonPriceId,
-            quantity: 1,
+            quantity: cantidad,
           });
         }
       }

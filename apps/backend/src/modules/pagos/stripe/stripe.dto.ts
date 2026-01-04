@@ -81,6 +81,10 @@ export const CreateCheckoutSessionSchema = z.object({
   planSlug: z.string().optional(), // Opcional si solo compra add-ons
   tipoSuscripcion: z.enum(['mensual', 'anual']),
   addOns: z.array(z.string()).optional(), // Slugs de add-ons a comprar
+  addOnsConCantidad: z.array(z.object({
+    slug: z.string(),
+    cantidad: z.number().min(1).max(100),
+  })).optional(), // Add-ons con cantidad
   onlyAddOns: z.boolean().optional(), // Si true, solo compra add-ons (sin plan)
   successUrl: z.string().url(),
   cancelUrl: z.string().url(),

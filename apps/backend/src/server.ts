@@ -142,6 +142,9 @@ import socialMediaRoutes from './modules/social-media/social-media.routes';
 // Google Calendar
 import googleCalendarRoutes from './modules/google-calendar/google-calendar.routes';
 
+// Google OAuth unificado (Calendar + Gmail por usuario)
+import googleOAuthRoutes from './modules/google-oauth/google-oauth.routes';
+
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
 import logger, { httpLoggerMiddleware, logStartup, logShutdown } from './utils/logger/winston.config'; // 🆕 NUEVO
@@ -465,6 +468,9 @@ app.use('/api/recordatorios', recordatoriosRoutes);
 
 // Redes sociales
 app.use('/api/social-media', socialMediaRoutes);
+
+// Google OAuth unificado (Calendar + Gmail por usuario)
+app.use('/api/google/oauth', googleOAuthRoutes);
 
 // Google Calendar
 app.use('/api/google-calendar', googleCalendarRoutes);

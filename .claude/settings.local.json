@@ -40,7 +40,12 @@
       "Bash(dir \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\web\\\\src\\\\app\")",
       "Bash(del \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\web\\\\src\\\\app\\\\favicon.ico\")",
       "Bash(dir:*)",
-      "Bash(certutil:*)"
+      "Bash(certutil:*)",
+      "Bash(npm run seed:plans:*)",
+      "Bash(npx tsx:*)",
+      "Bash(del \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend\\\\src\\\\scripts\\\\fix-plan-basico.ts\")",
+      "Bash(npm run seed:addons:*)",
+      "Bash(del \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend\\\\src\\\\scripts\\\\check-partes-planificacion.ts\")"
     ]
   }
 }

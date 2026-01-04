@@ -3,6 +3,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { GoogleCalendarService } from './google-calendar.service';
 import { googleCalendarApiService } from './google-calendar-api.service';
+import { googleOAuthService } from '../google-oauth';
 
 // ============================================
 // CONTROLADOR DE GOOGLE CALENDAR
@@ -16,18 +17,22 @@ export const googleCalendarController = {
   /**
    * GET /google-calendar/auth
    * Inicia autenticación con Google
+   * NOTA: Redirige al nuevo sistema unificado de OAuth
    */
   async getAuthUrl(req: Request, res: Response, next: NextFunction) {
     try {
-      const state = Buffer.from(JSON.stringify({
-        empresaId: req.empresaId,
-        usuarioId: req.user?.id,
-      })).toString('base64');
-
-      const service = new GoogleCalendarService(req.empresaId!);
-      const authUrl = service.getAuthUrl(state);
-
-      res.json({ success: true, data: { authUrl } });
+      // Redirigir al nuevo sistema unificado de Google OAuth
+      res.json({
+        success: true,
+        data: {
+          message: 'Usar el nuevo endpoint /api/google/oauth/auth con scopes: ["calendar"]',
+          newEndpoint: '/api/google/oauth/auth',
+          body: {
+            scopes: ['calendar'],
+            returnUrl: '/integraciones/google-calendar'
+          }
+        }
+      });
     } catch (error) {
       next(error);
     }
@@ -63,14 +68,69 @@ export const googleCalendarController = {
   /**
    * GET /google-calendar/config
    * Obtiene configuración actual
+   * Verifica tanto CalendarConfig como GoogleOAuthToken (nuevo sistema)
    */
   async getConfig(req: Request, res: Response, next: NextFunction) {
     try {
       const service = new GoogleCalendarService(req.empresaId!);
-      const config = await service.getConfig();
+      let config = await service.getConfig();
+
+      // Si no hay config, verificar si hay tokens del nuevo sistema OAuth
+      if (!config) {
+        const usuarioId = req.userId?.toString();
+        const empresaId = req.empresaId?.toString();
+
+        if (usuarioId && empresaId) {
+          const oauthStatus = await googleOAuthService.isUserConnected(usuarioId, empresaId);
+
+          // Si tiene Google conectado con scope calendar, crear CalendarConfig
+          if (oauthStatus.connected && oauthStatus.scopes?.includes('calendar')) {
+            try {
+              // Obtener token válido
+              const tokenData = await googleOAuthService.getValidAccessToken(usuarioId, empresaId, 'calendar');
+
+              // Configurar API
+              googleCalendarApiService.setCredentials(tokenData.accessToken);
+
+              // Obtener calendarios
+              const calendarios = await googleCalendarApiService.listCalendars();
+              const calPrincipal = calendarios.find(c => c.primary);
+
+              // Crear configuración de Calendar usando los tokens del OAuth unificado
+              config = await service.createConfigFromOAuth({
+                email: tokenData.googleEmail,
+                calendarios: calendarios.map(c => ({
+                  id: c.id,
+                  nombre: c.summary,
+                  color: c.backgroundColor || '#4285F4',
+                  principal: c.primary || false,
+                  activo: true,
+                })),
+                calendarioPrincipal: calPrincipal?.id,
+              });
+            } catch (oauthError) {
+              console.error('Error al crear config desde OAuth:', oauthError);
+            }
+          }
+        }
+      }
 
       if (!config) {
-        return res.json({ success: true, data: null, message: 'No configurado' });
+        // Verificar si hay OAuth conectado para mostrar mensaje apropiado
+        const usuarioId = req.userId?.toString();
+        const empresaId = req.empresaId?.toString();
+        let oauthConnected = false;
+
+        if (usuarioId && empresaId) {
+          const status = await googleOAuthService.isUserConnected(usuarioId, empresaId);
+          oauthConnected = status.connected || false;
+        }
+
+        return res.json({
+          success: true,
+          data: null,
+          message: oauthConnected ? 'OAuth conectado pero calendar no configurado' : 'No configurado',
+        });
       }
 
       // No exponer tokens

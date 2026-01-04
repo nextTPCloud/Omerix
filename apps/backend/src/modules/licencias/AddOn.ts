@@ -26,6 +26,9 @@ export interface IAddOn extends Document {
   tipo: 'modulo' | 'usuarios' | 'almacenamiento' | 'tokens' | 'otro';
   esRecurrente: boolean; // Si se cobra cada mes/año
 
+  // Si permite comprar múltiples unidades (ej: TPVs extra)
+  permiteMultiples?: boolean;
+
   // Límites adicionales que añade este add-on
   limitesExtra?: {
     usuariosTotales?: number;
@@ -102,6 +105,10 @@ const AddOnSchema = new Schema<IAddOn>(
       type: Boolean,
       default: true,
     },
+    permiteMultiples: {
+      type: Boolean,
+      default: false,
+    },
     limitesExtra: {
       usuariosTotales: Number,
       almacenamientoGB: Number,
@@ -132,8 +139,7 @@ const AddOnSchema = new Schema<IAddOn>(
   }
 );
 
-// Índices
-AddOnSchema.index({ slug: 1 }, { unique: true });
+// Índices (slug ya tiene unique: true en la definición del campo)
 AddOnSchema.index({ activo: 1, visible: 1 });
 
 export default mongoose.model<IAddOn>('AddOn', AddOnSchema);

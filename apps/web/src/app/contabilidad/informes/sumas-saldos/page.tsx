@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -22,6 +23,8 @@ import {
   RefreshCw,
   Printer,
   Download,
+  CheckCircle,
+  AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -64,7 +67,7 @@ export default function SumasSaldosPage() {
 
   // Formatear importe
   const formatImporte = (importe: number) => {
-    return importe.toLocaleString('es-ES', {
+    return (importe || 0).toLocaleString('es-ES', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })
@@ -93,6 +96,19 @@ export default function SumasSaldosPage() {
   // Años disponibles
   const anios = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
 
+  // Obtener líneas y resumen con valores por defecto
+  const lineas = data?.lineas || []
+  const resumen = data?.resumen || {
+    totalSumaDebe: 0,
+    totalSumaHaber: 0,
+    totalSaldoDeudor: 0,
+    totalSaldoAcreedor: 0,
+    cuadradoSumas: true,
+    cuadradoSaldos: true,
+    diferenciaSumas: 0,
+    diferenciaSaldos: 0,
+  }
+
   return (
     <DashboardLayout>
       <div className="w-full space-y-4">
@@ -110,11 +126,26 @@ export default function SumasSaldosPage() {
                 Balance de Sumas y Saldos
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Balance de comprobación
+                Balance de comprobación - {lineas.length} cuentas
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {data && (
+              <>
+                {resumen.cuadradoSumas && resumen.cuadradoSaldos ? (
+                  <Badge variant="default" className="bg-emerald-500">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Cuadrado
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    Descuadre
+                  </Badge>
+                )}
+              </>
+            )}
             <Button variant="outline" size="sm" onClick={handleExportCSV}>
               <Download className="h-4 w-4 mr-2" />
               CSV
@@ -170,10 +201,10 @@ export default function SumasSaldosPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="1">Nivel 1</SelectItem>
-                  <SelectItem value="2">Nivel 2</SelectItem>
-                  <SelectItem value="3">Nivel 3</SelectItem>
-                  <SelectItem value="4">Nivel 4+</SelectItem>
+                  <SelectItem value="1">1 dígito</SelectItem>
+                  <SelectItem value="2">2 dígitos</SelectItem>
+                  <SelectItem value="3">3 dígitos</SelectItem>
+                  <SelectItem value="4">4+ dígitos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -213,7 +244,7 @@ export default function SumasSaldosPage() {
               <RefreshCw className="h-6 w-6 animate-spin text-primary" />
               <span className="ml-2 text-muted-foreground">Cargando...</span>
             </div>
-          ) : !data || data.lineas.length === 0 ? (
+          ) : lineas.length === 0 ? (
             <div className="text-center py-12">
               <Calculator className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
               <p className="font-medium">No hay datos para mostrar</p>
@@ -232,7 +263,7 @@ export default function SumasSaldosPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {data.lineas.map((linea, idx) => (
+                  {lineas.map((linea, idx) => (
                     <tr
                       key={idx}
                       className={`hover:bg-muted/30 ${
@@ -243,9 +274,9 @@ export default function SumasSaldosPage() {
                         className="px-4 py-2 font-mono"
                         style={{ paddingLeft: `${1 + linea.nivel * 0.5}rem` }}
                       >
-                        {linea.codigo}
+                        {linea.cuentaCodigo}
                       </td>
-                      <td className="px-4 py-2">{linea.nombre}</td>
+                      <td className="px-4 py-2">{linea.cuentaNombre}</td>
                       <td className="px-4 py-2 text-right">
                         {linea.sumaDebe > 0 ? formatImporte(linea.sumaDebe) : ''}
                       </td>
@@ -267,18 +298,32 @@ export default function SumasSaldosPage() {
                       TOTALES
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {formatImporte(data.totales.sumaDebe)}
+                      {formatImporte(resumen.totalSumaDebe)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {formatImporte(data.totales.sumaHaber)}
+                      {formatImporte(resumen.totalSumaHaber)}
                     </td>
                     <td className="px-4 py-3 text-right text-blue-600">
-                      {formatImporte(data.totales.saldoDeudor)}
+                      {formatImporte(resumen.totalSaldoDeudor)}
                     </td>
                     <td className="px-4 py-3 text-right text-red-600">
-                      {formatImporte(data.totales.saldoAcreedor)}
+                      {formatImporte(resumen.totalSaldoAcreedor)}
                     </td>
                   </tr>
+                  {!resumen.cuadradoSumas && (
+                    <tr className="bg-red-50 text-red-600 text-xs">
+                      <td colSpan={6} className="px-4 py-2 text-center">
+                        Diferencia en sumas: {formatImporte(resumen.diferenciaSumas)} €
+                      </td>
+                    </tr>
+                  )}
+                  {!resumen.cuadradoSaldos && (
+                    <tr className="bg-red-50 text-red-600 text-xs">
+                      <td colSpan={6} className="px-4 py-2 text-center">
+                        Diferencia en saldos: {formatImporte(resumen.diferenciaSaldos)} €
+                      </td>
+                    </tr>
+                  )}
                 </tfoot>
               </table>
             </div>

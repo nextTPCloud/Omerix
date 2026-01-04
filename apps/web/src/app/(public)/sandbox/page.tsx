@@ -16,6 +16,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   BarChart3,
   TrendingUp,
   TrendingDown,
@@ -37,6 +44,16 @@ import {
   Receipt,
   ClipboardList,
   Boxes,
+  Filter,
+  Download,
+  Target,
+  Calculator,
+  Share2,
+  CheckCircle,
+  Phone,
+  Mail,
+  MapPin,
+  CalendarDays,
 } from 'lucide-react'
 
 // Datos de ejemplo para el sandbox
@@ -101,7 +118,54 @@ const datosDemo = {
   ],
 }
 
-type SeccionActiva = 'dashboard' | 'facturas' | 'pedidos' | 'clientes' | 'productos' | 'albaranes' | 'presupuestos'
+// Datos adicionales para CRM
+const datosCRM = {
+  leads: [
+    { id: 1, nombre: 'María García', empresa: 'Tech Startup SL', email: 'maria@techstartup.es', telefono: '612345678', origen: 'Web', etapa: 'Nuevo', valorEstimado: 15000 },
+    { id: 2, nombre: 'Carlos López', empresa: 'Retail Pro SA', email: 'carlos@retailpro.es', telefono: '623456789', origen: 'Referido', etapa: 'Contactado', valorEstimado: 45000 },
+    { id: 3, nombre: 'Ana Martínez', empresa: 'Consulting Group', email: 'ana@consultinggroup.es', telefono: '634567890', origen: 'LinkedIn', etapa: 'Calificado', valorEstimado: 25000 },
+    { id: 4, nombre: 'Pedro Sánchez', empresa: 'Import Export SL', email: 'pedro@importexport.es', telefono: '645678901', origen: 'Feria', etapa: 'Propuesta', valorEstimado: 80000 },
+    { id: 5, nombre: 'Laura Fernández', empresa: 'Logística Plus', email: 'laura@logisticaplus.es', telefono: '656789012', origen: 'Web', etapa: 'Negociación', valorEstimado: 120000 },
+  ],
+  oportunidades: [
+    { id: 1, nombre: 'Proyecto ERP Completo', cliente: 'Tech Startup SL', valor: 45000, probabilidad: 75, etapa: 'Propuesta', cierre: '15/02/2024' },
+    { id: 2, nombre: 'Migración Cloud', cliente: 'Retail Pro SA', valor: 28000, probabilidad: 50, etapa: 'Negociación', cierre: '28/02/2024' },
+    { id: 3, nombre: 'Consultoría Digital', cliente: 'Consulting Group', valor: 15000, probabilidad: 90, etapa: 'Cierre', cierre: '20/01/2024' },
+  ],
+  actividades: [
+    { id: 1, tipo: 'Llamada', asunto: 'Seguimiento propuesta', cliente: 'Tech Startup SL', fecha: '16/01/2024 10:00', completada: false },
+    { id: 2, tipo: 'Reunión', asunto: 'Demo producto', cliente: 'Retail Pro SA', fecha: '17/01/2024 15:30', completada: false },
+    { id: 3, tipo: 'Email', asunto: 'Envío presupuesto', cliente: 'Consulting Group', fecha: '15/01/2024 09:00', completada: true },
+  ],
+}
+
+// Datos para contabilidad
+const datosContabilidad = {
+  cuentas: [
+    { codigo: '100', nombre: 'Capital social', tipo: 'Patrimonio', saldo: 50000 },
+    { codigo: '430', nombre: 'Clientes', tipo: 'Activo', saldo: 125340.50 },
+    { codigo: '400', nombre: 'Proveedores', tipo: 'Pasivo', saldo: 45230.80 },
+    { codigo: '570', nombre: 'Caja', tipo: 'Activo', saldo: 3450.25 },
+    { codigo: '572', nombre: 'Bancos', tipo: 'Activo', saldo: 87650.00 },
+    { codigo: '600', nombre: 'Compras', tipo: 'Gasto', saldo: 234500.00 },
+    { codigo: '700', nombre: 'Ventas', tipo: 'Ingreso', saldo: 456780.00 },
+  ],
+  asientos: [
+    { numero: 'A-2024-0156', fecha: '15/01/2024', concepto: 'Venta factura F-2024-0156', debe: 1250.00, haber: 1250.00 },
+    { numero: 'A-2024-0155', fecha: '15/01/2024', concepto: 'Cobro cliente ABC', debe: 3420.00, haber: 3420.00 },
+    { numero: 'A-2024-0154', fecha: '14/01/2024', concepto: 'Pago proveedor XYZ', debe: 2100.00, haber: 2100.00 },
+  ],
+  resumen: {
+    ingresos: 456780.00,
+    gastos: 234500.00,
+    resultado: 222280.00,
+    activo: 216440.75,
+    pasivo: 45230.80,
+    patrimonio: 171209.95,
+  },
+}
+
+type SeccionActiva = 'dashboard' | 'facturas' | 'pedidos' | 'clientes' | 'productos' | 'albaranes' | 'presupuestos' | 'crm' | 'contabilidad' | 'redes-sociales'
 
 function SandboxBanner() {
   return (
@@ -137,10 +201,16 @@ function SandboxSidebar({ seccion, onCambiarSeccion }: { seccion: SeccionActiva,
     { icon: Package, label: 'Productos', seccion: 'productos' },
   ]
 
+  const modulosExtra: { icon: any, label: string, seccion: SeccionActiva }[] = [
+    { icon: Target, label: 'CRM', seccion: 'crm' },
+    { icon: Calculator, label: 'Contabilidad', seccion: 'contabilidad' },
+    { icon: Share2, label: 'Redes Sociales', seccion: 'redes-sociales' },
+  ]
+
   return (
     <aside className="w-64 bg-slate-900 text-white min-h-screen p-4 pt-16">
       <div className="mb-8">
-        <h1 className="text-xl font-bold text-white">Tralok</h1>
+        <h1 className="text-xl font-bold text-white">Omerix</h1>
         <p className="text-xs text-slate-400">Sandbox Demo</p>
       </div>
       <nav className="space-y-1">
@@ -161,11 +231,32 @@ function SandboxSidebar({ seccion, onCambiarSeccion }: { seccion: SeccionActiva,
       </nav>
 
       <div className="mt-4 pt-4 border-t border-slate-700">
-        <p className="text-xs text-slate-500 mb-2 px-3">Modulos adicionales</p>
+        <p className="text-xs text-slate-500 mb-2 px-3">Modulos extra</p>
+        <div className="space-y-1">
+          {modulosExtra.map(item => (
+            <button
+              key={item.label}
+              onClick={() => onCambiarSeccion(item.seccion)}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                seccion === item.seccion
+                  ? 'bg-purple-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              <item.icon className="h-4 w-4" />
+              <span>{item.label}</span>
+              <Badge variant="outline" className="ml-auto text-[10px] h-5 border-purple-500 text-purple-400">Pro</Badge>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-slate-700">
+        <p className="text-xs text-slate-500 mb-2 px-3">Integraciones</p>
         <div className="space-y-1">
           {[
             { icon: Euro, label: 'Tesoreria' },
-            { icon: Calendar, label: 'Calendarios' },
+            { icon: CalendarDays, label: 'Google Calendar' },
             { icon: CreditCard, label: 'TPV' },
             { icon: ClipboardList, label: 'Proyectos' },
             { icon: Building2, label: 'Compras' },
@@ -683,6 +774,476 @@ function PresupuestosContent() {
   )
 }
 
+function CRMContent() {
+  const [filtroEtapa, setFiltroEtapa] = useState('todos')
+  const [filtroOrigen, setFiltroOrigen] = useState('todos')
+
+  const leadsFiltrados = datosCRM.leads.filter(lead => {
+    if (filtroEtapa !== 'todos' && lead.etapa !== filtroEtapa) return false
+    if (filtroOrigen !== 'todos' && lead.origen !== filtroOrigen) return false
+    return true
+  })
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Target className="h-7 w-7 text-purple-600" />
+            CRM
+          </h1>
+          <p className="text-slate-500">Gestiona leads, oportunidades y actividades</p>
+        </div>
+        <Button className="gap-2 bg-purple-600 hover:bg-purple-700">
+          <Plus className="h-4 w-4" />
+          Nuevo Lead
+        </Button>
+      </div>
+
+      {/* KPIs CRM */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Leads Activos</p>
+                <p className="text-2xl font-bold">{datosCRM.leads.length}</p>
+              </div>
+              <Target className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Oportunidades</p>
+                <p className="text-2xl font-bold">{datosCRM.oportunidades.length}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Valor Pipeline</p>
+                <p className="text-2xl font-bold">{datosCRM.oportunidades.reduce((acc, o) => acc + o.valor, 0).toLocaleString('es-ES')}€</p>
+              </div>
+              <Euro className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Actividades Hoy</p>
+                <p className="text-2xl font-bold">{datosCRM.actividades.filter(a => !a.completada).length}</p>
+              </div>
+              <Clock className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Leads */}
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <CardTitle>Leads</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input placeholder="Buscar..." className="pl-10 w-[200px]" />
+              </div>
+              <Select value={filtroEtapa} onValueChange={setFiltroEtapa}>
+                <SelectTrigger className="w-[140px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas las etapas</SelectItem>
+                  <SelectItem value="Nuevo">Nuevo</SelectItem>
+                  <SelectItem value="Contactado">Contactado</SelectItem>
+                  <SelectItem value="Calificado">Calificado</SelectItem>
+                  <SelectItem value="Propuesta">Propuesta</SelectItem>
+                  <SelectItem value="Negociación">Negociación</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filtroOrigen} onValueChange={setFiltroOrigen}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Origen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los orígenes</SelectItem>
+                  <SelectItem value="Web">Web</SelectItem>
+                  <SelectItem value="Referido">Referido</SelectItem>
+                  <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+                  <SelectItem value="Feria">Feria</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="icon">
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Empresa</TableHead>
+                <TableHead>Contacto</TableHead>
+                <TableHead>Origen</TableHead>
+                <TableHead>Etapa</TableHead>
+                <TableHead className="text-right">Valor Est.</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {leadsFiltrados.map((lead) => (
+                <TableRow key={lead.id} className="cursor-pointer hover:bg-slate-50">
+                  <TableCell className="font-medium">{lead.nombre}</TableCell>
+                  <TableCell>{lead.empresa}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-3 w-3 text-slate-400" />
+                      {lead.email}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <Phone className="h-3 w-3" />
+                      {lead.telefono}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{lead.origen}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      lead.etapa === 'Negociación' ? 'default' :
+                      lead.etapa === 'Propuesta' ? 'default' :
+                      'secondary'
+                    } className={
+                      lead.etapa === 'Negociación' ? 'bg-purple-500' :
+                      lead.etapa === 'Propuesta' ? 'bg-blue-500' : ''
+                    }>
+                      {lead.etapa}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {lead.valorEstimado.toLocaleString('es-ES')}€
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Actividades */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Actividades Pendientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {datosCRM.actividades.map((actividad) => (
+              <div key={actividad.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${actividad.completada ? 'bg-green-100' : 'bg-orange-100'}`}>
+                    {actividad.tipo === 'Llamada' ? <Phone className="h-4 w-4 text-orange-600" /> :
+                     actividad.tipo === 'Reunión' ? <Users className="h-4 w-4 text-blue-600" /> :
+                     <Mail className="h-4 w-4 text-purple-600" />}
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">{actividad.asunto}</p>
+                    <p className="text-xs text-slate-500">{actividad.cliente} - {actividad.fecha}</p>
+                  </div>
+                </div>
+                <Badge variant={actividad.completada ? 'default' : 'outline'}>
+                  {actividad.completada ? 'Completada' : 'Pendiente'}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  )
+}
+
+function ContabilidadContent() {
+  return (
+    <>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Calculator className="h-7 w-7 text-cyan-600" />
+            Contabilidad
+          </h1>
+          <p className="text-slate-500">Plan de cuentas, asientos e informes</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2">
+            <Download className="h-4 w-4" />
+            Exportar
+          </Button>
+          <Button className="gap-2 bg-cyan-600 hover:bg-cyan-700">
+            <Plus className="h-4 w-4" />
+            Nuevo Asiento
+          </Button>
+        </div>
+      </div>
+
+      {/* Resumen */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="pt-6">
+            <p className="text-sm text-green-600 font-medium">Ingresos</p>
+            <p className="text-xl font-bold text-green-700">{datosContabilidad.resumen.ingresos.toLocaleString('es-ES')}€</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-red-50 border-red-200">
+          <CardContent className="pt-6">
+            <p className="text-sm text-red-600 font-medium">Gastos</p>
+            <p className="text-xl font-bold text-red-700">{datosContabilidad.resumen.gastos.toLocaleString('es-ES')}€</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <p className="text-sm text-blue-600 font-medium">Resultado</p>
+            <p className="text-xl font-bold text-blue-700">{datosContabilidad.resumen.resultado.toLocaleString('es-ES')}€</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">Activo</p>
+            <p className="text-xl font-bold">{datosContabilidad.resumen.activo.toLocaleString('es-ES')}€</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">Pasivo</p>
+            <p className="text-xl font-bold">{datosContabilidad.resumen.pasivo.toLocaleString('es-ES')}€</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-slate-500">Patrimonio</p>
+            <p className="text-xl font-bold">{datosContabilidad.resumen.patrimonio.toLocaleString('es-ES')}€</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Plan de Cuentas */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Plan de Cuentas</CardTitle>
+            <CardDescription>Cuentas contables activas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Codigo</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Saldo</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {datosContabilidad.cuentas.map((cuenta) => (
+                  <TableRow key={cuenta.codigo}>
+                    <TableCell className="font-mono">{cuenta.codigo}</TableCell>
+                    <TableCell className="font-medium">{cuenta.nombre}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={
+                        cuenta.tipo === 'Activo' ? 'border-blue-300 text-blue-600' :
+                        cuenta.tipo === 'Pasivo' ? 'border-red-300 text-red-600' :
+                        cuenta.tipo === 'Ingreso' ? 'border-green-300 text-green-600' :
+                        cuenta.tipo === 'Gasto' ? 'border-orange-300 text-orange-600' :
+                        ''
+                      }>{cuenta.tipo}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {cuenta.saldo.toLocaleString('es-ES')}€
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {/* Ultimos Asientos */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Ultimos Asientos</CardTitle>
+            <CardDescription>Movimientos recientes</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Numero</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Concepto</TableHead>
+                  <TableHead className="text-right">Debe</TableHead>
+                  <TableHead className="text-right">Haber</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {datosContabilidad.asientos.map((asiento) => (
+                  <TableRow key={asiento.numero}>
+                    <TableCell className="font-mono text-sm">{asiento.numero}</TableCell>
+                    <TableCell>{asiento.fecha}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">{asiento.concepto}</TableCell>
+                    <TableCell className="text-right text-blue-600">{asiento.debe.toLocaleString('es-ES')}€</TableCell>
+                    <TableCell className="text-right text-red-600">{asiento.haber.toLocaleString('es-ES')}€</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    </>
+  )
+}
+
+function RedesSocialesContent() {
+  return (
+    <>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Share2 className="h-7 w-7 text-pink-600" />
+            Redes Sociales
+          </h1>
+          <p className="text-slate-500">Gestiona Facebook e Instagram</p>
+        </div>
+        <Button className="gap-2 bg-pink-600 hover:bg-pink-700">
+          <Plus className="h-4 w-4" />
+          Nueva publicacion
+        </Button>
+      </div>
+
+      {/* Cuentas conectadas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-600 rounded-lg">
+                <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium">Facebook</p>
+                <p className="text-sm text-slate-500">@miempresa</p>
+              </div>
+              <Badge variant="default" className="ml-auto bg-green-500">Conectada</Badge>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mt-4 text-center">
+              <div>
+                <p className="font-bold">12.5K</p>
+                <p className="text-xs text-slate-500">Seguidores</p>
+              </div>
+              <div>
+                <p className="font-bold">856</p>
+                <p className="text-xs text-slate-500">Posts</p>
+              </div>
+              <div>
+                <p className="font-bold">4.2%</p>
+                <p className="text-xs text-slate-500">Engagement</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-pink-200 bg-pink-50/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 rounded-lg">
+                <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium">Instagram</p>
+                <p className="text-sm text-slate-500">@miempresa.oficial</p>
+              </div>
+              <Badge variant="default" className="ml-auto bg-green-500">Conectada</Badge>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mt-4 text-center">
+              <div>
+                <p className="font-bold">8.9K</p>
+                <p className="text-xs text-slate-500">Seguidores</p>
+              </div>
+              <div>
+                <p className="font-bold">342</p>
+                <p className="text-xs text-slate-500">Posts</p>
+              </div>
+              <div>
+                <p className="font-bold">5.8%</p>
+                <p className="text-xs text-slate-500">Engagement</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center h-full py-8">
+            <Plus className="h-8 w-8 text-slate-300 mb-2" />
+            <p className="font-medium text-slate-500">Conectar cuenta</p>
+            <p className="text-sm text-slate-400">Facebook o Instagram</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Publicaciones programadas */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Publicaciones Programadas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {[
+              { titulo: 'Nuevo producto disponible', fecha: '17/01/2024 10:00', plataforma: 'ambas', estado: 'programada' },
+              { titulo: 'Oferta especial fin de semana', fecha: '20/01/2024 09:00', plataforma: 'instagram', estado: 'programada' },
+              { titulo: 'Tips de uso', fecha: '22/01/2024 14:00', plataforma: 'facebook', estado: 'borrador' },
+            ].map((pub, i) => (
+              <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{pub.titulo}</p>
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <Clock className="h-3 w-3" />
+                      {pub.fecha}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={pub.estado === 'programada' ? 'default' : 'secondary'}>
+                    {pub.estado}
+                  </Badge>
+                  <Button variant="outline" size="sm">Editar</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  )
+}
+
 export default function SandboxPage() {
   const [seccionActiva, setSeccionActiva] = useState<SeccionActiva>('dashboard')
 
@@ -702,6 +1263,12 @@ export default function SandboxPage() {
         return <AlbaranesContent />
       case 'presupuestos':
         return <PresupuestosContent />
+      case 'crm':
+        return <CRMContent />
+      case 'contabilidad':
+        return <ContabilidadContent />
+      case 'redes-sociales':
+        return <RedesSocialesContent />
       default:
         return <DashboardContent />
     }

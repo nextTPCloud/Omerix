@@ -214,18 +214,28 @@ export const authMiddleware = async (
     let modulosContratados: string[] = [];
     if (payload.empresaId) {
       const licencia = await Licencia.findOne({ empresaId: payload.empresaId })
-        .populate('planId', 'modulosIncluidos');
+        .populate('planId', 'modulosIncluidos')
+        .populate('addOns.addOnId', 'modulosIncluidos slug');
 
       if (licencia && licencia.planId) {
         const plan = licencia.planId as any;
-        modulosContratados = plan.modulosIncluidos || [];
+        modulosContratados = [...(plan.modulosIncluidos || [])];
 
         // Añadir módulos de add-ons activos
         const addOnsActivos = licencia.addOns?.filter((a: any) => a.activo) || [];
         for (const addOn of addOnsActivos) {
-          // Los add-ons de tipo 'modulo' añaden su slug como módulo
+          // Primero añadir el slug del addon
           if (addOn.slug && !modulosContratados.includes(addOn.slug)) {
             modulosContratados.push(addOn.slug);
+          }
+          // Luego añadir todos los módulos que incluye el addon (desde el populate)
+          const addOnData = addOn.addOnId as any;
+          if (addOnData?.modulosIncluidos) {
+            for (const modulo of addOnData.modulosIncluidos) {
+              if (!modulosContratados.includes(modulo)) {
+                modulosContratados.push(modulo);
+              }
+            }
           }
         }
       }

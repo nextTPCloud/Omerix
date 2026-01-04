@@ -77,7 +77,7 @@ const CuentaContableSchema = new Schema<ICuentaContable>(
       required: true,
       trim: true,
       uppercase: true,
-      index: true,
+      // index se define abajo en schema.index() con unique
     },
     nombre: {
       type: String,

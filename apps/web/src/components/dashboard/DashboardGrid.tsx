@@ -62,6 +62,15 @@ import {
   Bell,
   CalendarDays,
   CheckSquare,
+  // CRM
+  Target,
+  Briefcase,
+  Phone,
+  // Contabilidad
+  Calculator,
+  BookOpen,
+  Scale,
+  Coins,
 } from 'lucide-react'
 
 // Estilos de react-grid-layout
@@ -109,6 +118,20 @@ const WIDGET_CATALOGO = {
     { tipo: TipoWidget.PARTES_TRABAJO_HOY, nombre: 'Partes de Trabajo', icono: Clock },
     { tipo: TipoWidget.FICHAJES_HOY, nombre: 'Fichajes Hoy', icono: Users },
     { tipo: TipoWidget.RESUMEN_PERSONAL, nombre: 'Resumen Personal', icono: Users },
+  ],
+  'CRM': [
+    { tipo: TipoWidget.RESUMEN_CRM, nombre: 'Resumen CRM', icono: Target },
+    { tipo: TipoWidget.LEADS_RECIENTES, nombre: 'Leads Recientes', icono: Users },
+    { tipo: TipoWidget.OPORTUNIDADES_PIPELINE, nombre: 'Pipeline Oportunidades', icono: Briefcase },
+    { tipo: TipoWidget.ACTIVIDADES_CRM_PENDIENTES, nombre: 'Actividades CRM', icono: Phone },
+    { tipo: TipoWidget.GRAFICA_PIPELINE_CRM, nombre: 'Gráfica Pipeline', icono: PieChart },
+    { tipo: TipoWidget.FORECAST_CRM, nombre: 'Forecast Ventas', icono: TrendingUp },
+  ],
+  'Contabilidad': [
+    { tipo: TipoWidget.RESUMEN_CONTABILIDAD, nombre: 'Resumen Contable', icono: Calculator },
+    { tipo: TipoWidget.BALANCE_RAPIDO, nombre: 'Balance Rápido', icono: Scale },
+    { tipo: TipoWidget.ULTIMOS_ASIENTOS, nombre: 'Últimos Asientos', icono: BookOpen },
+    { tipo: TipoWidget.GRAFICA_INGRESOS_GASTOS, nombre: 'Ingresos vs Gastos', icono: Coins },
   ],
   'Otros': [
     { tipo: TipoWidget.ACCESOS_RAPIDOS, nombre: 'Accesos Rápidos', icono: LayoutGrid },
@@ -722,6 +745,187 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
             } : null}
             icono={<FileText className="h-6 w-6 text-gray-600" />}
             colorClase="text-gray-600"
+          />
+        )
+
+      // ============================================
+      // WIDGETS CRM
+      // ============================================
+
+      case TipoWidget.RESUMEN_CRM:
+        return (
+          <KPIWidget
+            {...commonProps}
+            titulo="Resumen CRM"
+            data={data?.datos ? {
+              total: data.datos.valorPipeline || 0,
+              count: data.datos.oportunidades || 0,
+              variacion: data.datos.leads,
+              tendencia: 'up',
+            } : null}
+            icono={<Target className="h-6 w-6 text-purple-600" />}
+            colorClase="text-purple-600"
+          />
+        )
+
+      case TipoWidget.LEADS_RECIENTES:
+        return (
+          <ListWidget
+            {...commonProps}
+            titulo="Leads Recientes"
+            data={data?.datos?.map((l: any) => ({
+              id: l._id,
+              titulo: l.nombre || l.empresa,
+              subtitulo: l.email || l.telefono,
+              valor: l.valorEstimado,
+              icono: 'user' as const,
+              url: `/crm/leads/${l._id}`,
+              badge: l.etapa ? {
+                texto: l.etapa,
+                variante: l.estado === 'calificado' ? 'default' as const : 'secondary' as const,
+              } : undefined,
+            }))}
+            emptyMessage="Sin leads recientes"
+          />
+        )
+
+      case TipoWidget.OPORTUNIDADES_PIPELINE:
+        return (
+          <ChartWidget
+            {...commonProps}
+            titulo="Pipeline de Oportunidades"
+            data={data?.datos?.map((etapa: any) => ({
+              name: etapa._id || 'Sin etapa',
+              value: etapa.valor,
+              count: etapa.count,
+            }))}
+            dataKeys={[{ key: 'value', name: 'Valor', color: '#8b5cf6' }]}
+            xAxisKey="name"
+          />
+        )
+
+      case TipoWidget.ACTIVIDADES_CRM_PENDIENTES:
+        return (
+          <ListWidget
+            {...commonProps}
+            titulo="Actividades CRM Pendientes"
+            data={data?.datos?.map((a: any) => ({
+              id: a._id,
+              titulo: a.asunto,
+              subtitulo: a.clienteNombre || a.oportunidadNombre,
+              fecha: a.fechaProgramada,
+              icono: 'document' as const,
+              url: `/crm/actividades/${a._id}`,
+              badge: a.tipo ? {
+                texto: a.tipo,
+                variante: a.prioridad === 'alta' ? 'destructive' as const : 'secondary' as const,
+              } : undefined,
+            }))}
+            emptyMessage="Sin actividades pendientes"
+          />
+        )
+
+      case TipoWidget.GRAFICA_PIPELINE_CRM:
+        return (
+          <ChartWidget
+            {...commonProps}
+            titulo="Distribución Pipeline"
+            data={data?.datos}
+            dataKeys={[{ key: 'value', name: 'Valor', color: '#8b5cf6' }]}
+            xAxisKey="name"
+          />
+        )
+
+      case TipoWidget.FORECAST_CRM:
+        return (
+          <KPIWidget
+            {...commonProps}
+            titulo="Forecast de Ventas"
+            data={data?.datos ? {
+              total: data.datos.forecastPonderado || 0,
+              count: data.datos.oportunidadesAbiertas || 0,
+              variacion: data.datos.ganado > 0 ? ((data.datos.forecastPonderado / data.datos.ganado) * 100) : 0,
+              tendencia: 'up',
+            } : null}
+            icono={<TrendingUp className="h-6 w-6 text-emerald-600" />}
+            colorClase="text-emerald-600"
+          />
+        )
+
+      // ============================================
+      // WIDGETS CONTABILIDAD
+      // ============================================
+
+      case TipoWidget.RESUMEN_CONTABILIDAD:
+        return (
+          <KPIWidget
+            {...commonProps}
+            titulo="Resumen Contable"
+            data={data?.datos ? {
+              total: data.datos.resultado || 0,
+              count: data.datos.totalAsientos || 0,
+              variacion: data.datos.ingresos > 0 ? ((data.datos.resultado / data.datos.ingresos) * 100) : 0,
+              tendencia: (data.datos.resultado || 0) >= 0 ? 'up' : 'down',
+            } : null}
+            icono={<Calculator className="h-6 w-6 text-cyan-600" />}
+            colorClase="text-cyan-600"
+          />
+        )
+
+      case TipoWidget.BALANCE_RAPIDO:
+        return (
+          <ListWidget
+            {...commonProps}
+            titulo="Balance Rápido"
+            data={data?.datos?.map((g: any) => ({
+              id: g.grupo,
+              titulo: g.nombre,
+              subtitulo: `Grupo ${g.grupo}`,
+              valor: g.saldoDeudor > 0 ? g.saldoDeudor : -g.saldoAcreedor,
+              icono: 'document' as const,
+              badge: {
+                texto: g.saldoDeudor > 0 ? 'Deudor' : 'Acreedor',
+                variante: g.saldoDeudor > 0 ? 'default' as const : 'secondary' as const,
+              },
+            }))}
+            emptyMessage="Sin datos de balance"
+          />
+        )
+
+      case TipoWidget.ULTIMOS_ASIENTOS:
+        return (
+          <ListWidget
+            {...commonProps}
+            titulo="Últimos Asientos"
+            data={data?.datos?.map((a: any) => ({
+              id: a._id,
+              titulo: `Asiento ${a.numero}`,
+              subtitulo: a.concepto,
+              valor: a.totalDebe,
+              fecha: a.fecha,
+              icono: 'document' as const,
+              url: `/contabilidad/asientos/${a._id}`,
+              badge: a.estado ? {
+                texto: a.estado,
+                variante: a.estado === 'contabilizado' ? 'default' as const : 'secondary' as const,
+              } : undefined,
+            }))}
+            emptyMessage="Sin asientos recientes"
+          />
+        )
+
+      case TipoWidget.GRAFICA_INGRESOS_GASTOS:
+        return (
+          <ChartWidget
+            {...commonProps}
+            titulo="Ingresos vs Gastos"
+            data={data?.datos}
+            dataKeys={[
+              { key: 'ingresos', name: 'Ingresos', color: '#10b981' },
+              { key: 'gastos', name: 'Gastos', color: '#ef4444' },
+              { key: 'resultado', name: 'Resultado', color: '#3b82f6', type: 'line' },
+            ]}
+            xAxisKey="mes"
           />
         )
 

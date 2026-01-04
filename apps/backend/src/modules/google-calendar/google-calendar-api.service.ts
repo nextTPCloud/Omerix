@@ -4,14 +4,16 @@
  * Servicio de integración con Google Calendar API
  *
  * Implementa:
- * - OAuth 2.0 para autenticación
  * - CRUD de eventos
  * - Sincronización incremental
  * - Gestión de calendarios
+ *
+ * NOTA: La autenticación OAuth se maneja ahora en google-oauth module
  */
 
 import { google, calendar_v3 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
+import { googleOAuthService } from '../google-oauth';
 
 // ============================================
 // TIPOS
@@ -69,65 +71,47 @@ export class GoogleCalendarApiService {
     this.oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.API_URL}/google-calendar/auth/callback`
+      process.env.GOOGLE_REDIRECT_URI
     );
     this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
   }
 
   // ============================================
-  // AUTENTICACIÓN
+  // AUTENTICACIÓN (DELEGADA A google-oauth)
   // ============================================
 
   /**
    * Genera URL de autorización OAuth
+   * @deprecated Usar googleOAuthService.getAuthUrl() en su lugar
    */
   getAuthUrl(state: string): string {
-    const scopes = [
-      'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/calendar.events',
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/userinfo.profile',
-    ];
-
-    return this.oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: scopes,
-      state,
-      prompt: 'consent',
-    });
+    return googleOAuthService.getAuthUrl(state, ['calendar']);
   }
 
   /**
-   * Intercambia código por tokens
+   * @deprecated Usar googleOAuthService.exchangeCodeForTokens() en su lugar
    */
   async exchangeCodeForTokens(code: string): Promise<{
     accessToken: string;
     refreshToken: string;
     expiryDate: Date;
   }> {
-    const { tokens } = await this.oauth2Client.getToken(code);
-
+    const result = await googleOAuthService.exchangeCodeForTokens(code);
     return {
-      accessToken: tokens.access_token!,
-      refreshToken: tokens.refresh_token!,
-      expiryDate: new Date(tokens.expiry_date!),
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      expiryDate: result.expiryDate,
     };
   }
 
   /**
-   * Refresca token de acceso
+   * @deprecated Usar googleOAuthService.refreshAccessToken() en su lugar
    */
   async refreshAccessToken(refreshToken: string): Promise<{
     accessToken: string;
     expiryDate: Date;
   }> {
-    this.oauth2Client.setCredentials({ refresh_token: refreshToken });
-    const { credentials } = await this.oauth2Client.refreshAccessToken();
-
-    return {
-      accessToken: credentials.access_token!,
-      expiryDate: new Date(credentials.expiry_date!),
-    };
+    return googleOAuthService.refreshAccessToken(refreshToken);
   }
 
   /**
@@ -141,7 +125,16 @@ export class GoogleCalendarApiService {
   }
 
   /**
-   * Obtiene información del usuario
+   * Configura credenciales desde tokens del usuario
+   */
+  async setCredentialsFromUser(usuarioId: string, empresaId: string): Promise<string> {
+    const tokenData = await googleOAuthService.getValidAccessToken(usuarioId, empresaId, 'calendar');
+    this.setCredentials(tokenData.accessToken);
+    return tokenData.googleEmail;
+  }
+
+  /**
+   * @deprecated Usar googleOAuthService.getUserInfo() en su lugar
    */
   async getUserInfo(): Promise<{ email: string; name?: string }> {
     const oauth2 = google.oauth2({ version: 'v2', auth: this.oauth2Client });

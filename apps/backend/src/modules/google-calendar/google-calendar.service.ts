@@ -10,7 +10,6 @@ import {
   TipoEntidadCalendario,
 } from './GoogleCalendar';
 import { googleCalendarApiService, GoogleEventData } from './google-calendar-api.service';
-import { getDynamicModel } from '../../utils/dynamic-models.helper';
 
 // ============================================
 // SERVICIO DE GOOGLE CALENDAR
@@ -25,16 +24,17 @@ export class GoogleCalendarService {
       : empresaId;
   }
 
+  // Usamos los modelos directamente (están en BD principal, filtrados por empresaId/usuarioId)
   private get ConfigModel() {
-    return getDynamicModel('CalendarConfig', CalendarConfig.schema, this.empresaId.toString());
+    return CalendarConfig;
   }
 
   private get EventModel() {
-    return getDynamicModel('CalendarEvent', CalendarEvent.schema, this.empresaId.toString());
+    return CalendarEvent;
   }
 
   private get LogModel() {
-    return getDynamicModel('CalendarSyncLog', CalendarSyncLog.schema, this.empresaId.toString());
+    return CalendarSyncLog;
   }
 
   // ============================================
@@ -67,8 +67,11 @@ export class GoogleCalendarService {
     // Buscar calendario principal
     const calPrincipal = calendarios.find(c => c.primary);
 
-    // Crear o actualizar configuración
-    let config = await this.ConfigModel.findOne({ email: userInfo.email });
+    // Crear o actualizar configuración (filtrar por empresaId)
+    let config = await this.ConfigModel.findOne({
+      empresaId: this.empresaId,
+      email: userInfo.email
+    });
 
     if (config) {
       config.accessToken = tokens.accessToken;
@@ -86,6 +89,7 @@ export class GoogleCalendarService {
       await config.save();
     } else {
       config = await this.ConfigModel.create({
+        empresaId: this.empresaId,
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         tokenExpiry: tokens.expiryDate,
@@ -123,7 +127,7 @@ export class GoogleCalendarService {
    * Obtiene configuración actual
    */
   async getConfig(): Promise<ICalendarConfig | null> {
-    return this.ConfigModel.findOne({ activo: true });
+    return this.ConfigModel.findOne({ empresaId: this.empresaId, activo: true });
   }
 
   /**
@@ -131,7 +135,7 @@ export class GoogleCalendarService {
    */
   async updateConfig(updates: Partial<ICalendarConfig>): Promise<ICalendarConfig | null> {
     return this.ConfigModel.findOneAndUpdate(
-      { activo: true },
+      { empresaId: this.empresaId, activo: true },
       updates,
       { new: true }
     );
@@ -141,7 +145,70 @@ export class GoogleCalendarService {
    * Desconecta Google Calendar
    */
   async disconnect(): Promise<void> {
-    await this.ConfigModel.updateMany({}, { activo: false });
+    await this.ConfigModel.updateMany({ empresaId: this.empresaId }, { activo: false });
+  }
+
+  /**
+   * Crea configuración de Calendar desde tokens del nuevo sistema OAuth
+   * Se usa cuando el usuario conectó Google via el OAuth unificado
+   */
+  async createConfigFromOAuth(data: {
+    email: string;
+    calendarios: {
+      id: string;
+      nombre: string;
+      color: string;
+      principal: boolean;
+      activo: boolean;
+    }[];
+    calendarioPrincipal?: string;
+    usuarioId?: string;
+  }): Promise<ICalendarConfig> {
+    // Buscar config existente por empresaId y email
+    let config = await this.ConfigModel.findOne({
+      empresaId: this.empresaId,
+      email: data.email,
+    });
+
+    const calPrincipalId = data.calendarioPrincipal || data.calendarios.find(c => c.principal)?.id;
+
+    if (config) {
+      // Actualizar calendarios y activar
+      config.calendarios = data.calendarios;
+      config.activo = true;
+      config.errorMensaje = undefined;
+      if (data.usuarioId) {
+        config.usuarioId = new mongoose.Types.ObjectId(data.usuarioId);
+      }
+      await config.save();
+    } else {
+      // Crear nueva config (sin tokens, ya que se usan del OAuth unificado)
+      config = await this.ConfigModel.create({
+        empresaId: this.empresaId,
+        usuarioId: data.usuarioId ? new mongoose.Types.ObjectId(data.usuarioId) : undefined,
+        email: data.email,
+        calendarios: data.calendarios,
+        calendarioPartes: calPrincipalId,
+        calendarioTareas: calPrincipalId,
+        calendarioActividadesCRM: calPrincipalId,
+        calendarioRecordatorios: calPrincipalId,
+        calendarioEventos: calPrincipalId,
+        sincronizacion: {
+          direccion: 'bidireccional',
+          sincPartesActivos: true,
+          sincTareasPendientes: true,
+          sincActividadesCRM: true,
+          sincRecordatorios: true,
+          sincEventos: true,
+          frecuenciaMinutos: 15,
+        },
+        activo: true,
+        // No guardamos tokens aquí, se usan del GoogleOAuthToken
+        usaOAuthUnificado: true,
+      });
+    }
+
+    return config;
   }
 
   /**

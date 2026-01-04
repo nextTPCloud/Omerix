@@ -592,7 +592,7 @@ const CobroSchema = new Schema<ICobro>({
 }, { _id: true });
 
 const VeriFactuSchema = new Schema<IVeriFactu>({
-  idFactura: { type: String, required: true, index: true },
+  idFactura: { type: String, required: true },
   hash: { type: String, required: true },
   hashAnterior: { type: String },
   fechaExpedicion: { type: Date, required: true },
@@ -611,7 +611,7 @@ const VeriFactuSchema = new Schema<IVeriFactu>({
 }, { _id: false });
 
 const TicketBAISchema = new Schema<ITicketBAI>({
-  tbaiId: { type: String, required: true, index: true },
+  tbaiId: { type: String, required: true },
   firma: { type: String, required: true },
   qr: { type: String, required: true },
   urlQR: { type: String, required: true },

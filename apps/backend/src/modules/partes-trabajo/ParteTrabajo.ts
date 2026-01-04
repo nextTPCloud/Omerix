@@ -142,6 +142,70 @@ export interface ILineaGasto {
 }
 
 // ============================================
+// JORNADAS DE TRABAJO (Multi-día)
+// ============================================
+
+export enum EstadoJornada {
+  PLANIFICADA = 'planificada',
+  CONFIRMADA = 'confirmada',
+  EN_CURSO = 'en_curso',
+  COMPLETADA = 'completada',
+  CANCELADA = 'cancelada',
+}
+
+export interface IPersonalJornada {
+  personalId: mongoose.Types.ObjectId;
+  usuarioId?: mongoose.Types.ObjectId;
+  nombre: string;
+  cargo?: string;
+  confirmado: boolean;
+  horaEntrada?: string;
+  horaSalida?: string;
+  horasTrabajadas?: number;
+  notas?: string;
+  // Sync con Google Calendar
+  googleEventId?: string;
+  googleCalendarId?: string;
+}
+
+export interface IVehiculoJornada {
+  vehiculoId?: mongoose.Types.ObjectId;
+  nombre: string;
+  matricula?: string;
+  conductorId?: mongoose.Types.ObjectId;
+  conductorNombre?: string;
+  kmInicio?: number;
+  kmFin?: number;
+}
+
+export interface IMaquinariaJornada {
+  maquinariaId?: mongoose.Types.ObjectId;
+  nombre: string;
+  codigo?: string;
+  operadorId?: mongoose.Types.ObjectId;
+  operadorNombre?: string;
+  horasUso?: number;
+}
+
+export interface IJornadaTrabajo {
+  _id?: mongoose.Types.ObjectId;
+  fecha: Date;
+  horaInicio?: string;
+  horaFin?: string;
+  duracionEstimada?: string;
+  estado: EstadoJornada;
+  personal: IPersonalJornada[];
+  vehiculos: IVehiculoJornada[];
+  maquinaria: IMaquinariaJornada[];
+  trabajoRealizado?: string;
+  notas?: string;
+  incidencias?: string;
+  // Sincronizacion con calendarios
+  sincronizadoCalendar: boolean;
+  ultimaSyncCalendar?: Date;
+}
+
+// ============================================
 // INTERFACES DE TOTALES
 // ============================================
 
@@ -261,6 +325,10 @@ export interface IParteTrabajo extends Document {
   lineasTransporte: ILineaTransporte[];
   lineasGastos: ILineaGasto[];
 
+  // Jornadas de trabajo (multi-dia)
+  esMultiDia: boolean;
+  jornadas: IJornadaTrabajo[];
+
   // Totales calculados
   totales: ITotalesParteTrabajo;
 
@@ -317,6 +385,74 @@ export interface IParteTrabajoModel extends Model<IParteTrabajo> {
     pendientesFacturar: number;
   }>;
 }
+
+// ============================================
+// SCHEMAS DE JORNADAS
+// ============================================
+
+const PersonalJornadaSchema = new Schema<IPersonalJornada>({
+  personalId: { type: Schema.Types.ObjectId, ref: 'Personal', required: true },
+  usuarioId: { type: Schema.Types.ObjectId, ref: 'Usuario' },
+  nombre: { type: String, required: true, trim: true },
+  cargo: { type: String, trim: true },
+  confirmado: { type: Boolean, default: false },
+  horaEntrada: { type: String, trim: true },
+  horaSalida: { type: String, trim: true },
+  horasTrabajadas: { type: Number, min: 0 },
+  notas: { type: String },
+  // Sync con Google Calendar
+  googleEventId: { type: String, trim: true },
+  googleCalendarId: { type: String, trim: true },
+}, { _id: true });
+
+const VehiculoJornadaSchema = new Schema<IVehiculoJornada>({
+  vehiculoId: { type: Schema.Types.ObjectId, ref: 'Vehiculo' },
+  nombre: { type: String, required: true, trim: true },
+  matricula: { type: String, trim: true },
+  conductorId: { type: Schema.Types.ObjectId, ref: 'Personal' },
+  conductorNombre: { type: String, trim: true },
+  kmInicio: { type: Number, min: 0 },
+  kmFin: { type: Number, min: 0 },
+}, { _id: true });
+
+const MaquinariaJornadaSchema = new Schema<IMaquinariaJornada>({
+  maquinariaId: { type: Schema.Types.ObjectId, ref: 'Maquinaria' },
+  nombre: { type: String, required: true, trim: true },
+  codigo: { type: String, trim: true },
+  operadorId: { type: Schema.Types.ObjectId, ref: 'Personal' },
+  operadorNombre: { type: String, trim: true },
+  horasUso: { type: Number, min: 0 },
+}, { _id: true });
+
+const JornadaTrabajoSchema = new Schema<IJornadaTrabajo>({
+  fecha: { type: Date, required: true },
+  horaInicio: { type: String, trim: true },
+  horaFin: { type: String, trim: true },
+  duracionEstimada: { type: String, trim: true },
+  estado: {
+    type: String,
+    enum: Object.values(EstadoJornada),
+    default: EstadoJornada.PLANIFICADA,
+  },
+  personal: {
+    type: [PersonalJornadaSchema],
+    default: [],
+  },
+  vehiculos: {
+    type: [VehiculoJornadaSchema],
+    default: [],
+  },
+  maquinaria: {
+    type: [MaquinariaJornadaSchema],
+    default: [],
+  },
+  trabajoRealizado: { type: String },
+  notas: { type: String },
+  incidencias: { type: String },
+  // Sincronizacion con calendarios
+  sincronizadoCalendar: { type: Boolean, default: false },
+  ultimaSyncCalendar: { type: Date },
+}, { _id: true });
 
 // ============================================
 // SCHEMAS DE LINEAS
@@ -600,6 +736,16 @@ const ParteTrabajoSchema = new Schema<IParteTrabajo, IParteTrabajoModel>({
     default: [],
   },
 
+  // Jornadas de trabajo (multi-dia)
+  esMultiDia: {
+    type: Boolean,
+    default: false,
+  },
+  jornadas: {
+    type: [JornadaTrabajoSchema],
+    default: [],
+  },
+
   // Totales
   totales: {
     type: TotalesParteTrabajoSchema,
@@ -715,6 +861,10 @@ ParteTrabajoSchema.index({ fechaPrevista: 1 });
 ParteTrabajoSchema.index({ activo: 1 });
 ParteTrabajoSchema.index({ tags: 1 });
 ParteTrabajoSchema.index({ 'totales.totalVenta': 1 });
+ParteTrabajoSchema.index({ esMultiDia: 1 });
+ParteTrabajoSchema.index({ 'jornadas.fecha': 1 });
+ParteTrabajoSchema.index({ 'jornadas.personal.personalId': 1 });
+ParteTrabajoSchema.index({ 'jornadas.estado': 1 });
 
 // ============================================
 // VIRTUALS

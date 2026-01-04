@@ -51,7 +51,7 @@ const TPVActivationTokenSchema = new Schema<ITPVActivationToken>(
     expiraEn: {
       type: Date,
       required: true,
-      index: true,
+      // index se define abajo como TTL index
     },
     creadoPor: {
       type: Schema.Types.ObjectId,

@@ -280,7 +280,7 @@ const MovimientoStockSchema = new Schema<IMovimientoStock, IMovimientoStockModel
   numeroSerie: {
     type: String,
     trim: true,
-    index: true,
+    // index se define abajo en schema.index()
   },
   fechaCaducidad: {
     type: Date,

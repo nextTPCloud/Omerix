@@ -24,10 +24,14 @@ export type DireccionSync = 'bidireccional' | 'solo_google' | 'solo_local';
 export interface ICalendarConfig extends Document {
   _id: mongoose.Types.ObjectId;
 
-  // Token de acceso
-  accessToken: string;
-  refreshToken: string;
-  tokenExpiry: Date;
+  // Referencias (para filtrar por empresa/usuario)
+  empresaId?: mongoose.Types.ObjectId;
+  usuarioId?: mongoose.Types.ObjectId;
+
+  // Token de acceso (opcionales si usa OAuth unificado)
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiry?: Date;
 
   // Información de la cuenta
   email: string;
@@ -64,6 +68,9 @@ export interface ICalendarConfig extends Document {
   // Estado
   activo: boolean;
   errorMensaje?: string;
+
+  // Indica si usa tokens del nuevo sistema OAuth unificado (GoogleOAuthToken)
+  usaOAuthUnificado?: boolean;
 
   // Timestamps
   createdAt: Date;
@@ -168,9 +175,14 @@ export interface ICalendarSyncLog extends Document {
 // ============================================
 
 const CalendarConfigSchema = new Schema<ICalendarConfig>({
-  accessToken: { type: String, required: true },
-  refreshToken: { type: String, required: true },
-  tokenExpiry: { type: Date, required: true },
+  // Referencias
+  empresaId: { type: Schema.Types.ObjectId, index: true },
+  usuarioId: { type: Schema.Types.ObjectId, index: true },
+
+  // Tokens (opcionales si usa OAuth unificado)
+  accessToken: { type: String },
+  refreshToken: { type: String },
+  tokenExpiry: { type: Date },
 
   email: { type: String, required: true },
   nombre: String,
@@ -206,6 +218,9 @@ const CalendarConfigSchema = new Schema<ICalendarConfig>({
 
   activo: { type: Boolean, default: true },
   errorMensaje: String,
+
+  // Si usa tokens del nuevo sistema OAuth unificado (GoogleOAuthToken)
+  usaOAuthUnificado: { type: Boolean, default: false },
 }, {
   timestamps: true,
 });
