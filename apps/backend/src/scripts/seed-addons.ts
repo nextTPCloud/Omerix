@@ -1,320 +1,271 @@
-/**
- * Script para crear los add-ons disponibles
- *
- * Precios (IVA incluido):
- * - Módulo RRHH/Fichaje: 6€/mes (como add-on, standalone es 15€)
- * - Módulo TPV: 25€/mes
- * - Módulo Servicios: 15€/mes (proyectos, partes de trabajo, maquinaria)
- * - Usuario extra: 5€/mes
- * - 10 GB extra: 3€/mes
- * - 50 GB extra: 10€/mes
- * - 1.000 tokens IA: 2€ (pago único)
- * - 5.000 tokens IA: 8€ (pago único)
- * - 20.000 tokens IA: 25€ (pago único)
- *
- * Uso: npx ts-node src/scripts/seed-addons.ts
- */
-
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
+import AddOn from '../modules/licencias/AddOn';
+import { config } from '../config/env';
+import { logger } from '../config/logger';
 
-dotenv.config();
-
+/**
+ * Script para poblar la base de datos con add-ons
+ * Ejecutar: npm run seed:addons
+ */
 async function seedAddOns() {
   try {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/omerix';
-    await mongoose.connect(mongoUri);
-    console.log('Conectado a MongoDB');
+    logger.info('Iniciando seed de add-ons...\n');
 
-    const db = mongoose.connection.db!;
-    const addOnsCollection = db.collection('addons');
+    // Conectar a DB principal
+    await mongoose.connect(config.database.uri);
+    logger.info('Conectado a DB principal\n');
 
-    // Borrar add-ons existentes
-    await addOnsCollection.deleteMany({});
-    console.log('Add-ons anteriores eliminados');
-
-    const addOns = [
-      // === MÓDULOS ===
+    // Definir add-ons disponibles
+    const addons = [
       {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: 'Módulo RRHH/Fichaje',
-        slug: 'rrhh-fichaje',
-        descripcion: 'Control horario, fichajes, turnos y gestión de personal',
-        icono: 'Clock',
+        nombre: 'Redes Sociales',
+        slug: 'redes-sociales',
+        descripcion: 'Publica en Facebook e Instagram, programa contenido y analiza metricas',
+        precio: {
+          mensual: 15,
+          anual: 150,
+        },
+        modulosIncluidos: ['redes-sociales'],
+        tieneCantidad: false,
         tipo: 'modulo',
-        precioMensual: 6,
-        precioAnual: 60, // 2 meses gratis
         esRecurrente: true,
         caracteristicas: [
-          'Control de fichajes',
-          'Gestión de turnos',
-          'Calendario de personal',
-          'Informes de horas',
-          'App móvil de fichaje',
+          'Conecta Facebook e Instagram',
+          'Programa publicaciones',
+          'Analiza metricas',
+          'Responde comentarios',
         ],
+        activo: true,
+        visible: true,
         orden: 1,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: 'Módulo TPV',
-        slug: 'tpv',
-        descripcion: 'Terminal punto de venta para tiendas y hostelería',
-        icono: 'CreditCard',
+        nombre: 'Google Calendar',
+        slug: 'google-calendar',
+        descripcion: 'Sincronizacion bidireccional con Google Calendar',
+        precio: {
+          mensual: 5,
+          anual: 50,
+        },
+        modulosIncluidos: ['google-calendar'],
+        tieneCantidad: false,
         tipo: 'modulo',
-        precioMensual: 25,
-        precioAnual: 250, // 2 meses gratis
         esRecurrente: true,
         caracteristicas: [
-          'Gestión de caja',
-          'Tickets y facturas',
-          'Control de turnos',
-          'Múltiples terminales',
-          'Integración con cocina',
+          'Sincroniza citas y eventos',
+          'Bidireccional',
+          'Recordatorios automaticos',
         ],
-        limitesExtra: {
-          tpvs: 2,
-        },
+        activo: true,
+        visible: true,
         orden: 2,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
       {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: 'Módulo Servicios',
-        slug: 'proyectos',
-        descripcion: 'Proyectos, partes de trabajo, maquinaria y tipos de gasto',
-        icono: 'Wrench',
-        tipo: 'modulo',
-        precioMensual: 15,
-        precioAnual: 150, // 2 meses gratis
-        esRecurrente: true,
-        caracteristicas: [
-          'Gestión de proyectos',
-          'Partes de trabajo',
-          'Control de maquinaria',
-          'Tipos de gasto',
-          'Informes de rentabilidad',
-        ],
-        orden: 3,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: 'Módulo Contabilidad',
-        slug: 'contabilidad',
-        descripcion: 'Gestión contable completa, asientos, balances y cuentas anuales',
-        icono: 'Calculator',
-        tipo: 'modulo',
-        precioMensual: 20,
-        precioAnual: 200, // 2 meses gratis
-        esRecurrente: true,
-        caracteristicas: [
-          'Plan General Contable',
-          'Asientos automáticos',
-          'Libro diario y mayor',
-          'Balance y cuenta de resultados',
-          'Cuentas anuales',
-        ],
-        orden: 4,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: 'CRM Completo',
-        slug: 'crm',
-        descripcion: 'Gestión de clientes, oportunidades, pipeline de ventas y seguimiento',
-        icono: 'Users',
-        tipo: 'modulo',
-        precioMensual: 15,
-        precioAnual: 150, // 2 meses gratis
-        esRecurrente: true,
-        caracteristicas: [
-          'Pipeline de ventas',
-          'Gestión de oportunidades',
-          'Seguimiento de clientes',
-          'Automatizaciones',
-          'Informes de ventas',
-        ],
-        orden: 5,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-
-      // === USUARIOS ===
-      {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: 'Usuario Extra',
-        slug: 'usuario-extra',
-        descripcion: 'Añade un usuario adicional (simultáneo) a tu cuenta',
-        icono: 'UserPlus',
-        tipo: 'usuarios',
-        precioMensual: 5,
-        precioAnual: 50,
-        unidad: 'usuario',
-        cantidad: 1,
-        esRecurrente: true,
-        limitesExtra: {
-          usuariosSimultaneos: 1, // +1 sesión simultánea
-          usuariosTotales: 1,     // +1 usuario total
+        nombre: 'Tokens IA 5000',
+        slug: 'tokens-ia-5000',
+        descripcion: '5.000 tokens de IA adicionales por mes',
+        precio: {
+          mensual: 5,
+          anual: 50,
         },
-        orden: 10,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: 'Pack 5 Usuarios',
-        slug: 'pack-5-usuarios',
-        descripcion: 'Añade 5 usuarios adicionales (ahorra 20%)',
-        icono: 'Users',
-        tipo: 'usuarios',
-        precioMensual: 20, // 4€/usuario en lugar de 5€
-        precioAnual: 200,
-        unidad: 'usuarios',
-        cantidad: 5,
+        modulosIncluidos: ['ia'],
+        tieneCantidad: true,
+        unidad: 'tokens',
+        cantidadMinima: 5000,
+        cantidadMaxima: 5000,
+        precioPorUnidad: 0.001,
+        tipo: 'tokens',
         esRecurrente: true,
         limitesExtra: {
-          usuariosSimultaneos: 5,
+          tokensIA: 5000,
+        },
+        caracteristicas: ['5.000 tokens/mes', 'Asistente IA', 'Generacion de textos'],
+        activo: true,
+        visible: true,
+        orden: 10,
+      },
+      {
+        nombre: 'Tokens IA 20000',
+        slug: 'tokens-ia-20000',
+        descripcion: '20.000 tokens de IA adicionales por mes',
+        precio: {
+          mensual: 15,
+          anual: 150,
+        },
+        modulosIncluidos: ['ia'],
+        tieneCantidad: true,
+        unidad: 'tokens',
+        cantidadMinima: 20000,
+        cantidadMaxima: 20000,
+        precioPorUnidad: 0.00075,
+        tipo: 'tokens',
+        esRecurrente: true,
+        limitesExtra: {
+          tokensIA: 20000,
+        },
+        caracteristicas: ['20.000 tokens/mes', 'Asistente IA avanzado', '25% descuento'],
+        activo: true,
+        visible: true,
+        orden: 11,
+      },
+      {
+        nombre: 'Tokens IA 50000',
+        slug: 'tokens-ia-50000',
+        descripcion: '50.000 tokens de IA adicionales por mes',
+        precio: {
+          mensual: 30,
+          anual: 300,
+        },
+        modulosIncluidos: ['ia'],
+        tieneCantidad: true,
+        unidad: 'tokens',
+        cantidadMinima: 50000,
+        cantidadMaxima: 50000,
+        precioPorUnidad: 0.0006,
+        tipo: 'tokens',
+        esRecurrente: true,
+        limitesExtra: {
+          tokensIA: 50000,
+        },
+        caracteristicas: ['50.000 tokens/mes', 'IA sin limites practicos', '40% descuento'],
+        activo: true,
+        visible: true,
+        orden: 12,
+      },
+      {
+        nombre: 'Tokens IA Ilimitados',
+        slug: 'tokens-ia-ilimitados',
+        descripcion: 'Tokens de IA ilimitados por mes',
+        precio: {
+          mensual: 99,
+          anual: 990,
+        },
+        modulosIncluidos: ['ia'],
+        tieneCantidad: true,
+        unidad: 'tokens',
+        cantidadMinima: -1,
+        cantidadMaxima: -1,
+        tipo: 'tokens',
+        esRecurrente: true,
+        limitesExtra: {
+          tokensIA: -1,
+        },
+        caracteristicas: ['Tokens ilimitados', 'IA empresarial', 'Soporte prioritario'],
+        activo: true,
+        visible: true,
+        orden: 13,
+      },
+      {
+        nombre: 'Usuarios Extra (5)',
+        slug: 'usuarios-extra-5',
+        descripcion: '5 usuarios adicionales',
+        precio: {
+          mensual: 10,
+          anual: 100,
+        },
+        modulosIncluidos: [],
+        tieneCantidad: true,
+        unidad: 'usuarios',
+        cantidadMinima: 5,
+        cantidadMaxima: 5,
+        precioPorUnidad: 2,
+        tipo: 'usuarios',
+        esRecurrente: true,
+        limitesExtra: {
           usuariosTotales: 5,
         },
-        orden: 11,
+        caracteristicas: ['5 usuarios extra', 'Roles personalizados'],
         activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        visible: true,
+        orden: 20,
       },
-
-      // === ALMACENAMIENTO ===
       {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: '10 GB Extra',
-        slug: 'storage-10gb',
-        descripcion: 'Amplía tu almacenamiento en 10 GB',
-        icono: 'HardDrive',
-        tipo: 'almacenamiento',
-        precioMensual: 3,
-        precioAnual: 30,
+        nombre: 'Usuarios Extra (10)',
+        slug: 'usuarios-extra-10',
+        descripcion: '10 usuarios adicionales',
+        precio: {
+          mensual: 18,
+          anual: 180,
+        },
+        modulosIncluidos: [],
+        tieneCantidad: true,
+        unidad: 'usuarios',
+        cantidadMinima: 10,
+        cantidadMaxima: 10,
+        precioPorUnidad: 1.8,
+        tipo: 'usuarios',
+        esRecurrente: true,
+        limitesExtra: {
+          usuariosTotales: 10,
+        },
+        caracteristicas: ['10 usuarios extra', '10% descuento', 'Roles personalizados'],
+        activo: true,
+        visible: true,
+        orden: 21,
+      },
+      {
+        nombre: 'Almacenamiento Extra (10GB)',
+        slug: 'almacenamiento-extra-10gb',
+        descripcion: '10GB de almacenamiento adicional',
+        precio: {
+          mensual: 5,
+          anual: 50,
+        },
+        modulosIncluidos: [],
+        tieneCantidad: true,
         unidad: 'GB',
-        cantidad: 10,
+        cantidadMinima: 10,
+        cantidadMaxima: 10,
+        precioPorUnidad: 0.5,
+        tipo: 'almacenamiento',
         esRecurrente: true,
         limitesExtra: {
           almacenamientoGB: 10,
         },
-        orden: 20,
+        caracteristicas: ['10GB extra', 'Archivos y documentos'],
         activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: '50 GB Extra',
-        slug: 'storage-50gb',
-        descripcion: 'Amplía tu almacenamiento en 50 GB',
-        icono: 'HardDrive',
-        tipo: 'almacenamiento',
-        precioMensual: 10,
-        precioAnual: 100,
-        unidad: 'GB',
-        cantidad: 50,
-        esRecurrente: true,
-        limitesExtra: {
-          almacenamientoGB: 50,
-        },
-        orden: 21,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-
-      // === TOKENS IA (pago único) ===
-      {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: '1.000 Tokens IA',
-        slug: 'tokens-1000',
-        descripcion: 'Pack de 1.000 tokens para asistente IA',
-        icono: 'Sparkles',
-        tipo: 'tokens',
-        precioMensual: 2, // Pago único, no mensual
-        unidad: 'tokens',
-        cantidad: 1000,
-        esRecurrente: false,
-        limitesExtra: {
-          tokensIA: 1000,
-        },
+        visible: true,
         orden: 30,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: '5.000 Tokens IA',
-        slug: 'tokens-5000',
-        descripcion: 'Pack de 5.000 tokens para asistente IA (ahorra 20%)',
-        icono: 'Sparkles',
-        tipo: 'tokens',
-        precioMensual: 8,
-        unidad: 'tokens',
-        cantidad: 5000,
-        esRecurrente: false,
-        limitesExtra: {
-          tokensIA: 5000,
-        },
-        orden: 31,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        _id: new mongoose.Types.ObjectId(),
-        nombre: '20.000 Tokens IA',
-        slug: 'tokens-20000',
-        descripcion: 'Pack de 20.000 tokens para asistente IA (ahorra 38%)',
-        icono: 'Sparkles',
-        tipo: 'tokens',
-        precioMensual: 25,
-        unidad: 'tokens',
-        cantidad: 20000,
-        esRecurrente: false,
-        limitesExtra: {
-          tokensIA: 20000,
-        },
-        orden: 32,
-        activo: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       },
     ];
 
-    await addOnsCollection.insertMany(addOns);
+    // Upsert add-ons (actualizar si existen, crear si no)
+    logger.info('Creando/actualizando add-ons...\n');
+    
+    for (const addon of addons) {
+      await AddOn.findOneAndUpdate(
+        { slug: addon.slug },
+        addon,
+        { upsert: true, new: true }
+      );
+      logger.info('   Procesado: ' + addon.nombre + ' (' + addon.slug + ')');
+    }
 
-    console.log('');
-    console.log('Add-ons creados:');
-    console.log('================');
-    addOns.forEach(addon => {
-      const precio = addon.esRecurrente
-        ? `${addon.precioMensual}€/mes`
-        : `${addon.precioMensual}€`;
-      console.log(`  - ${addon.nombre}: ${precio}`);
-    });
-    console.log('');
+    const totalAddons = await AddOn.countDocuments({ activo: true });
+    logger.info('\nSeed completado: ' + totalAddons + ' add-ons activos en la base de datos\n');
 
-  } catch (error) {
-    console.error('Error:', error);
-    process.exit(1);
+  } catch (error: any) {
+    logger.error('Error en seed de add-ons:', error.message);
+    logger.error(error.stack);
+    throw error;
   } finally {
-    await mongoose.disconnect();
-    console.log('Desconectado de MongoDB');
+    await mongoose.connection.close();
+    logger.info('Conexion cerrada');
   }
 }
 
-seedAddOns();
+// Ejecutar
+if (require.main === module) {
+  seedAddOns()
+    .then(() => {
+      logger.info('\nScript finalizado exitosamente');
+      process.exit(0);
+    })
+    .catch((error) => {
+      logger.error('\nScript finalizado con errores');
+      console.error(error);
+      process.exit(1);
+    });
+}
+
+export default seedAddOns;

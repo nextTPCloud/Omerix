@@ -133,6 +133,15 @@ import informesRoutes from './modules/informes/informes.routes';
 // TPV - Punto de Venta
 import tpvRoutes from './modules/tpv/tpv.routes';
 
+// Recordatorios unificados
+import recordatoriosRoutes from './modules/recordatorios/recordatorios.routes';
+
+// Redes sociales (Meta API)
+import socialMediaRoutes from './modules/social-media/social-media.routes';
+
+// Google Calendar
+import googleCalendarRoutes from './modules/google-calendar/google-calendar.routes';
+
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
 import logger, { httpLoggerMiddleware, logStartup, logShutdown } from './utils/logger/winston.config'; // 🆕 NUEVO
@@ -450,6 +459,15 @@ app.use('/api/informes', informesRoutes);
 
 // TPV - Punto de Venta
 app.use('/api/tpv', tpvRoutes);
+
+// Recordatorios
+app.use('/api/recordatorios', recordatoriosRoutes);
+
+// Redes sociales
+app.use('/api/social-media', socialMediaRoutes);
+
+// Google Calendar
+app.use('/api/google-calendar', googleCalendarRoutes);
 
 // ============================================
 // MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS

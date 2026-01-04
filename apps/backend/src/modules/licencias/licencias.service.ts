@@ -21,7 +21,16 @@ export class LicenciasService {
       throw new Error('Licencia no encontrada');
     }
 
-    const plan = licencia.planId as any;
+    let plan = licencia.planId as any;
+
+    // Si el plan no se pobló correctamente (referencia rota), buscar por ID directamente
+    if (!plan && licencia.planId) {
+      plan = await Plan.findById(licencia.planId);
+    }
+
+    if (!plan) {
+      throw new Error(`Plan no encontrado para la licencia. PlanId: ${licencia.planId}`);
+    }
 
     // Recalcular conteo de TPVs automáticamente (multi-tenant)
     try {
@@ -115,7 +124,7 @@ export class LicenciasService {
 
   // Listar todos los add-ons disponibles
   async getAddOns() {
-    const addOns = await AddOn.find({ activo: true }).sort({ precioMensual: 1 });
+    const addOns = await AddOn.find({ activo: true, visible: true }).sort({ orden: 1, 'precio.mensual': 1 });
     return addOns;
   }
 

@@ -4,44 +4,52 @@ export interface IAddOn extends Document {
   _id: mongoose.Types.ObjectId;
   nombre: string;
   slug: string;
-  descripcion?: string;
-  icono?: string;
+  descripcion: string;
+
+  // Precios (IVA incluido)
+  precio: {
+    mensual: number;
+    anual: number;
+  };
+
+  // Módulos que incluye este add-on
+  modulosIncluidos: string[];
+
+  // Si es un add-on con cantidad variable (ej: usuarios extra, GB extra)
+  tieneCantidad: boolean;
+  unidad?: string; // 'usuarios', 'GB', 'tokens', etc.
+  cantidadMinima?: number;
+  cantidadMaxima?: number;
+  precioPorUnidad?: number;
 
   // Tipo de add-on
   tipo: 'modulo' | 'usuarios' | 'almacenamiento' | 'tokens' | 'otro';
+  esRecurrente: boolean; // Si se cobra cada mes/año
 
-  // Precios (IVA incluido)
-  precioMensual: number;
-  precioAnual?: number;
-
-  // Para add-ons con cantidad (tokens, storage, usuarios)
-  unidad?: string; // 'usuario', 'GB', 'tokens'
-  cantidad?: number; // Cantidad incluida (ej: 10 GB, 1000 tokens)
-
-  // Tipo de cobro
-  esRecurrente: boolean; // true = mensual/anual, false = pago único
-
-  // IDs en pasarelas de pago (para suscripciones)
-  stripePriceId?: string;
-  stripePriceIdAnual?: string;
-  paypalPlanId?: string;
-  paypalPlanIdAnual?: string;
-
-  // Características que otorga
-  caracteristicas?: string[];
-
-  // Límites que modifica (se suman al plan base)
+  // Límites adicionales que añade este add-on
   limitesExtra?: {
-    usuariosSimultaneos?: number; // Sesiones simultáneas adicionales
     usuariosTotales?: number;
     almacenamientoGB?: number;
     tokensIA?: number;
     tpvs?: number;
   };
 
+  // Características para mostrar en UI
+  caracteristicas?: string[];
+
+  // Estado
+  activo: boolean;
+  visible: boolean; // Si se muestra en la página de planes
+
   // Orden de visualización
   orden: number;
-  activo: boolean;
+
+  // IDs en pasarelas de pago
+  stripePriceId?: string;
+  stripePriceIdAnual?: string;
+  paypalPlanId?: string;
+  paypalPlanIdAnual?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,78 +61,79 @@ const AddOnSchema = new Schema<IAddOn>(
       required: true,
       auto: true,
     },
-
     nombre: {
       type: String,
       required: true,
-      unique: true,
+      trim: true,
     },
     slug: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
+      trim: true,
     },
     descripcion: {
       type: String,
+      required: true,
     },
-    icono: {
+    precio: {
+      mensual: { type: Number, required: true, default: 0 },
+      anual: { type: Number, required: true, default: 0 },
+    },
+    modulosIncluidos: [{
       type: String,
+      trim: true,
+    }],
+    tieneCantidad: {
+      type: Boolean,
+      default: false,
     },
+    unidad: String,
+    cantidadMinima: Number,
+    cantidadMaxima: Number,
+    precioPorUnidad: Number,
     tipo: {
       type: String,
       enum: ['modulo', 'usuarios', 'almacenamiento', 'tokens', 'otro'],
       default: 'modulo',
     },
-    precioMensual: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
-    precioAnual: {
-      type: Number,
-    },
-    unidad: {
-      type: String,
-    },
-    cantidad: {
-      type: Number,
-    },
     esRecurrente: {
       type: Boolean,
       default: true,
+    },
+    limitesExtra: {
+      usuariosTotales: Number,
+      almacenamientoGB: Number,
+      tokensIA: Number,
+      tpvs: Number,
+    },
+    caracteristicas: [String],
+    activo: {
+      type: Boolean,
+      default: true,
+    },
+    visible: {
+      type: Boolean,
+      default: true,
+    },
+    orden: {
+      type: Number,
+      default: 0,
     },
     // IDs en pasarelas de pago
     stripePriceId: String,
     stripePriceIdAnual: String,
     paypalPlanId: String,
     paypalPlanIdAnual: String,
-    caracteristicas: [{
-      type: String,
-    }],
-    limitesExtra: {
-      usuariosSimultaneos: { type: Number }, // Sesiones simultáneas adicionales
-      usuariosTotales: { type: Number },
-      almacenamientoGB: { type: Number },
-      tokensIA: { type: Number },
-      tpvs: { type: Number },
-    },
-    orden: {
-      type: Number,
-      default: 0,
-    },
-    activo: {
-      type: Boolean,
-      default: true,
-    },
   },
   {
     timestamps: true,
   }
 );
 
-AddOnSchema.index({ activo: 1 });
-AddOnSchema.index({ tipo: 1 });
-AddOnSchema.index({ orden: 1 });
+// Índices
+AddOnSchema.index({ slug: 1 }, { unique: true });
+AddOnSchema.index({ activo: 1, visible: 1 });
 
 export default mongoose.model<IAddOn>('AddOn', AddOnSchema);

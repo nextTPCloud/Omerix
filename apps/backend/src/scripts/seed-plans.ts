@@ -63,6 +63,8 @@ async function seedPlans() {
           'restauracion',
           'tesoreria',
           'calendarios',
+          'redes-sociales', // Para poder probar el módulo
+          'google-calendar', // Para poder probar el módulo
         ],
         activo: true,
         visible: false,
@@ -244,11 +246,46 @@ async function seedPlans() {
           'api',
           'integraciones',
           'soporte-prioritario',
+          'redes-sociales',
+          'google-calendar',
         ],
         activo: true,
         visible: true,
       },
     ];
+
+    // Definir addons disponibles
+    const addons = [
+      {
+        nombre: 'Redes Sociales',
+        slug: 'redes-sociales',
+        descripcion: 'Publica en Facebook e Instagram, programa contenido y analiza métricas',
+        precio: {
+          mensual: 15,
+          anual: 150,
+        },
+        modulosIncluidos: ['redes-sociales'],
+        activo: true,
+        visible: true,
+      },
+      {
+        nombre: 'Google Calendar',
+        slug: 'google-calendar',
+        descripcion: 'Sincronización bidireccional con Google Calendar',
+        precio: {
+          mensual: 5,
+          anual: 50,
+        },
+        modulosIncluidos: ['google-calendar'],
+        activo: true,
+        visible: true,
+      },
+    ];
+
+    logger.info('\n📝 Addons disponibles para contratar:\n');
+    addons.forEach((addon) => {
+      logger.info(`   • ${addon.nombre} (${addon.slug}) - ${addon.precio.mensual}€/mes`);
+    });
 
     // Insertar planes
     logger.info('📝 Creando planes...\n');
