@@ -180,7 +180,7 @@ export const COLUMNAS_LINEAS: ColumnaLineaDefinition[] = [
   {
     key: 'acciones',
     label: '',
-    width: 100,
+    width: 160,
     gridSpan: 1,
     align: 'center',
     editable: false,

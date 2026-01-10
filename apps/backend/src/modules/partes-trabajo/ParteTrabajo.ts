@@ -57,6 +57,9 @@ export interface ILineaPersonal {
   descripcionTrabajo?: string;
   facturable: boolean;
   incluidoEnAlbaran: boolean;
+  // Sync con Google Calendar
+  googleEventId?: string;
+  googleCalendarId?: string;
 }
 
 // Linea de Material

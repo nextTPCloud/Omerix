@@ -443,6 +443,81 @@ router.put('/:id/vacaciones', requirePermission('personal', 'update'), controlle
 
 /**
  * @swagger
+ * /api/personal/{id}/vacaciones/{anio}:
+ *   delete:
+ *     summary: Eliminar vacaciones de un año
+ *     tags: [Personal]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: anio
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Vacaciones eliminadas
+ */
+router.delete('/:id/vacaciones/:anio', requirePermission('personal', 'update'), controller.eliminarVacaciones);
+
+/**
+ * @swagger
+ * /api/personal/{id}/ausencias/{ausenciaId}:
+ *   put:
+ *     summary: Actualizar ausencia del empleado
+ *     tags: [Personal]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: ausenciaId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Ausencia actualizada
+ */
+router.put('/:id/ausencias/:ausenciaId', requirePermission('personal', 'update'), controller.actualizarAusencia);
+
+/**
+ * @swagger
+ * /api/personal/{id}/ausencias/{ausenciaId}:
+ *   delete:
+ *     summary: Eliminar ausencia del empleado
+ *     tags: [Personal]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: ausenciaId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Ausencia eliminada
+ */
+router.delete('/:id/ausencias/:ausenciaId', requirePermission('personal', 'update'), controller.eliminarAusencia);
+
+/**
+ * @swagger
  * /api/personal/{id}/evaluaciones:
  *   post:
  *     summary: Registrar evaluación del empleado

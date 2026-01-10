@@ -83,18 +83,31 @@ export default function ProductoDetallePage() {
     setSaving(true)
 
     try {
-      // Limpiar campos ObjectId vacíos (convertir '' a undefined)
+      // Limpiar campos ObjectId: convertir objetos poblados a strings ID, y '' a undefined
       const cleanedData = { ...formData }
       const objectIdFields = ['familiaId', 'estadoId', 'situacionId', 'clasificacionId', 'tipoImpuestoId']
       objectIdFields.forEach(field => {
-        if ((cleanedData as any)[field] === '') {
+        const value = (cleanedData as any)[field]
+        if (value === '' || value === null || value === undefined) {
           delete (cleanedData as any)[field]
+        } else if (typeof value === 'object' && value._id) {
+          // Campo poblado como objeto, extraer solo el _id
+          (cleanedData as any)[field] = value._id
         }
       })
       // Limpiar campos de restauración
       if ((cleanedData as any).restauracion) {
-        if ((cleanedData as any).restauracion.zonaPreparacionId === '') delete (cleanedData as any).restauracion.zonaPreparacionId
-        if ((cleanedData as any).restauracion.impresoraId === '') delete (cleanedData as any).restauracion.impresoraId
+        const rest = (cleanedData as any).restauracion
+        if (rest.zonaPreparacionId === '' || rest.zonaPreparacionId === null) {
+          delete rest.zonaPreparacionId
+        } else if (typeof rest.zonaPreparacionId === 'object' && rest.zonaPreparacionId._id) {
+          rest.zonaPreparacionId = rest.zonaPreparacionId._id
+        }
+        if (rest.impresoraId === '' || rest.impresoraId === null) {
+          delete rest.impresoraId
+        } else if (typeof rest.impresoraId === 'object' && rest.impresoraId._id) {
+          rest.impresoraId = rest.impresoraId._id
+        }
       }
 
       await productosService.update(productoId, cleanedData)

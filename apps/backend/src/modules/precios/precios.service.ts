@@ -33,6 +33,7 @@ export interface IPrecioCalculado {
   detalleOrigen?: {
     tarifaId?: string;
     tarifaNombre?: string;
+    porcentajeDescuento?: number; // Porcentaje original de la tarifa (evita errores de redondeo)
     ofertaId?: string;
     ofertaNombre?: string;
     ofertaTipo?: string;
@@ -166,6 +167,7 @@ class PreciosService {
               detalleOrigen = {
                 tarifaId: resultadoTarifa.tarifaId,
                 tarifaNombre: resultadoTarifa.tarifaNombre,
+                porcentajeDescuento: resultadoTarifa.porcentajeDescuento, // Guardar el % original
               };
             }
           }
@@ -231,10 +233,17 @@ class PreciosService {
       }
     }
 
-    // Calcular descuento aplicado
-    const descuentoAplicado = precioBase > 0
-      ? ((precioBase - precioFinal) / precioBase) * 100
-      : 0;
+    // Calcular descuento aplicado - usar el porcentaje original si esta disponible
+    let descuentoAplicado: number;
+    if (detalleOrigen?.porcentajeDescuento !== undefined) {
+      // Usar el porcentaje original de la tarifa (evita errores de redondeo)
+      descuentoAplicado = detalleOrigen.porcentajeDescuento;
+    } else if (precioBase > 0) {
+      // Calcular inversamente solo si no hay porcentaje original
+      descuentoAplicado = ((precioBase - precioFinal) / precioBase) * 100;
+    } else {
+      descuentoAplicado = 0;
+    }
 
     return {
       precioBase,
@@ -317,7 +326,7 @@ class PreciosService {
     empresaId: string;
     dbConfig: IDatabaseConfig;
     fecha: Date;
-  }): Promise<{ precio: number; tarifaId: string; tarifaNombre: string } | null> {
+  }): Promise<{ precio: number; tarifaId: string; tarifaNombre: string; porcentajeDescuento?: number } | null> {
     const { tarifaId, productoId, varianteId, precioVenta, precioPvp, empresaId, dbConfig, fecha } = params;
 
     const TarifaModel = await getTarifaModel(empresaId, dbConfig);
@@ -343,21 +352,29 @@ class PreciosService {
     });
 
     let precioFinal: number | null = null;
+    let porcentajeDescuento: number | undefined = undefined;
 
     if (precioProducto) {
       // Precio fijo especifico para el producto
       if (precioProducto.precio !== undefined && precioProducto.precio !== null) {
         precioFinal = precioProducto.precio;
+        // Calcular el porcentaje equivalente para precios fijos
+        if (precioBaseParaCalculo > 0) {
+          porcentajeDescuento = ((precioBaseParaCalculo - precioProducto.precio) / precioBaseParaCalculo) * 100;
+        }
       } else if (precioProducto.descuentoPorcentaje !== undefined) {
-        // Descuento especifico para el producto
+        // Descuento especifico para el producto - guardar el porcentaje original
+        porcentajeDescuento = precioProducto.descuentoPorcentaje;
         precioFinal = precioBaseParaCalculo * (1 - precioProducto.descuentoPorcentaje / 100);
       }
     } else if (tarifa.tipo === 'porcentaje' && tarifa.porcentajeGeneral !== undefined) {
-      // Usar % general de la tarifa sobre el precio base correspondiente
+      // Usar % general de la tarifa - guardar el porcentaje original
+      porcentajeDescuento = tarifa.porcentajeGeneral;
       precioFinal = precioBaseParaCalculo * (1 - tarifa.porcentajeGeneral / 100);
     } else if (tarifa.tipo === 'fija') {
       // Tarifa fija sin precio especifico: usar precio de venta
       precioFinal = precioVenta;
+      porcentajeDescuento = 0;
     }
 
     if (precioFinal !== null) {
@@ -365,6 +382,7 @@ class PreciosService {
         precio: Math.round(precioFinal * 100) / 100,
         tarifaId: tarifa._id.toString(),
         tarifaNombre: tarifa.nombre,
+        porcentajeDescuento: porcentajeDescuento !== undefined ? Math.round(porcentajeDescuento * 100) / 100 : undefined,
       };
     }
 

@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,7 @@ import {
 import { toast } from 'sonner'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
 import { ExportButton } from '@/components/ui/ExportButton'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 
 // Hook de debounce
 function useDebounce<T>(value: T, delay: number): T {
@@ -67,10 +69,11 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function MovimientosStockPage() {
   const router = useRouter()
+  const { almacenDefaultId } = useUserPreferences()
 
   // Estado de datos
   const [movimientos, setMovimientos] = useState<MovimientoStock[]>([])
-  const [almacenes, setAlmacenes] = useState<{ _id: string; nombre: string }[]>([])
+  const [almacenes, setAlmacenes] = useState<{ _id: string; nombre: string; codigo?: string; esPrincipal?: boolean }[]>([])
   const [tiposMovimiento, setTiposMovimiento] = useState<{ value: string; label: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 50, totalPages: 0 })
@@ -102,14 +105,24 @@ export default function MovimientosStockPage() {
           almacenesService.getActivos(),
           stockService.getTiposMovimiento(),
         ])
-        setAlmacenes(almacenesRes.data || [])
+        const almacenesData = almacenesRes.data || []
+        setAlmacenes(almacenesData)
         setTiposMovimiento(tiposRes.data?.tipos || [])
+        // Establecer filtro de almacen por defecto: preferencia usuario > principal
+        if (almacenesData.length > 0 && !almacenFilter) {
+          const almacenDefault = almacenDefaultId
+            ? almacenesData.find((a: any) => a._id === almacenDefaultId)
+            : almacenesData.find((a: any) => a.esPrincipal)
+          if (almacenDefault) {
+            setAlmacenFilter(almacenDefault._id)
+          }
+        }
       } catch (error) {
         console.error('Error cargando datos iniciales:', error)
       }
     }
     loadInitialData()
-  }, [])
+  }, [almacenDefaultId])
 
   // Cargar movimientos
   const loadMovimientos = useCallback(async () => {
@@ -236,22 +249,39 @@ export default function MovimientosStockPage() {
             </Button>
             <ExportButton
               data={filteredMovimientos.map(m => ({
-                Fecha: formatDateTime(m.fecha),
-                Tipo: stockService.getTipoLabel(m.tipo),
-                Producto: m.productoNombre,
-                Codigo: m.productoCodigo,
-                Almacen: m.almacenNombre,
-                Cantidad: m.cantidad,
-                'Stock Anterior': m.stockAnterior,
-                'Stock Posterior': m.stockPosterior,
-                'Coste Unit.': m.costeUnitario,
-                Valor: m.valorMovimiento,
-                Documento: m.documentoOrigenCodigo || '',
-                Tercero: m.terceroNombre || '',
-                Motivo: m.motivo || '',
-                Usuario: m.usuarioNombre,
-                Anulado: m.anulado ? 'Sí' : 'No',
+                fecha: formatDateTime(m.fecha),
+                tipo: stockService.getTipoLabel(m.tipo),
+                producto: m.productoNombre,
+                codigo: m.productoCodigo,
+                almacen: m.almacenNombre,
+                cantidad: m.cantidad,
+                stockAnterior: m.stockAnterior,
+                stockPosterior: m.stockPosterior,
+                costeUnitario: m.costeUnitario,
+                valor: m.valorMovimiento,
+                documento: m.documentoOrigenCodigo || '',
+                tercero: m.terceroNombre || '',
+                motivo: m.motivo || '',
+                usuario: m.usuarioNombre,
+                anulado: m.anulado ? 'Sí' : 'No',
               }))}
+              columns={[
+                { key: 'fecha', label: 'Fecha' },
+                { key: 'tipo', label: 'Tipo' },
+                { key: 'producto', label: 'Producto' },
+                { key: 'codigo', label: 'Código' },
+                { key: 'almacen', label: 'Almacén' },
+                { key: 'cantidad', label: 'Cantidad' },
+                { key: 'stockAnterior', label: 'Stock Anterior' },
+                { key: 'stockPosterior', label: 'Stock Posterior' },
+                { key: 'costeUnitario', label: 'Coste Unit.' },
+                { key: 'valor', label: 'Valor' },
+                { key: 'documento', label: 'Documento' },
+                { key: 'tercero', label: 'Tercero' },
+                { key: 'motivo', label: 'Motivo' },
+                { key: 'usuario', label: 'Usuario' },
+                { key: 'anulado', label: 'Anulado' },
+              ]}
               filename="movimientos-stock"
             />
           </div>
@@ -259,76 +289,77 @@ export default function MovimientosStockPage() {
 
         {/* Filtros */}
         <Card className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            <div className="relative">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-[220px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar producto, documento..."
+                placeholder="Buscar..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
               />
             </div>
 
-            <Select value={almacenFilter} onValueChange={setAlmacenFilter}>
-              <SelectTrigger>
-                <Warehouse className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Todos los almacenes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todos los almacenes</SelectItem>
-                {almacenes.map(a => (
-                  <SelectItem key={a._id} value={a._id}>{a.nombre}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={[
+                { value: '', label: 'Todos los almacenes' },
+                ...almacenes.map(a => ({
+                  value: a._id,
+                  label: a.nombre,
+                  description: a.esPrincipal ? 'Principal' : a.codigo
+                }))
+              ]}
+              value={almacenFilter}
+              onValueChange={setAlmacenFilter}
+              placeholder="Almacén..."
+              searchPlaceholder="Buscar almacén..."
+              className="w-[180px]"
+            />
 
-            <Select value={tipoFilter} onValueChange={setTipoFilter}>
-              <SelectTrigger>
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Todos los tipos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todos los tipos</SelectItem>
-                {tiposMovimiento.map(t => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={[
+                { value: '', label: 'Todos' },
+                ...tiposMovimiento.map(t => ({
+                  value: t.value,
+                  label: t.label
+                }))
+              ]}
+              value={tipoFilter}
+              onValueChange={setTipoFilter}
+              placeholder="Tipo..."
+              searchPlaceholder="Buscar tipo..."
+              className="w-[150px]"
+            />
 
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
               <Input
                 type="date"
                 value={fechaDesde}
                 onChange={(e) => setFechaDesde(e.target.value)}
-                className="flex-1"
+                className="w-[140px]"
               />
-            </div>
-
-            <div className="flex items-center gap-2">
               <span className="text-muted-foreground">-</span>
               <Input
                 type="date"
                 value={fechaHasta}
                 onChange={(e) => setFechaHasta(e.target.value)}
-                className="flex-1"
+                className="w-[140px]"
               />
             </div>
 
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox
-                  checked={incluirAnulados}
-                  onCheckedChange={(checked) => setIncluirAnulados(checked as boolean)}
-                />
-                Incluir anulados
-              </label>
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <XCircle className="h-4 w-4 mr-1" />
-                Limpiar
-              </Button>
-            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap">
+              <Checkbox
+                checked={incluirAnulados}
+                onCheckedChange={(checked) => setIncluirAnulados(checked as boolean)}
+              />
+              Anulados
+            </label>
+
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <XCircle className="h-4 w-4 mr-1" />
+              Limpiar
+            </Button>
           </div>
         </Card>
 

@@ -386,9 +386,9 @@ export class PayPalService {
           }
 
           for (const addon of addOnsData) {
-            const precioAddon = esAnual && addon.precioAnual
-              ? addon.precioAnual
-              : addon.precioMensual;
+            const precioAddon = esAnual && addon.precio?.anual
+              ? addon.precio.anual
+              : addon.precio?.mensual || 0;
 
             // Buscar precio prorrateado si aplica
             let precioProrrata = precioAddon;
@@ -783,12 +783,12 @@ export class PayPalService {
         nombre: addon.nombre,
         slug: addon.slug,
         cantidad: addon.cantidad || 1,
-        precioMensual: addon.precioMensual,
+        precioMensual: addon.precio?.mensual || 0,
         activo: true,
         fechaActivacion: new Date(),
       });
 
-      const precio = esAnual && addon.precioAnual ? addon.precioAnual : addon.precioMensual;
+      const precio = esAnual && addon.precio?.anual ? addon.precio.anual : addon.precio?.mensual || 0;
       console.log(`✅ Add-on activado: ${addon.nombre} (${addon.slug}) - ${precio}€/${esAnual ? 'año' : 'mes'}`);
     }
 

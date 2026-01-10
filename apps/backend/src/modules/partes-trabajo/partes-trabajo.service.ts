@@ -1219,6 +1219,126 @@ export class PartesTrabajoService {
   }
 
   // ============================================
+  // VERIFICACIÓN DE DISPONIBILIDAD DE PERSONAL
+  // ============================================
+
+  /**
+   * Verifica la disponibilidad de personal para una fecha y horario
+   * Retorna conflictos si hay personal asignado a otros partes en el mismo horario
+   */
+  async verificarDisponibilidadPersonal(
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig,
+    personalIds: string[],
+    fecha: string,
+    horaInicio: string,
+    horaFin: string,
+    parteIdExcluir?: string
+  ): Promise<{
+    disponible: boolean;
+    conflictos: Array<{
+      personalId: string;
+      personalNombre: string;
+      parteId: string;
+      parteCodigo: string;
+      horaInicio: string;
+      horaFin: string;
+      titulo?: string;
+    }>;
+  }> {
+    const ParteTrabajoModel = await this.getModeloParteTrabajo(String(empresaId), dbConfig);
+
+    // Convertir fecha a rango del día completo
+    const fechaInicio = new Date(fecha);
+    fechaInicio.setHours(0, 0, 0, 0);
+    const fechaFin = new Date(fecha);
+    fechaFin.setHours(23, 59, 59, 999);
+
+    // Buscar partes activos en la misma fecha con personal asignado
+    const query: any = {
+      activo: true,
+      estado: { $nin: ['anulado', 'facturado'] },
+      $or: [
+        // Partes con fecha que coincide
+        {
+          fecha: { $gte: fechaInicio, $lte: fechaFin }
+        },
+        // Partes con fechaInicio que coincide
+        {
+          fechaInicio: { $gte: fechaInicio, $lte: fechaFin }
+        }
+      ],
+      'lineasPersonal.personalId': { $in: personalIds.map(id => new mongoose.Types.ObjectId(id)) }
+    };
+
+    // Excluir el parte actual si estamos editando
+    if (parteIdExcluir) {
+      query._id = { $ne: new mongoose.Types.ObjectId(parteIdExcluir) };
+    }
+
+    const partesConflictivos = await ParteTrabajoModel.find(query)
+      .select('codigo titulo lineasPersonal fecha fechaInicio')
+      .lean();
+
+    const conflictos: Array<{
+      personalId: string;
+      personalNombre: string;
+      parteId: string;
+      parteCodigo: string;
+      horaInicio: string;
+      horaFin: string;
+      titulo?: string;
+    }> = [];
+
+    // Función helper para verificar si hay solapamiento de horarios
+    const haysolapamiento = (h1Inicio: string, h1Fin: string, h2Inicio: string, h2Fin: string): boolean => {
+      if (!h1Inicio || !h1Fin || !h2Inicio || !h2Fin) return true; // Si no hay hora, asumimos conflicto
+
+      const toMinutos = (h: string): number => {
+        const [hh, mm] = h.split(':').map(Number);
+        return hh * 60 + (mm || 0);
+      };
+
+      const inicio1 = toMinutos(h1Inicio);
+      const fin1 = toMinutos(h1Fin);
+      const inicio2 = toMinutos(h2Inicio);
+      const fin2 = toMinutos(h2Fin);
+
+      // Hay solapamiento si no están completamente separados
+      return !(fin1 <= inicio2 || fin2 <= inicio1);
+    };
+
+    for (const parte of partesConflictivos) {
+      for (const lineaPersonal of parte.lineasPersonal || []) {
+        const personalIdStr = String(lineaPersonal.personalId);
+
+        if (personalIds.includes(personalIdStr)) {
+          // Verificar si hay solapamiento de horarios
+          const lineaHoraInicio = lineaPersonal.horaInicio || '00:00';
+          const lineaHoraFin = lineaPersonal.horaFin || '23:59';
+
+          if (haysolapamiento(horaInicio, horaFin, lineaHoraInicio, lineaHoraFin)) {
+            conflictos.push({
+              personalId: personalIdStr,
+              personalNombre: lineaPersonal.personalNombre || 'Sin nombre',
+              parteId: String(parte._id),
+              parteCodigo: parte.codigo,
+              horaInicio: lineaHoraInicio,
+              horaFin: lineaHoraFin,
+              titulo: parte.titulo,
+            });
+          }
+        }
+      }
+    }
+
+    return {
+      disponible: conflictos.length === 0,
+      conflictos,
+    };
+  }
+
+  // ============================================
   // ESTADISTICAS
   // ============================================
 

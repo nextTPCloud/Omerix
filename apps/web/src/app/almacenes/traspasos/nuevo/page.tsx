@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Table,
   TableBody,
@@ -42,6 +43,7 @@ import {
 import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 
 interface LineaForm {
   id: string
@@ -57,6 +59,7 @@ interface LineaForm {
 
 export default function NuevoTraspasoPage() {
   const router = useRouter()
+  const { almacenDefaultId } = useUserPreferences()
 
   // Estado del formulario principal
   const [almacenOrigenId, setAlmacenOrigenId] = useState('')
@@ -69,7 +72,7 @@ export default function NuevoTraspasoPage() {
   const [lineas, setLineas] = useState<LineaForm[]>([])
 
   // Estado de datos auxiliares
-  const [almacenes, setAlmacenes] = useState<{ _id: string; nombre: string }[]>([])
+  const [almacenes, setAlmacenes] = useState<{ _id: string; nombre: string; codigo?: string; esPrincipal?: boolean }[]>([])
   const [productoSearch, setProductoSearch] = useState('')
   const [productos, setProductos] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -81,13 +84,23 @@ export default function NuevoTraspasoPage() {
     const loadAlmacenes = async () => {
       try {
         const res = await almacenesService.getActivos()
-        setAlmacenes(res.data || [])
+        const almacenesData = res.data || []
+        setAlmacenes(almacenesData)
+        // Establecer almacen origen por defecto: preferencia usuario > principal > primero
+        if (almacenesData.length > 0) {
+          const almacenDefault = almacenDefaultId
+            ? almacenesData.find((a: any) => a._id === almacenDefaultId)
+            : almacenesData.find((a: any) => a.esPrincipal) || almacenesData[0]
+          if (almacenDefault) {
+            setAlmacenOrigenId(almacenDefault._id)
+          }
+        }
       } catch (error) {
         console.error('Error cargando almacenes:', error)
       }
     }
     loadAlmacenes()
-  }, [])
+  }, [almacenDefaultId])
 
   // Buscar productos
   useEffect(() => {
@@ -258,7 +271,14 @@ export default function NuevoTraspasoPage() {
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="origen">Almacén de Origen *</Label>
-                      <Select
+                      <SearchableSelect
+                        options={almacenes
+                          .filter(a => a._id !== almacenDestinoId)
+                          .map(a => ({
+                            value: a._id,
+                            label: a.nombre,
+                            description: a.esPrincipal ? 'Principal' : a.codigo
+                          }))}
                         value={almacenOrigenId}
                         onValueChange={(value) => {
                           setAlmacenOrigenId(value)
@@ -268,38 +288,25 @@ export default function NuevoTraspasoPage() {
                             setLineas([])
                           }
                         }}
-                      >
-                        <SelectTrigger>
-                          <Warehouse className="h-4 w-4 mr-2" />
-                          <SelectValue placeholder="Seleccionar almacén origen" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {almacenes
-                            .filter(a => a._id !== almacenDestinoId)
-                            .map((a) => (
-                              <SelectItem key={a._id} value={a._id}>{a.nombre}</SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Seleccionar almacén origen..."
+                        searchPlaceholder="Buscar almacén..."
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="destino">Almacén de Destino *</Label>
-                      <Select
+                      <SearchableSelect
+                        options={almacenes
+                          .filter(a => a._id !== almacenOrigenId)
+                          .map(a => ({
+                            value: a._id,
+                            label: a.nombre,
+                            description: a.esPrincipal ? 'Principal' : a.codigo
+                          }))}
                         value={almacenDestinoId}
                         onValueChange={setAlmacenDestinoId}
-                      >
-                        <SelectTrigger>
-                          <Warehouse className="h-4 w-4 mr-2" />
-                          <SelectValue placeholder="Seleccionar almacén destino" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {almacenes
-                            .filter(a => a._id !== almacenOrigenId)
-                            .map((a) => (
-                              <SelectItem key={a._id} value={a._id}>{a.nombre}</SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Seleccionar almacén destino..."
+                        searchPlaceholder="Buscar almacén..."
+                      />
                     </div>
                   </div>
                 </CardContent>

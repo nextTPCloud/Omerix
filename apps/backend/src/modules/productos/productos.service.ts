@@ -224,7 +224,8 @@ export class ProductosService {
       empresaId,
     })
       .populate('familiaId', 'nombre codigo')
-      .populate('proveedorId', 'nombre nif');
+      .populate('proveedorId', 'nombre nif')
+      .populate('componentesKit.productoId', 'nombre sku descripcionCorta codigoBarras');
 
     if (!producto) {
       throw new Error('Producto no encontrado');
@@ -392,6 +393,7 @@ export class ProductosService {
       ProductoModel.find(query)
         .populate('familiaId', 'nombre codigo')
         .populate('proveedorId', 'nombre')
+        .populate('componentesKit.productoId', 'nombre sku descripcionCorta')
         .sort(sort)
         .skip(skip)
         .limit(limit)

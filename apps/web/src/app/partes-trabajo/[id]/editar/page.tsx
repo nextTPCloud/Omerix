@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -64,7 +64,9 @@ import {
   Truck as TruckIcon,
   Wallet,
   MapPin,
+  AlertTriangle,
 } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { toast } from 'sonner'
 
 export default function EditarParteTrabajoPage() {
@@ -86,6 +88,23 @@ export default function EditarParteTrabajoPage() {
   const [intervaloFacturacion, setIntervaloFacturacion] = useState<number>(15)
   const [decimalesPrecios, setDecimalesPrecios] = useState<number>(2)
   const [decimalesCantidad, setDecimalesCantidad] = useState<number>(2)
+  const [activeTab, setActiveTab] = useState('general')
+
+  // Estado para conflictos de disponibilidad de personal
+  const [conflictosPersonal, setConflictosPersonal] = useState<Array<{
+    personalId: string
+    personalNombre: string
+    parteId: string
+    parteCodigo: string
+    horaInicio: string
+    horaFin: string
+    lineaIndex: number
+  }>>([])
+
+  // Refs para inputs de cantidad (navegación con teclado)
+  const cantidadMaterialRefs = useRef<Map<number, HTMLInputElement>>(new Map())
+  const cantidadMaquinariaRefs = useRef<Map<number, HTMLInputElement>>(new Map())
+  const cantidadPersonalRefs = useRef<Map<number, HTMLInputElement>>(new Map())
 
   // Form data
   const [formData, setFormData] = useState<UpdateParteTrabajoDTO>({})
@@ -306,6 +325,124 @@ export default function EditarParteTrabajoPage() {
     }))
   }
 
+  // Enfocar cantidad después de seleccionar producto
+  const focusCantidadMaterial = useCallback((index: number) => {
+    setTimeout(() => {
+      const input = cantidadMaterialRefs.current.get(index)
+      if (input) {
+        input.focus()
+        input.select()
+      }
+    }, 50)
+  }, [])
+
+  const focusCantidadMaquinaria = useCallback((index: number) => {
+    setTimeout(() => {
+      const input = cantidadMaquinariaRefs.current.get(index)
+      if (input) {
+        input.focus()
+        input.select()
+      }
+    }, 50)
+  }, [])
+
+  // Handler de teclado para cantidad de material
+  const handleCantidadMaterialKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    const lineas = formData.lineasMaterial || []
+
+    if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault()
+      // Enter simple: solo añadir si es la última línea
+      if (index === lineas.length - 1) {
+        agregarLineaMaterial()
+        setTimeout(() => {
+          const newIndex = lineas.length
+          const input = cantidadMaterialRefs.current.get(newIndex)
+          if (input) input.focus()
+        }, 100)
+      }
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      // Ctrl+Enter: siempre añadir nueva línea
+      e.preventDefault()
+      agregarLineaMaterial()
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      const nextInput = cantidadMaterialRefs.current.get(index + 1)
+      if (nextInput) {
+        nextInput.focus()
+        nextInput.select()
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      const prevInput = cantidadMaterialRefs.current.get(index - 1)
+      if (prevInput) {
+        prevInput.focus()
+        prevInput.select()
+      }
+    }
+  }, [formData.lineasMaterial])
+
+  // Handler de teclado para cantidad de maquinaria
+  const handleCantidadMaquinariaKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    const lineas = formData.lineasMaquinaria || []
+
+    if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault()
+      if (index === lineas.length - 1) {
+        agregarLineaMaquinaria()
+        setTimeout(() => {
+          const newIndex = lineas.length
+          const input = cantidadMaquinariaRefs.current.get(newIndex)
+          if (input) input.focus()
+        }, 100)
+      }
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      agregarLineaMaquinaria()
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      const nextInput = cantidadMaquinariaRefs.current.get(index + 1)
+      if (nextInput) {
+        nextInput.focus()
+        nextInput.select()
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      const prevInput = cantidadMaquinariaRefs.current.get(index - 1)
+      if (prevInput) {
+        prevInput.focus()
+        prevInput.select()
+      }
+    }
+  }, [formData.lineasMaquinaria])
+
+  // Handler global de Ctrl+Enter según la tab activa
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (activeTab === 'material') {
+          e.preventDefault()
+          agregarLineaMaterial()
+        } else if (activeTab === 'maquinaria') {
+          e.preventDefault()
+          agregarLineaMaquinaria()
+        } else if (activeTab === 'personal') {
+          e.preventDefault()
+          agregarLineaPersonal()
+        } else if (activeTab === 'transporte') {
+          e.preventDefault()
+          agregarLineaTransporte()
+        } else if (activeTab === 'gastos') {
+          e.preventDefault()
+          agregarLineaGasto()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [activeTab])
+
   // Función para calcular horas desde hora inicio y fin
   const calcularHorasDesdeHorario = useCallback((horaInicio?: string, horaFin?: string): number => {
     if (!horaInicio || !horaFin) return 0
@@ -319,6 +456,45 @@ export default function EditarParteTrabajoPage() {
     const minutosRedondeados = Math.ceil(diferenciaMinutos / intervaloFacturacion) * intervaloFacturacion
     return minutosRedondeados / 60
   }, [intervaloFacturacion])
+
+  // Verificar disponibilidad de personal
+  const verificarDisponibilidadPersonal = useCallback(async (
+    lineaIndex: number,
+    personalId: string,
+    fecha: string,
+    horaInicio: string,
+    horaFin: string
+  ) => {
+    if (!personalId || !fecha || !horaInicio || !horaFin) {
+      // Limpiar conflictos de esta línea
+      setConflictosPersonal(prev => prev.filter(c => c.lineaIndex !== lineaIndex))
+      return
+    }
+
+    try {
+      const response = await partesTrabajoService.verificarDisponibilidad({
+        personalIds: [personalId],
+        fecha,
+        horaInicio,
+        horaFin,
+        parteIdExcluir: id
+      })
+
+      if (response.success && response.data) {
+        // Limpiar conflictos previos de esta línea y añadir nuevos
+        setConflictosPersonal(prev => {
+          const sinEstaLinea = prev.filter(c => c.lineaIndex !== lineaIndex)
+          const nuevosConflictos = response.data.conflictos.map(c => ({
+            ...c,
+            lineaIndex
+          }))
+          return [...sinEstaLinea, ...nuevosConflictos]
+        })
+      }
+    } catch (error) {
+      console.error('Error verificando disponibilidad:', error)
+    }
+  }, [id])
 
   const actualizarLinea = (tipo: string, index: number, campo: string, valor: any) => {
     setFormData(prev => {
@@ -335,6 +511,12 @@ export default function EditarParteTrabajoPage() {
         const horas = (l.horasTrabajadas || 0) + (l.horasExtras || 0)
         l.costeTotal = horas * (l.tarifaHoraCoste || 0)
         l.ventaTotal = horas * (l.tarifaHoraVenta || 0)
+
+        // Verificar disponibilidad si cambian campos relevantes
+        if (['personalId', 'fecha', 'horaInicio', 'horaFin'].includes(campo)) {
+          const fechaLinea = l.fecha?.split('T')[0] || formData.fecha?.split('T')[0] || ''
+          verificarDisponibilidadPersonal(index, l.personalId, fechaLinea, l.horaInicio, l.horaFin)
+        }
       } else if (tipo === 'lineasMaterial') {
         const l = lineas[index]
         l.costeTotal = (l.cantidad || 0) * (l.precioCoste || 0)
@@ -427,7 +609,7 @@ export default function EditarParteTrabajoPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="w-full">
-          <Tabs defaultValue="general" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full flex flex-wrap gap-1">
               <TabsTrigger value="general">
                 <Building2 className="h-4 w-4 mr-2 hidden sm:inline" />
@@ -662,6 +844,29 @@ export default function EditarParteTrabajoPage() {
 
             {/* Tab Personal */}
             <TabsContent value="personal" className="mt-4">
+              {/* Alerta de conflictos de disponibilidad */}
+              {conflictosPersonal.length > 0 && (
+                <Alert variant="destructive" className="mb-4 border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle>Conflictos de disponibilidad detectados</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      {conflictosPersonal.map((conflicto, idx) => (
+                        <li key={idx}>
+                          <strong>{conflicto.personalNombre}</strong> ya está asignado al parte{' '}
+                          <span className="font-mono text-xs bg-amber-100 dark:bg-amber-900 px-1 rounded">
+                            {conflicto.parteCodigo}
+                          </span>{' '}
+                          de {conflicto.horaInicio} a {conflicto.horaFin}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs mt-2 opacity-75">
+                      Puedes continuar igualmente, pero ten en cuenta los solapamientos.
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              )}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Lineas de Personal</CardTitle>
@@ -872,6 +1077,8 @@ export default function EditarParteTrabajoPage() {
                                     actualizarLinea('lineasMaterial', idx, 'productoCodigo', p.sku || p.codigo)
                                     actualizarLinea('lineasMaterial', idx, 'precioCoste', p.coste || 0)
                                     actualizarLinea('lineasMaterial', idx, 'precioVenta', p.precioVenta || 0)
+                                    // Enfocar cantidad después de seleccionar producto
+                                    focusCantidadMaterial(idx)
                                   }
                                 }}
                                 placeholder="Seleccionar..."
@@ -884,11 +1091,16 @@ export default function EditarParteTrabajoPage() {
                             <div className="space-y-1">
                               <Label className="text-xs">Cantidad</Label>
                               <Input
+                                ref={(el) => {
+                                  if (el) cantidadMaterialRefs.current.set(idx, el)
+                                }}
                                 type="number"
                                 className="h-9"
                                 min={0}
+                                step={stepCantidad}
                                 value={linea.cantidad || 1}
                                 onChange={(e) => actualizarLinea('lineasMaterial', idx, 'cantidad', parseFloat(e.target.value) || 0)}
+                                onKeyDown={(e) => handleCantidadMaterialKeyDown(e, idx)}
                               />
                             </div>
                             <div className="space-y-1">
@@ -999,6 +1211,8 @@ export default function EditarParteTrabajoPage() {
                                     actualizarLinea('lineasMaquinaria', idx, 'codigo', m.codigo)
                                     actualizarLinea('lineasMaquinaria', idx, 'tarifaCoste', m.tarifaHoraCoste || 0)
                                     actualizarLinea('lineasMaquinaria', idx, 'tarifaVenta', m.tarifaHoraVenta || 0)
+                                    // Enfocar cantidad después de seleccionar maquinaria
+                                    focusCantidadMaquinaria(idx)
                                   }
                                 }}
                                 placeholder="Seleccionar..."
@@ -1028,12 +1242,16 @@ export default function EditarParteTrabajoPage() {
                             <div className="space-y-1">
                               <Label className="text-xs">Cantidad</Label>
                               <Input
+                                ref={(el) => {
+                                  if (el) cantidadMaquinariaRefs.current.set(idx, el)
+                                }}
                                 type="number"
                                 className="h-9"
                                 min={0}
-                                step={0.5}
+                                step={stepCantidad}
                                 value={linea.cantidad || 1}
                                 onChange={(e) => actualizarLinea('lineasMaquinaria', idx, 'cantidad', parseFloat(e.target.value) || 0)}
+                                onKeyDown={(e) => handleCantidadMaquinariaKeyDown(e, idx)}
                               />
                             </div>
                           </div>

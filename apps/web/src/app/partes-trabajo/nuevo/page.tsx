@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -46,6 +46,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 // Colores para prioridades
 const PRIORIDAD_COLORS: Record<string, string> = {
@@ -98,6 +99,16 @@ export default function NuevoParteTrabajoPage() {
 
   // Direccion manual o auto
   const [usarDireccionCliente, setUsarDireccionCliente] = useState(true)
+
+  // Estado para conflictos de disponibilidad de personal
+  const [conflictosPersonal, setConflictosPersonal] = useState<Array<{
+    personalId: string
+    personalNombre: string
+    parteId: string
+    parteCodigo: string
+    horaInicio: string
+    horaFin: string
+  }>>([])
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -188,6 +199,37 @@ export default function NuevoParteTrabajoPage() {
       label: `${p.nombre || ''} ${p.apellidos || ''}`.trim() || 'Sin nombre',
       description: p.cargo || p.categoria || '',
     })), [personal])
+
+  // Verificar disponibilidad de personal cuando cambia seleccion o horarios
+  const verificarDisponibilidadPersonal = useCallback(async () => {
+    if (personalAsignado.length === 0 || !formData.fecha) {
+      setConflictosPersonal([])
+      return
+    }
+
+    const horaInicioVerif = horaInicio || '08:00'
+    const horaFinVerif = horaFin || '17:00'
+
+    try {
+      const response = await partesTrabajoService.verificarDisponibilidad({
+        personalIds: personalAsignado,
+        fecha: formData.fecha,
+        horaInicio: horaInicioVerif,
+        horaFin: horaFinVerif
+      })
+
+      if (response.success && response.data) {
+        setConflictosPersonal(response.data.conflictos)
+      }
+    } catch (error) {
+      console.error('Error verificando disponibilidad:', error)
+    }
+  }, [personalAsignado, formData.fecha, horaInicio, horaFin])
+
+  // Efecto para verificar disponibilidad cuando cambian los datos relevantes
+  useEffect(() => {
+    verificarDisponibilidadPersonal()
+  }, [verificarDisponibilidadPersonal])
 
   // Manejar seleccion de direccion desde autocomplete
   const handleAddressSelect = (address: any) => {
@@ -578,6 +620,29 @@ export default function NuevoParteTrabajoPage() {
                       <p className="text-xs text-muted-foreground">
                         {personalAsignado.length} persona(s) asignada(s) al trabajo
                       </p>
+                    )}
+                    {/* Alerta de conflictos de disponibilidad */}
+                    {conflictosPersonal.length > 0 && (
+                      <Alert variant="destructive" className="mt-3 border-amber-500 bg-amber-50 text-amber-900 dark:border-amber-500 dark:bg-amber-950 dark:text-amber-200">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <AlertTitle>Conflictos de disponibilidad</AlertTitle>
+                        <AlertDescription>
+                          <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                            {conflictosPersonal.map((conflicto, idx) => (
+                              <li key={idx}>
+                                <strong>{conflicto.personalNombre}</strong> asignado en{' '}
+                                <span className="font-mono text-xs bg-amber-100 dark:bg-amber-900 px-1 rounded">
+                                  {conflicto.parteCodigo}
+                                </span>{' '}
+                                ({conflicto.horaInicio} - {conflicto.horaFin})
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="text-xs mt-2 opacity-75">
+                            Puedes continuar, pero habrá solapamiento de horarios.
+                          </p>
+                        </AlertDescription>
+                      </Alert>
                     )}
                   </div>
                 </CardContent>

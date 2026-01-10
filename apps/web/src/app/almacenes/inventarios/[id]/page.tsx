@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import {
@@ -20,6 +20,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Table,
   TableBody,
@@ -36,6 +38,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import {
   ArrowLeft,
   ClipboardList,
@@ -56,10 +66,20 @@ import {
   FileCheck,
   Calendar,
   User,
+  Barcode,
+  Settings,
+  Upload,
+  Volume2,
+  VolumeX,
+  Mic,
+  MicOff,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Link from 'next/link'
+import { useBarcodeScanner } from '@/hooks/useBarcodeScanner'
+import { useAudioFeedback } from '@/hooks/useAudioFeedback'
+import { ImportadorInventario, LineaImportada } from '@/components/inventarios/ImportadorInventario'
 
 export default function DetalleInventarioPage() {
   const router = useRouter()
@@ -84,6 +104,73 @@ export default function DetalleInventarioPage() {
   const [showAnularDialog, setShowAnularDialog] = useState(false)
   const [motivoAnulacion, setMotivoAnulacion] = useState('')
   const [observacionesRegularizacion, setObservacionesRegularizacion] = useState('')
+
+  // Estado para modo escáner
+  const [modoEscaner, setModoEscaner] = useState(false)
+  const [configEscaner, setConfigEscaner] = useState({
+    autoAdd: true,
+    incrementarExistente: true,
+    sonidoError: true,
+    vozError: true,
+  })
+  const [ultimoEscaneado, setUltimoEscaneado] = useState<string | null>(null)
+
+  // Estado para importador
+  const [showImportador, setShowImportador] = useState(false)
+
+  // Hook de audio feedback
+  const { playSuccess, playError, speak, stopSpeaking } = useAudioFeedback({
+    enabled: modoEscaner,
+    voiceEnabled: configEscaner.vozError,
+    voiceLang: 'es-ES',
+  })
+
+  // Función para manejar escaneo de código
+  const handleScan = useCallback((codigo: string) => {
+    if (!inventario || !puedeContarRef.current) return
+
+    // Buscar producto por código o SKU
+    const linea = inventario.lineas.find(l =>
+      l.productoCodigo?.toLowerCase() === codigo.toLowerCase() ||
+      l.productoSku?.toLowerCase() === codigo.toLowerCase()
+    )
+
+    if (linea) {
+      playSuccess()
+      setUltimoEscaneado(linea.productoNombre)
+
+      if (configEscaner.autoAdd) {
+        const actual = conteos[linea._id!] ?? linea.stockContado ?? 0
+        const nuevoValor = configEscaner.incrementarExistente ? actual + 1 : 1
+        setConteos(prev => ({ ...prev, [linea._id!]: nuevoValor }))
+        toast.success(`${linea.productoNombre}: ${nuevoValor}`, { duration: 2000 })
+      } else {
+        // Solo mostrar que se encontró, sin añadir
+        toast.info(`Encontrado: ${linea.productoNombre}`, { duration: 2000 })
+      }
+    } else {
+      if (configEscaner.sonidoError) {
+        playError()
+      }
+      if (configEscaner.vozError) {
+        speak(`Producto no encontrado: ${codigo}`)
+      }
+      toast.error(`Producto no encontrado: ${codigo}`, { duration: 3000 })
+      setUltimoEscaneado(null)
+    }
+  }, [inventario, conteos, configEscaner, playSuccess, playError, speak])
+
+  // Ref para acceder al estado actual de puedeContar en el callback
+  const puedeContarRef = { current: false }
+
+  // Hook de escáner de código de barras
+  useBarcodeScanner({
+    enabled: modoEscaner,
+    onScan: handleScan,
+    bufferTimeout: 100,
+    minLength: 3,
+    captureInInputs: false,
+  })
 
   useEffect(() => {
     if (id) {
@@ -313,6 +400,42 @@ export default function DetalleInventarioPage() {
   const puedeRegularizar = inventariosService.puedeRegularizar(inventario.estado)
   const puedeAnular = inventariosService.puedeAnular(inventario.estado)
 
+  // Actualizar ref para que el callback del escáner tenga acceso actualizado
+  puedeContarRef.current = puedeContar
+
+  // Manejar importación desde recolector de datos
+  const handleBuscarProductoImport = async (codigo: string) => {
+    // Buscar en las líneas del inventario
+    const linea = inventario.lineas.find(l =>
+      l.productoCodigo?.toLowerCase() === codigo.toLowerCase() ||
+      l.productoSku?.toLowerCase() === codigo.toLowerCase()
+    )
+    if (linea) {
+      return {
+        _id: linea.productoId,
+        nombre: linea.productoNombre,
+        lineaId: linea._id,
+      }
+    }
+    return null
+  }
+
+  const handleImportar = (lineasImportadas: LineaImportada[]) => {
+    // Actualizar conteos con los datos importados
+    const nuevosConteos = { ...conteos }
+    lineasImportadas.forEach(linea => {
+      if (linea.lineaId) {
+        // Si incrementar existente, sumar; si no, reemplazar
+        const actual = nuevosConteos[linea.lineaId] ?? 0
+        nuevosConteos[linea.lineaId] = configEscaner.incrementarExistente
+          ? actual + linea.cantidad
+          : linea.cantidad
+      }
+    })
+    setConteos(nuevosConteos)
+    toast.success(`Importados ${lineasImportadas.length} conteos`)
+  }
+
   return (
     <DashboardLayout>
       <div className="container mx-auto p-4">
@@ -422,6 +545,147 @@ export default function DetalleInventarioPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Modo escáner y herramientas de conteo */}
+        {puedeContar && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Toggle modo escáner */}
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="modo-escaner"
+                    checked={modoEscaner}
+                    onCheckedChange={setModoEscaner}
+                  />
+                  <Label htmlFor="modo-escaner" className="flex items-center gap-2 cursor-pointer">
+                    <Barcode className="h-4 w-4" />
+                    Modo Escáner
+                  </Label>
+                </div>
+
+                {/* Configuración del escáner - siempre visible */}
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Configurar
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent>
+                    <SheetHeader>
+                      <SheetTitle>Configuración del Escáner</SheetTitle>
+                      <SheetDescription>
+                        Ajusta el comportamiento al escanear códigos de barras
+                      </SheetDescription>
+                    </SheetHeader>
+                    <div className="space-y-6 mt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Añadir automáticamente</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Incrementar conteo al escanear
+                          </p>
+                        </div>
+                        <Switch
+                          checked={configEscaner.autoAdd}
+                          onCheckedChange={(checked) =>
+                            setConfigEscaner(prev => ({ ...prev, autoAdd: checked }))
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Incrementar existente</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Sumar al conteo actual (vs reemplazar)
+                          </p>
+                        </div>
+                        <Switch
+                          checked={configEscaner.incrementarExistente}
+                          onCheckedChange={(checked) =>
+                            setConfigEscaner(prev => ({ ...prev, incrementarExistente: checked }))
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {configEscaner.sonidoError ? (
+                            <Volume2 className="h-4 w-4" />
+                          ) : (
+                            <VolumeX className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <div>
+                            <Label>Sonido de error</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Beep cuando no se encuentra producto
+                            </p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={configEscaner.sonidoError}
+                          onCheckedChange={(checked) =>
+                            setConfigEscaner(prev => ({ ...prev, sonidoError: checked }))
+                          }
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {configEscaner.vozError ? (
+                            <Mic className="h-4 w-4" />
+                          ) : (
+                            <MicOff className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <div>
+                            <Label>Mensaje de voz</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Decir código cuando no existe
+                            </p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={configEscaner.vozError}
+                          onCheckedChange={(checked) =>
+                            setConfigEscaner(prev => ({ ...prev, vozError: checked }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+
+                <div className="flex-1" />
+
+                {/* Botón importar */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowImportador(true)}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Importar CSV
+                </Button>
+              </div>
+
+              {/* Indicador de modo escáner activo */}
+              {modoEscaner && (
+                <Alert className="mt-4 bg-primary/5 border-primary">
+                  <Barcode className="h-4 w-4 animate-pulse" />
+                  <AlertDescription className="flex items-center justify-between">
+                    <span>
+                      <strong>Modo Escáner Activo</strong> - Escanea códigos de barras para contar
+                    </span>
+                    {ultimoEscaneado && (
+                      <Badge variant="secondary">
+                        Último: {ultimoEscaneado}
+                      </Badge>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Resumen valoración */}
         {inventario.estado !== EstadoInventario.BORRADOR && (
@@ -751,6 +1015,14 @@ export default function DetalleInventarioPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Importador de datos */}
+      <ImportadorInventario
+        open={showImportador}
+        onOpenChange={setShowImportador}
+        onBuscarProducto={handleBuscarProductoImport}
+        onImportar={handleImportar}
+      />
     </DashboardLayout>
   )
 }

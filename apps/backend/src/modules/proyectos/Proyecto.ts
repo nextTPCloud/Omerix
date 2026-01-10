@@ -31,6 +31,23 @@ export enum TipoProyecto {
   OTRO = 'otro',
 }
 
+export enum FrecuenciaRecurrencia {
+  SEMANAL = 'semanal',
+  QUINCENAL = 'quincenal',
+  MENSUAL = 'mensual',
+  BIMESTRAL = 'bimestral',
+  TRIMESTRAL = 'trimestral',
+  SEMESTRAL = 'semestral',
+  ANUAL = 'anual',
+}
+
+export enum EstadoGeneracion {
+  PENDIENTE = 'pendiente',
+  ALBARAN_GENERADO = 'albaran_generado',
+  FACTURADO = 'facturado',
+  CANCELADO = 'cancelado',
+}
+
 // ============================================
 // INTERFACES
 // ============================================

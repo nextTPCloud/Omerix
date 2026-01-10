@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowLeft, Save, RefreshCw, Briefcase, Mail, MapPin, CreditCard, Percent } from 'lucide-react'
 import { toast } from 'sonner'
 import { CodeInput } from '@/components/ui/code-input'
+import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete'
 
 export default function EditarAgentePage() {
   const params = useParams()
@@ -189,7 +190,7 @@ export default function EditarAgentePage() {
 
         {/* Formulario */}
         <Tabs defaultValue="general" className="w-full">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="general">Datos Generales</TabsTrigger>
             <TabsTrigger value="contacto">Contacto</TabsTrigger>
             <TabsTrigger value="comisiones">Comisiones</TabsTrigger>
@@ -378,6 +379,27 @@ export default function EditarAgentePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Búsqueda de dirección con OpenStreetMap */}
+                  <AddressAutocomplete
+                    label="Buscar dirección"
+                    placeholder="Escribe una dirección para buscar..."
+                    onAddressSelect={(address) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        direccion: {
+                          ...prev.direccion,
+                          direccion: address.numero
+                            ? `${address.calle}, ${address.numero}`
+                            : address.calle,
+                          codigoPostal: address.codigoPostal,
+                          ciudad: address.ciudad,
+                          provincia: address.provincia,
+                          pais: address.pais,
+                        },
+                      }))
+                    }}
+                  />
+
                   <div className="space-y-2">
                     <Label htmlFor="direccion">Dirección</Label>
                     <Input
@@ -460,55 +482,80 @@ export default function EditarAgentePage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="porcentaje">Porcentaje de Comisión (%)</Label>
-                    <Input
-                      id="porcentaje"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      value={formData.comision?.porcentaje || 0}
-                      onChange={(e) => updateNestedField('comision', 'porcentaje', parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
+
+                  {/* Porcentaje - visible para tipo 'porcentaje' y 'mixto' */}
+                  {(formData.comision?.tipo === 'porcentaje' || formData.comision?.tipo === 'mixto') && (
+                    <div className="space-y-2">
+                      <Label htmlFor="porcentaje">Porcentaje de Comisión (%)</Label>
+                      <Input
+                        id="porcentaje"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.comision?.porcentaje || 0}
+                        onChange={(e) => updateNestedField('comision', 'porcentaje', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                  )}
+
+                  {/* Importe Fijo - visible para tipo 'fijo' y 'mixto' */}
+                  {(formData.comision?.tipo === 'fijo' || formData.comision?.tipo === 'mixto') && (
+                    <div className="space-y-2">
+                      <Label htmlFor="importeFijo">Importe Fijo (€)</Label>
+                      <Input
+                        id="importeFijo"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.comision?.importeFijo || 0}
+                        onChange={(e) => updateNestedField('comision', 'importeFijo', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="importeFijo">Importe Fijo (€)</Label>
-                    <Input
-                      id="importeFijo"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.comision?.importeFijo || 0}
-                      onChange={(e) => updateNestedField('comision', 'importeFijo', parseFloat(e.target.value) || 0)}
-                    />
+
+                {/* Límites de porcentaje - visible para tipo 'porcentaje' y 'mixto' */}
+                {(formData.comision?.tipo === 'porcentaje' || formData.comision?.tipo === 'mixto') && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="porcentajeMinimo">% Mínimo</Label>
+                      <Input
+                        id="porcentajeMinimo"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.comision?.porcentajeMinimo || 0}
+                        onChange={(e) => updateNestedField('comision', 'porcentajeMinimo', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="porcentajeMaximo">% Máximo</Label>
+                      <Input
+                        id="porcentajeMaximo"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.comision?.porcentajeMaximo || 100}
+                        onChange={(e) => updateNestedField('comision', 'porcentajeMaximo', parseFloat(e.target.value) || 100)}
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="porcentajeMinimo">% Mínimo</Label>
-                    <Input
-                      id="porcentajeMinimo"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      value={formData.comision?.porcentajeMinimo || 0}
-                      onChange={(e) => updateNestedField('comision', 'porcentajeMinimo', parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="porcentajeMaximo">% Máximo</Label>
-                    <Input
-                      id="porcentajeMaximo"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      value={formData.comision?.porcentajeMaximo || 100}
-                      onChange={(e) => updateNestedField('comision', 'porcentajeMaximo', parseFloat(e.target.value) || 100)}
-                    />
-                  </div>
+                )}
+
+                {/* Descripción del tipo seleccionado */}
+                <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                  {formData.comision?.tipo === 'porcentaje' && (
+                    <p>La comisión se calcula como un porcentaje sobre el importe de las ventas.</p>
+                  )}
+                  {formData.comision?.tipo === 'fijo' && (
+                    <p>Se aplica un importe fijo por cada venta realizada, independientemente del importe.</p>
+                  )}
+                  {formData.comision?.tipo === 'mixto' && (
+                    <p>Se aplica un importe fijo más un porcentaje sobre el importe de las ventas.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

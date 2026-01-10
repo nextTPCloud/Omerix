@@ -6,8 +6,10 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { personalService } from '@/services/personal.service'
 import { turnosService } from '@/services/turnos.service'
 import { calendariosService } from '@/services/calendarios.service'
+import { departamentosService } from '@/services/departamentos.service'
 import { Turno } from '@/types/turno.types'
 import { CalendarioLaboral } from '@/types/calendario.types'
+import { Departamento } from '@/types/departamento.types'
 import {
   Personal,
   CreatePersonalDTO,
@@ -68,8 +70,18 @@ export default function EditarPersonalPage() {
   })
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [calendarios, setCalendarios] = useState<CalendarioLaboral[]>([])
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([])
 
   // Opciones para SearchableSelect
+  const departamentosOptions = useMemo(() => [
+    { value: '', label: 'Sin departamento', description: 'El empleado no está asignado a ningún departamento' },
+    ...departamentos.map(d => ({
+      value: d._id,
+      label: d.nombre,
+      description: d.descripcion || d.codigo
+    }))
+  ], [departamentos])
+
   const turnosOptions = useMemo(() => [
     { value: '', label: 'Heredar del departamento', description: 'Usará el turno asignado al departamento' },
     ...turnos.map(t => ({
@@ -88,16 +100,18 @@ export default function EditarPersonalPage() {
     }))
   ], [calendarios])
 
-  // Cargar turnos y calendarios
+  // Cargar turnos, calendarios y departamentos
   useEffect(() => {
     const loadSelectData = async () => {
       try {
-        const [turnosRes, calendariosRes] = await Promise.all([
+        const [turnosRes, calendariosRes, departamentosRes] = await Promise.all([
           turnosService.getActivos(),
-          calendariosService.getActivos()
+          calendariosService.getActivos(),
+          departamentosService.getAll({ activo: true })
         ])
         if (turnosRes.success) setTurnos(turnosRes.data)
         if (calendariosRes.success) setCalendarios(calendariosRes.data)
+        if (departamentosRes.success) setDepartamentos(departamentosRes.data || [])
       } catch (err) {
         console.error('Error cargando datos de selects:', err)
       }
@@ -229,7 +243,7 @@ export default function EditarPersonalPage() {
 
   return (
     <DashboardLayout>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -551,7 +565,7 @@ export default function EditarPersonalPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="puesto">Puesto *</Label>
                     <Input
@@ -562,6 +576,20 @@ export default function EditarPersonalPage() {
                       required
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="departamentoId">Departamento</Label>
+                    <SearchableSelect
+                      options={departamentosOptions}
+                      value={formData.datosLaborales?.departamentoId || ''}
+                      onValueChange={(value) => updateNestedField('datosLaborales', 'departamentoId', value || undefined)}
+                      placeholder="Seleccionar departamento..."
+                      searchPlaceholder="Buscar departamento..."
+                      allowClear
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="categoriaLaboral">Categoría</Label>
                     <Input

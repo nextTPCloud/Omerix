@@ -59,12 +59,16 @@ export class JornadaCalendarSyncService {
       throw new Error(`Jornada no encontrada en índice ${jornadaIndex}`);
     }
 
+    console.log(`[Calendar Sync] Sincronizando jornada ${jornadaIndex} del parte ${parte.codigo}`);
+    console.log(`[Calendar Sync] Fecha: ${jornada.fecha}, Personal asignado: ${jornada.personal.length}`);
+
     const resultados: SyncResult[] = [];
     let todosExitosos = true;
 
     // Sincronizar para cada personal de la jornada
     for (let i = 0; i < jornada.personal.length; i++) {
       const personalJornada = jornada.personal[i];
+      console.log(`[Calendar Sync] Procesando: ${personalJornada.nombre} (ID: ${personalJornada.personalId})`);
       const resultado = await this.sincronizarParaPersonal(parte, jornada, personalJornada);
       resultados.push(resultado);
 
@@ -75,6 +79,11 @@ export class JornadaCalendarSyncService {
         todosExitosos = false;
       }
     }
+
+    // Resumen
+    const exitosos = resultados.filter(r => r.success).length;
+    const fallidos = resultados.filter(r => !r.success).length;
+    console.log(`[Calendar Sync] Resumen jornada ${jornadaIndex}: ${exitosos} exitosos, ${fallidos} fallidos`);
 
     // Actualizar estado de sincronización
     jornada.sincronizadoCalendar = todosExitosos && resultados.length > 0;
@@ -148,26 +157,31 @@ export class JornadaCalendarSyncService {
       }
 
       // Verificar si el usuario tiene Google Calendar conectado
+      console.log(`[Calendar Sync] Verificando conexión Google para usuario ${personal.usuarioId}`);
       const tokenStatus = await googleOAuthService.isUserConnected(
         personal.usuarioId.toString(),
         this.empresaId.toString()
       );
+
+      console.log(`[Calendar Sync] Estado token: connected=${tokenStatus.connected}, scopes=${tokenStatus.scopes?.join(', ')}`);
 
       if (!tokenStatus.connected || !tokenStatus.scopes?.includes('calendar')) {
         return {
           personalId: personalJornada.personalId.toString(),
           personalNombre: personalJornada.nombre,
           success: false,
-          error: 'Usuario no tiene Google Calendar conectado',
+          error: `Usuario no tiene Google Calendar conectado (connected=${tokenStatus.connected}, scopes=${tokenStatus.scopes?.join(', ') || 'ninguno'})`,
         };
       }
 
       // Obtener token válido
+      console.log(`[Calendar Sync] Obteniendo token de acceso válido...`);
       const tokenData = await googleOAuthService.getValidAccessToken(
         personal.usuarioId.toString(),
         this.empresaId.toString(),
         'calendar'
       );
+      console.log(`[Calendar Sync] Token obtenido correctamente`);
 
       // Configurar credenciales
       googleCalendarApiService.setCredentials(tokenData.accessToken);
@@ -180,21 +194,27 @@ export class JornadaCalendarSyncService {
 
       if (googleEventId) {
         // Actualizar evento existente
+        console.log(`[Calendar Sync] Actualizando evento existente: ${googleEventId}`);
         try {
           await googleCalendarApiService.updateEvent('primary', googleEventId, eventData);
+          console.log(`[Calendar Sync] Evento actualizado correctamente`);
         } catch (error: any) {
           // Si el evento no existe, crearlo
           if (error.code === 404) {
+            console.log(`[Calendar Sync] Evento no encontrado (404), creando nuevo...`);
             const result = await googleCalendarApiService.createEvent('primary', eventData);
             googleEventId = result.id;
+            console.log(`[Calendar Sync] Nuevo evento creado: ${googleEventId}`);
           } else {
             throw error;
           }
         }
       } else {
         // Crear nuevo evento
+        console.log(`[Calendar Sync] Creando nuevo evento...`);
         const result = await googleCalendarApiService.createEvent('primary', eventData);
         googleEventId = result.id;
+        console.log(`[Calendar Sync] Evento creado: ${googleEventId}`);
       }
 
       return {
@@ -204,12 +224,14 @@ export class JornadaCalendarSyncService {
         googleEventId,
       };
 
-    } catch (error) {
+    } catch (error: any) {
+      console.error(`[Calendar Sync] ERROR para ${personalJornada.nombre}:`, error);
+      const errorMessage = error.response?.data?.error?.message || error.message || 'Error desconocido';
       return {
         personalId: personalJornada.personalId.toString(),
         personalNombre: personalJornada.nombre,
         success: false,
-        error: (error as Error).message,
+        error: errorMessage,
       };
     }
   }

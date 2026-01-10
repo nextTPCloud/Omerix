@@ -570,6 +570,148 @@ export const actualizarVacaciones = async (req: Request, res: Response) => {
 };
 
 // ============================================
+// ELIMINAR VACACIONES
+// ============================================
+export const eliminarVacaciones = async (req: Request, res: Response) => {
+  try {
+    const { id, anio } = req.params;
+    const empresaId = req.empresaId;
+    const userId = req.userId;
+    const dbConfig = req.empresaDbConfig;
+
+    if (!empresaId || !userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+    }
+
+    if (!dbConfig) {
+      return res.status(500).json({
+        success: false,
+        message: 'Error de configuración de base de datos'
+      });
+    }
+
+    const empleado = await personalService.eliminarVacaciones(id, parseInt(anio), empresaId, userId, dbConfig);
+
+    if (!empleado) {
+      return res.status(404).json({
+        success: false,
+        message: 'Empleado no encontrado'
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: empleado,
+      message: 'Vacaciones eliminadas correctamente'
+    });
+  } catch (error: any) {
+    console.error('Error al eliminar vacaciones:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Error al eliminar vacaciones'
+    });
+  }
+};
+
+// ============================================
+// ACTUALIZAR AUSENCIA
+// ============================================
+export const actualizarAusencia = async (req: Request, res: Response) => {
+  try {
+    const { id, ausenciaId } = req.params;
+    const empresaId = req.empresaId;
+    const userId = req.userId;
+    const dbConfig = req.empresaDbConfig;
+
+    if (!empresaId || !userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+    }
+
+    if (!dbConfig) {
+      return res.status(500).json({
+        success: false,
+        message: 'Error de configuración de base de datos'
+      });
+    }
+
+    const ausencia = RegistrarAusenciaSchema.parse(req.body);
+    const empleado = await personalService.actualizarAusencia(id, ausenciaId, ausencia, empresaId, userId, dbConfig);
+
+    if (!empleado) {
+      return res.status(404).json({
+        success: false,
+        message: 'Empleado o ausencia no encontrado'
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: empleado,
+      message: 'Ausencia actualizada correctamente'
+    });
+  } catch (error: any) {
+    console.error('Error al actualizar ausencia:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Error al actualizar ausencia'
+    });
+  }
+};
+
+// ============================================
+// ELIMINAR AUSENCIA
+// ============================================
+export const eliminarAusencia = async (req: Request, res: Response) => {
+  try {
+    const { id, ausenciaId } = req.params;
+    const empresaId = req.empresaId;
+    const userId = req.userId;
+    const dbConfig = req.empresaDbConfig;
+
+    if (!empresaId || !userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'No autenticado'
+      });
+    }
+
+    if (!dbConfig) {
+      return res.status(500).json({
+        success: false,
+        message: 'Error de configuración de base de datos'
+      });
+    }
+
+    const empleado = await personalService.eliminarAusencia(id, ausenciaId, empresaId, userId, dbConfig);
+
+    if (!empleado) {
+      return res.status(404).json({
+        success: false,
+        message: 'Empleado o ausencia no encontrado'
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: empleado,
+      message: 'Ausencia eliminada correctamente'
+    });
+  } catch (error: any) {
+    console.error('Error al eliminar ausencia:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Error al eliminar ausencia'
+    });
+  }
+};
+
+// ============================================
 // REGISTRAR EVALUACIÓN
 // ============================================
 export const registrarEvaluacion = async (req: Request, res: Response) => {

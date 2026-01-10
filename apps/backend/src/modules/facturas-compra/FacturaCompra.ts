@@ -19,6 +19,7 @@ export enum TipoLineaFacturaCompra {
   TEXTO = 'texto',
   SUBTOTAL = 'subtotal',
   DESCUENTO = 'descuento',
+  KIT = 'kit',
 }
 
 // ============================================

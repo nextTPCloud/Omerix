@@ -32,8 +32,11 @@ export class FichajesController {
       );
 
       // Verificar si el usuario tiene acceso completo a RRHH
+      // Administradores y superadmins pueden ver todos los fichajes
       const tieneAccesoRRHH =
         req.user!.rol === 'superadmin' ||
+        req.user!.rol === 'administrador' ||
+        req.user!.rol === 'admin' ||
         req.user!.permisos?.especiales?.accesoRRHH === true;
 
       // Determinar el personalId a filtrar

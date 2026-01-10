@@ -52,7 +52,7 @@ import {
   Building2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { TabCalendario } from '@/components/personal/tabs'
+import { TabCalendario, TabVacaciones } from '@/components/personal/tabs'
 
 export default function PersonalDetailPage() {
   const params = useParams()
@@ -643,69 +643,10 @@ export default function PersonalDetailPage() {
           </TabsContent>
 
           <TabsContent value="vacaciones" className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Vacaciones por Año
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {empleado.vacaciones && empleado.vacaciones.length > 0 ? (
-                    <div className="space-y-3">
-                      {empleado.vacaciones.sort((a, b) => b.anio - a.anio).map((vac, index) => (
-                        <div key={vac._id || index} className="flex items-center justify-between p-3 border rounded-lg">
-                          <span className="font-medium">{vac.anio}</span>
-                          <div className="flex items-center gap-4">
-                            <span className="text-sm">
-                              {vac.diasDisfrutados} / {vac.diasTotales} días
-                            </span>
-                            <Badge variant={vac.diasPendientes && vac.diasPendientes > 0 ? 'default' : 'secondary'}>
-                              {vac.diasPendientes || 0} pendientes
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">Sin vacaciones registradas</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Ausencias
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {empleado.ausencias && empleado.ausencias.length > 0 ? (
-                    <div className="space-y-3">
-                      {empleado.ausencias.slice(0, 10).map((ausencia, index) => (
-                        <div key={ausencia._id || index} className="p-3 border rounded-lg">
-                          <div className="flex justify-between items-center">
-                            <Badge variant="outline">{ausencia.tipo}</Badge>
-                            <Badge variant={ausencia.aprobada ? 'default' : 'secondary'}>
-                              {ausencia.aprobada ? 'Aprobada' : 'Pendiente'}
-                            </Badge>
-                          </div>
-                          <p className="text-sm mt-2">
-                            {new Date(ausencia.fechaInicio).toLocaleDateString('es-ES')}
-                            {ausencia.fechaFin && ` - ${new Date(ausencia.fechaFin).toLocaleDateString('es-ES')}`}
-                          </p>
-                          {ausencia.motivo && <p className="text-sm text-muted-foreground">{ausencia.motivo}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">Sin ausencias registradas</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+            <TabVacaciones
+              empleado={empleado}
+              onUpdate={(updatedEmpleado) => setEmpleado(updatedEmpleado)}
+            />
           </TabsContent>
 
           <TabsContent value="calendario" className="mt-4">

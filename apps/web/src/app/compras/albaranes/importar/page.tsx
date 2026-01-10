@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Table,
   TableBody,
@@ -645,28 +646,16 @@ export default function ImportarAlbaranOCRPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
                     <Label>Proveedor *</Label>
-                    <Select
+                    <SearchableSelect
+                      options={proveedores.map(prov => ({
+                        value: prov._id,
+                        label: prov.cif ? `${prov.nombre} (${prov.cif})` : prov.nombre
+                      }))}
                       value={proveedorId}
                       onValueChange={setProveedorId}
+                      placeholder="Selecciona un proveedor..."
                       disabled={loadingProveedores}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un proveedor..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {proveedores.map(prov => (
-                          <SelectItem key={prov._id} value={prov._id}>
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-muted-foreground" />
-                              {prov.nombre}
-                              {prov.cif && (
-                                <span className="text-xs text-muted-foreground">({prov.cif})</span>
-                              )}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     {resultado?.proveedorEncontrado && (
                       <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                         <CheckCircle className="h-3 w-3" />
@@ -677,25 +666,16 @@ export default function ImportarAlbaranOCRPage() {
 
                   <div>
                     <Label>Almacén *</Label>
-                    <Select
+                    <SearchableSelect
+                      options={almacenes.map(alm => ({
+                        value: alm._id,
+                        label: alm.nombre
+                      }))}
                       value={almacenId}
                       onValueChange={setAlmacenId}
+                      placeholder="Selecciona almacén..."
                       disabled={loadingAlmacenes}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {almacenes.map(alm => (
-                          <SelectItem key={alm._id} value={alm._id}>
-                            <div className="flex items-center gap-2">
-                              <Truck className="h-4 w-4 text-muted-foreground" />
-                              {alm.nombre}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
 
                   <div>

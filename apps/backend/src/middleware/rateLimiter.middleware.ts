@@ -4,22 +4,27 @@ import { config } from '../config/env';
 
 /**
  * Rate limiter general
+ * Configurado para no penalizar usuarios con tokens expirados
  */
 export const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: config.isDevelopment ? 1000 : 100,
+  max: config.isDevelopment ? 1000 : 300, // Aumentado para acomodar refrescos de sesión
   message: {
     success: false,
     message: 'Demasiadas peticiones, intente de nuevo más tarde',
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Omitir rutas de refresh token para no penalizar renovaciones de sesión
+  skip: (req) => {
+    return req.path === '/auth/refresh';
+  },
   handler: (req, res) => {
     logger.warn('Rate limit excedido', {
       ip: req.ip,
       path: req.path,
     });
-    
+
     res.status(429).json({
       success: false,
       message: 'Demasiadas peticiones. Por favor, espere antes de intentar de nuevo.',

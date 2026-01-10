@@ -100,9 +100,9 @@ export class ProrrateoService {
     let subtotalProrrata = 0;
 
     const addOnsCalculados = addOnsData.map((addon) => {
-      const precioCompleto = esAnual && addon.precioAnual
-        ? addon.precioAnual
-        : addon.precioMensual * (esAnual ? 12 : 1);
+      const precioCompleto = esAnual && addon.precio?.anual
+        ? addon.precio.anual
+        : (addon.precio?.mensual || 0) * (esAnual ? 12 : 1);
 
       const precioProrrata = this.calcularProrrata(
         precioCompleto,

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/stores/authStore'
@@ -22,10 +23,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Menu, X, Sparkles, Clock, AlertTriangle, Crown } from 'lucide-react'
+import { Menu, X, Sparkles, Clock, AlertTriangle, Crown, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import { LogoLink } from './LogoLink'
 import { SkinSelector } from '@/components/SkinSelector'
+import { UserPreferencesSheet } from '@/components/UserPreferencesSheet'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -35,6 +37,7 @@ interface HeaderProps {
 export function Header({ onMenuClick, isMobileMenuOpen }: HeaderProps) {
   const router = useRouter()
   const { user, logout } = useAuthStore()
+  const [preferencesOpen, setPreferencesOpen] = useState(false)
   const {
     plan,
     isTrial,
@@ -242,17 +245,27 @@ export function Header({ onMenuClick, isMobileMenuOpen }: HeaderProps) {
               <DropdownMenuItem onClick={() => router.push('/perfil')}>
                 Mi Perfil
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setPreferencesOpen(true)}>
+                <Settings className="h-4 w-4 mr-2" />
+                Mis Preferencias
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/configuracion')}>
-                Configuración
+                Configuracion
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                Cerrar Sesión
+                Cerrar Sesion
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </nav>
       </div>
+
+      {/* Sheet de preferencias de usuario */}
+      <UserPreferencesSheet
+        open={preferencesOpen}
+        onOpenChange={setPreferencesOpen}
+      />
     </header>
   )
 }

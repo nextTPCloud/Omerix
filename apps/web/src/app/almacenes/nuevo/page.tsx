@@ -19,8 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
+import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
 import { useFormValidation, ValidationRule } from '@/hooks/useFormValidation';
 
 // Reglas de validación para el formulario
@@ -174,16 +175,34 @@ export default function NuevoAlmacenPage() {
 
               {/* Dirección */}
               <div>
-                <h2 className="text-lg font-semibold mb-4">Dirección</h2>
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Dirección
+                </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <Label htmlFor="calle">Calle</Label>
-                    <Input
-                      id="calle"
-                      value={formData.direccion?.calle}
-                      onChange={(e) => handleDireccionChange('calle', e.target.value)}
-                      placeholder="Nombre de la calle"
+                    <Label htmlFor="direccion">Buscar dirección</Label>
+                    <AddressAutocomplete
+                      defaultValue={formData.direccion?.calle || ''}
+                      onAddressSelect={(address) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          direccion: {
+                            ...prev.direccion,
+                            calle: address.calle || '',
+                            numero: address.numero || '',
+                            codigoPostal: address.codigoPostal || '',
+                            ciudad: address.ciudad || '',
+                            provincia: address.provincia || '',
+                            pais: address.pais || 'España',
+                          },
+                        }));
+                      }}
+                      placeholder="Buscar dirección en OpenStreetMap..."
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Escribe para buscar o completa los campos manualmente
+                    </p>
                   </div>
 
                   <div>

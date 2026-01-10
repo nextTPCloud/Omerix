@@ -15,6 +15,7 @@ import Empresa from '@/modules/empresa/Empresa';
 import { empresaService } from '../empresa/empresa.service';
 import { EstadoPresupuesto } from '../presupuestos/Presupuesto';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
+import { preciosService } from '../precios/precios.service';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -185,6 +186,69 @@ export class PedidosService {
   }
 
   // ============================================
+  // PROCESAR LÍNEAS CON PRECIOS DE TARIFAS/OFERTAS
+  // ============================================
+
+  /**
+   * Procesa las líneas obteniendo precios de tarifas/ofertas cuando corresponde
+   */
+  private async procesarLineasConPrecios(
+    lineas: any[],
+    clienteId: string | undefined,
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any[]> {
+    const lineasProcesadas: any[] = [];
+
+    for (const linea of lineas) {
+      // Solo procesar líneas con producto y sin precio manual especificado
+      if (linea.productoId && (linea.precioUnitario === undefined || linea.precioUnitario === null || linea.precioUnitario === 0)) {
+        try {
+          const precioCalculado = await preciosService.obtenerPrecioProducto({
+            productoId: linea.productoId,
+            varianteId: linea.variante?.varianteId,
+            clienteId,
+            cantidad: linea.cantidad || 1,
+            empresaId,
+            dbConfig,
+          });
+
+          lineasProcesadas.push({
+            ...linea,
+            precioUnitario: precioCalculado.precioFinal,
+            infoPrecio: {
+              origen: precioCalculado.origen,
+              tarifaId: precioCalculado.detalleOrigen?.tarifaId,
+              tarifaNombre: precioCalculado.detalleOrigen?.tarifaNombre,
+              ofertaId: precioCalculado.detalleOrigen?.ofertaId,
+              ofertaNombre: precioCalculado.detalleOrigen?.ofertaNombre,
+              ofertaTipo: precioCalculado.detalleOrigen?.ofertaTipo,
+              etiquetaOferta: precioCalculado.etiquetaOferta,
+              precioOriginal: precioCalculado.precioBase,
+              unidadesGratis: precioCalculado.unidadesGratis,
+            },
+          });
+        } catch (error) {
+          // Si falla obtener precio, usar la línea original
+          lineasProcesadas.push(linea);
+        }
+      } else {
+        // Si tiene precio manual, marcar origen como manual
+        if (linea.precioUnitario !== undefined && linea.precioUnitario !== null && linea.precioUnitario > 0) {
+          lineasProcesadas.push({
+            ...linea,
+            infoPrecio: { origen: 'manual' },
+          });
+        } else {
+          lineasProcesadas.push(linea);
+        }
+      }
+    }
+
+    return lineasProcesadas;
+  }
+
+  // ============================================
   // CREAR PEDIDO
   // ============================================
 
@@ -254,6 +318,14 @@ export class PedidosService {
         }
       }
     }
+
+    // Aplicar tarifas/ofertas del cliente a las líneas
+    lineas = await this.procesarLineasConPrecios(
+      lineas,
+      createPedidoDto.clienteId,
+      String(empresaId),
+      dbConfig
+    );
 
     // Calcular líneas
     const lineasCalculadas = lineas.map((linea, index) =>

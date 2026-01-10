@@ -558,7 +558,7 @@ export function DocumentoLineasGrid({
 
       case 'acciones':
         return (
-          <div className="flex justify-end gap-0.5">
+          <div className="flex justify-end gap-0.5 flex-nowrap">
             {onEntregarTodo && !esTextoOSubtotal && (
               <Button
                 type="button"

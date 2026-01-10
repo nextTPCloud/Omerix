@@ -93,6 +93,7 @@ import { PrintButton } from '@/components/ui/PrintButton'
 import { AdvancedFilters, ActiveFilter, filtersToQueryParams, filtersToSaved, savedToFilters } from '@/components/ui/advanced-filters'
 import { ALBARANES_COMPRA_FILTERABLE_FIELDS } from '@/components/presupuestos/presupuestos-filters.config'
 import { AlbaranesCompraAlertas } from '@/components/compras/AlbaranesCompraAlertas'
+import { CrearFacturaDesdeAlbaranesDialog } from '@/components/compras/CrearFacturaDesdeAlbaranesDialog'
 
 // ============================================
 // HOOK PARA DEBOUNCE
@@ -235,6 +236,7 @@ export default function AlbaranesCompraPage() {
   }>>([])
   const [isLoadingWhatsApp, setIsLoadingWhatsApp] = useState(false)
   const [isSendingBulkEmail, setIsSendingBulkEmail] = useState(false)
+  const [showFacturarDialog, setShowFacturarDialog] = useState(false)
 
   // Columnas disponibles
   const [columnasDisponibles] = useState([
@@ -1240,7 +1242,16 @@ export default function AlbaranesCompraPage() {
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Exportar PDF
               </Button>
-{canDelete('albaranes-compra') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFacturarDialog(true)}
+                className="text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-950"
+              >
+                <Receipt className="mr-2 h-4 w-4" />
+                Crear Factura
+              </Button>
+              {canDelete('albaranes-compra') && (
                 <Button variant="destructive" size="sm" onClick={() => handleBulkAction('delete')}>
                   <Trash2 className="mr-2 h-4 w-4" />
                   Eliminar
@@ -1878,6 +1889,17 @@ export default function AlbaranesCompraPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* DIALOG PARA CREAR FACTURA DESDE ALBARANES */}
+        <CrearFacturaDesdeAlbaranesDialog
+          open={showFacturarDialog}
+          onOpenChange={setShowFacturarDialog}
+          albaranesIds={selectedAlbaranes}
+          onSuccess={() => {
+            setSelectedAlbaranes([])
+            loadAlbaranes()
+          }}
+        />
       </div>
     </DashboardLayout>
   )

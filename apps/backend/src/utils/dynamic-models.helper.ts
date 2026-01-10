@@ -1,6 +1,6 @@
-import { Model } from 'mongoose';
+import mongoose, { Model, Schema } from 'mongoose';
 import { databaseManager } from '../services/database-manager.service';
-import { IDatabaseConfig } from '../modules/empresa/Empresa';
+import Empresa, { IDatabaseConfig } from '../modules/empresa/Empresa';
 import { Cliente, ICliente } from '../modules/clientes/Cliente';
 import VistaGuardada, { IVistaGuardada } from '../modules/vistasGuardadas/VistaGuardada';
 import { Producto, IProducto } from '../modules/productos/Producto';
@@ -1053,3 +1053,31 @@ export const EmpresaModels = {
  * Tipos de modelos disponibles por empresa
  */
 export type EmpresaModelType = keyof typeof EmpresaModels;
+
+/**
+ * Función genérica para obtener un modelo dinámico para una empresa
+ * Obtiene automáticamente la configuración de BD de la empresa
+ */
+export const getDynamicModel = async <T>(
+  modelName: string,
+  schema: Schema<T>,
+  empresaId: string
+): Promise<Model<T>> => {
+  // Obtener la empresa con su configuración de BD
+  const empresa = await Empresa.findById(empresaId).select('+databaseConfig.password').lean();
+
+  if (!empresa) {
+    throw new Error(`Empresa no encontrada: ${empresaId}`);
+  }
+
+  if (!empresa.databaseConfig) {
+    throw new Error(`Empresa sin configuración de base de datos: ${empresaId}`);
+  }
+
+  return databaseManager.getModel<T>(
+    empresaId,
+    empresa.databaseConfig,
+    modelName,
+    schema
+  );
+};

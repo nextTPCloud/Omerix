@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -128,11 +128,6 @@ const menuGroups: MenuGroup[] = [
         icon: Users,
       },
       {
-        title: 'Agentes Comerciales',
-        href: '/agentes-comerciales',
-        icon: Briefcase,
-      },
-      {
         title: 'Presupuestos',
         icon: FileText,
         children: [
@@ -163,6 +158,11 @@ const menuGroups: MenuGroup[] = [
           { title: 'Listado facturas', href: '/facturas' },
           { title: 'Nueva factura', href: '/facturas/nuevo' },
         ],
+      },
+      {
+        title: 'Agentes Comerciales',
+        href: '/agentes-comerciales',
+        icon: Briefcase,
       },
       // Configuración integrada en Ventas
       {
@@ -707,6 +707,84 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
     return true
   })
 
+  // Recopilar todas las rutas del menú para determinar coincidencias exactas
+  const allMenuHrefs = useMemo(() => {
+    const hrefs: string[] = []
+    for (const group of menuGroups) {
+      for (const item of group.items) {
+        if (item.href) hrefs.push(item.href)
+        if (item.children) {
+          for (const child of item.children) {
+            hrefs.push(child.href)
+          }
+        }
+      }
+    }
+    return hrefs
+  }, [])
+
+  // Función para verificar si una ruta es la más específica para el pathname actual
+  const isActiveHref = (href: string): boolean => {
+    // Coincidencia exacta siempre es activa
+    if (pathname === href) return true
+
+    // Si el pathname comienza con href/, verificar que no haya otra ruta más específica
+    if (pathname.startsWith(href + '/')) {
+      // Buscar si hay otra ruta del menú que sea más específica (más larga y también coincida)
+      const hasMoreSpecific = allMenuHrefs.some(otherHref =>
+        otherHref !== href &&
+        otherHref.startsWith(href + '/') &&
+        (pathname === otherHref || pathname.startsWith(otherHref + '/'))
+      )
+      return !hasMoreSpecific
+    }
+
+    return false
+  }
+
+  // Auto-expandir grupos e items basándose en la ruta actual
+  // Usar useMemo para calcular qué grupos e items deben estar expandidos
+  const { activeGroup, activeItem } = useMemo(() => {
+    let foundGroup: string | null = null
+    let foundItem: string | null = null
+
+    // Buscar en todos los grupos del menú (no solo los filtrados)
+    for (const group of menuGroups) {
+      for (const item of group.items) {
+        // Verificar si la ruta actual coincide con un item directo
+        if (item.href && isActiveHref(item.href)) {
+          foundGroup = group.group
+          break
+        }
+
+        // Verificar si la ruta actual coincide con algún hijo
+        if (item.children) {
+          for (const child of item.children) {
+            if (isActiveHref(child.href)) {
+              foundGroup = group.group
+              foundItem = item.title
+              break
+            }
+          }
+          if (foundItem) break
+        }
+      }
+      if (foundGroup) break
+    }
+
+    return { activeGroup: foundGroup, activeItem: foundItem }
+  }, [pathname, allMenuHrefs])
+
+  // Efecto para expandir automáticamente el grupo e item activos cuando cambia la ruta
+  useEffect(() => {
+    if (activeGroup && !expandedGroups.includes(activeGroup)) {
+      setExpandedGroups((prev) => [...prev, activeGroup])
+    }
+    if (activeItem && !expandedItems.includes(activeItem)) {
+      setExpandedItems((prev) => [...prev, activeItem])
+    }
+  }, [activeGroup, activeItem]) // Intencionalmente sin expandedGroups/expandedItems para evitar loops
+
   const toggleGroup = (group: string) => {
     if (isCollapsed) return
     setExpandedGroups((prev) =>
@@ -913,8 +991,10 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                           const Icon = item.icon
                           const hasChildren = item.children && item.children.length > 0
                           const isItemExpanded = expandedItems.includes(item.title)
-                          const isActive = item.href ? pathname === item.href : false
-                          const isChildActive = hasChildren && item.children?.some(c => pathname === c.href)
+                          // Detectar si este item está activo usando la función que considera rutas más específicas
+                          const isActive = item.href ? isActiveHref(item.href) : false
+                          // Detectar si algún hijo está activo
+                          const isChildActive = hasChildren && item.children?.some(c => isActiveHref(c.href))
                           const itemIsFavorito = item.href ? isFavorito(item.href) : false
 
                           if (!hasChildren && item.href) {
@@ -997,7 +1077,8 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                                 {isItemExpanded && !isCollapsed && (
                                   <div className="ml-6 mt-1 space-y-0.5 border-l border-slate-700 pl-2">
                                     {item.children?.map((child) => {
-                                      const isThisChildActive = pathname === child.href
+                                      // Detectar si este hijo está activo usando la función que considera rutas más específicas
+                                      const isThisChildActive = isActiveHref(child.href)
                                       const childIsFavorito = isFavorito(child.href)
                                       return (
                                         <div key={child.href} className="flex items-center group">

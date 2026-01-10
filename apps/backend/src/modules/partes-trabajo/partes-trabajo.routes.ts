@@ -36,6 +36,43 @@ router.get('/estadisticas', partesTrabajoController.estadisticas);
 
 /**
  * @swagger
+ * /api/partes-trabajo/verificar-disponibilidad:
+ *   post:
+ *     summary: Verificar disponibilidad de personal para una fecha y horario
+ *     tags: [PartesTrabajo]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - personalIds
+ *               - fecha
+ *             properties:
+ *               personalIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               fecha:
+ *                 type: string
+ *                 format: date
+ *               horaInicio:
+ *                 type: string
+ *               horaFin:
+ *                 type: string
+ *               parteIdExcluir:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Resultado de verificacion de disponibilidad
+ */
+router.post('/verificar-disponibilidad', partesTrabajoController.verificarDisponibilidad);
+
+/**
+ * @swagger
  * /api/partes-trabajo/proyecto/{proyectoId}:
  *   get:
  *     summary: Obtener partes de trabajo de un proyecto

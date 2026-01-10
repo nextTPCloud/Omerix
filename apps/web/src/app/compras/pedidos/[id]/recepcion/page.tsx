@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   Accordion,
   AccordionContent,
@@ -601,21 +602,15 @@ export default function RecepcionPedidoCompraPage({ params }: PageProps) {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Almacen de recepcion *</Label>
-                  <Select
+                  <SearchableSelect
+                    options={almacenes.map(a => ({
+                      value: a._id,
+                      label: `${a.nombre} (${a.codigo})`
+                    }))}
                     value={almacenSeleccionado}
                     onValueChange={setAlmacenSeleccionado}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar almacen..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {almacenes.map((almacen) => (
-                        <SelectItem key={almacen._id} value={almacen._id}>
-                          {almacen.nombre} ({almacen.codigo})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Seleccionar almacen..."
+                  />
                 </div>
 
                 <div className="space-y-2">

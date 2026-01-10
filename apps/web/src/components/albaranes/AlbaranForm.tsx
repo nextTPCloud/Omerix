@@ -92,6 +92,7 @@ import { albaranesService } from '@/services/albaranes.service'
 import { empresaService } from '@/services/empresa.service'
 import { formasPagoService } from '@/services/formas-pago.service'
 import { terminosPagoService } from '@/services/terminos-pago.service'
+import { preciosService } from '@/services/precios.service'
 import { ISerieDocumento } from '@/types/serie-documento.types'
 
 // Types
@@ -106,6 +107,7 @@ import { toast } from 'sonner'
 
 // Componente de selección de variantes
 import { VarianteSelector, VarianteSeleccion } from '@/components/productos/VarianteSelector'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 
 // Permisos
 import { usePermissions } from '@/hooks/usePermissions'
@@ -133,6 +135,9 @@ export function AlbaranForm({
     canAplicarDescuentos,
     getDescuentoMaximo,
   } = usePermissions()
+
+  // Preferencias del usuario (almacen por defecto)
+  const { almacenDefaultId, isLoaded: prefsLoaded } = useUserPreferences()
 
   // Opciones cargadas
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -250,7 +255,20 @@ export function AlbaranForm({
         if (agentesRes.success) setAgentes(agentesRes.data || [])
         if (proyectosRes.success) setProyectos(proyectosRes.data || [])
         if (productosRes.success) setProductos(productosRes.data || [])
-        if (almacenesRes.success) setAlmacenes(almacenesRes.data || [])
+        if (almacenesRes.success) {
+          const almacenesData = almacenesRes.data || []
+          setAlmacenes(almacenesData)
+          // Establecer almacen por defecto en modo creacion
+          if (mode === 'create' && almacenesData.length > 0) {
+            // Prioridad: preferencia usuario > almacen principal > primer almacen
+            const almacenDefault = almacenDefaultId
+              ? almacenesData.find((a: Almacen) => a._id === almacenDefaultId)
+              : almacenesData.find((a: Almacen) => a.esPrincipal) || almacenesData[0]
+            if (almacenDefault) {
+              setFormData(prev => ({ ...prev, almacenId: almacenDefault._id }))
+            }
+          }
+        }
         if (formasPagoRes.success) setFormasPago(formasPagoRes.data || [])
         if (terminosPagoRes.success) setTerminosPago(terminosPagoRes.data || [])
 
@@ -600,7 +618,7 @@ export function AlbaranForm({
   }
 
   // Handler para seleccionar producto en línea
-  const handleProductoSelect = (index: number, productoId: string) => {
+  const handleProductoSelect = async (index: number, productoId: string) => {
     const producto = productos.find(p => p._id === productoId)
     if (producto) {
       // Verificar si tiene variantes activas
@@ -614,12 +632,12 @@ export function AlbaranForm({
       }
 
       // Sin variantes, aplicar producto directamente
-      aplicarProductoALinea(index, producto)
+      await aplicarProductoALinea(index, producto)
     }
   }
 
   // Función para aplicar producto a una línea (con o sin variante)
-  const aplicarProductoALinea = (
+  const aplicarProductoALinea = async (
     index: number,
     producto: Producto,
     variante?: { varianteId: string; sku: string; combinacion: Record<string, string>; precioUnitario: number; costeUnitario: number }
@@ -648,6 +666,64 @@ export function AlbaranForm({
       })
     }
 
+    // Precio base del producto
+    const precioBase = variante?.precioUnitario ?? producto.precios?.venta ?? 0
+    // Obtener precio calculado considerando tarifas y ofertas del cliente
+    let precioUnitario = precioBase
+    let descuentoTarifa = 0 // Descuento de la tarifa/oferta a aplicar en el campo descuento
+    let origenPrecio: 'producto' | 'tarifa' | 'oferta' | 'precio_cantidad' | 'manual' = 'producto'
+    let detalleOrigenPrecio: {
+      tarifaId?: string
+      tarifaNombre?: string
+      ofertaId?: string
+      ofertaNombre?: string
+      ofertaTipo?: string
+      descuentoAplicado?: number
+    } | undefined = undefined
+
+    try {
+      const precioResponse = await preciosService.calcularPrecio({
+        productoId: producto._id,
+        varianteId: variante?.varianteId,
+        clienteId: formData.clienteId || undefined,
+        cantidad: 1,
+      })
+
+      if (precioResponse.success && precioResponse.data) {
+        const precioCalculado = precioResponse.data
+        origenPrecio = precioCalculado.origen as typeof origenPrecio
+
+        // Si hay tarifa u oferta, usar precio base + descuento en campo dto%
+        // Esto evita el doble descuento y es más transparente para el usuario
+        if (precioCalculado.origen === 'tarifa' || precioCalculado.origen === 'oferta') {
+          // Mantener precio base, aplicar descuento en campo descuento
+          precioUnitario = precioCalculado.precioBase
+          descuentoTarifa = precioCalculado.descuentoAplicado || 0
+        } else {
+          // Para otros orígenes (precio_cantidad, etc), usar el precio final directamente
+          precioUnitario = precioCalculado.precioFinal
+        }
+
+        // Guardar detalle del origen
+        if (precioCalculado.detalleOrigen) {
+          detalleOrigenPrecio = {
+            ...precioCalculado.detalleOrigen,
+            descuentoAplicado: precioCalculado.descuentoAplicado,
+          }
+        }
+
+        // Notificar al usuario de la tarifa/oferta aplicada
+        if (precioCalculado.origen === 'tarifa' && precioCalculado.detalleOrigen?.tarifaNombre) {
+          toast.info(`Tarifa "${precioCalculado.detalleOrigen.tarifaNombre}" aplicada: ${descuentoTarifa.toFixed(1)}% de descuento`)
+        } else if (precioCalculado.origen === 'oferta' && precioCalculado.detalleOrigen?.ofertaNombre) {
+          toast.info(`Oferta "${precioCalculado.detalleOrigen.ofertaNombre}" aplicada: ${descuentoTarifa.toFixed(1)}% de descuento`)
+        }
+      }
+    } catch (error) {
+      // En caso de error, usar el precio base del producto
+      console.warn('Error al obtener precio calculado, usando precio base:', error)
+    }
+
     const datosLinea: Partial<ILineaAlbaran> = {
       productoId: producto._id,
       codigo: variante?.sku || producto.sku || '',
@@ -655,7 +731,12 @@ export function AlbaranForm({
         ? `${producto.nombre} - ${Object.values(variante.combinacion).join(' / ')}`
         : producto.nombre,
       descripcion: producto.descripcionCorta || producto.descripcion || '',
-      precioUnitario: variante?.precioUnitario ?? producto.precios?.venta ?? 0,
+      // Precios: usar precio base y poner descuento de tarifa en campo descuento
+      precioOriginal: precioBase,
+      precioUnitario,
+      descuento: descuentoTarifa, // Descuento de la tarifa/oferta
+      origenPrecio,
+      detalleOrigenPrecio,
       costeUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? 0,
       iva: producto.iva || 21,
       unidad: 'ud',
@@ -681,9 +762,9 @@ export function AlbaranForm({
   }
 
   // Handler cuando se selecciona una variante desde el selector
-  const handleVarianteSelect = (variante: VarianteSeleccion) => {
+  const handleVarianteSelect = async (variante: VarianteSeleccion) => {
     if (lineaIndexParaVariante !== null && productoConVariantes) {
-      aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, variante)
+      await aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, variante)
       // Actualizar cantidad si se especificó
       if (variante.cantidad && variante.cantidad !== 1) {
         handleUpdateLinea(lineaIndexParaVariante, { cantidadSolicitada: variante.cantidad })
@@ -695,12 +776,12 @@ export function AlbaranForm({
   }
 
   // Handler para cuando se seleccionan múltiples variantes
-  const handleVariantesMultipleSelect = (variantes: VarianteSeleccion[]) => {
+  const handleVariantesMultipleSelect = async (variantes: VarianteSeleccion[]) => {
     if (lineaIndexParaVariante === null || !productoConVariantes) return
 
     // Para la primera variante, usar la línea existente
     const primeraVariante = variantes[0]
-    aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, primeraVariante)
+    await aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes, primeraVariante)
     if (primeraVariante.cantidad) {
       setTimeout(() => {
         handleUpdateLinea(lineaIndexParaVariante, { cantidadSolicitada: primeraVariante.cantidad })
@@ -745,9 +826,9 @@ export function AlbaranForm({
   }
 
   // Handler para usar el producto base (sin variante)
-  const handleUsarProductoBase = () => {
+  const handleUsarProductoBase = async () => {
     if (lineaIndexParaVariante !== null && productoConVariantes) {
-      aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes)
+      await aplicarProductoALinea(lineaIndexParaVariante, productoConVariantes)
     }
     setVarianteSelectorOpen(false)
     setProductoConVariantes(null)

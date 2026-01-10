@@ -281,6 +281,33 @@ class PartesTrabajoService {
     const response = await api.get(`${BASE_URL}/planificacion`, { params });
     return response.data;
   }
+
+  /**
+   * Verificar disponibilidad de personal
+   */
+  async verificarDisponibilidad(data: {
+    personalIds: string[];
+    fecha: string;
+    horaInicio: string;
+    horaFin: string;
+    parteIdExcluir?: string;
+  }): Promise<{
+    success: boolean;
+    data: {
+      disponible: boolean;
+      conflictos: Array<{
+        personalId: string;
+        personalNombre: string;
+        parteId: string;
+        parteCodigo: string;
+        horaInicio: string;
+        horaFin: string;
+      }>;
+    };
+  }> {
+    const response = await api.post(`${BASE_URL}/verificar-disponibilidad`, data);
+    return response.data;
+  }
 }
 
 export const partesTrabajoService = new PartesTrabajoService();

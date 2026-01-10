@@ -176,6 +176,26 @@ router.get('/sugerir-codigo', proyectosController.sugerirCodigo.bind(proyectosCo
 
 /**
  * @swagger
+ * /api/proyectos/personal-disponible:
+ *   get:
+ *     summary: Obtener personal disponible para asignar a proyectos
+ *     tags: [Proyectos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Búsqueda por nombre o código
+ *     responses:
+ *       200:
+ *         description: Lista de personal disponible
+ */
+router.get('/personal-disponible', proyectosController.obtenerPersonalDisponible.bind(proyectosController));
+
+/**
+ * @swagger
  * /api/proyectos/codigos:
  *   get:
  *     summary: Buscar códigos existentes por prefijo (para auto-sugerencia)

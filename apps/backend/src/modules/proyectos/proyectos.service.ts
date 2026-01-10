@@ -642,6 +642,34 @@ export class ProyectosService {
       .select('codigo nombre estado tipo fechaInicio fechaFinPrevista')
       .lean();
   }
+
+  // ============================================
+  // OBTENER PERSONAL DISPONIBLE (Para asignar a proyectos)
+  // ============================================
+
+  async obtenerPersonalDisponible(
+    empresaId: string,
+    dbConfig: IDatabaseConfig,
+    search?: string
+  ): Promise<any[]> {
+    const PersonalModel = await getPersonalModel(empresaId, dbConfig);
+
+    const filtros: any = { activo: true };
+
+    if (search) {
+      filtros.$or = [
+        { codigo: { $regex: search, $options: 'i' } },
+        { nombre: { $regex: search, $options: 'i' } },
+        { apellidos: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    return PersonalModel.find(filtros)
+      .sort({ apellidos: 1, nombre: 1 })
+      .select('_id codigo nombre apellidos datosLaborales.puesto')
+      .limit(100)
+      .lean();
+  }
 }
 
 export const proyectosService = new ProyectosService();

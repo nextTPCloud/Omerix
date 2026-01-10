@@ -104,6 +104,7 @@ export function useLicense(): UseLicenseReturn {
     'proyectos': ['proyectos'],
     'crm': ['crm'],
     'restauracion': ['restauracion', 'tpv'], // Restauración también incluido si tiene TPV
+    'redes-sociales': ['redes-sociales'],
   }
 
   // Verificar si tiene un modulo

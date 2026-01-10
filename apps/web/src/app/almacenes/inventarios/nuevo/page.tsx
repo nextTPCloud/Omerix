@@ -13,13 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   ArrowLeft,
   Save,
@@ -32,9 +26,11 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 
 export default function NuevoInventarioPage() {
   const router = useRouter()
+  const { almacenDefaultId } = useUserPreferences()
 
   // Estado del formulario
   const [almacenId, setAlmacenId] = useState('')
@@ -60,13 +56,18 @@ export default function NuevoInventarioPage() {
           almacenesService.getActivos(),
           familiasService.getAll({ limit: 100 }),
         ])
-        setAlmacenes(almacenesRes.data || [])
+        const almacenesData = almacenesRes.data || []
+        setAlmacenes(almacenesData)
         setFamilias(familiasRes.data || [])
 
-        // Seleccionar almacén principal por defecto
-        const principal = almacenesRes.data?.find((a: any) => a.esPrincipal)
-        if (principal) {
-          setAlmacenId(principal._id)
+        // Seleccionar almacen por defecto: preferencia usuario > principal > primero
+        if (almacenesData.length > 0) {
+          const almacenDefault = almacenDefaultId
+            ? almacenesData.find((a: any) => a._id === almacenDefaultId)
+            : almacenesData.find((a: any) => a.esPrincipal) || almacenesData[0]
+          if (almacenDefault) {
+            setAlmacenId(almacenDefault._id)
+          }
         }
       } catch (error) {
         console.error('Error cargando datos:', error)
@@ -154,16 +155,18 @@ export default function NuevoInventarioPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Select value={almacenId} onValueChange={setAlmacenId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar almacén" />
-                </SelectTrigger>
-                <SelectContent>
-                  {almacenes.map((a) => (
-                    <SelectItem key={a._id} value={a._id}>{a.nombre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={almacenes.map((a: any) => ({
+                  value: a._id,
+                  label: a.nombre,
+                  description: a.esPrincipal ? 'Principal' : a.codigo
+                }))}
+                value={almacenId}
+                onValueChange={setAlmacenId}
+                placeholder="Seleccionar almacén..."
+                searchPlaceholder="Buscar almacén..."
+                emptyMessage="No hay almacenes disponibles"
+              />
             </CardContent>
           </Card>
 

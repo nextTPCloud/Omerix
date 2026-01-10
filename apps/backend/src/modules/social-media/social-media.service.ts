@@ -26,19 +26,19 @@ export class SocialMediaService {
       : empresaId;
   }
 
-  private get SocialMediaAccountModel() {
-    return getDynamicModel('SocialMediaAccount', SocialMediaAccount.schema, this.empresaId.toString());
+  private getSocialMediaAccountModel() {
+    return getDynamicModel<ISocialMediaAccount>('SocialMediaAccount', SocialMediaAccount.schema, this.empresaId.toString());
   }
 
-  private get PublicacionModel() {
-    return getDynamicModel('Publicacion', Publicacion.schema, this.empresaId.toString());
+  private getPublicacionModel() {
+    return getDynamicModel<IPublicacion>('Publicacion', Publicacion.schema, this.empresaId.toString());
   }
 
-  private get ComentarioModel() {
+  private getComentarioModel() {
     return getDynamicModel('ComentarioSocial', ComentarioSocial.schema, this.empresaId.toString());
   }
 
-  private get MensajeModel() {
+  private getMensajeModel() {
     return getDynamicModel('MensajeDirecto', MensajeDirecto.schema, this.empresaId.toString());
   }
 
@@ -68,9 +68,11 @@ export class SocialMediaService {
 
     const cuentasCreadas: ISocialMediaAccount[] = [];
 
+    const AccountModel = await this.getSocialMediaAccountModel();
+
     for (const page of pages) {
       // Crear cuenta de Facebook
-      const fbAccount = await this.SocialMediaAccountModel.create({
+      const fbAccount = await AccountModel.create({
         plataforma: 'facebook',
         nombre: page.name,
         username: page.name,
@@ -92,7 +94,7 @@ export class SocialMediaService {
           page.instagram_business_account.id
         );
 
-        const igAccount = await this.SocialMediaAccountModel.create({
+        const igAccount = await AccountModel.create({
           plataforma: 'instagram',
           nombre: igInfo.name || igInfo.username,
           username: igInfo.username,
@@ -123,21 +125,24 @@ export class SocialMediaService {
    * Lista todas las cuentas conectadas
    */
   async getCuentas(): Promise<ISocialMediaAccount[]> {
-    return this.SocialMediaAccountModel.find({ activa: true }).sort({ plataforma: 1, nombre: 1 });
+    const AccountModel = await this.getSocialMediaAccountModel();
+    return AccountModel.find({ activa: true }).sort({ plataforma: 1, nombre: 1 });
   }
 
   /**
    * Obtiene una cuenta por ID
    */
   async getCuentaById(id: string): Promise<ISocialMediaAccount | null> {
-    return this.SocialMediaAccountModel.findById(id);
+    const AccountModel = await this.getSocialMediaAccountModel();
+    return AccountModel.findById(id);
   }
 
   /**
    * Desconecta una cuenta
    */
   async desconectarCuenta(id: string): Promise<ISocialMediaAccount | null> {
-    return this.SocialMediaAccountModel.findByIdAndUpdate(
+    const AccountModel = await this.getSocialMediaAccountModel();
+    return AccountModel.findByIdAndUpdate(
       id,
       { estado: 'desconectada', activa: false },
       { new: true }
@@ -148,7 +153,8 @@ export class SocialMediaService {
    * Actualiza estadísticas de una cuenta
    */
   async actualizarEstadisticasCuenta(id: string): Promise<ISocialMediaAccount | null> {
-    const cuenta = await this.SocialMediaAccountModel.findById(id);
+    const AccountModel = await this.getSocialMediaAccountModel();
+    const cuenta = await AccountModel.findById(id);
     if (!cuenta) return null;
 
     try {
@@ -190,10 +196,13 @@ export class SocialMediaService {
     data: Partial<IPublicacion>,
     usuarioId: string
   ): Promise<IPublicacion> {
-    const cuenta = await this.SocialMediaAccountModel.findById(cuentaId);
+    const AccountModel = await this.getSocialMediaAccountModel();
+    const PublicacionModel = await this.getPublicacionModel();
+
+    const cuenta = await AccountModel.findById(cuentaId);
     if (!cuenta) throw new Error('Cuenta no encontrada');
 
-    return this.PublicacionModel.create({
+    return PublicacionModel.create({
       ...data,
       cuentaId: new mongoose.Types.ObjectId(cuentaId),
       plataforma: cuenta.plataforma,
@@ -227,13 +236,15 @@ export class SocialMediaService {
     const limite = filtros.limite || 20;
     const skip = (pagina - 1) * limite;
 
+    const PublicacionModel = await this.getPublicacionModel();
+
     const [publicaciones, total] = await Promise.all([
-      this.PublicacionModel.find(query)
+      PublicacionModel.find(query)
         .populate('cuentaId', 'nombre plataforma avatarUrl')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limite),
-      this.PublicacionModel.countDocuments(query),
+      PublicacionModel.countDocuments(query),
     ]);
 
     return { publicaciones, total };
@@ -243,10 +254,13 @@ export class SocialMediaService {
    * Publica una publicación inmediatamente
    */
   async publicar(publicacionId: string): Promise<IPublicacion> {
-    const publicacion = await this.PublicacionModel.findById(publicacionId);
+    const PublicacionModel = await this.getPublicacionModel();
+    const AccountModel = await this.getSocialMediaAccountModel();
+
+    const publicacion = await PublicacionModel.findById(publicacionId);
     if (!publicacion) throw new Error('Publicación no encontrada');
 
-    const cuenta = await this.SocialMediaAccountModel.findById(publicacion.cuentaId);
+    const cuenta = await AccountModel.findById(publicacion.cuentaId);
     if (!cuenta) throw new Error('Cuenta no encontrada');
 
     publicacion.estado = 'publicando';
@@ -307,7 +321,8 @@ export class SocialMediaService {
     publicacionId: string,
     fechaProgramada: Date
   ): Promise<IPublicacion | null> {
-    return this.PublicacionModel.findByIdAndUpdate(
+    const PublicacionModel = await this.getPublicacionModel();
+    return PublicacionModel.findByIdAndUpdate(
       publicacionId,
       { programadaPara: fechaProgramada, estado: 'programada' },
       { new: true }
@@ -318,8 +333,9 @@ export class SocialMediaService {
    * Ejecuta publicaciones programadas
    */
   async ejecutarPublicacionesProgramadas(): Promise<number> {
+    const PublicacionModel = await this.getPublicacionModel();
     const ahora = new Date();
-    const publicacionesPendientes = await this.PublicacionModel.find({
+    const publicacionesPendientes = await PublicacionModel.find({
       estado: 'programada',
       programadaPara: { $lte: ahora },
     });
@@ -341,10 +357,13 @@ export class SocialMediaService {
    * Actualiza estadísticas de una publicación
    */
   async actualizarEstadisticasPublicacion(publicacionId: string): Promise<IPublicacion | null> {
-    const publicacion = await this.PublicacionModel.findById(publicacionId);
+    const PublicacionModel = await this.getPublicacionModel();
+    const AccountModel = await this.getSocialMediaAccountModel();
+
+    const publicacion = await PublicacionModel.findById(publicacionId);
     if (!publicacion || !publicacion.externalId) return null;
 
-    const cuenta = await this.SocialMediaAccountModel.findById(publicacion.cuentaId);
+    const cuenta = await AccountModel.findById(publicacion.cuentaId);
     if (!cuenta) return null;
 
     try {
@@ -382,10 +401,14 @@ export class SocialMediaService {
    * Sincroniza comentarios de una publicación
    */
   async sincronizarComentarios(publicacionId: string): Promise<number> {
-    const publicacion = await this.PublicacionModel.findById(publicacionId);
+    const PublicacionModel = await this.getPublicacionModel();
+    const AccountModel = await this.getSocialMediaAccountModel();
+    const ComentarioModel = await this.getComentarioModel();
+
+    const publicacion = await PublicacionModel.findById(publicacionId);
     if (!publicacion || !publicacion.externalId) return 0;
 
-    const cuenta = await this.SocialMediaAccountModel.findById(publicacion.cuentaId);
+    const cuenta = await AccountModel.findById(publicacion.cuentaId);
     if (!cuenta) return 0;
 
     let comentarios: any[];
@@ -404,9 +427,9 @@ export class SocialMediaService {
 
     let nuevos = 0;
     for (const comentario of comentarios) {
-      const existe = await this.ComentarioModel.findOne({ externalId: comentario.id });
+      const existe = await ComentarioModel.findOne({ externalId: comentario.id });
       if (!existe) {
-        await this.ComentarioModel.create({
+        await ComentarioModel.create({
           publicacionId: publicacion._id,
           cuentaId: cuenta._id,
           externalId: comentario.id,
@@ -431,7 +454,8 @@ export class SocialMediaService {
     respuesta: string,
     usuarioId: string
   ): Promise<any> {
-    const comentario = await this.ComentarioModel.findById(comentarioId)
+    const ComentarioModel = await this.getComentarioModel();
+    const comentario = await ComentarioModel.findById(comentarioId)
       .populate('cuentaId');
 
     if (!comentario) throw new Error('Comentario no encontrado');
@@ -470,7 +494,10 @@ export class SocialMediaService {
    * Sincroniza mensajes de una cuenta
    */
   async sincronizarMensajes(cuentaId: string): Promise<number> {
-    const cuenta = await this.SocialMediaAccountModel.findById(cuentaId);
+    const AccountModel = await this.getSocialMediaAccountModel();
+    const MensajeModel = await this.getMensajeModel();
+
+    const cuenta = await AccountModel.findById(cuentaId);
     if (!cuenta) return 0;
 
     let conversaciones: any[];
@@ -492,7 +519,7 @@ export class SocialMediaService {
       const participante = conv.participants?.data?.[0];
 
       for (const msg of conv.messages?.data || []) {
-        const existe = await this.MensajeModel.findOne({
+        const existe = await MensajeModel.findOne({
           cuentaId: cuenta._id,
           conversacionId: conv.id,
           fecha: new Date(msg.created_time),
@@ -502,7 +529,7 @@ export class SocialMediaService {
           const esEntrante = msg.from?.id !== cuenta.pageId &&
             msg.from?.id !== cuenta.instagramBusinessAccountId;
 
-          await this.MensajeModel.create({
+          await MensajeModel.create({
             cuentaId: cuenta._id,
             plataforma: cuenta.plataforma,
             conversacionId: conv.id,
@@ -529,7 +556,10 @@ export class SocialMediaService {
     mensaje: string,
     usuarioId: string
   ): Promise<any> {
-    const cuenta = await this.SocialMediaAccountModel.findById(cuentaId);
+    const AccountModel = await this.getSocialMediaAccountModel();
+    const MensajeModel = await this.getMensajeModel();
+
+    const cuenta = await AccountModel.findById(cuentaId);
     if (!cuenta) throw new Error('Cuenta no encontrada');
 
     let result;
@@ -550,7 +580,7 @@ export class SocialMediaService {
     }
 
     // Guardar mensaje enviado
-    await this.MensajeModel.create({
+    await MensajeModel.create({
       cuentaId: cuenta._id,
       plataforma: cuenta.plataforma,
       conversacionId: destinatarioId,
@@ -580,6 +610,11 @@ export class SocialMediaService {
     alcanceTotal: number;
     interaccionesTotal: number;
   }> {
+    const AccountModel = await this.getSocialMediaAccountModel();
+    const PublicacionModel = await this.getPublicacionModel();
+    const ComentarioModel = await this.getComentarioModel();
+    const MensajeModel = await this.getMensajeModel();
+
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
@@ -591,15 +626,15 @@ export class SocialMediaService {
       mensajesSinLeer,
       estadisticasPublicaciones,
     ] = await Promise.all([
-      this.SocialMediaAccountModel.countDocuments({ activa: true }),
-      this.PublicacionModel.countDocuments({ estado: 'programada' }),
-      this.PublicacionModel.countDocuments({
+      AccountModel.countDocuments({ activa: true }),
+      PublicacionModel.countDocuments({ estado: 'programada' }),
+      PublicacionModel.countDocuments({
         estado: 'publicada',
         publicadaEn: { $gte: hoy },
       }),
-      this.ComentarioModel.countDocuments({ leido: false }),
-      this.MensajeModel.countDocuments({ leido: false, esEntrante: true }),
-      this.PublicacionModel.aggregate([
+      ComentarioModel.countDocuments({ leido: false }),
+      MensajeModel.countDocuments({ leido: false, esEntrante: true }),
+      PublicacionModel.aggregate([
         { $match: { estado: 'publicada' } },
         {
           $group: {

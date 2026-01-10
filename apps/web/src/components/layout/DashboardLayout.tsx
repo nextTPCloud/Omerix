@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/authStore'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { cn } from '@/lib/utils'
-import { isTokenExpired, getTokenTimeRemaining } from '@/utils/jwt.utils'
+import { isTokenExpired } from '@/utils/jwt.utils'
 import { FavoritosProvider } from '@/contexts/FavoritosContext'
 import { AIChat } from '@/components/ai/AIChat'
 
@@ -19,15 +19,18 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter()
-  const { isAuthenticated, isHydrated, accessToken, checkAndRefreshToken, clearAuth } = useAuthStore()
+  const { isAuthenticated, isHydrated, accessToken, checkAndRefreshToken } = useAuthStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  // Estado para bloquear render de hijos hasta verificar token
+  const [isTokenVerified, setIsTokenVerified] = useState(false)
+  const isVerifyingRef = useRef(false)
 
   // Función para verificar y refrescar el token
-  const verifyToken = useCallback(async () => {
+  const verifyToken = useCallback(async (): Promise<boolean> => {
     if (!isAuthenticated || !accessToken) {
-      return
+      return false
     }
 
     // Si el token está próximo a expirar (menos de 2 minutos), intentar refrescar
@@ -35,23 +38,47 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       const isValid = await checkAndRefreshToken()
       if (!isValid) {
         router.push('/')
+        return false
       }
     }
+    return true
   }, [isAuthenticated, accessToken, checkAndRefreshToken, router])
+
+  // Verificación inicial del token ANTES de renderizar hijos
+  useEffect(() => {
+    const verifyInitialToken = async () => {
+      if (!isHydrated || isVerifyingRef.current) return
+
+      isVerifyingRef.current = true
+
+      if (!isAuthenticated) {
+        router.push('/')
+        return
+      }
+
+      // Verificar token antes de permitir render de hijos
+      const isValid = await verifyToken()
+      if (isValid) {
+        setIsTokenVerified(true)
+      }
+      // Si no es válido, verifyToken ya redirigió
+
+      isVerifyingRef.current = false
+    }
+
+    verifyInitialToken()
+  }, [isHydrated, isAuthenticated, verifyToken, router])
 
   // Marcar componente como montado
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  // Verificar token al montar y configurar verificación periódica
+  // Configurar verificación periódica (solo después de verificación inicial)
   useEffect(() => {
-    if (!isHydrated || !isAuthenticated) {
+    if (!isHydrated || !isAuthenticated || !isTokenVerified) {
       return
     }
-
-    // Verificar inmediatamente al montar
-    verifyToken()
 
     // Configurar verificación periódica
     const intervalId = setInterval(verifyToken, TOKEN_CHECK_INTERVAL)
@@ -75,14 +102,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       window.removeEventListener('focus', handleFocus)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [isHydrated, isAuthenticated, verifyToken])
-
-  useEffect(() => {
-    // Redirigir cuando ya se haya cargado del localStorage y no esté autenticado
-    if (isHydrated && !isAuthenticated) {
-      router.push('/')
-    }
-  }, [isAuthenticated, isHydrated, router])
+  }, [isHydrated, isAuthenticated, isTokenVerified, verifyToken])
 
   // Cerrar menú móvil al cambiar de tamaño a desktop
   useEffect(() => {
@@ -113,8 +133,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     localStorage.setItem('sidebar-collapsed', String(newState))
   }
 
-  // ✅ Mostrar loading mientras se carga del localStorage
-  if (!isHydrated) {
+  // Mostrar loading mientras se carga del localStorage o se verifica el token
+  if (!isHydrated || !isTokenVerified) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -122,19 +142,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     )
   }
 
-  // ✅ Si ya se cargó y NO está autenticado, mostrar null (va a redirigir)
+  // Si ya se verificó y NO está autenticado, mostrar null (va a redirigir)
   if (!isAuthenticated) {
     return null
   }
 
   return (
     <FavoritosProvider>
-      <div className="min-h-screen bg-background">
+      <div className="h-screen flex flex-col bg-background overflow-hidden">
         <Header
           onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           isMobileMenuOpen={isMobileMenuOpen}
         />
-        <div className="flex">
+        <div className="flex flex-1 overflow-hidden">
           <Sidebar
             isOpen={isMobileMenuOpen}
             onClose={() => setIsMobileMenuOpen(false)}
@@ -142,7 +162,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             onToggleCollapse={handleToggleCollapse}
           />
           <main className={cn(
-            "flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 transition-all duration-300",
+            "flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 transition-all duration-300 overflow-y-auto",
             isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
           )}>
             <div className="w-full max-w-full">

@@ -351,6 +351,79 @@ export class PersonalService {
   }
 
   // ============================================
+  // ELIMINAR VACACIONES
+  // ============================================
+  async eliminarVacaciones(
+    id: string,
+    anio: number,
+    empresaId: string,
+    usuarioId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<IPersonal | null> {
+    const PersonalModel = await this.getModeloPersonal(empresaId, dbConfig);
+    return PersonalModel.findByIdAndUpdate(
+      id,
+      {
+        $pull: { vacaciones: { anio } },
+        modificadoPor: usuarioId,
+        fechaModificacion: new Date()
+      },
+      { new: true }
+    ).lean();
+  }
+
+  // ============================================
+  // ACTUALIZAR AUSENCIA
+  // ============================================
+  async actualizarAusencia(
+    id: string,
+    ausenciaId: string,
+    ausencia: RegistrarAusenciaDto,
+    empresaId: string,
+    usuarioId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<IPersonal | null> {
+    const PersonalModel = await this.getModeloPersonal(empresaId, dbConfig);
+    return PersonalModel.findOneAndUpdate(
+      { _id: id, 'ausencias._id': ausenciaId },
+      {
+        $set: {
+          'ausencias.$.tipo': ausencia.tipo,
+          'ausencias.$.fechaInicio': ausencia.fechaInicio,
+          'ausencias.$.fechaFin': ausencia.fechaFin,
+          'ausencias.$.motivo': ausencia.motivo,
+          'ausencias.$.aprobada': ausencia.aprobada
+        },
+        modificadoPor: usuarioId,
+        fechaModificacion: new Date()
+      },
+      { new: true }
+    ).lean();
+  }
+
+  // ============================================
+  // ELIMINAR AUSENCIA
+  // ============================================
+  async eliminarAusencia(
+    id: string,
+    ausenciaId: string,
+    empresaId: string,
+    usuarioId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<IPersonal | null> {
+    const PersonalModel = await this.getModeloPersonal(empresaId, dbConfig);
+    return PersonalModel.findByIdAndUpdate(
+      id,
+      {
+        $pull: { ausencias: { _id: ausenciaId } },
+        modificadoPor: usuarioId,
+        fechaModificacion: new Date()
+      },
+      { new: true }
+    ).lean();
+  }
+
+  // ============================================
   // REGISTRAR EVALUACIÓN
   // ============================================
   async registrarEvaluacion(

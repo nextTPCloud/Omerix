@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   ArrowUp,
   ArrowDown,
@@ -41,6 +42,7 @@ import {
 import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
 import { ExportButton } from '@/components/ui/ExportButton'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 
 // Hook de debounce
 function useDebounce<T>(value: T, delay: number): T {
@@ -54,6 +56,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function StockActualPage() {
   const router = useRouter()
+  const { almacenDefaultId } = useUserPreferences()
 
   // Estado de datos
   const [productos, setProductos] = useState<StockProducto[]>([])
@@ -78,13 +81,23 @@ export default function StockActualPage() {
     const loadAlmacenes = async () => {
       try {
         const res = await almacenesService.getActivos()
-        setAlmacenes(res.data || [])
+        const almacenesData = res.data || []
+        setAlmacenes(almacenesData)
+        // Establecer filtro de almacen por defecto: preferencia usuario > principal
+        if (almacenesData.length > 0 && !almacenFilter) {
+          const almacenDefault = almacenDefaultId
+            ? almacenesData.find((a: any) => a._id === almacenDefaultId)
+            : almacenesData.find((a: any) => a.esPrincipal)
+          if (almacenDefault) {
+            setAlmacenFilter(almacenDefault._id)
+          }
+        }
       } catch (error) {
         console.error('Error cargando almacenes:', error)
       }
     }
     loadAlmacenes()
-  }, [])
+  }, [almacenDefaultId])
 
   // Cargar productos con stock
   const loadStock = useCallback(async () => {
@@ -266,18 +279,21 @@ export default function StockActualPage() {
               />
             </div>
 
-            <Select value={almacenFilter} onValueChange={setAlmacenFilter}>
-              <SelectTrigger>
-                <Warehouse className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Todos los almacenes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todos los almacenes</SelectItem>
-                {almacenes.map(a => (
-                  <SelectItem key={a._id} value={a._id}>{a.nombre}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              options={[
+                { value: '', label: 'Todos los almacenes' },
+                ...almacenes.map((a: any) => ({
+                  value: a._id,
+                  label: a.nombre,
+                  description: a.esPrincipal ? 'Principal' : undefined
+                }))
+              ]}
+              value={almacenFilter}
+              onValueChange={setAlmacenFilter}
+              placeholder="Todos los almacenes"
+              searchPlaceholder="Buscar almacén..."
+              allowClear
+            />
 
             <Select value={stockFilter} onValueChange={(v) => setStockFilter(v as any)}>
               <SelectTrigger>

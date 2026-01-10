@@ -544,9 +544,9 @@ async function activarAddOnsPendientes(
     }
 
     // Calcular precio según tipo de suscripción
-    const precio = esAnual && addon.precioAnual
-      ? addon.precioAnual
-      : addon.precioMensual;
+    const precio = esAnual && addon.precio?.anual
+      ? addon.precio.anual
+      : addon.precio?.mensual || 0;
 
     // Añadir el add-on a la licencia
     licencia.addOns.push({
@@ -554,7 +554,7 @@ async function activarAddOnsPendientes(
       nombre: addon.nombre,
       slug: addon.slug,
       cantidad: addon.cantidad || 1,
-      precioMensual: addon.precioMensual,
+      precioMensual: addon.precio?.mensual || 0,
       activo: true,
       fechaActivacion: new Date(),
     });

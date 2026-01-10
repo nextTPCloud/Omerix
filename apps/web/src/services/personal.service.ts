@@ -111,8 +111,23 @@ export const personalService = {
     return response.data;
   },
 
+  async actualizarAusencia(id: string, ausenciaId: string, ausencia: Omit<Ausencia, '_id'>): Promise<PersonalDetailResponse> {
+    const response = await api.put(`${BASE_URL}/${id}/ausencias/${ausenciaId}`, ausencia);
+    return response.data;
+  },
+
+  async eliminarAusencia(id: string, ausenciaId: string): Promise<PersonalDetailResponse> {
+    const response = await api.delete(`${BASE_URL}/${id}/ausencias/${ausenciaId}`);
+    return response.data;
+  },
+
   async actualizarVacaciones(id: string, vacaciones: { anio: number; diasTotales: number; diasDisfrutados?: number }): Promise<PersonalDetailResponse> {
     const response = await api.put(`${BASE_URL}/${id}/vacaciones`, vacaciones);
+    return response.data;
+  },
+
+  async eliminarVacaciones(id: string, anio: number): Promise<PersonalDetailResponse> {
+    const response = await api.delete(`${BASE_URL}/${id}/vacaciones/${anio}`);
     return response.data;
   },
 

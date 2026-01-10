@@ -8,12 +8,13 @@ import {
   CrearDesdePedidoDTO,
 } from './albaranes.dto';
 import { IDatabaseConfig } from '@/modules/empresa/Empresa';
-import { getAlbaranModel, getPedidoModel, getProductoModel, getClienteModel, getProyectoModel, getAgenteComercialModel, getAlmacenModel, getUserModel, getPresupuestoModel, getMovimientoStockModel } from '@/utils/dynamic-models.helper';
+import { getAlbaranModel, getPedidoModel, getProductoModel, getClienteModel, getProyectoModel, getAgenteComercialModel, getAlmacenModel, getUserModel, getPresupuestoModel, getMovimientoStockModel, getFormaPagoModel, getTerminoPagoModel } from '@/utils/dynamic-models.helper';
 import { EstadoPedido } from '../pedidos/Pedido';
 import { EstadoPresupuesto } from '../presupuestos/Presupuesto';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
 import { stockService } from '@/services/stock.service';
 import { TipoMovimiento, OrigenMovimiento } from '@/models/MovimientoStock';
+import { preciosService } from '../precios/precios.service';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -182,6 +183,69 @@ export class AlbaranesService {
   }
 
   // ============================================
+  // PROCESAR LÍNEAS CON PRECIOS DE TARIFAS/OFERTAS
+  // ============================================
+
+  /**
+   * Procesa las líneas obteniendo precios de tarifas/ofertas cuando corresponde
+   */
+  private async procesarLineasConPrecios(
+    lineas: any[],
+    clienteId: string | undefined,
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any[]> {
+    const lineasProcesadas: any[] = [];
+
+    for (const linea of lineas) {
+      // Solo procesar líneas con producto y sin precio manual especificado
+      if (linea.productoId && (linea.precioUnitario === undefined || linea.precioUnitario === null || linea.precioUnitario === 0)) {
+        try {
+          const precioCalculado = await preciosService.obtenerPrecioProducto({
+            productoId: linea.productoId,
+            varianteId: linea.variante?.varianteId,
+            clienteId,
+            cantidad: linea.cantidadSolicitada || linea.cantidadEntregada || 1,
+            empresaId,
+            dbConfig,
+          });
+
+          lineasProcesadas.push({
+            ...linea,
+            precioUnitario: precioCalculado.precioFinal,
+            infoPrecio: {
+              origen: precioCalculado.origen,
+              tarifaId: precioCalculado.detalleOrigen?.tarifaId,
+              tarifaNombre: precioCalculado.detalleOrigen?.tarifaNombre,
+              ofertaId: precioCalculado.detalleOrigen?.ofertaId,
+              ofertaNombre: precioCalculado.detalleOrigen?.ofertaNombre,
+              ofertaTipo: precioCalculado.detalleOrigen?.ofertaTipo,
+              etiquetaOferta: precioCalculado.etiquetaOferta,
+              precioOriginal: precioCalculado.precioBase,
+              unidadesGratis: precioCalculado.unidadesGratis,
+            },
+          });
+        } catch (error) {
+          // Si falla obtener precio, usar la línea original
+          lineasProcesadas.push(linea);
+        }
+      } else {
+        // Si tiene precio manual, marcar origen como manual
+        if (linea.precioUnitario !== undefined && linea.precioUnitario !== null && linea.precioUnitario > 0) {
+          lineasProcesadas.push({
+            ...linea,
+            infoPrecio: { origen: 'manual' },
+          });
+        } else {
+          lineasProcesadas.push(linea);
+        }
+      }
+    }
+
+    return lineasProcesadas;
+  }
+
+  // ============================================
   // CREAR ALBARÁN
   // ============================================
 
@@ -218,22 +282,81 @@ export class AlbaranesService {
       clienteTelefono: createAlbaranDto.clienteTelefono,
     };
 
+    // Obtener descuentos del cliente
+    let descuentoGlobal = createAlbaranDto.descuentoGlobalPorcentaje || 0;
+    let lineas = createAlbaranDto.lineas || [];
+
     if (createAlbaranDto.clienteId) {
-      const cliente = await ClienteModel.findById(createAlbaranDto.clienteId);
+      const cliente = await ClienteModel.findById(createAlbaranDto.clienteId).lean();
       if (cliente) {
         clienteData = {
-          clienteNombre: cliente.nombre || cliente.nombreComercial,
-          clienteNif: cliente.nif || cliente.cif,
-          clienteEmail: cliente.email,
-          clienteTelefono: cliente.telefono,
+          clienteNombre: (cliente as any).nombre || (cliente as any).nombreComercial,
+          clienteNif: (cliente as any).nif || (cliente as any).cif,
+          clienteEmail: (cliente as any).email,
+          clienteTelefono: (cliente as any).telefono,
         };
+
+        // Aplicar descuentos del cliente si está habilitado
+        if ((cliente as any).aplicarDescuentoAutomatico !== false) {
+          // Aplicar descuento general del cliente si no se especifica uno
+          if ((cliente as any).descuentoGeneral && !createAlbaranDto.descuentoGlobalPorcentaje) {
+            descuentoGlobal = (cliente as any).descuentoGeneral;
+          }
+
+          // Aplicar descuentos por familia de productos a las líneas
+          if ((cliente as any).descuentosPorFamilia && (cliente as any).descuentosPorFamilia.length > 0) {
+            const ProductoModel = await getProductoModel(String(empresaId), dbConfig);
+
+            // Obtener las familias de los productos en las líneas
+            const productosIds = lineas
+              .filter(l => l.productoId)
+              .map(l => new mongoose.Types.ObjectId(l.productoId!));
+
+            if (productosIds.length > 0) {
+              const productos = await ProductoModel.find({
+                _id: { $in: productosIds },
+              }).select('_id familiaId').lean();
+
+              const productoFamiliaMap = new Map<string, string>();
+              productos.forEach((p: any) => {
+                if (p.familiaId) {
+                  productoFamiliaMap.set(p._id.toString(), p.familiaId.toString());
+                }
+              });
+
+              // Aplicar descuentos por familia
+              lineas = lineas.map(linea => {
+                if (linea.productoId && linea.descuento === undefined) {
+                  const familiaId = productoFamiliaMap.get(linea.productoId);
+                  if (familiaId) {
+                    const descuentoFamilia = ((cliente as any).descuentosPorFamilia || []).find(
+                      (df: any) => df.familiaId.toString() === familiaId
+                    );
+                    if (descuentoFamilia) {
+                      return { ...linea, descuento: descuentoFamilia.descuento };
+                    }
+                  }
+                }
+                return linea;
+              });
+            }
+          }
+        }
       }
     }
 
-    // Procesar líneas
+    // Aplicar tarifas/ofertas del cliente a las líneas
+    lineas = await this.procesarLineasConPrecios(
+      lineas,
+      createAlbaranDto.clienteId,
+      String(empresaId),
+      dbConfig
+    );
+
+    // Procesar líneas con cálculos
     let lineasProcesadas: ILineaAlbaran[] = [];
-    if (createAlbaranDto.lineas && createAlbaranDto.lineas.length > 0) {
-      lineasProcesadas = createAlbaranDto.lineas.map((linea, index) => {
+    if (lineas.length > 0) {
+      lineasProcesadas = lineas.map((linea, index) => {
         const lineaConOrden = {
           ...linea,
           orden: linea.orden || index + 1,
@@ -249,7 +372,7 @@ export class AlbaranesService {
     }
 
     // Calcular totales
-    const descuentoGlobalPorcentaje = createAlbaranDto.descuentoGlobalPorcentaje || 0;
+    const descuentoGlobalPorcentaje = descuentoGlobal;
     const totales = this.calcularTotales(lineasProcesadas, descuentoGlobalPorcentaje);
 
     // Crear albarán

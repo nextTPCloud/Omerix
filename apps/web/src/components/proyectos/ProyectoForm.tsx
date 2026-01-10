@@ -41,7 +41,6 @@ import {
 import { proyectosService } from '@/services/proyectos.service'
 import { clientesService } from '@/services/clientes.service'
 import { agentesService } from '@/services/agentes-comerciales.service'
-import { personalService } from '@/services/personal.service'
 import { DateInput } from '@/components/ui/date-picker'
 import { Cliente } from '@/types/cliente.types'
 import { AgenteComercial } from '@/types/agente-comercial.types'
@@ -125,17 +124,26 @@ export function ProyectoForm({
     loadAgentes()
   }, [])
 
-  // Cargar personal disponible
+  // Cargar personal disponible (usando endpoint de proyectos que no requiere permisos RRHH)
   useEffect(() => {
     const loadPersonal = async () => {
       try {
         setLoadingPersonal(true)
-        // Cargar sin filtro de activo para obtener todo el personal
-        const response = await personalService.getAll({ limit: 1000 })
+        // Usar endpoint de proyectos para obtener personal sin necesidad de permisos RRHH
+        const response = await proyectosService.getPersonalDisponible()
         console.log('📋 Respuesta personal:', response)
         if (response.success && response.data) {
-          setPersonalDisponible(response.data)
-          console.log('👥 Personal cargado:', response.data.length)
+          // Mapear la respuesta al formato esperado por Personal
+          const personalMapeado = response.data.map((p: any) => ({
+            _id: p._id,
+            codigo: p.codigo,
+            nombre: p.nombre,
+            apellidos: p.apellidos,
+            datosLaborales: p.datosLaborales || {},
+            activo: true,
+          }))
+          setPersonalDisponible(personalMapeado)
+          console.log('👥 Personal cargado:', personalMapeado.length)
         }
       } catch (error) {
         console.error('Error cargando personal:', error)

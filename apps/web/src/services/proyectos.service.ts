@@ -147,6 +147,16 @@ export const proyectosService = {
     const response = await api.get<ApiResponse<IProyecto[]>>(`/proyectos/cliente/${clienteId}`);
     return response.data;
   },
+
+  // ============================================
+  // OBTENER PERSONAL DISPONIBLE
+  // ============================================
+
+  async getPersonalDisponible(search?: string): Promise<ApiResponse<any[]>> {
+    const params = search ? `?search=${encodeURIComponent(search)}` : '';
+    const response = await api.get<ApiResponse<any[]>>(`/proyectos/personal-disponible${params}`);
+    return response.data;
+  },
 };
 
 export default proyectosService;

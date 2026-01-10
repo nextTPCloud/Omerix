@@ -487,6 +487,58 @@ export const partesTrabajoController = {
   },
 
   /**
+   * Verificar disponibilidad de personal
+   */
+  async verificarDisponibilidad(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuracion de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const { personalIds, fecha, horaInicio, horaFin, parteIdExcluir } = req.body;
+
+      if (!personalIds || !Array.isArray(personalIds) || personalIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Se requiere al menos un ID de personal',
+        });
+      }
+
+      if (!fecha) {
+        return res.status(400).json({
+          success: false,
+          error: 'Se requiere una fecha',
+        });
+      }
+
+      const resultado = await partesTrabajoService.verificarDisponibilidadPersonal(
+        new mongoose.Types.ObjectId(empresaId),
+        req.empresaDbConfig,
+        personalIds,
+        fecha,
+        horaInicio || '00:00',
+        horaFin || '23:59',
+        parteIdExcluir
+      );
+
+      return res.json({
+        success: true,
+        data: resultado,
+      });
+    } catch (error: any) {
+      console.error('Error al verificar disponibilidad:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al verificar disponibilidad',
+      });
+    }
+  },
+
+  /**
    * Obtener estadisticas
    */
   async estadisticas(req: Request, res: Response) {

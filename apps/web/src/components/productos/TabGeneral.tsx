@@ -64,6 +64,15 @@ export function TabGeneral({ formData, setFormData, isEditing }: TabGeneralProps
     }))
   }, [familias])
 
+  // Normalizar familiaId - puede venir como string o como objeto poblado
+  const familiaIdValue = useMemo(() => {
+    const fid = formData.familiaId
+    if (!fid) return ''
+    if (typeof fid === 'string') return fid
+    if (typeof fid === 'object' && fid._id) return fid._id
+    return ''
+  }, [formData.familiaId])
+
   // Función para buscar SKUs existentes
   const handleSearchSkus = useCallback(async (prefix: string): Promise<string[]> => {
     try {
@@ -551,7 +560,7 @@ export function TabGeneral({ formData, setFormData, isEditing }: TabGeneralProps
             <Label htmlFor="familiaId">Familia</Label>
             <SearchableSelect
               options={familiasOptions}
-              value={formData.familiaId || ''}
+              value={familiaIdValue}
               onValueChange={(value) => setFormData({ ...formData, familiaId: value })}
               placeholder="Selecciona una familia"
               searchPlaceholder="Buscar familia..."

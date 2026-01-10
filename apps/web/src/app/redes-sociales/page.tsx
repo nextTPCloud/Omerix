@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { socialMediaService, SocialMediaAccount, Publicacion, ResumenSocialMedia } from '@/services/social-media.service'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,7 +46,23 @@ import {
   AlertCircle,
   Trash2,
   ExternalLink,
+  LayoutDashboard,
+  FileText,
+  UserCircle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  addMonths,
+  subMonths,
+} from 'date-fns'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -57,6 +73,9 @@ export default function RedesSocialesPage() {
   const [resumen, setResumen] = useState<ResumenSocialMedia | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showNuevaPublicacion, setShowNuevaPublicacion] = useState(false)
+  const [activeTab, setActiveTab] = useState('resumen')
+  const [mesCalendario, setMesCalendario] = useState(new Date())
+  const [diaSeleccionado, setDiaSeleccionado] = useState<Date | null>(null)
 
   // Formulario nueva publicación
   const [nuevaPublicacion, setNuevaPublicacion] = useState({
@@ -149,6 +168,36 @@ export default function RedesSocialesPage() {
       toast.error('Error al publicar')
     }
   }
+
+  // Días del calendario
+  const diasCalendario = useMemo(() => {
+    const inicioMes = startOfMonth(mesCalendario)
+    const finMes = endOfMonth(mesCalendario)
+    const inicioSemana = startOfWeek(inicioMes, { weekStartsOn: 1 }) // Lunes
+    const finSemana = endOfWeek(finMes, { weekStartsOn: 1 })
+    return eachDayOfInterval({ start: inicioSemana, end: finSemana })
+  }, [mesCalendario])
+
+  // Publicaciones por día
+  const publicacionesPorDia = useMemo(() => {
+    const mapa: Record<string, Publicacion[]> = {}
+    publicaciones.forEach(pub => {
+      const fecha = pub.programadaPara || pub.publicadaEn || pub.createdAt
+      if (fecha) {
+        const key = format(new Date(fecha), 'yyyy-MM-dd')
+        if (!mapa[key]) mapa[key] = []
+        mapa[key].push(pub)
+      }
+    })
+    return mapa
+  }, [publicaciones])
+
+  // Publicaciones del día seleccionado
+  const publicacionesDiaSeleccionado = useMemo(() => {
+    if (!diaSeleccionado) return []
+    const key = format(diaSeleccionado, 'yyyy-MM-dd')
+    return publicacionesPorDia[key] || []
+  }, [diaSeleccionado, publicacionesPorDia])
 
   // Iconos de plataforma
   const getPlataformaIcon = (plataforma: string) => {
@@ -310,82 +359,105 @@ export default function RedesSocialesPage() {
           </div>
         </div>
 
-        {/* Resumen */}
-        {resumen && (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <Users className="h-6 w-6 mx-auto text-blue-500 mb-2" />
-                  <p className="text-2xl font-bold">{resumen.cuentas}</p>
-                  <p className="text-xs text-muted-foreground">Cuentas</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <Clock className="h-6 w-6 mx-auto text-orange-500 mb-2" />
-                  <p className="text-2xl font-bold">{resumen.publicacionesProgramadas}</p>
-                  <p className="text-xs text-muted-foreground">Programadas</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <CheckCircle className="h-6 w-6 mx-auto text-green-500 mb-2" />
-                  <p className="text-2xl font-bold">{resumen.publicacionesHoy}</p>
-                  <p className="text-xs text-muted-foreground">Hoy</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <MessageCircle className="h-6 w-6 mx-auto text-purple-500 mb-2" />
-                  <p className="text-2xl font-bold">{resumen.comentariosSinLeer}</p>
-                  <p className="text-xs text-muted-foreground">Comentarios</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <Send className="h-6 w-6 mx-auto text-cyan-500 mb-2" />
-                  <p className="text-2xl font-bold">{resumen.mensajesSinLeer}</p>
-                  <p className="text-xs text-muted-foreground">Mensajes</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <Eye className="h-6 w-6 mx-auto text-indigo-500 mb-2" />
-                  <p className="text-2xl font-bold">{(resumen.alcanceTotal / 1000).toFixed(1)}K</p>
-                  <p className="text-xs text-muted-foreground">Alcance</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <Heart className="h-6 w-6 mx-auto text-red-500 mb-2" />
-                  <p className="text-2xl font-bold">{(resumen.interaccionesTotal / 1000).toFixed(1)}K</p>
-                  <p className="text-xs text-muted-foreground">Interacciones</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Contenido principal */}
-        <Tabs defaultValue="cuentas">
-          <TabsList>
-            <TabsTrigger value="cuentas">Cuentas</TabsTrigger>
-            <TabsTrigger value="publicaciones">Publicaciones</TabsTrigger>
-            <TabsTrigger value="calendario">Calendario</TabsTrigger>
+        {/* Contenido principal con tabs a ancho completo */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto">
+            <TabsTrigger value="resumen" className="gap-2">
+              <LayoutDashboard className="h-4 w-4" />
+              <span className="hidden sm:inline">Resumen</span>
+            </TabsTrigger>
+            <TabsTrigger value="cuentas" className="gap-2">
+              <UserCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Cuentas</span>
+            </TabsTrigger>
+            <TabsTrigger value="publicaciones" className="gap-2">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Publicaciones</span>
+            </TabsTrigger>
+            <TabsTrigger value="calendario" className="gap-2">
+              <Calendar className="h-4 w-4" />
+              <span className="hidden sm:inline">Calendario</span>
+            </TabsTrigger>
           </TabsList>
+
+          {/* Tab Resumen */}
+          <TabsContent value="resumen" className="mt-4">
+            {resumen ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <Users className="h-6 w-6 mx-auto text-blue-500 mb-2" />
+                      <p className="text-2xl font-bold">{resumen.cuentas}</p>
+                      <p className="text-xs text-muted-foreground">Cuentas</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <Clock className="h-6 w-6 mx-auto text-orange-500 mb-2" />
+                      <p className="text-2xl font-bold">{resumen.publicacionesProgramadas}</p>
+                      <p className="text-xs text-muted-foreground">Programadas</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <CheckCircle className="h-6 w-6 mx-auto text-green-500 mb-2" />
+                      <p className="text-2xl font-bold">{resumen.publicacionesHoy}</p>
+                      <p className="text-xs text-muted-foreground">Hoy</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <MessageCircle className="h-6 w-6 mx-auto text-purple-500 mb-2" />
+                      <p className="text-2xl font-bold">{resumen.comentariosSinLeer}</p>
+                      <p className="text-xs text-muted-foreground">Comentarios</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <Send className="h-6 w-6 mx-auto text-cyan-500 mb-2" />
+                      <p className="text-2xl font-bold">{resumen.mensajesSinLeer}</p>
+                      <p className="text-xs text-muted-foreground">Mensajes</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <Eye className="h-6 w-6 mx-auto text-indigo-500 mb-2" />
+                      <p className="text-2xl font-bold">{(resumen.alcanceTotal / 1000).toFixed(1)}K</p>
+                      <p className="text-xs text-muted-foreground">Alcance</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <Heart className="h-6 w-6 mx-auto text-red-500 mb-2" />
+                      <p className="text-2xl font-bold">{(resumen.interaccionesTotal / 1000).toFixed(1)}K</p>
+                      <p className="text-xs text-muted-foreground">Interacciones</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <Card className="p-12 text-center">
+                <TrendingUp className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="font-medium">Sin datos de resumen</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Conecta tus cuentas para ver estadísticas
+                </p>
+              </Card>
+            )}
+          </TabsContent>
 
           <TabsContent value="cuentas" className="mt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -594,13 +666,163 @@ export default function RedesSocialesPage() {
           </TabsContent>
 
           <TabsContent value="calendario" className="mt-4">
-            <Card className="p-12 text-center">
-              <Calendar className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="font-medium">Calendario de publicaciones</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Próximamente: Vista de calendario para planificar contenido
-              </p>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Calendario */}
+              <Card className="lg:col-span-2">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      {format(mesCalendario, 'MMMM yyyy', { locale: es })}
+                    </CardTitle>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setMesCalendario(subMonths(mesCalendario, 1))}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMesCalendario(new Date())}
+                      >
+                        Hoy
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setMesCalendario(addMonths(mesCalendario, 1))}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Cabecera días semana */}
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((dia) => (
+                      <div
+                        key={dia}
+                        className="text-center text-xs font-medium text-muted-foreground py-2"
+                      >
+                        {dia}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Días del mes */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {diasCalendario.map((dia, idx) => {
+                      const key = format(dia, 'yyyy-MM-dd')
+                      const pubsDia = publicacionesPorDia[key] || []
+                      const esHoy = isSameDay(dia, new Date())
+                      const esSeleccionado = diaSeleccionado && isSameDay(dia, diaSeleccionado)
+                      const esMesActual = isSameMonth(dia, mesCalendario)
+
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setDiaSeleccionado(dia)}
+                          className={`
+                            relative min-h-[80px] p-1 border rounded-lg text-left transition-colors
+                            ${esMesActual ? 'bg-background' : 'bg-muted/30 text-muted-foreground'}
+                            ${esHoy ? 'border-primary' : 'border-border'}
+                            ${esSeleccionado ? 'ring-2 ring-primary' : ''}
+                            hover:bg-muted/50
+                          `}
+                        >
+                          <span className={`
+                            text-xs font-medium
+                            ${esHoy ? 'bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center' : ''}
+                          `}>
+                            {format(dia, 'd')}
+                          </span>
+                          {/* Indicadores de publicaciones */}
+                          {pubsDia.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {pubsDia.slice(0, 3).map((pub, i) => (
+                                <div
+                                  key={i}
+                                  className={`
+                                    text-[10px] truncate px-1 py-0.5 rounded
+                                    ${pub.estado === 'publicada' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : ''}
+                                    ${pub.estado === 'programada' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-200' : ''}
+                                    ${pub.estado === 'borrador' ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' : ''}
+                                    ${pub.estado === 'error' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200' : ''}
+                                  `}
+                                >
+                                  {pub.texto?.substring(0, 15)}...
+                                </div>
+                              ))}
+                              {pubsDia.length > 3 && (
+                                <div className="text-[10px] text-muted-foreground px-1">
+                                  +{pubsDia.length - 3} más
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Panel lateral: publicaciones del día seleccionado */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    {diaSeleccionado
+                      ? format(diaSeleccionado, "d 'de' MMMM", { locale: es })
+                      : 'Selecciona un día'}
+                  </CardTitle>
+                  <CardDescription>
+                    {publicacionesDiaSeleccionado.length} publicación(es)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {publicacionesDiaSeleccionado.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Calendar className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">No hay publicaciones</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {publicacionesDiaSeleccionado.map((pub) => (
+                        <div key={pub._id} className="p-3 border rounded-lg space-y-2">
+                          <div className="flex items-center gap-2">
+                            {typeof pub.cuentaId === 'object' && (
+                              getPlataformaIcon((pub.cuentaId as SocialMediaAccount).plataforma)
+                            )}
+                            {getEstadoBadge(pub.estado)}
+                          </div>
+                          <p className="text-sm line-clamp-3">{pub.texto}</p>
+                          {pub.programadaPara && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {format(new Date(pub.programadaPara), 'HH:mm')}
+                            </p>
+                          )}
+                          {(pub.estado === 'borrador' || pub.estado === 'error') && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => publicarAhora(pub._id)}
+                            >
+                              <Send className="h-3 w-3 mr-1" />
+                              Publicar ahora
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

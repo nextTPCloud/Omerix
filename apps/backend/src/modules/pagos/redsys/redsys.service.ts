@@ -293,9 +293,9 @@ export class RedsysService {
         }
 
         for (const addon of addOnsData) {
-          const precioAddon = esAnual && addon.precioAnual
-            ? addon.precioAnual
-            : addon.precioMensual;
+          const precioAddon = esAnual && addon.precio?.anual
+            ? addon.precio.anual
+            : addon.precio?.mensual || 0;
 
           // Buscar precio prorrateado si aplica
           let precioProrrata = precioAddon;
@@ -655,9 +655,9 @@ export class RedsysService {
       }
 
       // Calcular precio según tipo de suscripción
-      const precio = esAnual && addon.precioAnual
-        ? addon.precioAnual
-        : addon.precioMensual;
+      const precio = esAnual && addon.precio?.anual
+        ? addon.precio.anual
+        : addon.precio?.mensual || 0;
 
       // Añadir el add-on a la licencia
       licencia.addOns.push({
@@ -665,7 +665,7 @@ export class RedsysService {
         nombre: addon.nombre,
         slug: addon.slug,
         cantidad: addon.cantidad || 1,
-        precioMensual: addon.precioMensual,
+        precioMensual: addon.precio?.mensual || 0,
         activo: true,
         fechaActivacion: new Date(),
       });

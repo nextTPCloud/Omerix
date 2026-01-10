@@ -347,23 +347,36 @@ export function PedidoCompraForm({
     }
   }
 
-  const handleProductoChange = (index: number, productoId: string) => {
-    const producto = productos.find(p => p._id === productoId)
-    if (producto) {
-      // Si el producto tiene variantes activas, abrir el selector
-      if (producto.tieneVariantes && producto.variantes && producto.variantes.length > 0) {
-        const variantesActivas = producto.variantes.filter((v: Variante) => v.activo !== false)
-        if (variantesActivas.length > 0) {
-          setProductoConVariantes(producto)
-          setLineaIndexParaVariante(index)
-          setVarianteSelectorOpen(true)
-          return
-        }
-      }
+  const handleProductoChange = async (index: number, productoId: string) => {
+    let producto = productos.find(p => p._id === productoId)
+    if (!producto) return
 
-      // Producto sin variantes o sin variantes activas - proceder normalmente
-      aplicarProductoALinea(index, producto)
+    // Si es un producto tipo compuesto (kit), cargar el producto completo
+    // para asegurar que tenemos los datos de componentesKit poblados
+    if (producto.tipo === 'compuesto') {
+      try {
+        const response = await productosService.getById(productoId)
+        if (response.success && response.data) {
+          producto = response.data
+        }
+      } catch (error) {
+        console.error('Error al cargar producto completo:', error)
+      }
     }
+
+    // Si el producto tiene variantes activas, abrir el selector
+    if (producto.tieneVariantes && producto.variantes && producto.variantes.length > 0) {
+      const variantesActivas = producto.variantes.filter((v: Variante) => v.activo !== false)
+      if (variantesActivas.length > 0) {
+        setProductoConVariantes(producto)
+        setLineaIndexParaVariante(index)
+        setVarianteSelectorOpen(true)
+        return
+      }
+    }
+
+    // Producto sin variantes o sin variantes activas - proceder normalmente
+    aplicarProductoALinea(index, producto)
   }
 
   // Aplicar producto a línea (usado directamente o después de seleccionar variante)
@@ -384,19 +397,26 @@ export function PedidoCompraForm({
     // Construir los componentes del kit si aplica
     let componentesKit: IComponenteKitCompra[] | undefined
     if (esKit && producto.componentesKit) {
-      componentesKit = producto.componentesKit.map(comp => ({
-        productoId: comp.productoId,
-        nombre: comp.producto?.nombre || '',
-        sku: comp.producto?.sku || '',
-        cantidad: comp.cantidad,
-        precioUnitario: 0,
-        costeUnitario: 0,
-        descuento: 0,
-        iva: producto.iva || 21,
-        subtotal: 0,
-        opcional: comp.opcional || false,
-        seleccionado: !comp.opcional,
-      }))
+      componentesKit = producto.componentesKit.map(comp => {
+        // Buscar producto en lista local o usar datos poblados del backend
+        const productoComp = productos.find(p => p._id === comp.productoId)
+        const productoInfo = typeof comp.productoId === 'object' ? comp.productoId : null
+        const precioUnit = productoComp?.precios?.compra || productoInfo?.precios?.compra || 0
+        const cantidad = comp.cantidad || 1
+        return {
+          productoId: typeof comp.productoId === 'object' ? comp.productoId._id : comp.productoId,
+          nombre: productoComp?.nombre || productoInfo?.nombre || '',
+          sku: productoComp?.sku || productoInfo?.sku || '',
+          cantidad,
+          precioUnitario: precioUnit,
+          costeUnitario: precioUnit,
+          descuento: 0,
+          iva: producto.iva || 21,
+          subtotal: Math.round(cantidad * precioUnit * 100) / 100,
+          opcional: comp.opcional || false,
+          seleccionado: !comp.opcional,
+        }
+      })
     }
 
     // Construir nombre con info de variante
@@ -415,8 +435,8 @@ export function PedidoCompraForm({
       nombre: nombreFinal,
       descripcion: producto.descripcionCorta,
       descripcionLarga: producto.descripcion,
-      precioUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? producto.precios?.venta ?? 0,
-      costeUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? 0,
+      precioUnitario: variante?.costeUnitario ?? producto.costes?.costeUltimo ?? producto.precios?.compra ?? producto.precios?.venta ?? 0,
+      costeUnitario: variante?.costeUnitario ?? producto.costes?.costeUltimo ?? producto.precios?.compra ?? 0,
       iva: producto.iva || 21,
       // Peso del producto
       peso: producto.peso || 0,

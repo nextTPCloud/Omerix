@@ -113,6 +113,7 @@ interface LineaFormulario {
   codigo?: string
   nombre: string
   descripcion?: string
+  descripcionLarga?: string
   sku?: string
   codigoProveedor?: string
   variante?: IVarianteSeleccionada
@@ -269,6 +270,11 @@ export function FacturaCompraForm({
   const [updatePrecioCompra, setUpdatePrecioCompra] = useState(true)
   const [updatePrecioVenta, setUpdatePrecioVenta] = useState(false)
 
+  // Estado para dialogo de descripcion larga
+  const [showDescripcionDialog, setShowDescripcionDialog] = useState(false)
+  const [descripcionEditIndex, setDescripcionEditIndex] = useState<number | null>(null)
+  const [descripcionEdit, setDescripcionEdit] = useState({ corta: '', larga: '' })
+
   // Lineas con productos (para actualizar precios)
   const lineasConProducto = lineas.filter(l => l.productoId && l.nombre)
 
@@ -293,6 +299,7 @@ export function FacturaCompraForm({
         codigo: l.codigo,
         nombre: l.nombre || '',
         descripcion: l.descripcion,
+        descripcionLarga: l.descripcionLarga,
         sku: l.sku,
         codigoProveedor: l.codigoProveedor,
         variante: l.variante,
@@ -550,23 +557,63 @@ export function FacturaCompraForm({
     actualizarLinea(index, 'nombre', nombre)
   }
 
-  const seleccionarProducto = (index: number, productoId: string) => {
-    const producto = productos.find(p => p._id === productoId) as any
-    if (producto) {
-      // Si el producto tiene variantes activas, abrir el selector
-      if (producto.tieneVariantes && producto.variantes && producto.variantes.length > 0) {
-        const variantesActivas = producto.variantes.filter((v: Variante) => v.activo !== false)
-        if (variantesActivas.length > 0) {
-          setProductoConVariantes(producto as Producto)
-          setLineaIndexParaVariante(index)
-          setVarianteSelectorOpen(true)
-          return
-        }
-      }
-
-      // Producto sin variantes o sin variantes activas - proceder normalmente
-      aplicarProductoALinea(index, producto)
+  // Handler para abrir dialogo de descripción
+  const handleOpenDescripcionDialog = useCallback((index: number) => {
+    const linea = lineas[index]
+    if (linea) {
+      const producto = productos.find(p => p._id === linea.productoId) as any
+      setDescripcionEdit({
+        corta: linea.descripcion || producto?.descripcionCorta || '',
+        larga: linea.descripcionLarga || producto?.descripcion || '',
+      })
+      setDescripcionEditIndex(index)
+      setShowDescripcionDialog(true)
     }
+  }, [lineas, productos])
+
+  // Handler para guardar descripcion
+  const handleSaveDescripcion = useCallback(() => {
+    if (descripcionEditIndex !== null) {
+      handleUpdateLinea(descripcionEditIndex, {
+        descripcion: descripcionEdit.corta,
+        descripcionLarga: descripcionEdit.larga,
+      })
+      setShowDescripcionDialog(false)
+      setDescripcionEditIndex(null)
+      toast.success('Descripciones actualizadas')
+    }
+  }, [descripcionEditIndex, descripcionEdit])
+
+  const seleccionarProducto = async (index: number, productoId: string) => {
+    let producto = productos.find(p => p._id === productoId) as any
+    if (!producto) return
+
+    // Si es un producto tipo compuesto (kit), cargar el producto completo
+    // para asegurar que tenemos los datos de componentesKit poblados
+    if (producto.tipo === 'compuesto') {
+      try {
+        const response = await productosService.getById(productoId)
+        if (response.success && response.data) {
+          producto = response.data
+        }
+      } catch (error) {
+        console.error('Error al cargar producto completo:', error)
+      }
+    }
+
+    // Si el producto tiene variantes activas, abrir el selector
+    if (producto.tieneVariantes && producto.variantes && producto.variantes.length > 0) {
+      const variantesActivas = producto.variantes.filter((v: Variante) => v.activo !== false)
+      if (variantesActivas.length > 0) {
+        setProductoConVariantes(producto as Producto)
+        setLineaIndexParaVariante(index)
+        setVarianteSelectorOpen(true)
+        return
+      }
+    }
+
+    // Producto sin variantes o sin variantes activas - proceder normalmente
+    aplicarProductoALinea(index, producto)
   }
 
   // Aplicar producto a línea (usado directamente o después de seleccionar variante)
@@ -587,19 +634,26 @@ export function FacturaCompraForm({
     // Construir los componentes del kit si aplica
     let componentesKit: IComponenteKitFactura[] | undefined
     if (esKit && producto.componentesKit) {
-      componentesKit = producto.componentesKit.map((comp: any) => ({
-        productoId: comp.productoId,
-        nombre: comp.producto?.nombre || '',
-        sku: comp.producto?.sku || '',
-        cantidad: comp.cantidad,
-        precioUnitario: 0,
-        costeUnitario: 0,
-        descuento: 0,
-        iva: producto.iva || 21,
-        subtotal: 0,
-        opcional: comp.opcional || false,
-        seleccionado: !comp.opcional,
-      }))
+      componentesKit = producto.componentesKit.map((comp: any) => {
+        // Buscar producto en lista local o usar datos poblados del backend
+        const productoComp = productos.find(p => p._id === comp.productoId)
+        const productoInfo = typeof comp.productoId === 'object' ? comp.productoId : null
+        const precioUnit = productoComp?.precios?.compra || productoInfo?.precios?.compra || 0
+        const cantidad = comp.cantidad || 1
+        return {
+          productoId: typeof comp.productoId === 'object' ? comp.productoId._id : comp.productoId,
+          nombre: productoComp?.nombre || productoInfo?.nombre || '',
+          sku: productoComp?.sku || productoInfo?.sku || '',
+          cantidad,
+          precioUnitario: precioUnit,
+          costeUnitario: precioUnit,
+          descuento: 0,
+          iva: producto.iva || 21,
+          subtotal: Math.round(cantidad * precioUnit * 100) / 100,
+          opcional: comp.opcional || false,
+          seleccionado: !comp.opcional,
+        }
+      })
     }
 
     // Construir nombre con info de variante
@@ -617,8 +671,9 @@ export function FacturaCompraForm({
       codigo: variante?.sku || producto.sku,
       nombre: nombreFinal,
       descripcion: producto.descripcionCorta,
+      descripcionLarga: producto.descripcion,
       sku: variante?.sku || producto.sku,
-      precioUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? producto.precioCompra ?? 0,
+      precioUnitario: variante?.costeUnitario ?? producto.costes?.costeUltimo ?? producto.precios?.compra ?? producto.precioCompra ?? 0,
       iva: producto.iva || 21,
       unidad: producto.unidad || 'ud.',
       // Peso del producto
@@ -924,6 +979,7 @@ export function FacturaCompraForm({
         codigo: l.codigo,
         nombre: l.nombre,
         descripcion: l.descripcion,
+        descripcionLarga: l.descripcionLarga,
         sku: l.sku,
         codigoProveedor: l.codigoProveedor,
         variante: l.variante,
@@ -1253,6 +1309,7 @@ export function FacturaCompraForm({
             cantidadRefs={cantidadRefs}
             onCantidadKeyDown={handleCantidadKeyDown}
             onCtrlEnterPress={agregarLinea}
+            onOpenDescripcionDialog={handleOpenDescripcionDialog}
           />
 
           {/* Resumen rapido */}
@@ -1753,6 +1810,58 @@ export function FacturaCompraForm({
                   Guardar y actualizar precios
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogo para editar descripcion larga */}
+      <Dialog open={showDescripcionDialog} onOpenChange={setShowDescripcionDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Editar Descripciones
+            </DialogTitle>
+            <DialogDescription>
+              Modifica la descripción corta y larga del producto en esta línea
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="descripcionCorta">Descripción corta</Label>
+              <Input
+                id="descripcionCorta"
+                value={descripcionEdit.corta}
+                onChange={(e) => setDescripcionEdit(prev => ({ ...prev, corta: e.target.value }))}
+                placeholder="Descripción breve del producto..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="descripcionLarga">Descripción larga</Label>
+              <Textarea
+                id="descripcionLarga"
+                value={descripcionEdit.larga}
+                onChange={(e) => setDescripcionEdit(prev => ({ ...prev, larga: e.target.value }))}
+                placeholder="Descripción detallada del producto..."
+                rows={5}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowDescripcionDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleSaveDescripcion}>
+              <Save className="mr-2 h-4 w-4" />
+              Guardar
             </Button>
           </DialogFooter>
         </DialogContent>

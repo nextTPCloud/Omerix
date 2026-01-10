@@ -790,6 +790,41 @@ export class ProyectosController {
       });
     }
   }
+
+  // ============================================
+  // OBTENER PERSONAL DISPONIBLE (Para asignar a proyectos)
+  // ============================================
+
+  async obtenerPersonalDisponible(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const { search } = req.query;
+
+      const personal = await proyectosService.obtenerPersonalDisponible(
+        empresaId,
+        req.empresaDbConfig,
+        search as string | undefined
+      );
+
+      res.json({
+        success: true,
+        data: personal,
+      });
+    } catch (error: any) {
+      console.error('Error al obtener personal disponible:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al obtener personal disponible',
+      });
+    }
+  }
 }
 
 export const proyectosController = new ProyectosController();

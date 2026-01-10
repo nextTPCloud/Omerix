@@ -14,13 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import {
   ArrowLeft,
   Save,
@@ -35,11 +29,13 @@ import {
 import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 
 export default function NuevoAjustePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const productoIdParam = searchParams.get('productoId')
+  const { almacenDefaultId } = useUserPreferences()
 
   // Estado del formulario
   const [formData, setFormData] = useState<CreateAjusteDTO>({
@@ -65,18 +61,23 @@ export default function NuevoAjustePage() {
     const loadAlmacenes = async () => {
       try {
         const res = await almacenesService.getActivos()
-        setAlmacenes(res.data || [])
-        // Seleccionar almacén principal por defecto
-        const principal = res.data?.find((a: any) => a.esPrincipal)
-        if (principal) {
-          setFormData(prev => ({ ...prev, almacenId: principal._id }))
+        const almacenesData = res.data || []
+        setAlmacenes(almacenesData)
+        // Seleccionar almacen por defecto: preferencia usuario > principal > primero
+        if (almacenesData.length > 0) {
+          const almacenDefault = almacenDefaultId
+            ? almacenesData.find((a: any) => a._id === almacenDefaultId)
+            : almacenesData.find((a: any) => a.esPrincipal) || almacenesData[0]
+          if (almacenDefault) {
+            setFormData(prev => ({ ...prev, almacenId: almacenDefault._id }))
+          }
         }
       } catch (error) {
         console.error('Error cargando almacenes:', error)
       }
     }
     loadAlmacenes()
-  }, [])
+  }, [almacenDefaultId])
 
   // Cargar producto si viene por parámetro
   useEffect(() => {
@@ -337,20 +338,18 @@ export default function NuevoAjustePage() {
               {/* Almacén */}
               <div className="space-y-2">
                 <Label htmlFor="almacen">Almacén *</Label>
-                <Select
+                <SearchableSelect
+                  options={almacenes.map((a: any) => ({
+                    value: a._id,
+                    label: a.nombre,
+                    description: a.esPrincipal ? 'Principal' : a.codigo
+                  }))}
                   value={formData.almacenId}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, almacenId: value }))}
-                >
-                  <SelectTrigger>
-                    <Warehouse className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Seleccionar almacén" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {almacenes.map((a) => (
-                      <SelectItem key={a._id} value={a._id}>{a.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Seleccionar almacén..."
+                  searchPlaceholder="Buscar almacén..."
+                  emptyMessage="No hay almacenes disponibles"
+                />
               </div>
 
               {/* Stock actual e info */}

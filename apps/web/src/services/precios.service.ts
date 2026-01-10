@@ -12,6 +12,7 @@ export interface IPrecioCalculado {
   detalleOrigen?: {
     tarifaId?: string;
     tarifaNombre?: string;
+    porcentajeDescuento?: number; // Porcentaje original de la tarifa (evita errores de redondeo)
     ofertaId?: string;
     ofertaNombre?: string;
     ofertaTipo?: string;

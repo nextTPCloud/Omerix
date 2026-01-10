@@ -21,6 +21,7 @@ export enum TipoLineaPresupuestoCompra {
   TEXTO = 'texto',
   SUBTOTAL = 'subtotal',
   DESCUENTO = 'descuento',
+  KIT = 'kit',
 }
 
 export enum Prioridad {

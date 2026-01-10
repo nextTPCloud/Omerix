@@ -304,7 +304,7 @@ async function seedDatabase() {
 
     console.log('\n🔌 Add-ons creados:');
     addOnsCreados.forEach((addon) => {
-      console.log(`  - ${addon.nombre}: €${addon.precioMensual}/mes`);
+      console.log(`  - ${addon.nombre}: €${addon.precio?.mensual || 0}/mes`);
     });
 
     console.log('\n✅ Seed completado exitosamente');

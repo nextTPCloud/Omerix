@@ -623,6 +623,7 @@ export function PresupuestoForm({
     const precioBase = variante?.precioUnitario ?? producto.precios?.venta ?? 0
     // Obtener precio calculado considerando tarifas y ofertas del cliente
     let precioUnitario = precioBase
+    let descuentoTarifa = 0 // Descuento de la tarifa/oferta a aplicar en el campo descuento
     let origenPrecio: 'producto' | 'tarifa' | 'oferta' | 'precio_cantidad' | 'manual' = 'producto'
     let detalleOrigenPrecio: {
       tarifaId?: string
@@ -643,9 +644,18 @@ export function PresupuestoForm({
 
       if (precioResponse.success && precioResponse.data) {
         const precioCalculado = precioResponse.data
-        // Siempre usar el precio calculado
-        precioUnitario = precioCalculado.precioFinal
         origenPrecio = precioCalculado.origen as typeof origenPrecio
+
+        // Si hay tarifa u oferta, usar precio base + descuento en campo dto%
+        // Esto evita el doble descuento y es más transparente para el usuario
+        if (precioCalculado.origen === 'tarifa' || precioCalculado.origen === 'oferta') {
+          // Mantener precio base, aplicar descuento en campo descuento
+          precioUnitario = precioCalculado.precioBase
+          descuentoTarifa = precioCalculado.descuentoAplicado || 0
+        } else {
+          // Para otros orígenes (precio_cantidad, etc), usar el precio final directamente
+          precioUnitario = precioCalculado.precioFinal
+        }
 
         // Guardar detalle del origen
         if (precioCalculado.detalleOrigen) {
@@ -657,9 +667,9 @@ export function PresupuestoForm({
 
         // Notificar al usuario de la tarifa/oferta aplicada
         if (precioCalculado.origen === 'tarifa' && precioCalculado.detalleOrigen?.tarifaNombre) {
-          toast.info(`Tarifa "${precioCalculado.detalleOrigen.tarifaNombre}" aplicada: ${precioCalculado.precioFinal.toFixed(2)} EUR (-${precioCalculado.descuentoAplicado?.toFixed(1) || 0}%)`)
+          toast.info(`Tarifa "${precioCalculado.detalleOrigen.tarifaNombre}" aplicada: ${descuentoTarifa.toFixed(1)}% de descuento`)
         } else if (precioCalculado.origen === 'oferta' && precioCalculado.detalleOrigen?.ofertaNombre) {
-          toast.info(`Oferta "${precioCalculado.detalleOrigen.ofertaNombre}" aplicada: ${precioCalculado.precioFinal.toFixed(2)} EUR (-${precioCalculado.descuentoAplicado?.toFixed(1) || 0}%)`)
+          toast.info(`Oferta "${precioCalculado.detalleOrigen.ofertaNombre}" aplicada: ${descuentoTarifa.toFixed(1)}% de descuento`)
         }
       }
     } catch (error) {
@@ -672,9 +682,10 @@ export function PresupuestoForm({
       codigo: variante?.sku || producto.sku || '',
       nombre,
       descripcion: producto.descripcionCorta || producto.descripcion || '',
-      // Precios: guardar el original y el aplicado
+      // Precios: usar precio base y poner descuento de tarifa en campo descuento
       precioOriginal: precioBase,
       precioUnitario,
+      descuento: descuentoTarifa, // Descuento de la tarifa/oferta
       origenPrecio,
       detalleOrigenPrecio,
       costeUnitario: variante?.costeUnitario ?? producto.precios?.compra ?? 0,

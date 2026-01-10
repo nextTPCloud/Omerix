@@ -52,6 +52,8 @@ import Empresa from '@/modules/empresa/Empresa';
 import { vencimientosService } from '@/modules/tesoreria/vencimientos.service';
 import { TipoVencimiento } from '@/models/Vencimiento';
 import { parseAdvancedFilters, mergeFilters } from '@/utils/advanced-filters.helper';
+import { albaranesService } from '@/modules/albaranes/albaranes.service';
+import { TipoAlbaran as TipoAlbaranEnum } from '@/modules/albaranes/Albaran';
 
 // ============================================
 // TIPOS DE RETORNO
@@ -496,6 +498,82 @@ export class FacturasService {
     await factura.save();
 
     logInfo('Factura creada', { codigo, empresaId: String(empresaId) });
+
+    // ============================================
+    // GENERAR ALBARÁN AUTOMÁTICO PARA PRODUCTOS FÍSICOS
+    // ============================================
+    // Si la factura tiene productos físicos y no viene de albaranes,
+    // generar albarán automático para el control de stock
+    const tieneProductosFisicos = lineasProcesadas.some(
+      linea => linea.tipo === TipoLinea.PRODUCTO && linea.productoId
+    );
+    const vieneDeAlbaranes = createFacturaDto.albaranesOrigen && createFacturaDto.albaranesOrigen.length > 0;
+
+    if (tieneProductosFisicos && !vieneDeAlbaranes) {
+      try {
+        // Filtrar solo líneas de productos físicos
+        const lineasProductos = lineasProcesadas
+          .filter(linea => linea.tipo === TipoLinea.PRODUCTO && linea.productoId)
+          .map(linea => ({
+            tipo: 'producto' as const,
+            productoId: linea.productoId?.toString(),
+            productoNombre: linea.productoNombre,
+            productoCodigo: linea.productoCodigo,
+            descripcion: linea.descripcion,
+            variante: linea.variante,
+            cantidadSolicitada: linea.cantidad,
+            cantidadEntregada: linea.cantidad, // Se entrega todo automáticamente
+            precioUnitario: linea.precioUnitario,
+            costeUnitario: linea.costeUnitario,
+            descuento: linea.descuento,
+            iva: linea.iva,
+            recargoEquivalencia: linea.recargoEquivalencia,
+            almacenId: linea.almacenId?.toString(),
+          }));
+
+        if (lineasProductos.length > 0) {
+          const albaranData = {
+            tipo: TipoAlbaranEnum.VENTA,
+            clienteId: createFacturaDto.clienteId,
+            clienteNombre: clienteData.clienteNombre,
+            clienteNif: clienteData.clienteNif,
+            clienteEmail: clienteData.clienteEmail,
+            clienteTelefono: clienteData.clienteTelefono,
+            fecha: factura.fecha,
+            lineas: lineasProductos,
+            observaciones: `Albarán generado automáticamente desde factura ${codigo}`,
+            observacionesInternas: `Factura origen: ${factura._id}`,
+            descuentoGlobalPorcentaje: createFacturaDto.descuentoGlobalPorcentaje || 0,
+            proyectoId: createFacturaDto.proyectoId,
+            estado: 'entregado', // Ya entregado para que mueva stock
+            fechaEntrega: factura.fecha,
+          };
+
+          const albaran = await albaranesService.crear(
+            albaranData as any,
+            empresaId,
+            usuarioId,
+            dbConfig
+          );
+
+          // Vincular albarán a la factura
+          factura.albaranesOrigen = [albaran._id];
+          await factura.save();
+
+          logInfo('Albarán automático generado para factura', {
+            facturaId: factura._id.toString(),
+            albaranId: albaran._id.toString(),
+            albaranCodigo: albaran.codigo,
+          });
+        }
+      } catch (error) {
+        // No fallar la factura si el albarán falla, solo loggear
+        logError('Error generando albarán automático para factura', {
+          facturaId: factura._id.toString(),
+          error: error instanceof Error ? error.message : 'Error desconocido',
+        });
+      }
+    }
 
     return factura;
   }

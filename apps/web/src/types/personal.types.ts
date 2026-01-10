@@ -328,6 +328,7 @@ export interface EstadisticasPersonal {
 // ============================================
 
 export const TIPOS_AUSENCIA: { value: string; label: string }[] = [
+  { value: 'vacaciones', label: 'Vacaciones' },
   { value: 'enfermedad', label: 'Enfermedad' },
   { value: 'accidente', label: 'Accidente' },
   { value: 'permiso', label: 'Permiso' },
@@ -335,5 +336,6 @@ export const TIPOS_AUSENCIA: { value: string; label: string }[] = [
   { value: 'paternidad', label: 'Paternidad' },
   { value: 'asuntos_propios', label: 'Asuntos Propios' },
   { value: 'formacion', label: 'Formación' },
+  { value: 'baja_medica', label: 'Baja Médica' },
   { value: 'otros', label: 'Otros' }
 ];
