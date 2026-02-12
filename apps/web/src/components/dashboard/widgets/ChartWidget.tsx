@@ -102,14 +102,10 @@ export function ChartWidget({
     return value.toString()
   }
 
+  const hasData = data && data.length > 0
+
   const renderChart = () => {
-    if (!data || data.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-full text-muted-foreground">
-          Sin datos disponibles
-        </div>
-      )
-    }
+    if (!hasData) return null
 
     switch (tipoGrafica) {
       case TipoGrafica.LINEA:
@@ -284,10 +280,16 @@ export function ChartWidget({
       onConfigure={onConfigure}
       onRemove={onRemove}
     >
-      <div className="h-full w-full min-h-[120px]">
-        <ResponsiveContainer width="100%" height="100%">
-          {renderChart()}
-        </ResponsiveContainer>
+      <div className="relative h-full w-full min-h-[120px]">
+        {hasData ? (
+          <ResponsiveContainer width="100%" height="100%">
+            {renderChart()}
+          </ResponsiveContainer>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+            Sin datos disponibles
+          </div>
+        )}
       </div>
     </WidgetWrapper>
   )

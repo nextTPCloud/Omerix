@@ -6,10 +6,10 @@ import {
   BulkDeleteClientesSchema,
   ChangeStatusSchema,
 } from './clientes.dto';
-import multer from 'multer';
 import { authMiddleware } from '@/middleware/auth.middleware';
 import { tenantMiddleware, requireBusinessDatabase } from '@/middleware/tenant.middleware';
 import { validateBody } from '@/middleware/validation.middleware';
+import { uploadSingle } from '@/middleware/upload.middleware';
 
 const router = Router();
 
@@ -19,42 +19,6 @@ const router = Router();
  *   name: Clientes
  *   description: Gestión de clientes del ERP
  */
-
-// Configurar multer para subida de archivos
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/clientes/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + '-' + file.originalname);
-  },
-});
-
-const upload = multer({ 
-  storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB
-  },
-  fileFilter: (req, file, cb) => {
-    // Permitir solo ciertos tipos de archivos
-    const allowedTypes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/png',
-      'image/jpg',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    ];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Tipo de archivo no permitido'));
-    }
-  },
-});
 
 // Todas las rutas requieren autenticación, tenant y base de datos de negocio
 router.use(authMiddleware);
@@ -556,7 +520,7 @@ router.patch(
  */
 router.post(
   '/:id/archivos',
-  upload.single('archivo'),
+  uploadSingle,
   clientesController.subirArchivo.bind(clientesController)
 );
 

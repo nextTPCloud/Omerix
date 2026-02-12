@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import empresaService, { ROLES_GESTION_EMPRESA } from './empresa.service';
+import storageService from '@/services/storage.service';
 
 // Schemas de validación
 const UpdateEmpresaSchema = z.object({
@@ -439,6 +440,50 @@ class EmpresaController {
         success: false,
         message: error.message || 'Error al actualizar preferencias de precios',
       });
+    }
+  }
+  // ============================================
+  // SUBIR LOGO
+  // ============================================
+
+  async uploadLogo(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({ success: false, message: 'No autenticado' });
+      }
+
+      // Verificar rol
+      const userRole = (req as any).userRole;
+      if (!ROLES_GESTION_EMPRESA.includes(userRole)) {
+        return res.status(403).json({ success: false, message: 'Sin permisos para modificar la empresa' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No se ha subido ningún archivo' });
+      }
+
+      const result = await storageService.uploadFile({
+        empresaId: req.empresaId,
+        modulo: 'empresa',
+        buffer: req.file.buffer,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        isPublic: true,
+        generateThumbnails: true,
+        subfolder: 'logo',
+      });
+
+      // Actualizar logo en empresa
+      await empresaService.actualizarLogo(req.empresaId, result.url);
+
+      res.json({
+        success: true,
+        data: { url: result.url, thumbnails: result.thumbnails },
+        message: 'Logo actualizado exitosamente',
+      });
+    } catch (error: any) {
+      console.error('Error al subir logo:', error);
+      res.status(500).json({ success: false, message: error.message || 'Error al subir logo' });
     }
   }
 }

@@ -7,17 +7,28 @@
     "dev:backend": "cd apps/backend && npm run dev",
     "dev:web": "cd apps/web && npm run dev",
     "dev:tpv": "cd apps/tpv && npm run dev",
+    "dev:kiosk": "cd apps/kiosk/web && npm run dev",
     "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:web\" \"npm run dev:tpv\"",
     "build:backend": "cd apps/backend && npm run build",
     "build:web": "cd apps/web && npm run build",
     "build:tpv": "cd apps/tpv && npm run build",
-   "build:all": "npm run build:backend && npm run build:web && npm run build:tpv"
+    "build:kiosk": "cd apps/kiosk/web && npm run build",
+    "build:all": "npm run build:backend && npm run build:web && npm run build:tpv",
+    "test:e2e": "npx playwright test",
+    "test:e2e:web": "npx playwright test --project=web",
+    "test:e2e:tpv": "npx playwright test --project=tpv",
+    "test:e2e:comandero": "npx playwright test --project=comandero",
+    "test:e2e:kiosk": "npx playwright test --project=kiosk",
+    "test:e2e:smoke": "npx playwright test smoke",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:report": "npx playwright show-report"
   },
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "baseline-browser-mapping": "^2.9.5",
     "concurrently": "^8.2.2"
   }

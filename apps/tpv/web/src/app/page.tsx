@@ -27,6 +27,11 @@ import {
   Star,
   Layers,
   FileText,
+  Grid3X3,
+  HelpCircle,
+  ChevronLeft,
+  ChevronRight,
+  Zap,
 } from 'lucide-react';
 
 // Components
@@ -42,21 +47,38 @@ import { CantidadModal } from '@/components/ventas/CantidadModal';
 import { VentasAparcadasModal } from '@/components/ventas/VentasAparcadasModal';
 import { VariantesModal } from '@/components/productos/VariantesModal';
 import { KitModal } from '@/components/productos/KitModal';
+import { ModificadoresModal, type ModificadorSeleccionado } from '@/components/productos/ModificadoresModal';
 import { SelectClienteModal, type ClienteSeleccionado } from '@/components/ventas/SelectClienteModal';
 import { PinVerificacionModal } from '@/components/ventas/PinVerificacionModal';
 import { CobroVencimientosModal } from '@/components/ventas/CobroVencimientosModal';
 import { Button } from '@/components/ui/Button';
 import ActivacionTPV from '@/components/auth/ActivacionTPV';
+import { useDragScroll } from '@/hooks/useDragScroll';
 import LoginPIN from '@/components/auth/LoginPIN';
+
+// Componentes de restauración
+import {
+  SelectorMesaModal,
+  SelectorCamareroModal,
+  SugerenciasPanel,
+  DividirMesaModal,
+  UnirMesasModal,
+} from '@/components/restauracion';
 
 // Stores
 import { useAuthStore } from '@/stores/authStore';
-import { useDataStore, type Producto as ProductoSync, type Variante } from '@/stores/dataStore';
+import { useDataStore, type Producto as ProductoSync, type Variante, type Modificador } from '@/stores/dataStore';
 import { useCajaStore } from '@/stores/cajaStore';
 import { printerService } from '@/services/printer.service';
-import { tpvApi } from '@/services/api';
+import { tpvApi, getCloudApiUrl } from '@/services/api';
 import { useVentasAparcadasStore } from '@/stores/ventasAparcadasStore';
+import { usePedidosRapidosStore } from '@/stores/pedidosRapidosStore';
+import { PedidosRapidosModal } from '@/components/ventas/PedidosRapidosModal';
 import { usePerfilStore } from '@/stores/perfilStore';
+import { useRestauracionStore } from '@/stores/restauracionStore';
+import { useVentaStore } from '@/stores/ventaStore';
+import { restauracionService, type Mesa, type Camarero } from '@/services/restauracion.service';
+import { openSupportChat } from '@/components/ChatwootWidget';
 
 // Types
 interface ComponenteKitLinea {
@@ -64,6 +86,16 @@ interface ComponenteKitLinea {
   nombre: string;
   cantidad: number;
   precioUnitario: number;
+}
+
+// Modificador en una línea de venta
+interface ModificadorLinea {
+  modificadorId: string;
+  nombre: string;
+  nombreCorto?: string;
+  cantidad: number;
+  precioExtra: number;
+  tipo: 'gratis' | 'cargo' | 'descuento';
 }
 
 interface LineaVenta {
@@ -79,6 +111,7 @@ interface LineaVenta {
   iva: number; // Porcentaje de IVA (21, 10, 4, 0)
   esKit?: boolean;
   componentesKit?: ComponenteKitLinea[];
+  modificadores?: ModificadorLinea[];
 }
 
 interface Producto {
@@ -188,6 +221,12 @@ export default function TPVPage() {
   const contarVentasAparcadas = useVentasAparcadasStore((state) => state.contarVentas);
   const numVentasAparcadas = contarVentasAparcadas();
 
+  // Pedidos Rápidos Store
+  const contarPedidosRapidos = usePedidosRapidosStore((state) => state.contarPedidos);
+  const contarNoLeidos = usePedidosRapidosStore((state) => state.contarNoLeidos);
+  const numPedidosRapidos = contarPedidosRapidos();
+  const numNoLeidos = contarNoLeidos();
+
   // Perfil Store - ordenar familias y productos favoritos
   const {
     familias: familiasPerfil,
@@ -197,14 +236,216 @@ export default function TPVPage() {
     esProductoDestacado,
   } = usePerfilStore();
 
+  // Restauración Store
+  const {
+    mesaSeleccionada,
+    camareroSeleccionado,
+    seleccionarMesa,
+    seleccionarCamarero,
+    cargarDatosRestauracion,
+    limpiarSeleccion: limpiarRestauracion,
+    liberarMesa,
+  } = useRestauracionStore();
+
+  // Venta Store (para gestión de tickets por mesa)
+  const {
+    cambiarMesa: cambiarMesaStore,
+    guardarVentaEnMesa,
+    eliminarVentaMesa,
+    obtenerVentaMesa,
+    dividirMesa: dividirMesaStore,
+    unirMesas: unirMesasStore,
+    mesaActualId,
+    mesaActualNumero,
+    lineas: lineasStore,
+    cliente: clienteStore,
+    descuentoGeneral: descuentoGeneralStore,
+    total: totalStore,
+  } = useVentaStore();
+
+  // Detectar si tiene módulo de restauración
+  const tieneRestauracion = tpvConfig?.tieneRestauracion ?? empresaConfig?.tieneRestauracion ?? false;
+
   // Estado de la venta
   const [lineas, setLineas] = useState<LineaVenta[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null); // null = Todos
+  const [familiaPadreNavegacion, setFamiliaPadreNavegacion] = useState<string | null>(null); // Navegación jerárquica de familias
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteSeleccionado | null>(null);
+
+  // Drag scroll para categorias
+  const dragScrollCategorias = useDragScroll();
 
   // Estado de sincronización
   const syncPendientes = useDataStore((state) => state.sincronizando ? 1 : 0);
+
+  // ===========================================
+  // GESTIÓN DE MESAS Y TICKETS
+  // ===========================================
+
+  // Convertir líneas del store al formato local
+  const convertirLineasStoreALocal = useCallback((lineasStore: any[]): LineaVenta[] => {
+    return lineasStore.map((l) => ({
+      id: l.id,
+      productoId: l.productoId,
+      varianteId: l.varianteId,
+      codigo: l.codigo,
+      nombre: l.nombre,
+      cantidad: l.cantidad,
+      precioUnitario: l.precioUnitario,
+      descuento: l.descuento,
+      total: l.total,
+      iva: l.tipoIva || 21,
+      esKit: l.esKit,
+      componentesKit: l.componentesKit,
+    }));
+  }, []);
+
+  // Convertir líneas locales al formato del store
+  const convertirLineasLocalAStore = useCallback((lineasLocal: LineaVenta[]) => {
+    return lineasLocal.map((l) => ({
+      id: l.id,
+      productoId: l.productoId,
+      varianteId: l.varianteId,
+      codigo: l.codigo,
+      nombre: l.nombre,
+      cantidad: l.cantidad,
+      precioUnitario: l.precioUnitario,
+      descuento: l.descuento,
+      tipoIva: l.iva,
+      importeIva: l.total * (l.iva / (100 + l.iva)),
+      subtotal: l.total / (1 + l.iva / 100),
+      total: l.total,
+    }));
+  }, []);
+
+  // Manejar cambio de mesa
+  const handleCambiarMesa = useCallback((mesa: Mesa) => {
+    console.log('[TPV] Cambiando a mesa:', mesa.numero);
+
+    // 1. Guardar líneas actuales en el store si hay mesa actual y líneas
+    if (mesaActualId && lineas.length > 0) {
+      const lineasParaStore = convertirLineasLocalAStore(lineas);
+      useVentaStore.setState({
+        lineas: lineasParaStore,
+        subtotal: lineasParaStore.reduce((acc, l) => acc + l.subtotal, 0),
+        totalIva: lineasParaStore.reduce((acc, l) => acc + l.importeIva, 0),
+        total: lineasParaStore.reduce((acc, l) => acc + l.total, 0),
+      });
+      guardarVentaEnMesa();
+    }
+
+    // 2. Cambiar a la nueva mesa en el store
+    cambiarMesaStore(mesa._id, mesa.numero);
+
+    // 3. Actualizar la mesa seleccionada en restauracionStore
+    seleccionarMesa(mesa);
+
+    // 4. Cargar líneas de la nueva mesa
+    const ventaMesa = obtenerVentaMesa(mesa._id);
+    if (ventaMesa && ventaMesa.lineas.length > 0) {
+      const lineasLocales = convertirLineasStoreALocal(ventaMesa.lineas);
+      setLineas(lineasLocales);
+      if (ventaMesa.cliente) {
+        setClienteSeleccionado({
+          id: ventaMesa.cliente.id,
+          codigo: '', // No guardamos el código en ventaMesa
+          nombre: ventaMesa.cliente.nombre,
+          nif: ventaMesa.cliente.nif,
+          esEmpresa: false,
+        });
+      }
+      console.log('[TPV] Cargadas', lineasLocales.length, 'líneas de mesa', mesa.numero);
+    } else {
+      // Nueva venta para esta mesa
+      setLineas([]);
+      setClienteSeleccionado(null);
+      console.log('[TPV] Nueva venta para mesa', mesa.numero);
+    }
+
+    // 5. Cargar comandas de cocina de la mesa (incluye fallback SSE:
+    //    si hay comandas pero no hay venta, incorpora las líneas automáticamente)
+    if (tieneRestauracion) {
+      useVentaStore.getState().cargarComandasMesa(mesa._id).then(() => {
+        // Si el fallback creó una venta, actualizar líneas en pantalla
+        const ventaPostCarga = obtenerVentaMesa(mesa._id);
+        if (ventaPostCarga && ventaPostCarga.lineas.length > 0 && (!ventaMesa || ventaMesa.lineas.length === 0)) {
+          const lineasLocales = convertirLineasStoreALocal(ventaPostCarga.lineas);
+          setLineas(lineasLocales);
+          console.log('[TPV] Cargadas', lineasLocales.length, 'líneas desde comandas de mesa', mesa.numero);
+        }
+      });
+    }
+  }, [
+    mesaActualId,
+    lineas,
+    convertirLineasLocalAStore,
+    guardarVentaEnMesa,
+    cambiarMesaStore,
+    seleccionarMesa,
+    obtenerVentaMesa,
+    convertirLineasStoreALocal,
+    tieneRestauracion,
+  ]);
+
+  // Handler para dividir mesa
+  const handleDividirMesa = useCallback((lineasParaMover: any[], mesaDestino: Mesa) => {
+    if (!mesaActualId) return;
+
+    console.log('[TPV] Dividiendo mesa, moviendo', lineasParaMover.length, 'líneas a mesa', mesaDestino.numero);
+
+    // Convertir las líneas seleccionadas al formato del store
+    const lineasAMover = lineasParaMover.map((linea) => ({
+      lineaId: linea.id.replace(/-split-\d+$/, ''), // Quitar el sufijo split si existe
+      cantidad: linea.cantidad,
+    }));
+
+    // Ejecutar la división en el store
+    dividirMesaStore(lineasAMover, mesaDestino._id, mesaDestino.numero);
+
+    // Actualizar las líneas locales
+    const ventaMesaActual = obtenerVentaMesa(mesaActualId);
+    if (ventaMesaActual) {
+      const lineasActualizadas = convertirLineasStoreALocal(ventaMesaActual.lineas);
+      setLineas(lineasActualizadas);
+    } else {
+      setLineas([]);
+    }
+  }, [mesaActualId, dividirMesaStore, obtenerVentaMesa, convertirLineasStoreALocal]);
+
+  // Handler para unir mesas
+  const handleUnirMesas = useCallback((mesasAUnir: Mesa[]) => {
+    if (!mesaActualId) return;
+
+    console.log('[TPV] Uniendo', mesasAUnir.length, 'mesas a mesa actual');
+
+    // Obtener los IDs de las mesas a unir
+    const mesasIds = mesasAUnir.map((m) => m._id);
+
+    // Ejecutar la unión en el store
+    unirMesasStore(mesasIds);
+
+    // Actualizar las líneas locales
+    const ventaMesaActual = obtenerVentaMesa(mesaActualId);
+    if (ventaMesaActual) {
+      const lineasActualizadas = convertirLineasStoreALocal(ventaMesaActual.lineas);
+      setLineas(lineasActualizadas);
+    }
+  }, [mesaActualId, unirMesasStore, obtenerVentaMesa, convertirLineasStoreALocal]);
+
+  // Guardar automáticamente al añadir/modificar líneas si hay mesa
+  useEffect(() => {
+    if (tieneRestauracion && mesaActualId && lineas.length > 0) {
+      const lineasParaStore = convertirLineasLocalAStore(lineas);
+      useVentaStore.setState({
+        lineas: lineasParaStore,
+        subtotal: lineasParaStore.reduce((acc, l) => acc + l.subtotal, 0),
+        totalIva: lineasParaStore.reduce((acc, l) => acc + l.importeIva, 0),
+        total: lineasParaStore.reduce((acc, l) => acc + l.total, 0),
+      });
+      guardarVentaEnMesa();
+    }
+  }, [tieneRestauracion, mesaActualId, lineas, convertirLineasLocalAStore, guardarVentaEnMesa]);
 
   // Convertir productos sincronizados al formato de la UI
   const productosUI = useMemo(() => {
@@ -227,7 +468,7 @@ export default function TPVPage() {
         ofertaNombre: precioInfo.ofertaNombre,
         descuentoOferta: precioInfo.descuentoOferta,
         categoria: p.familiaId || undefined,
-        imagen: p.imagenes?.[0] || p.imagen,
+        imagen: p.imagenPrincipal || p.imagenes?.[0] || p.imagen,
         stock: obtenerStockProducto(p._id),
         // Info adicional para variantes y kits
         tieneVariantes: p.tieneVariantes || false,
@@ -242,6 +483,26 @@ export default function TPVPage() {
     return productosSync.find((p: any) => p._id === id);
   }, [productosSync]);
 
+  // Obtener familias hijas de una familia padre
+  const getFamiliasHijas = useCallback((padreId: string) => {
+    return familias.filter((f) => f.familiaPadreId === padreId || f.familiaId === padreId);
+  }, [familias]);
+
+  // Verificar si una familia tiene subfamilias
+  const tieneSubfamilias = useCallback((familiaId: string) => {
+    return familias.some((f) => f.familiaPadreId === familiaId || f.familiaId === familiaId);
+  }, [familias]);
+
+  // Obtener todas las IDs de familias descendientes (para filtrar productos)
+  const getFamiliasDescendientes = useCallback((familiaId: string): string[] => {
+    const hijas = getFamiliasHijas(familiaId);
+    const ids = [familiaId];
+    for (const hija of hijas) {
+      ids.push(...getFamiliasDescendientes(hija._id));
+    }
+    return ids;
+  }, [getFamiliasHijas]);
+
   // Categorias basadas en familias reales, filtradas y ordenadas por perfil
   const categoriasUI = useMemo(() => {
     // Obtener configuración del perfil para ordenar
@@ -250,17 +511,23 @@ export default function TPVPage() {
       return config ? config.orden : 999;
     };
 
-    const cats = familias
-      .filter((f) => !f.familiaId) // Solo familias padre
+    // Mostrar familias hijas si estamos navegando dentro de una familia padre
+    const familiasFiltradas = familiaPadreNavegacion
+      ? familias.filter((f) => f.familiaPadreId === familiaPadreNavegacion || f.familiaId === familiaPadreNavegacion)
+      : familias.filter((f) => !f.familiaPadreId && !f.familiaId); // Solo familias raíz
+
+    const cats = familiasFiltradas
       .filter((f) => esFamiliaVisible(f._id)) // Filtrar por visibilidad del perfil
       .sort((a, b) => getOrdenPerfil(a._id) - getOrdenPerfil(b._id)) // Ordenar por perfil
       .map((f) => ({
         id: f._id,
         nombre: f.nombre,
         color: f.color,
+        imagen: f.imagenUrl || f.imagen,
+        tieneHijas: tieneSubfamilias(f._id),
       }));
     return cats;
-  }, [familias, familiasPerfil, esFamiliaVisible]);
+  }, [familias, familiasPerfil, esFamiliaVisible, familiaPadreNavegacion, tieneSubfamilias]);
 
   // Productos favoritos/destacados
   const productosFavoritos = useMemo(() => {
@@ -281,31 +548,213 @@ export default function TPVPage() {
   const [showCantidad, setShowCantidad] = useState(false);
   const [lineaCantidad, setLineaCantidad] = useState<LineaVenta | null>(null);
   const [showVentasAparcadas, setShowVentasAparcadas] = useState(false);
+  const [showPedidosRapidos, setShowPedidosRapidos] = useState(false);
   const [showVariantes, setShowVariantes] = useState(false);
   const [productoVariantes, setProductoVariantes] = useState<ProductoSync | null>(null);
   const [showKit, setShowKit] = useState(false);
   const [productoKit, setProductoKit] = useState<ProductoSync | null>(null);
+  const [showModificadores, setShowModificadores] = useState(false);
+  const [productoModificadores, setProductoModificadores] = useState<ProductoSync | null>(null);
+  const [modificadoresDisponibles, setModificadoresDisponibles] = useState<Modificador[]>([]);
+  const [productoParaAgregar, setProductoParaAgregar] = useState<Producto | null>(null);
   const [showCliente, setShowCliente] = useState(false);
   const [showPinVerificacion, setShowPinVerificacion] = useState(false);
   const [showVencimientos, setShowVencimientos] = useState(false);
 
-  // Configuracion de ajustes del TPV
-  const [tpvSettings, setTpvSettings] = useState<{ pinPorTicket: boolean }>({ pinPorTicket: false });
+  // Modales de restauración
+  const [showSelectorMesa, setShowSelectorMesa] = useState(false);
+  const [showSelectorCamarero, setShowSelectorCamarero] = useState(false);
+  const [showDividirMesa, setShowDividirMesa] = useState(false);
+  const [showUnirMesas, setShowUnirMesas] = useState(false);
+  const [ultimoProductoAgregado, setUltimoProductoAgregado] = useState<string | null>(null);
 
-  // Cargar ajustes del TPV
+  // Configuracion de ajustes del TPV (combina config sincronizada con ajustes locales)
+  const [tpvSettingsLocal, setTpvSettingsLocal] = useState<{
+    permiteDividirMesas: boolean;
+    permiteUnirMesas: boolean;
+  }>({
+    permiteDividirMesas: true,
+    permiteUnirMesas: true,
+  });
+
+  // Ajustes efectivos: prioriza config sincronizada (tpvConfig) sobre localStorage
+  const tpvSettings = {
+    pinPorTicket: tpvConfig?.pinPorTicket ?? false,
+    permiteDividirMesas: tpvSettingsLocal.permiteDividirMesas,
+    permiteUnirMesas: tpvSettingsLocal.permiteUnirMesas,
+    requiereMesaParaVenta: tpvConfig?.requiereMesaParaVenta ?? false,
+    requiereCamareroParaVenta: tpvConfig?.requiereCamareroParaVenta ?? false,
+  };
+
+  // Cargar ajustes locales del TPV (solo los que no están en config sincronizada)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('tpv_settings');
       if (saved) {
         try {
           const settings = JSON.parse(saved);
-          setTpvSettings({ pinPorTicket: settings.pinPorTicket ?? false });
+          setTpvSettingsLocal({
+            permiteDividirMesas: settings.permiteDividirMesas ?? true,
+            permiteUnirMesas: settings.permiteUnirMesas ?? true,
+          });
         } catch (e) {
           console.error('Error cargando ajustes:', e);
         }
       }
     }
   }, []);
+
+  // Sincronizar datos automáticamente al iniciar sesión
+  useEffect(() => {
+    if (logueado && productosSync.length === 0 && !sincronizando) {
+      console.log('[TPV] Sincronizando datos automáticamente...');
+      sincronizarDatos(false);
+    }
+  }, [logueado, productosSync.length, sincronizando, sincronizarDatos]);
+
+  // Cargar datos de restauración si tiene el módulo
+  useEffect(() => {
+    if (tieneRestauracion && logueado) {
+      cargarDatosRestauracion();
+    }
+  }, [tieneRestauracion, logueado, cargarDatosRestauracion]);
+
+  // SSE: Conectar para recibir eventos en tiempo real (restauración)
+  useEffect(() => {
+    if (!tieneRestauracion || !logueado) return;
+
+    let cleanup: (() => void) | undefined;
+
+    (async () => {
+      try {
+        const { tpvSSE } = await import('@/services/sse.service');
+        const credentials = tpvApi.getCredentials();
+        if (!credentials) return;
+
+        const baseUrl = getCloudApiUrl();
+        tpvSSE.connect(baseUrl, credentials.empresaId, credentials.tpvId);
+
+        // Escuchar eventos
+        const offComandaLista = tpvSSE.on('comanda-lista', (data: any) => {
+          console.log('[SSE] Comanda lista:', data);
+          // Recargar comandas de la mesa si es la mesa actual
+          const currentMesaId = useVentaStore.getState().mesaActualId;
+          if (data.mesaId && data.mesaId === currentMesaId) {
+            useVentaStore.getState().cargarComandasMesa(data.mesaId);
+          }
+        });
+
+        const offNuevaComanda = tpvSSE.on('nueva-comanda', (data: any) => {
+          console.log('[SSE] Nueva comanda:', data);
+          // Refrescar mesas para actualizar estados (la mesa puede haberse marcado como ocupada)
+          cargarDatosRestauracion();
+
+          // Si viene con lineas (comanda del comandero), incorporar a la venta de esa mesa
+          if (data.mesaId && data.lineas?.length > 0) {
+            useVentaStore.getState().incorporarLineasComanda({
+              mesaId: data.mesaId,
+              mesaNumero: data.mesaNumero || '',
+              camareroId: data.camareroId,
+              camareroNombre: data.camareroNombre,
+              lineas: data.lineas,
+            });
+
+            // Si es la mesa actual, actualizar lineas en pantalla
+            const currentMesaId = useVentaStore.getState().mesaActualId;
+            if (data.mesaId === currentMesaId) {
+              const ventaMesa = useVentaStore.getState().obtenerVentaMesa(data.mesaId);
+              if (ventaMesa) {
+                const lineasLocales = convertirLineasStoreALocal(ventaMesa.lineas);
+                setLineas(lineasLocales);
+              }
+            }
+          } else if (!data.mesaId && data.lineas?.length > 0) {
+            // Pedido rápido (barra/llevar/recoger) — agregar a cola
+            usePedidosRapidosStore.getState().agregarPedido({
+              comandaId: data.comandaId,
+              tipoServicio: data.tipoServicio || 'barra',
+              camareroNombre: data.camareroNombre,
+              lineas: data.lineas,
+            });
+
+            // Notificación sonora
+            try {
+              const audio = new Audio('/sounds/notification.mp3');
+              audio.play().catch(() => {
+                // Fallback: generar tono con AudioContext
+                try {
+                  const ctx = new AudioContext();
+                  const osc = ctx.createOscillator();
+                  const gain = ctx.createGain();
+                  osc.connect(gain);
+                  gain.connect(ctx.destination);
+                  osc.frequency.value = 800;
+                  gain.gain.value = 0.3;
+                  osc.start();
+                  osc.stop(ctx.currentTime + 0.15);
+                } catch {}
+              });
+            } catch {}
+          }
+
+          // Recargar comandas de la mesa si es la mesa actual
+          const currentMesaId = useVentaStore.getState().mesaActualId;
+          if (data.mesaId && data.mesaId === currentMesaId) {
+            useVentaStore.getState().cargarComandasMesa(data.mesaId);
+          }
+        });
+
+        const offMesaActualizada = tpvSSE.on('mesa-actualizada', () => {
+          cargarDatosRestauracion();
+        });
+
+        cleanup = () => {
+          offComandaLista();
+          offNuevaComanda();
+          offMesaActualizada();
+          tpvSSE.disconnect();
+        };
+      } catch (error) {
+        console.error('[SSE] Error conectando:', error);
+      }
+    })();
+
+    return () => {
+      cleanup?.();
+    };
+  }, [tieneRestauracion, logueado, cargarDatosRestauracion]);
+
+  // Polling periódico: verificar nuevas comandas para la mesa activa (fallback si SSE falla)
+  useEffect(() => {
+    if (!tieneRestauracion || !logueado || !mesaActualId) return;
+
+    const pollComandasMesa = async () => {
+      try {
+        const ventaAntes = useVentaStore.getState().obtenerVentaMesa(mesaActualId);
+        const totalLineasAntes = ventaAntes?.lineas?.reduce((acc, l) => acc + l.cantidad, 0) || 0;
+
+        await useVentaStore.getState().cargarComandasMesa(mesaActualId);
+
+        // Si se incorporaron líneas nuevas (fallback SSE), actualizar la pantalla
+        const ventaDespues = useVentaStore.getState().obtenerVentaMesa(mesaActualId);
+        const totalLineasDespues = ventaDespues?.lineas?.reduce((acc, l) => acc + l.cantidad, 0) || 0;
+        if (totalLineasDespues > totalLineasAntes && ventaDespues) {
+          const lineasLocales = convertirLineasStoreALocal(ventaDespues.lineas);
+          setLineas(lineasLocales);
+          console.log('[TPV Poll] Nuevas líneas detectadas para mesa', mesaActualId, ':', totalLineasDespues - totalLineasAntes, 'unidades nuevas');
+        }
+      } catch (error) {
+        // Silenciar errores del polling
+      }
+    };
+
+    // Poll cada 10 segundos
+    const interval = setInterval(pollComandasMesa, 10000);
+    // También cargar inmediatamente al montar
+    pollComandasMesa();
+
+    return () => clearInterval(interval);
+  }, [tieneRestauracion, logueado, mesaActualId, convertirLineasStoreALocal]);
 
   // Hora actual
   const [horaActual, setHoraActual] = useState(new Date());
@@ -337,6 +786,14 @@ export default function TPVPage() {
       });
     }
 
+    // Si hay una familia padre seleccionada pero no una categoría específica,
+    // mostrar productos de la familia padre y todas sus descendientes
+    const familiasVisibles = categoriaActiva
+      ? getFamiliasDescendientes(categoriaActiva)
+      : familiaPadreNavegacion
+        ? getFamiliasDescendientes(familiaPadreNavegacion)
+        : null;
+
     return productosUI.filter((p) => {
       const matchBusqueda =
         !busqueda ||
@@ -344,10 +801,10 @@ export default function TPVPage() {
         p.nombre.toLowerCase().includes(terminoBusqueda) ||
         p.codigoBarras?.toLowerCase().includes(terminoBusqueda) ||
         p.sku?.toLowerCase().includes(terminoBusqueda);
-      const matchCategoria = categoriaActiva === null || p.categoria === categoriaActiva;
+      const matchCategoria = familiasVisibles === null || (p.categoria && familiasVisibles.includes(p.categoria));
       return matchBusqueda && matchCategoria;
     });
-  }, [productosUI, busqueda, categoriaActiva, productosFavoritos]);
+  }, [productosUI, busqueda, categoriaActiva, productosFavoritos, familiaPadreNavegacion, getFamiliasDescendientes]);
 
   // Acciones de venta
   const agregarProducto = useCallback((producto: Producto) => {
@@ -410,12 +867,26 @@ export default function TPVPage() {
       return;
     }
 
-    // Producto simple: agregar directamente
+    // Verificar si tiene modificadores disponibles
+    const productoParaMod = productoCompleto || getProductoSync(producto.id);
+    if (productoParaMod) {
+      const modsDisponibles = dataStore.obtenerModificadoresProducto(productoParaMod);
+      if (modsDisponibles.length > 0) {
+        // Tiene modificadores: abrir modal
+        setProductoModificadores(productoParaMod);
+        setModificadoresDisponibles(modsDisponibles);
+        setProductoParaAgregar(producto);
+        setShowModificadores(true);
+        return;
+      }
+    }
+
+    // Producto simple sin modificadores: agregar directamente
     // Obtener IVA del producto (default 21%)
     const productoParaIva = getProductoSync(producto.id);
     const ivaProducto = productoParaIva?.impuestos?.iva ?? productoParaIva?.iva ?? 21;
     agregarProductoSimple(producto.id, producto.codigo, producto.nombre, producto.precio, undefined, ivaProducto);
-  }, [getProductoSync]);
+  }, [getProductoSync, dataStore]);
 
   // Agregar producto simple (sin variantes)
   const agregarProductoSimple = useCallback((
@@ -426,6 +897,11 @@ export default function TPVPage() {
     varianteId?: string,
     iva: number = 21
   ) => {
+    // Rastrear último producto para sugerencias
+    if (tieneRestauracion) {
+      setUltimoProductoAgregado(productoId);
+    }
+
     setLineas((prev) => {
       // Para productos con variante, buscar por productoId + varianteId
       const existente = prev.find((l) =>
@@ -457,7 +933,7 @@ export default function TPVPage() {
         },
       ];
     });
-  }, []);
+  }, [tieneRestauracion]);
 
   // Handler para cuando se selecciona una variante
   const handleSeleccionarVariante = useCallback((variante: Variante, producto: ProductoSync) => {
@@ -512,6 +988,75 @@ export default function TPVPage() {
     ]);
   }, [productoKit]);
 
+  // Handler para cuando se confirman modificadores
+  const handleConfirmarModificadores = useCallback((modificadoresSeleccionados: ModificadorSeleccionado[]) => {
+    if (!productoModificadores || !productoParaAgregar) return;
+
+    // Calcular precio extra de modificadores
+    let precioExtra = 0;
+    const modificadoresParaLinea: ModificadorLinea[] = modificadoresSeleccionados.map((modSel) => {
+      const mod = modSel.modificador;
+      let precioMod = 0;
+      if (mod.tipo === 'cargo') {
+        precioMod = mod.precioExtra * modSel.cantidad;
+        precioExtra += precioMod;
+      } else if (mod.tipo === 'descuento') {
+        precioMod = mod.precioExtra * modSel.cantidad;
+        precioExtra -= precioMod;
+      }
+
+      return {
+        modificadorId: mod._id,
+        nombre: mod.nombre,
+        nombreCorto: mod.nombreCorto,
+        cantidad: modSel.cantidad,
+        precioExtra: mod.precioExtra,
+        tipo: mod.tipo,
+      };
+    });
+
+    // Obtener IVA del producto (default 21%)
+    const ivaProducto = (productoModificadores as any).impuestos?.iva ?? (productoModificadores as any).iva ?? 21;
+    const precioBase = productoParaAgregar.precio;
+    const precioFinal = precioBase + precioExtra;
+
+    // Crear nombre con modificadores
+    let nombreCompleto = productoParaAgregar.nombre;
+    if (modificadoresParaLinea.length > 0) {
+      const modsStr = modificadoresParaLinea
+        .map((m) => m.nombreCorto || m.nombre)
+        .join(', ');
+      nombreCompleto = `${productoParaAgregar.nombre} (${modsStr})`;
+    }
+
+    // Rastrear último producto para sugerencias
+    if (tieneRestauracion) {
+      setUltimoProductoAgregado(productoModificadores._id);
+    }
+
+    // Agregar producto con modificadores
+    setLineas((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        productoId: productoModificadores._id,
+        codigo: productoModificadores.sku || productoModificadores.codigo,
+        nombre: nombreCompleto,
+        cantidad: 1,
+        precioUnitario: precioFinal,
+        descuento: 0,
+        total: precioFinal,
+        iva: ivaProducto,
+        modificadores: modificadoresParaLinea.length > 0 ? modificadoresParaLinea : undefined,
+      },
+    ]);
+
+    // Limpiar estado
+    setProductoModificadores(null);
+    setModificadoresDisponibles([]);
+    setProductoParaAgregar(null);
+  }, [productoModificadores, productoParaAgregar, tieneRestauracion]);
+
   const eliminarLinea = (id: string) => {
     setLineas(lineas.filter((l) => l.id !== id));
   };
@@ -532,10 +1077,27 @@ export default function TPVPage() {
     );
   };
 
-  const limpiarVenta = () => {
+  const limpiarVenta = async () => {
+    // Si hay mesa seleccionada, liberarla y eliminar su venta del store
+    if (mesaSeleccionada) {
+      eliminarVentaMesa(mesaSeleccionada._id);
+      await liberarMesa(mesaSeleccionada._id);
+    } else if (mesaActualId) {
+      // Si no hay mesa en restauracionStore pero sí en ventaStore
+      eliminarVentaMesa(mesaActualId);
+    }
+
+    // Limpiar estado local
     setLineas([]);
     setBusqueda('');
     setClienteSeleccionado(null);
+    setUltimoProductoAgregado(null);
+
+    // Limpiar stores de restauración
+    limpiarRestauracion();
+
+    // Limpiar ventaStore (nueva venta sin mesa)
+    useVentaStore.getState().nuevaVenta();
   };
 
   // Aparcar venta actual
@@ -577,6 +1139,19 @@ export default function TPVPage() {
       }
     } else {
       setLineas(venta.lineas);
+    }
+  };
+
+  // Recuperar pedido rápido
+  const handleRecuperarPedidoRapido = (pedido: { lineas: LineaVenta[] }) => {
+    if (lineas.length > 0) {
+      if (confirm('Ya hay productos en la venta actual. ¿Reemplazar?')) {
+        setLineas(pedido.lineas);
+      } else {
+        setLineas((prev) => [...prev, ...pedido.lineas]);
+      }
+    } else {
+      setLineas(pedido.lineas);
     }
   };
 
@@ -660,8 +1235,9 @@ export default function TPVPage() {
     ticketWindow.document.close();
   };
 
-  // Abrir modal de descuento
+  // Abrir modal de descuento (solo si TPV y usuario lo permiten)
   const abrirDescuento = (linea: LineaVenta) => {
+    if (tpvConfig?.permitirDescuentos === false || usuario?.permisos?.aplicarDescuentos === false) return;
     setLineaDescuento(linea);
     setShowDescuento(true);
   };
@@ -670,9 +1246,16 @@ export default function TPVPage() {
   const handleAplicarDescuento = (porcentaje: number) => {
     if (!lineaDescuento) return;
 
+    // Limitar descuento al máximo permitido por usuario y config TPV
+    const maxDto = Math.min(
+      usuario?.permisos?.descuentoMaximo ?? 100,
+      tpvConfig?.descuentoMaximo ?? 100
+    );
+    const porcentajeReal = Math.min(porcentaje, maxDto);
+
     setLineas(lineas.map((l) => {
       if (l.id === lineaDescuento.id) {
-        const descuentoImporte = (l.precioUnitario * l.cantidad * porcentaje) / 100;
+        const descuentoImporte = (l.precioUnitario * l.cantidad * porcentajeReal) / 100;
         return {
           ...l,
           descuento: descuentoImporte,
@@ -717,7 +1300,7 @@ export default function TPVPage() {
 
   // Cambiar precio de linea (si esta permitido)
   const handleCambiarPrecio = (nuevoPrecio: number) => {
-    if (!lineaCantidad || !tpvConfig?.permitirPrecioManual) return;
+    if (!lineaCantidad || !tpvConfig?.permitirPrecioManual || usuario?.permisos?.modificarPVP === false) return;
 
     setLineas(lineas.map((l) => {
       if (l.id === lineaCantidad.id) {
@@ -773,13 +1356,14 @@ export default function TPVPage() {
   const handleCobro = async (
     pagos: Array<{ metodo: string; importe: number }>,
     cambio: number,
-    opciones: { esTicketRegalo?: boolean; imprimir?: boolean }
+    opciones: { esTicketRegalo?: boolean; imprimir?: boolean; propina?: number }
   ) => {
     // Datos del ticket para enviar al servidor
     const ticketData = {
       clienteId: clienteSeleccionado?._id,
       clienteNombre: clienteSeleccionado?.nombre,
       clienteNif: clienteSeleccionado?.nif,
+      propina: opciones.propina || 0,
       lineas: lineas.map(l => ({
         productoId: l.productoId,
         varianteId: l.varianteId,
@@ -856,6 +1440,8 @@ export default function TPVPage() {
           metodoPago,
           usuarioId: usuario?.id || '',
           usuarioNombre: usuario?.nombre || 'Usuario',
+          ticketNumero: numeroTicket,
+          ticketSerie: serieTicket,
         });
       }
     });
@@ -1115,6 +1701,11 @@ export default function TPVPage() {
               <span className="text-sm font-medium text-gray-700">
                 {usuario?.nombre || 'Usuario'}
               </span>
+              {usuario?.rol && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded font-medium uppercase">
+                  {usuario.rol}
+                </span>
+              )}
             </div>
 
             {/* Botones de acción rápida */}
@@ -1127,11 +1718,16 @@ export default function TPVPage() {
             <Button variant="ghost" size="sm" onClick={() => setShowHistorial(true)} title="Historial de Tickets">
               <BarChart3 className="w-5 h-5" />
             </Button>
+            {((tpvConfig?.permitirCobroVencimientos && usuario?.permisos?.accesoCobroVencimientosTPV) || (tpvConfig?.permitirPagoVencimientos && usuario?.permisos?.accesoPagoVencimientosTPV)) && (
             <Button variant="ghost" size="sm" onClick={() => setShowVencimientos(true)} title="Cobrar/Pagar Facturas">
               <FileText className="w-5 h-5" />
             </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={() => setShowAjustes(true)} title="Ajustes">
               <Settings className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={openSupportChat} title="Soporte">
+              <HelpCircle className="w-5 h-5" />
             </Button>
             <Button variant="danger" size="sm" onClick={() => setShowCierreCaja(true)} title="Cerrar Caja">
               <LogOut className="w-5 h-5" />
@@ -1142,7 +1738,7 @@ export default function TPVPage() {
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Panel Izquierdo - Productos */}
-          <div className="flex-1 flex flex-col p-4">
+          <div className="flex-1 flex flex-col p-4 min-w-0">
             {/* Banner de Ventas Aparcadas */}
             {numVentasAparcadas > 0 && (
               <button
@@ -1164,6 +1760,32 @@ export default function TPVPage() {
               </button>
             )}
 
+            {/* Banner de Pedidos Rápidos */}
+            {numPedidosRapidos > 0 && (
+              <button
+                onClick={() => setShowPedidosRapidos(true)}
+                className="mb-3 flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 hover:border-emerald-300 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-200 rounded-full flex items-center justify-center relative">
+                    <Zap className="w-5 h-5 text-emerald-700" />
+                    {numNoLeidos > 0 && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse">
+                        {numNoLeidos}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-emerald-800">
+                      {numPedidosRapidos} pedido{numPedidosRapidos > 1 ? 's' : ''} rápido{numPedidosRapidos > 1 ? 's' : ''}
+                    </p>
+                    <p className="text-xs text-emerald-600">Barra / Para llevar / Recoger</p>
+                  </div>
+                </div>
+                <div className="text-emerald-500">→</div>
+              </button>
+            )}
+
             {/* Búsqueda */}
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -1177,23 +1799,45 @@ export default function TPVPage() {
             </div>
 
             {/* Categorías */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-              {/* Todos */}
+            <div
+              ref={dragScrollCategorias.ref}
+              {...dragScrollCategorias.handlers}
+              className="flex gap-2 mb-4 overflow-x-auto pb-2 flex-nowrap custom-scroll select-none"
+            >
+              {/* Botón Volver (cuando estamos en subfamilias) */}
+              {familiaPadreNavegacion && (
+                <button
+                  onClick={() => {
+                    // Buscar el padre del padre actual para navegar un nivel arriba
+                    const padreActual = familias.find((f) => f._id === familiaPadreNavegacion);
+                    const padreDelPadre = padreActual?.familiaPadreId || padreActual?.familiaId || null;
+                    setFamiliaPadreNavegacion(padreDelPadre);
+                    setCategoriaActiva(null);
+                  }}
+                  className="btn-touch whitespace-nowrap flex items-center gap-1 bg-gray-100 border border-gray-300 hover:bg-gray-200 text-gray-700 flex-shrink-0"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Volver
+                </button>
+              )}
+              {/* Todos (dentro del nivel actual) */}
               <button
                 onClick={() => setCategoriaActiva(null)}
-                className={`btn-touch whitespace-nowrap ${
+                className={`btn-touch whitespace-nowrap flex-shrink-0 ${
                   categoriaActiva === null
                     ? 'bg-primary-500 text-white'
                     : 'bg-white border border-gray-200 hover:border-primary-500 hover:bg-primary-50'
                 }`}
               >
-                Todos
+                {familiaPadreNavegacion
+                  ? familias.find((f) => f._id === familiaPadreNavegacion)?.nombre || 'Todos'
+                  : 'Todos'}
               </button>
-              {/* Favoritos (si hay) */}
-              {productosFavoritos.length > 0 && (
+              {/* Favoritos (solo en nivel raíz) */}
+              {!familiaPadreNavegacion && productosFavoritos.length > 0 && (
                 <button
                   onClick={() => setCategoriaActiva('favoritos')}
-                  className={`btn-touch whitespace-nowrap flex items-center gap-1 ${
+                  className={`btn-touch whitespace-nowrap flex items-center gap-1 flex-shrink-0 ${
                     categoriaActiva === 'favoritos'
                       ? 'bg-amber-500 text-white'
                       : 'bg-amber-50 border border-amber-200 hover:border-amber-400 hover:bg-amber-100 text-amber-700'
@@ -1203,19 +1847,36 @@ export default function TPVPage() {
                   Favoritos
                 </button>
               )}
-              {/* Familias reales */}
+              {/* Familias del nivel actual */}
               {categoriasUI.map((cat) => (
                 <button
                   key={cat.id}
-                  onClick={() => setCategoriaActiva(cat.id)}
-                  className={`btn-touch whitespace-nowrap ${
+                  onClick={() => {
+                    if (cat.tieneHijas) {
+                      // Navegar dentro de esta familia para ver sus hijas
+                      setFamiliaPadreNavegacion(cat.id);
+                      setCategoriaActiva(null);
+                    } else {
+                      setCategoriaActiva(cat.id);
+                    }
+                  }}
+                  className={`btn-touch whitespace-nowrap flex items-center gap-2 flex-shrink-0 ${
                     categoriaActiva === cat.id
                       ? 'bg-primary-500 text-white'
                       : 'bg-white border border-gray-200 hover:border-primary-500 hover:bg-primary-50'
                   }`}
                   style={cat.color && categoriaActiva !== cat.id ? { borderColor: cat.color } : undefined}
                 >
+                  {cat.imagen && (
+                    <img
+                      src={cat.imagen}
+                      alt=""
+                      className="w-6 h-6 rounded object-cover flex-shrink-0"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  )}
                   {cat.nombre}
+                  {cat.tieneHijas && <ChevronRight className="w-3 h-3 opacity-50" />}
                 </button>
               ))}
             </div>
@@ -1253,12 +1914,39 @@ export default function TPVPage() {
                           Kit
                         </span>
                       )}
-                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
-                        <Package className="w-6 h-6 text-gray-400" />
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-2 overflow-hidden flex-shrink-0">
+                        {producto.imagen ? (
+                          <img
+                            src={producto.imagen}
+                            alt=""
+                            className="w-full h-full object-cover rounded-lg"
+                            loading="lazy"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <Package className="w-6 h-6 text-gray-400" />
+                        )}
                       </div>
                       <span className="text-sm font-medium text-center line-clamp-2">
                         {producto.nombre}
                       </span>
+                      {/* Alérgenos del producto */}
+                      {(() => {
+                        const alergenos = dataStore.getAlergenosProducto(producto.id);
+                        if (alergenos.length === 0) return null;
+                        return (
+                          <div className="flex gap-0.5 flex-wrap justify-center">
+                            {alergenos.slice(0, 4).map((a) => (
+                              <span key={a._id} className="text-[9px] px-1 py-0.5 bg-red-50 text-red-600 rounded" title={a.nombre}>
+                                {a.icono || a.nombre.substring(0, 3).toUpperCase()}
+                              </span>
+                            ))}
+                            {alergenos.length > 4 && (
+                              <span className="text-[9px] text-red-400">+{alergenos.length - 4}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {/* Precio con indicador de origen */}
                       <div className="flex flex-col items-center">
                         {/* Si tiene precio especial, mostrar precio base tachado */}
@@ -1294,6 +1982,93 @@ export default function TPVPage() {
 
           {/* Panel Derecho - Ticket */}
           <div className="w-[360px] bg-white border-l flex flex-col shadow-lg">
+            {/* Restauración: Mesa y Camarero */}
+            {tieneRestauracion && (
+              <div className="p-2 border-b bg-gradient-to-r from-amber-50 to-orange-50">
+                <div className="flex gap-2">
+                  {/* Selector de Mesa */}
+                  <button
+                    onClick={() => setShowSelectorMesa(true)}
+                    className={`flex-1 flex items-center gap-2 p-2 rounded-lg transition-colors ${
+                      mesaSeleccionada
+                        ? 'bg-green-100 border border-green-300 hover:bg-green-200'
+                        : 'bg-white border border-gray-200 hover:border-amber-400'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      mesaSeleccionada ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      <Grid3X3 className="w-4 h-4" />
+                    </div>
+                    <div className="text-left flex-1">
+                      <p className="text-[10px] uppercase text-gray-500">Mesa</p>
+                      <p className={`text-sm font-bold ${mesaSeleccionada ? 'text-green-700' : 'text-gray-400'}`}>
+                        {mesaSeleccionada ? `#${mesaSeleccionada.numero}` : 'Sin asignar'}
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Selector de Camarero */}
+                  <button
+                    onClick={() => setShowSelectorCamarero(true)}
+                    className={`flex-1 flex items-center gap-2 p-2 rounded-lg transition-colors ${
+                      camareroSeleccionado
+                        ? 'bg-blue-100 border border-blue-300 hover:bg-blue-200'
+                        : 'bg-white border border-gray-200 hover:border-amber-400'
+                    }`}
+                  >
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold"
+                      style={{
+                        backgroundColor: camareroSeleccionado?.color || (camareroSeleccionado ? '#3b82f6' : '#e5e7eb'),
+                        color: camareroSeleccionado ? 'white' : '#6b7280',
+                      }}
+                    >
+                      {camareroSeleccionado ? camareroSeleccionado.nombre[0] : <User className="w-4 h-4" />}
+                    </div>
+                    <div className="text-left flex-1">
+                      <p className="text-[10px] uppercase text-gray-500">Camarero</p>
+                      <p className={`text-sm font-bold truncate ${camareroSeleccionado ? 'text-blue-700' : 'text-gray-400'}`}>
+                        {camareroSeleccionado?.alias || camareroSeleccionado?.nombre || 'Sin asignar'}
+                      </p>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Botones Dividir/Unir Mesas */}
+                {mesaSeleccionada && (tpvSettings.permiteDividirMesas || tpvSettings.permiteUnirMesas) && (
+                  <div className="flex gap-2 mt-2">
+                    {tpvSettings.permiteDividirMesas && (
+                      <button
+                        onClick={() => setShowDividirMesa(true)}
+                        disabled={lineas.length === 0}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        title="Dividir mesa"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 2v20M2 12h20" strokeLinecap="round" />
+                          <path d="M8 8L4 4M16 8l4-4M8 16l-4 4M16 16l4 4" strokeLinecap="round" />
+                        </svg>
+                        Dividir
+                      </button>
+                    )}
+                    {tpvSettings.permiteUnirMesas && (
+                      <button
+                        onClick={() => setShowUnirMesas(true)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                        title="Unir mesas"
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M8 8l4 4-4 4M16 8l-4 4 4 4" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Unir
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Cliente */}
             <div className="p-3 border-b bg-gray-50">
               <button
@@ -1391,6 +2166,8 @@ export default function TPVPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {/* Solo mostrar botón descuento si TPV y usuario lo permiten */}
+                        {(tpvConfig?.permitirDescuentos !== false && usuario?.permisos?.aplicarDescuentos !== false) && (
                         <button
                           onClick={() => abrirDescuento(linea)}
                           className={`w-6 h-6 rounded flex items-center justify-center ${
@@ -1402,6 +2179,7 @@ export default function TPVPage() {
                         >
                           <Percent className="w-3 h-3" />
                         </button>
+                        )}
                         <div className="text-right min-w-[60px]">
                           {linea.descuento > 0 && (
                             <div className="text-[10px] text-gray-400 line-through">
@@ -1544,6 +2322,7 @@ export default function TPVPage() {
         onClose={() => setShowCobro(false)}
         onConfirm={handleCobro}
         total={total}
+        permitirPropina={tpvConfig?.permitirPropinas ?? empresaConfig?.tieneRestauracion ?? false}
       />
 
       <PinVerificacionModal
@@ -1587,7 +2366,10 @@ export default function TPVPage() {
             ? (lineaDescuento.descuento / (lineaDescuento.precioUnitario * lineaDescuento.cantidad)) * 100
             : 0
         }
-        maxDescuento={tpvConfig?.descuentoMaximo || 100}
+        maxDescuento={Math.min(
+          usuario?.permisos?.descuentoMaximo ?? 100,
+          tpvConfig?.descuentoMaximo ?? 100
+        )}
       />
 
       <CantidadModal
@@ -1599,7 +2381,7 @@ export default function TPVPage() {
         onConfirm={handleCambiarCantidad}
         productoNombre={lineaCantidad?.nombre || ''}
         cantidadActual={lineaCantidad?.cantidad || 1}
-        permiteCambiarPrecio={tpvConfig?.permitirPrecioManual}
+        permiteCambiarPrecio={tpvConfig?.permitirPrecioManual && usuario?.permisos?.modificarPVP !== false}
         precioActual={lineaCantidad?.precioUnitario || 0}
         onCambiarPrecio={handleCambiarPrecio}
       />
@@ -1608,6 +2390,12 @@ export default function TPVPage() {
         isOpen={showVentasAparcadas}
         onClose={() => setShowVentasAparcadas(false)}
         onRecuperar={handleRecuperarVenta}
+      />
+
+      <PedidosRapidosModal
+        isOpen={showPedidosRapidos}
+        onClose={() => setShowPedidosRapidos(false)}
+        onRecuperar={handleRecuperarPedidoRapido}
       />
 
       <VariantesModal
@@ -1632,6 +2420,20 @@ export default function TPVPage() {
         productos={productosSync}
       />
 
+      {/* Modal Modificadores */}
+      <ModificadoresModal
+        isOpen={showModificadores}
+        onClose={() => {
+          setShowModificadores(false);
+          setProductoModificadores(null);
+          setModificadoresDisponibles([]);
+          setProductoParaAgregar(null);
+        }}
+        onConfirmar={handleConfirmarModificadores}
+        producto={productoModificadores}
+        modificadoresDisponibles={modificadoresDisponibles}
+      />
+
       {/* Modal Seleccionar Cliente */}
       <SelectClienteModal
         isOpen={showCliente}
@@ -1644,8 +2446,71 @@ export default function TPVPage() {
       <CobroVencimientosModal
         isOpen={showVencimientos}
         onClose={() => setShowVencimientos(false)}
-        tipo="todos"
+        tipo={
+          (tpvConfig?.permitirCobroVencimientos && usuario?.permisos?.accesoCobroVencimientosTPV) && (tpvConfig?.permitirPagoVencimientos && usuario?.permisos?.accesoPagoVencimientosTPV)
+            ? 'todos'
+            : (tpvConfig?.permitirCobroVencimientos && usuario?.permisos?.accesoCobroVencimientosTPV)
+              ? 'cobro'
+              : 'pago'
+        }
       />
+
+      {/* Modales de Restauración */}
+      {tieneRestauracion && (
+        <>
+          <SelectorMesaModal
+            isOpen={showSelectorMesa}
+            onClose={() => setShowSelectorMesa(false)}
+            onSelect={(mesa) => {
+              handleCambiarMesa(mesa);
+              setShowSelectorMesa(false);
+            }}
+            onUnirMesas={tpvSettings.permiteUnirMesas ? handleUnirMesas : undefined}
+            mesaActual={mesaSeleccionada}
+            soloLibres={false}
+            permitirMultiseleccion={tpvSettings.permiteUnirMesas}
+          />
+
+          <SelectorCamareroModal
+            isOpen={showSelectorCamarero}
+            onClose={() => setShowSelectorCamarero(false)}
+            onSelect={(camarero) => {
+              seleccionarCamarero(camarero);
+              setShowSelectorCamarero(false);
+            }}
+            camareroActual={camareroSeleccionado}
+            salonId={mesaSeleccionada?.salonId}
+          />
+
+          {/* Modal Dividir Mesa */}
+          <DividirMesaModal
+            isOpen={showDividirMesa}
+            onClose={() => setShowDividirMesa(false)}
+            lineas={lineas}
+            mesaActual={mesaSeleccionada}
+            onDividir={handleDividirMesa}
+          />
+
+          {/* Modal Unir Mesas */}
+          <UnirMesasModal
+            isOpen={showUnirMesas}
+            onClose={() => setShowUnirMesas(false)}
+            mesaActual={mesaSeleccionada}
+            onUnir={handleUnirMesas}
+          />
+
+          {/* Panel de Sugerencias */}
+          <SugerenciasPanel
+            productoId={ultimoProductoAgregado}
+            onAgregarProducto={(productoId, nombre, precio) => {
+              const productoSync = getProductoSync(productoId);
+              const ivaProducto = productoSync?.impuestos?.iva ?? productoSync?.iva ?? 21;
+              agregarProductoSimple(productoId, productoSync?.sku || '', nombre, precio, undefined, ivaProducto);
+            }}
+            visible={lineas.length > 0}
+          />
+        </>
+      )}
     </>
   );
 }

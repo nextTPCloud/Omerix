@@ -23,11 +23,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Menu, X, Sparkles, Clock, AlertTriangle, Crown, Settings } from 'lucide-react'
+import { Menu, X, Sparkles, Clock, AlertTriangle, Crown, Settings, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { LogoLink } from './LogoLink'
+// Logo movido al Sidebar
 import { SkinSelector } from '@/components/SkinSelector'
 import { UserPreferencesSheet } from '@/components/UserPreferencesSheet'
+import { openSupportChat } from '@/components/ChatwootWidget'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -115,7 +116,7 @@ export function Header({ onMenuClick, isMobileMenuOpen }: HeaderProps) {
   const hasCriticalWarning = warnings.some(w => w.includes('⛔') || w.includes('⚠️'))
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center px-4 lg:px-6">
         {/* Botón hamburguesa móvil */}
         <Button
@@ -130,9 +131,6 @@ export function Header({ onMenuClick, isMobileMenuOpen }: HeaderProps) {
             <Menu className="h-5 w-5" />
           )}
         </Button>
-
-        {/* Logo */}
-        <LogoLink />
 
         {/* Espaciador */}
         <div className="flex-1" />
@@ -211,6 +209,25 @@ export function Header({ onMenuClick, isMobileMenuOpen }: HeaderProps) {
               </Tooltip>
             </TooltipProvider>
           )}
+
+          {/* Botón de Soporte */}
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={openSupportChat}
+                  className="h-8 w-8"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Soporte</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {/* Selector de tema */}
           <SkinSelector />

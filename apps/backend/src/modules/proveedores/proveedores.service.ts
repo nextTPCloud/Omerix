@@ -606,6 +606,50 @@ export class ProveedoresService {
     const count = await ProveedorModel.countDocuments(query);
     return count > 0;
   }
+
+  // ============================================
+  // ARCHIVOS
+  // ============================================
+
+  async subirArchivo(
+    id: string,
+    archivo: { nombre: string; url: string; tipo: string; tamaño: number },
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ): Promise<IProveedor | null> {
+    const ProveedorModel = await this.getModeloProveedor(String(empresaId), dbConfig);
+    return ProveedorModel.findOneAndUpdate(
+      { _id: id },
+      {
+        $push: {
+          archivos: { ...archivo, fechaSubida: new Date(), subidoPor: usuarioId },
+        },
+        modificadoPor: usuarioId,
+        fechaModificacion: new Date(),
+      },
+      { new: true }
+    );
+  }
+
+  async eliminarArchivo(
+    id: string,
+    archivoUrl: string,
+    empresaId: mongoose.Types.ObjectId,
+    usuarioId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ): Promise<IProveedor | null> {
+    const ProveedorModel = await this.getModeloProveedor(String(empresaId), dbConfig);
+    return ProveedorModel.findOneAndUpdate(
+      { _id: id },
+      {
+        $pull: { archivos: { url: archivoUrl } },
+        modificadoPor: usuarioId,
+        fechaModificacion: new Date(),
+      },
+      { new: true }
+    );
+  }
 }
 
 // Exportar instancia singleton

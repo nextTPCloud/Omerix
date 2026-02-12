@@ -157,6 +157,71 @@ export const proyectosService = {
     const response = await api.get<ApiResponse<any[]>>(`/proyectos/personal-disponible${params}`);
     return response.data;
   },
+
+  // ============================================
+  // RECURRENCIA / PERIODICIDAD
+  // ============================================
+
+  async configurarRecurrencia(
+    proyectoId: string,
+    config: {
+      activo: boolean;
+      frecuencia: string;
+      diaGeneracion: number;
+      fechaInicio: string;
+      fechaFin?: string;
+      generarParteTrabajo: boolean;
+      generarAlbaran: boolean;
+      generarFactura: boolean;
+      lineasPlantilla?: any[];
+    }
+  ): Promise<ApiResponse<IProyecto>> {
+    const response = await api.put<ApiResponse<IProyecto>>(`/proyectos/${proyectoId}/recurrencia`, config);
+    return response.data;
+  },
+
+  async getProyectosPendientesGeneracion(): Promise<ApiResponse<IProyecto[]>> {
+    const response = await api.get<ApiResponse<IProyecto[]>>('/proyectos/recurrencia/pendientes');
+    return response.data;
+  },
+
+  async ejecutarGeneracionMasiva(): Promise<ApiResponse<{
+    fecha: string;
+    totalProyectosProcessados: number;
+    totalExitos: number;
+    totalErrores: number;
+    resultados: any[];
+  }>> {
+    const response = await api.post<ApiResponse<any>>('/proyectos/recurrencia/generar-masivo');
+    return response.data;
+  },
+
+  async procesarRecurrente(proyectoId: string): Promise<ApiResponse<{
+    exito: boolean;
+    proyectoId: string;
+    parteTrabajoId?: string;
+    parteTrabajoNumero?: string;
+    albaranId?: string;
+    albaranNumero?: string;
+    error?: string;
+  }>> {
+    const response = await api.post<ApiResponse<any>>(`/proyectos/${proyectoId}/recurrencia/generar`);
+    return response.data;
+  },
+
+  async getHistorialGeneraciones(proyectoId: string): Promise<ApiResponse<any[]>> {
+    const response = await api.get<ApiResponse<any[]>>(`/proyectos/${proyectoId}/recurrencia/historial`);
+    return response.data;
+  },
+
+  // ============================================
+  // DASHBOARD
+  // ============================================
+
+  async getDashboard(): Promise<ApiResponse<any>> {
+    const response = await api.get<ApiResponse<any>>('/proyectos/dashboard');
+    return response.data;
+  },
 };
 
 export default proyectosService;

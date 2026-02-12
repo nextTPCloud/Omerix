@@ -15,9 +15,13 @@ export const generalLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Omitir rutas de refresh token para no penalizar renovaciones de sesión
+  // Omitir rutas que no deben ser limitadas
   skip: (req) => {
-    return req.path === '/auth/refresh';
+    return (
+      req.path === '/api/auth/refresh' ||
+      req.path.startsWith('/api/kiosk/') ||
+      req.path.startsWith('/api/tpv/')
+    );
   },
   handler: (req, res) => {
     logger.warn('Rate limit excedido', {

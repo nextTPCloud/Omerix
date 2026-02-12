@@ -281,6 +281,7 @@ export interface Producto {
 
   // TPV
   usarEnTPV: boolean
+  usarEnKiosk: boolean
   permiteDescuento: boolean
   precioModificable: boolean
   imprimirEnTicket: boolean
@@ -427,6 +428,7 @@ export interface CreateProductoDTO {
 
   // TPV
   usarEnTPV?: boolean
+  usarEnKiosk?: boolean
   permiteDescuento?: boolean
   precioModificable?: boolean
   imprimirEnTicket?: boolean

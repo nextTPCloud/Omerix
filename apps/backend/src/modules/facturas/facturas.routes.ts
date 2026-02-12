@@ -1048,4 +1048,90 @@ router.post('/:id/duplicar', facturasController.duplicar);
  */
 router.post('/:id/enviar-email', facturasController.enviarPorEmail);
 
+/**
+ * @swagger
+ * /api/facturas/{id}/pdf:
+ *   get:
+ *     summary: Generar PDF de la factura (vista previa)
+ *     description: Genera y devuelve el PDF de la factura para visualización en el navegador
+ *     tags: [Facturas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: plantillaId
+ *         schema:
+ *           type: string
+ *         description: ID de la plantilla a usar (por defecto usa la predeterminada)
+ *       - in: query
+ *         name: mostrarVencimientos
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *       - in: query
+ *         name: mostrarQRVerifactu
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *       - in: query
+ *         name: mostrarCondiciones
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *       - in: query
+ *         name: mostrarCuentaBancaria
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *       - in: query
+ *         name: mostrarLOPD
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *     responses:
+ *       200:
+ *         description: PDF de la factura
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Factura no encontrada
+ */
+router.get('/:id/pdf', facturasController.generarPDF);
+
+/**
+ * @swagger
+ * /api/facturas/{id}/descargar:
+ *   get:
+ *     summary: Descargar PDF de la factura
+ *     description: Genera y descarga el PDF de la factura
+ *     tags: [Facturas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: PDF de la factura para descarga
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Factura no encontrada
+ */
+router.get('/:id/descargar', facturasController.descargarPDF);
+
 export default router;

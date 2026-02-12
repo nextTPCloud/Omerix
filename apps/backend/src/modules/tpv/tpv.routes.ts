@@ -23,7 +23,25 @@ import {
   obtenerVencimientosPendientes,
   buscarVencimientoPorFactura,
   cobrarVencimiento,
+  buscarTickets,
   sincronizarMovimientoCaja,
+  // SSE
+  sseTPV,
+  // Restauración
+  getSalonesTPV,
+  getComandasMesaTPV,
+  getMesasTPV,
+  actualizarEstadoMesaTPV,
+  getCamarerosTPV,
+  registrarPropinaTPV,
+  getSugerenciasTPV,
+  aceptarSugerenciaTPV,
+  crearComandaTPV,
+  // PDF
+  generarTicketPDF,
+  // Comandero
+  loginComandero,
+  logoutComandero,
 } from './tpv.controller';
 
 const router = Router();
@@ -170,6 +188,13 @@ router.post('/heartbeat', heartbeat);
  *         description: Logout exitoso
  */
 router.post('/logout', logoutTPV);
+
+// SSE - Eventos en tiempo real para TPV
+router.get('/events/:empresaId/:tpvId', sseTPV);
+
+// Comandero (camareros)
+router.post('/comandero/login', loginComandero);
+router.post('/comandero/logout', logoutComandero);
 
 // ===== RUTAS DE SINCRONIZACION (autenticacion por tpvId/tpvSecret) =====
 
@@ -409,6 +434,7 @@ router.post('/sync/buscar-factura', buscarVencimientoPorFactura);
  *       200:
  *         description: Vencimiento cobrado/pagado y movimiento bancario creado
  */
+router.post('/sync/buscar-tickets', buscarTickets);
 router.post('/sync/cobrar-vencimiento', cobrarVencimiento);
 
 /**
@@ -448,6 +474,124 @@ router.post('/sync/cobrar-vencimiento', cobrarVencimiento);
  *         description: Movimiento sincronizado correctamente
  */
 router.post('/sync/movimiento-caja', sincronizarMovimientoCaja);
+
+/**
+ * @swagger
+ * /api/tpv/sync/ticket-pdf:
+ *   post:
+ *     summary: Genera PDF del ticket para imprimir
+ *     tags: [TPV]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - empresaId
+ *               - tpvId
+ *               - tpvSecret
+ *               - venta
+ *             properties:
+ *               empresaId:
+ *                 type: string
+ *               tpvId:
+ *                 type: string
+ *               tpvSecret:
+ *                 type: string
+ *               venta:
+ *                 type: object
+ *                 description: Datos de la venta para el ticket
+ *               opciones:
+ *                 type: object
+ *                 properties:
+ *                   anchoTicket:
+ *                     type: number
+ *                     enum: [58, 80]
+ *                     default: 80
+ *                   mostrarQR:
+ *                     type: boolean
+ *                     default: true
+ *     responses:
+ *       200:
+ *         description: PDF del ticket en base64
+ */
+router.post('/sync/ticket-pdf', generarTicketPDF);
+
+// ===== RUTAS DE RESTAURACIÓN (autenticacion por tpvId/tpvSecret) =====
+
+/**
+ * @swagger
+ * /api/tpv/restauracion/salones:
+ *   post:
+ *     summary: Obtiene salones activos para el TPV
+ *     tags: [TPV]
+ */
+router.post('/restauracion/salones', getSalonesTPV);
+
+/**
+ * @swagger
+ * /api/tpv/restauracion/mesas:
+ *   post:
+ *     summary: Obtiene mesas para el TPV
+ *     tags: [TPV]
+ */
+router.post('/restauracion/mesas', getMesasTPV);
+
+/**
+ * @swagger
+ * /api/tpv/restauracion/mesas/{mesaId}/estado:
+ *   post:
+ *     summary: Actualiza el estado de una mesa
+ *     tags: [TPV]
+ */
+router.post('/restauracion/mesas/:mesaId/estado', actualizarEstadoMesaTPV);
+
+/**
+ * @swagger
+ * /api/tpv/restauracion/camareros:
+ *   post:
+ *     summary: Obtiene camareros activos para el TPV
+ *     tags: [TPV]
+ */
+router.post('/restauracion/camareros', getCamarerosTPV);
+
+/**
+ * @swagger
+ * /api/tpv/restauracion/camareros/{camareroId}/propina:
+ *   post:
+ *     summary: Registra propina para un camarero
+ *     tags: [TPV]
+ */
+router.post('/restauracion/camareros/:camareroId/propina', registrarPropinaTPV);
+
+/**
+ * @swagger
+ * /api/tpv/restauracion/sugerencias/{productoId}:
+ *   post:
+ *     summary: Obtiene sugerencias para un producto
+ *     tags: [TPV]
+ */
+router.post('/restauracion/sugerencias/:productoId', getSugerenciasTPV);
+
+/**
+ * @swagger
+ * /api/tpv/restauracion/sugerencias/{sugerenciaId}/aceptar:
+ *   post:
+ *     summary: Registra aceptación de sugerencia
+ *     tags: [TPV]
+ */
+router.post('/restauracion/sugerencias/:sugerenciaId/aceptar', aceptarSugerenciaTPV);
+
+/**
+ * @swagger
+ * /api/tpv/restauracion/comandas:
+ *   post:
+ *     summary: Crea una comanda de cocina
+ *     tags: [TPV]
+ */
+router.post('/restauracion/comandas', crearComandaTPV);
+router.post('/restauracion/mesas/:mesaId/comandas', getComandasMesaTPV);
 
 // ===== RUTAS PROTEGIDAS (para la web de administracion) =====
 router.use(authMiddleware);

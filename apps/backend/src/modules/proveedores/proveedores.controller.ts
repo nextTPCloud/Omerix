@@ -3,6 +3,7 @@ import { proveedoresService } from './proveedores.service';
 import mongoose from 'mongoose';
 import { CreateProveedorSchema, UpdateProveedorSchema } from './proveedores.dto';
 import { ReferentialIntegrityError } from '@/utils/referential-integrity.helper';
+import storageService from '@/services/storage.service';
 
 export class ProveedoresController {
 
@@ -679,6 +680,108 @@ export class ProveedoresController {
         success: false,
         message: error.message || 'Error al buscar proveedores',
       });
+    }
+  }
+  // ============================================
+  // SUBIR ARCHIVO
+  // ============================================
+
+  async subirArchivo(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({ success: false, message: 'No autenticado' });
+      }
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({ success: false, message: 'Configuración de base de datos no disponible' });
+      }
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No se ha subido ningún archivo' });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const usuarioId = new mongoose.Types.ObjectId(req.userId);
+
+      // Subir a almacenamiento
+      const result = await storageService.uploadFile({
+        empresaId: req.empresaId!,
+        modulo: 'proveedores',
+        buffer: req.file.buffer,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        isPublic: false,
+      });
+
+      const proveedor = await proveedoresService.subirArchivo(
+        req.params.id,
+        {
+          nombre: req.file.originalname,
+          url: result.url,
+          tipo: req.file.mimetype,
+          tamaño: result.size,
+        },
+        empresaId,
+        usuarioId,
+        req.empresaDbConfig
+      );
+
+      if (!proveedor) {
+        return res.status(404).json({ success: false, message: 'Proveedor no encontrado' });
+      }
+
+      res.json({ success: true, data: proveedor, message: 'Archivo subido exitosamente' });
+    } catch (error: any) {
+      console.error('Error al subir archivo a proveedor:', error);
+      res.status(500).json({ success: false, message: error.message || 'Error al subir el archivo' });
+    }
+  }
+
+  // ============================================
+  // ELIMINAR ARCHIVO
+  // ============================================
+
+  async eliminarArchivo(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({ success: false, message: 'No autenticado' });
+      }
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({ success: false, message: 'Configuración de base de datos no disponible' });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+      const usuarioId = new mongoose.Types.ObjectId(req.userId);
+      const { url } = req.body;
+
+      if (!url) {
+        return res.status(400).json({ success: false, message: 'Debe proporcionar la URL del archivo a eliminar' });
+      }
+
+      // Intentar eliminar de almacenamiento
+      try {
+        const keyMatch = url.match(new RegExp(`${req.empresaId}/.*`));
+        if (keyMatch) {
+          await storageService.deleteFile(keyMatch[0]);
+        }
+      } catch {
+        // Continuar aunque falle
+      }
+
+      const proveedor = await proveedoresService.eliminarArchivo(
+        req.params.id,
+        url,
+        empresaId,
+        usuarioId,
+        req.empresaDbConfig
+      );
+
+      if (!proveedor) {
+        return res.status(404).json({ success: false, message: 'Proveedor no encontrado' });
+      }
+
+      res.json({ success: true, data: proveedor, message: 'Archivo eliminado exitosamente' });
+    } catch (error: any) {
+      console.error('Error al eliminar archivo de proveedor:', error);
+      res.status(500).json({ success: false, message: error.message || 'Error al eliminar el archivo' });
     }
   }
 }

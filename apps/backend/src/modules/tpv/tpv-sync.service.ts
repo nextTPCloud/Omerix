@@ -15,6 +15,13 @@ import {
   getTPVRegistradoModel,
   getFacturaModel,
   getVencimientoModel,
+  getSalonModel,
+  getMesaModel,
+  getCamareroModel,
+  getSugerenciaModel,
+  getModificadorProductoModel,
+  getGrupoModificadoresModel,
+  getAlergenoModel,
 } from '../../utils/dynamic-models.helper';
 import { TipoFactura, EstadoFactura, MetodoPago, SistemaFiscal, TipoLinea } from '../facturas/Factura';
 import { movimientosBancariosService } from '../tesoreria/movimientos-bancarios.service';
@@ -31,6 +38,15 @@ export interface IDatosSincronizacion {
   tarifas: any[];
   ofertas: any[];
   usuarios: any[];
+  // Datos de restauración (solo si tieneRestauracion está habilitado)
+  salones?: any[];
+  mesas?: any[];
+  camareros?: any[];
+  sugerencias?: any[];
+  alergenos?: any[];
+  // Modificadores de productos
+  modificadores?: any[];
+  gruposModificadores?: any[];
   config: {
     serieFactura: string;
     almacenId: string;
@@ -215,6 +231,7 @@ export class TPVSyncService {
         precioVenta: 1,
         codigoBarras: 1,
         imagenes: 1,
+        imagenPrincipal: 1,
         unidadMedida: 1,
         ventaPorPeso: 1,
         stock: 1,
@@ -233,6 +250,8 @@ export class TPVSyncService {
         permiteDescuento: 1,
         precioModificable: 1,
         iva: 1,
+        // Restauración
+        restauracion: 1,
       }),
 
       // Familias activas
@@ -245,8 +264,9 @@ export class TPVSyncService {
         nombre: 1,
         color: 1,
         orden: 1,
-        padreId: 1,
+        familiaPadreId: 1,
         imagen: 1,
+        imagenUrl: 1,
       }),
 
       // Clientes activos
@@ -358,6 +378,176 @@ export class TPVSyncService {
         permisos: ue.usuarioId.permisos || {},
       }));
 
+    // Cargar modificadores de productos (siempre, no solo para restauración)
+    let modificadores: any[] = [];
+    let gruposModificadores: any[] = [];
+
+    try {
+      const [
+        ModificadorProducto,
+        GrupoModificadores,
+      ] = await Promise.all([
+        getModificadorProductoModel(empresaId, dbConfig),
+        getGrupoModificadoresModel(empresaId, dbConfig),
+      ]);
+
+      [modificadores, gruposModificadores] = await Promise.all([
+        // Modificadores activos
+        ModificadorProducto.find({ activo: true })
+          .populate('grupoId', 'nombre color tipoSeleccion minimo maximo')
+          .select({
+            _id: 1,
+            grupoId: 1,
+            nombre: 1,
+            nombreCorto: 1,
+            codigo: 1,
+            tipo: 1,
+            precioExtra: 1,
+            porcentaje: 1,
+            aplicaA: 1,
+            familiasIds: 1,
+            productosIds: 1,
+            color: 1,
+            icono: 1,
+            orden: 1,
+            mostrarEnTPV: 1,
+            esMultiple: 1,
+            cantidadMaxima: 1,
+            obligatorio: 1,
+          }),
+
+        // Grupos de modificadores activos
+        GrupoModificadores.find({ activo: true })
+          .select({
+            _id: 1,
+            nombre: 1,
+            color: 1,
+            tipoSeleccion: 1,
+            minimo: 1,
+            maximo: 1,
+            orden: 1,
+          }),
+      ]);
+
+      console.log('[TPV Sync] Modificadores cargados:', {
+        modificadores: modificadores.length,
+        grupos: gruposModificadores.length,
+      });
+    } catch (error) {
+      console.error('[TPV Sync] Error cargando modificadores:', error);
+    }
+
+    // Cargar datos de restauración si está habilitado
+    let salones: any[] = [];
+    let mesas: any[] = [];
+    let camareros: any[] = [];
+    let sugerencias: any[] = [];
+    let alergenos: any[] = [];
+
+    if (tpv.config?.tieneRestauracion) {
+      const [
+        Salon,
+        Mesa,
+        Camarero,
+        Sugerencia,
+      ] = await Promise.all([
+        getSalonModel(empresaId, dbConfig),
+        getMesaModel(empresaId, dbConfig),
+        getCamareroModel(empresaId, dbConfig),
+        getSugerenciaModel(empresaId, dbConfig),
+      ]);
+
+      const salonPorDefectoId = tpv.config?.salonPorDefectoId?.toString();
+
+      [salones, mesas, camareros, sugerencias] = await Promise.all([
+        // Salones activos
+        Salon.find({ activo: true }).select({
+          _id: 1,
+          nombre: 1,
+          color: 1,
+          capacidadTotal: 1,
+          descripcion: 1,
+          orden: 1,
+          plano: 1,
+        }),
+
+        // Mesas activas - cargamos todas para permitir cambiar entre salones
+        Mesa.find({
+          activo: true,
+        })
+          .populate('salonId', 'nombre color')
+          .select({
+            _id: 1,
+            numero: 1,
+            salonId: 1,
+            capacidadMaxima: 1,
+            capacidadMinima: 1,
+            estado: 1,
+            posicion: 1, // Incluye x, y, rotacion
+            forma: 1,
+            dimensiones: 1, // ancho, alto - se mapea a tamano en frontend
+            activo: 1,
+            estadoInfo: 1, // Incluye pedidoId, camareroId, etc.
+          }),
+
+        // Camareros activos
+        Camarero.find({
+          activo: true,
+          estado: { $in: ['activo', 'en_descanso'] },
+        }).select({
+          _id: 1,
+          nombre: 1,
+          alias: 1,
+          color: 1,
+          pin: 1,
+          estado: 1,
+          salonesAsignados: 1,
+        }),
+
+        // Sugerencias activas
+        Sugerencia.find({ activa: true })
+          .populate('productoOrigenId', 'nombre codigo')
+          .populate('productoSugeridoId', 'nombre codigo precioVenta precios')
+          .select({
+            _id: 1,
+            productoOrigenId: 1,
+            productoSugeridoId: 1,
+            tipo: 1,
+            momento: 1,
+            mensaje: 1,
+            prioridad: 1,
+            descuento: 1,
+          }),
+      ]);
+
+      // Cargar alérgenos
+      try {
+        const AlergenoModel = await getAlergenoModel(empresaId, dbConfig);
+        alergenos = await AlergenoModel.find({ activo: true })
+          .select('_id codigo nombre icono color esObligatorioUE orden')
+          .sort({ orden: 1 });
+      } catch (error) {
+        console.error('[TPV Sync] Error cargando alérgenos:', error);
+      }
+
+      console.log('[TPV Sync] Datos restauración cargados:', {
+        salones: salones.length,
+        mesas: mesas.length,
+        camareros: camareros.length,
+        sugerencias: sugerencias.length,
+        alergenos: alergenos.length,
+        salonesIds: salones.map((s: any) => ({ _id: s._id?.toString(), nombre: s.nombre })),
+        mesasDetalle: mesas.map((m: any) => ({
+          _id: m._id?.toString(),
+          numero: m.numero,
+          salonId: typeof m.salonId === 'object' ? m.salonId._id?.toString() : m.salonId?.toString(),
+          salonNombre: typeof m.salonId === 'object' ? m.salonId.nombre : undefined,
+          estado: m.estado,
+          activo: m.activo,
+        })),
+      });
+    }
+
     // Crear mapa de productos para resolver nombres de componentes de kit
     const productosMap = new Map(productos.map((p: any) => [p._id.toString(), p]));
 
@@ -378,6 +568,14 @@ export class TPVSyncService {
       return producto;
     });
 
+    // Log de config de restauración para debug
+    console.log('[TPV Sync] Config restauración:', {
+      tieneRestauracion: tpv.config?.tieneRestauracion,
+      permitirPropinas: tpv.config?.permitirPropinas,
+      salonPorDefectoId: tpv.config?.salonPorDefectoId?.toString(),
+      incluyeDataRestauracion: !!tpv.config?.tieneRestauracion,
+    });
+
     return {
       productos: productosEnriquecidos,
       familias,
@@ -388,6 +586,17 @@ export class TPVSyncService {
       tarifas,
       ofertas,
       usuarios: usuariosTransformados,
+      // Datos de restauración (solo si está habilitado)
+      ...(tpv.config?.tieneRestauracion && {
+        salones,
+        mesas,
+        camareros,
+        sugerencias,
+        alergenos,
+      }),
+      // Modificadores (siempre incluidos)
+      modificadores,
+      gruposModificadores,
       config: {
         serieFactura: tpv.serieFactura,
         almacenId: (tpv.almacenId as any)?._id?.toString() || tpv.almacenId?.toString() || '',
@@ -1191,6 +1400,77 @@ export class TPVSyncService {
       };
     } catch (error: any) {
       console.error('[TPV Sync] Error sincronizando movimiento de caja:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Buscar tickets (facturas simplificadas) para el historial del TPV
+   */
+  async buscarTickets(
+    empresaId: string,
+    busqueda?: string,
+    limite: number = 50
+  ): Promise<any[]> {
+    try {
+      const dbConfig = await this.getDbConfig(empresaId);
+      const Factura = await getFacturaModel(empresaId, dbConfig);
+
+      const filtro: any = {
+        tipo: TipoFactura.SIMPLIFICADA,
+      };
+
+      if (busqueda) {
+        filtro.$or = [
+          { codigo: { $regex: busqueda, $options: 'i' } },
+          { numero: !isNaN(Number(busqueda)) ? Number(busqueda) : -1 },
+          { 'cliente.nombre': { $regex: busqueda, $options: 'i' } },
+          { serie: { $regex: busqueda, $options: 'i' } },
+        ];
+      }
+
+      const tickets = await Factura.find(filtro)
+        .sort({ fecha: -1 })
+        .limit(limite)
+        .select({
+          _id: 1,
+          codigo: 1,
+          serie: 1,
+          numero: 1,
+          fecha: 1,
+          total: 1,
+          lineas: 1,
+          pagos: 1,
+          'cliente.nombre': 1,
+          'cliente.nif': 1,
+          vendedor: 1,
+          tpvId: 1,
+          tpvNombre: 1,
+        })
+        .lean();
+
+      return tickets.map((t: any) => ({
+        id: t._id.toString(),
+        codigo: t.codigo,
+        serie: t.serie || '',
+        numero: t.numero?.toString().padStart(5, '0') || '00000',
+        fecha: t.fecha,
+        total: t.total || 0,
+        clienteNombre: t.cliente?.nombre,
+        clienteNif: t.cliente?.nif,
+        usuarioNombre: t.vendedor?.nombre || 'Usuario',
+        tpvNombre: t.tpvNombre || 'TPV',
+        metodoPago: t.pagos?.[0]?.metodo || 'efectivo',
+        lineas: (t.lineas || []).map((l: any) => ({
+          nombre: l.concepto || l.descripcion || l.nombre || '',
+          cantidad: l.cantidad || 1,
+          precioUnitario: l.precioUnitario || 0,
+          total: l.total || l.subtotal || 0,
+          componentesKit: l.componentesKit,
+        })),
+      }));
+    } catch (error: any) {
+      console.error('[TPV Sync] Error buscando tickets:', error.message);
       throw error;
     }
   }

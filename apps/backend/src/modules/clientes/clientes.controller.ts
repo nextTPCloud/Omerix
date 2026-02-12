@@ -3,6 +3,7 @@ import { clientesService } from './clientes.service';
 import mongoose from 'mongoose';
 import { CreateClienteSchema } from './clientes.dto';
 import { ReferentialIntegrityError } from '@/utils/referential-integrity.helper';
+import storageService from '@/services/storage.service';
 
 export class ClientesController {
 
@@ -586,11 +587,21 @@ export class ClientesController {
       const empresaId = new mongoose.Types.ObjectId(req.empresaId);
       const usuarioId = new mongoose.Types.ObjectId(req.userId);
 
+      // Subir a almacenamiento (DO Spaces o local)
+      const result = await storageService.uploadFile({
+        empresaId: req.empresaId!,
+        modulo: 'clientes',
+        buffer: req.file.buffer,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        isPublic: false,
+      });
+
       const archivo = {
         nombre: req.file.originalname,
-        url: req.file.path,
+        url: result.url,
         tipo: req.file.mimetype,
-        tamaño: req.file.size,
+        tamaño: result.size,
       };
 
       const cliente = await clientesService.subirArchivo(
@@ -652,6 +663,17 @@ export class ClientesController {
           success: false,
           message: 'Debe proporcionar la URL del archivo a eliminar',
         });
+      }
+
+      // Intentar eliminar de almacenamiento (extraer key de la URL)
+      try {
+        // Si la URL contiene la key del archivo (formato: {empresaId}/clientes/...)
+        const keyMatch = url.match(new RegExp(`${req.empresaId}/.*`));
+        if (keyMatch) {
+          await storageService.deleteFile(keyMatch[0]);
+        }
+      } catch {
+        // Continuar aunque falle la eliminación del storage
       }
 
       const cliente = await clientesService.eliminarArchivo(

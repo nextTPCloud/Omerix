@@ -15,6 +15,12 @@ export enum ModuloInforme {
   CLIENTES = 'clientes',
   PROVEEDORES = 'proveedores',
   PROYECTOS = 'proyectos',
+  CRM = 'crm',
+  CONTABILIDAD = 'contabilidad',
+  TPV = 'tpv',
+  PRESUPUESTOS = 'presupuestos',
+  PEDIDOS = 'pedidos',
+  ALBARANES = 'albaranes',
   GENERAL = 'general',
 }
 
@@ -326,9 +332,11 @@ export async function obtenerPlantillas(modulo?: ModuloInforme): Promise<IInform
 
 /**
  * Inicializar plantillas
+ * @param forzar - Si es true, elimina las plantillas existentes antes de crear las nuevas
  */
-export async function inicializarPlantillas(): Promise<void> {
-  await api.post('/informes/inicializar-plantillas')
+export async function inicializarPlantillas(forzar: boolean = false): Promise<{ message: string; data: { insertados: number; existentes: number; eliminados?: number } }> {
+  const response = await api.post('/informes/inicializar-plantillas', { forzar })
+  return response.data
 }
 
 /**
@@ -364,6 +372,12 @@ export const MODULOS_INFO: Record<string, { label: string; icon: string; color: 
   [ModuloInforme.CLIENTES]: { label: 'Clientes', icon: 'UserCheck', color: 'bg-cyan-500' },
   [ModuloInforme.PROVEEDORES]: { label: 'Proveedores', icon: 'Truck', color: 'bg-orange-500' },
   [ModuloInforme.PROYECTOS]: { label: 'Proyectos', icon: 'Briefcase', color: 'bg-pink-500' },
+  [ModuloInforme.CRM]: { label: 'CRM', icon: 'Target', color: 'bg-rose-500' },
+  [ModuloInforme.CONTABILIDAD]: { label: 'Contabilidad', icon: 'Calculator', color: 'bg-teal-500' },
+  [ModuloInforme.TPV]: { label: 'TPV', icon: 'Monitor', color: 'bg-violet-500' },
+  [ModuloInforme.PRESUPUESTOS]: { label: 'Presupuestos', icon: 'FileText', color: 'bg-emerald-500' },
+  [ModuloInforme.PEDIDOS]: { label: 'Pedidos', icon: 'ShoppingCart', color: 'bg-sky-500' },
+  [ModuloInforme.ALBARANES]: { label: 'Albaranes', icon: 'Truck', color: 'bg-lime-500' },
   [ModuloInforme.GENERAL]: { label: 'General', icon: 'LayoutDashboard', color: 'bg-gray-500' },
   // Alias para compatibilidad
   'rrhh': { label: 'RRHH', icon: 'Users', color: 'bg-indigo-500' },

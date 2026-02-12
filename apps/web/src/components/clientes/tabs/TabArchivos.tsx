@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -46,6 +46,8 @@ import {
   Plus,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { archivosService } from '@/services/archivos.service'
+import { api } from '@/services/api'
 
 interface TabArchivosProps {
   clienteId: string
@@ -59,7 +61,8 @@ interface ArchivoCliente {
   categoria: string
   tamanio: number
   url: string
-  fechaSubida: Date
+  key?: string
+  fechaSubida: string | Date
   subidoPor?: string
 }
 
@@ -93,7 +96,37 @@ export function TabArchivos({ clienteId, clienteNombre }: TabArchivosProps) {
   const [uploading, setUploading] = useState(false)
   const [archivoSeleccionado, setArchivoSeleccionado] = useState<File | null>(null)
   const [categoriaArchivo, setCategoriaArchivo] = useState('otro')
+  const [loading, setLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Cargar archivos del backend
+  const cargarArchivos = useCallback(async () => {
+    try {
+      const { data } = await api.get(`/clientes/${clienteId}`)
+      const cliente = data.data
+      if (cliente?.archivos) {
+        setArchivos(cliente.archivos.map((a: any, i: number) => ({
+          _id: a._id || String(i),
+          nombre: a.nombre,
+          tipo: a.tipo,
+          categoria: a.categoria || 'otro',
+          tamanio: a.tamaño || a.tamanio || 0,
+          url: a.url,
+          key: a.key,
+          fechaSubida: a.fechaSubida,
+          subidoPor: a.subidoPor,
+        })))
+      }
+    } catch (error) {
+      console.error('Error al cargar archivos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [clienteId])
+
+  useEffect(() => {
+    cargarArchivos()
+  }, [cargarArchivos])
 
   // Filtrar archivos
   const archivosFiltrados = archivos.filter(archivo => {
@@ -106,13 +139,15 @@ export function TabArchivos({ clienteId, clienteNombre }: TabArchivosProps) {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      if (file.size > 10 * 1024 * 1024) { // 10MB límite
-        toast.error('El archivo es demasiado grande (máximo 10MB)')
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error('El archivo es demasiado grande (máximo 50MB)')
         return
       }
       setArchivoSeleccionado(file)
       setDialogOpen(true)
     }
+    // Reset input para permitir seleccionar el mismo archivo
+    if (event.target) event.target.value = ''
   }
 
   const handleUpload = async () => {
@@ -120,47 +155,71 @@ export function TabArchivos({ clienteId, clienteNombre }: TabArchivosProps) {
 
     setUploading(true)
     try {
-      // Simular subida - en producción esto sería una llamada al backend
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      const formData = new FormData()
+      formData.append('file', archivoSeleccionado)
 
-      const nuevoArchivo: ArchivoCliente = {
-        _id: Date.now().toString(),
-        nombre: archivoSeleccionado.name,
-        tipo: archivoSeleccionado.type,
-        categoria: categoriaArchivo,
-        tamanio: archivoSeleccionado.size,
-        url: URL.createObjectURL(archivoSeleccionado),
-        fechaSubida: new Date(),
-        subidoPor: 'Usuario actual',
-      }
+      await api.post(`/clientes/${clienteId}/archivos`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
 
-      setArchivos(prev => [nuevoArchivo, ...prev])
       toast.success('Archivo subido correctamente')
       setDialogOpen(false)
       setArchivoSeleccionado(null)
       setCategoriaArchivo('otro')
-    } catch (error) {
-      toast.error('Error al subir el archivo')
+      await cargarArchivos()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al subir el archivo')
     } finally {
       setUploading(false)
     }
   }
 
-  const handleDelete = async (archivoId: string) => {
+  const handleDelete = async (archivo: ArchivoCliente) => {
     try {
-      setArchivos(prev => prev.filter(a => a._id !== archivoId))
+      await api.delete(`/clientes/${clienteId}/archivos`, { data: { url: archivo.url } })
       toast.success('Archivo eliminado')
-    } catch (error) {
-      toast.error('Error al eliminar el archivo')
+      await cargarArchivos()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Error al eliminar el archivo')
     }
   }
 
-  const handleDownload = (archivo: ArchivoCliente) => {
-    // En producción, esto descargaría desde el servidor
-    const link = document.createElement('a')
-    link.href = archivo.url
-    link.download = archivo.nombre
-    link.click()
+  const handleDownload = async (archivo: ArchivoCliente) => {
+    try {
+      // Para archivos privados, obtener URL firmada
+      let downloadUrl = archivo.url
+      if (archivo.key) {
+        try {
+          downloadUrl = await archivosService.getSignedUrl(archivo.key)
+        } catch {
+          // Usar URL directa como fallback
+        }
+      }
+
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = archivo.nombre
+      link.target = '_blank'
+      link.click()
+    } catch (error) {
+      toast.error('Error al descargar el archivo')
+    }
+  }
+
+  const handleView = async (archivo: ArchivoCliente) => {
+    try {
+      let viewUrl = archivo.url
+      if (archivo.key) {
+        try {
+          viewUrl = await archivosService.getSignedUrl(archivo.key)
+        } catch {
+          // Usar URL directa como fallback
+        }
+      }
+      window.open(viewUrl, '_blank')
+    } catch (error) {
+      toast.error('Error al abrir el archivo')
+    }
   }
 
   return (
@@ -185,7 +244,7 @@ export function TabArchivos({ clienteId, clienteNombre }: TabArchivosProps) {
             type="file"
             className="hidden"
             onChange={handleFileSelect}
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.csv,.txt,.zip,.rar"
           />
         </div>
 
@@ -220,7 +279,12 @@ export function TabArchivos({ clienteId, clienteNombre }: TabArchivosProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {archivos.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Cargando archivos...</p>
+          </div>
+        ) : archivos.length === 0 ? (
           <div className="text-center py-12 border-2 border-dashed rounded-lg">
             <FileUp className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-20" />
             <h3 className="text-lg font-semibold mb-2">Sin archivos</h3>
@@ -242,6 +306,9 @@ export function TabArchivos({ clienteId, clienteNombre }: TabArchivosProps) {
             {archivosFiltrados.map((archivo) => {
               const Icono = getIconoPorTipo(archivo.tipo)
               const categoria = CATEGORIAS_ARCHIVOS.find(c => c.value === archivo.categoria)
+              const fecha = archivo.fechaSubida
+                ? new Date(archivo.fechaSubida).toLocaleDateString('es-ES')
+                : ''
 
               return (
                 <div
@@ -263,10 +330,12 @@ export function TabArchivos({ clienteId, clienteNombre }: TabArchivosProps) {
                         {formatearTamanio(archivo.tamanio)}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {archivo.fechaSubida.toLocaleDateString('es-ES')}
-                    </p>
+                    {fecha && (
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {fecha}
+                      </p>
+                    )}
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -279,7 +348,7 @@ export function TabArchivos({ clienteId, clienteNombre }: TabArchivosProps) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => window.open(archivo.url, '_blank')}>
+                      <DropdownMenuItem onClick={() => handleView(archivo)}>
                         <Eye className="h-4 w-4 mr-2" />
                         Ver
                       </DropdownMenuItem>
@@ -290,7 +359,7 @@ export function TabArchivos({ clienteId, clienteNombre }: TabArchivosProps) {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive"
-                        onClick={() => handleDelete(archivo._id)}
+                        onClick={() => handleDelete(archivo)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Eliminar

@@ -58,6 +58,12 @@ export const CreateOfertaSchema = z.object({
   fechaDesde: z.string().transform(val => new Date(val)),
   fechaHasta: z.string().optional().transform(val => val ? new Date(val) : undefined),
 
+  // Restricción horaria (Happy Hours)
+  horaDesde: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  horaHasta: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  diasSemana: z.array(z.number().min(0).max(6)).optional(),
+  esHappyHour: z.boolean().optional().default(false),
+
   aplicaATodosClientes: z.boolean().default(true),
   clientesIncluidos: z.array(z.string()).optional(),
   clientesExcluidos: z.array(z.string()).optional(),

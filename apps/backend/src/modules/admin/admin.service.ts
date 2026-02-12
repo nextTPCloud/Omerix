@@ -6,6 +6,8 @@ import Licencia from '@/modules/licencias/Licencia';
 import { GetEmpresasQueryDto, AdminUpdateEmpresaDto, UpdateEmpresaEstadoDto, CreateEmpresaDto } from './admin.dto';
 import { DatabaseManagerService, databaseManager } from '@/services/database-manager.service';
 import { generateAccessToken, generateRefreshToken } from '@/utils/jwt';
+import { informesService } from '@/modules/informes/informes.service';
+import { plantillasDocumentoService } from '@/modules/plantillas-documento/plantillas-documento.service';
 import mongoose from 'mongoose';
 
 /**
@@ -301,6 +303,32 @@ class AdminService {
       console.error('❌ Error inicializando base de datos:', error);
       await Empresa.deleteOne({ _id: empresa._id });
       throw new Error('Error al inicializar la base de datos de la empresa');
+    }
+
+    // 3.1 Inicializar informes predefinidos
+    try {
+      const resultadoInformes = await informesService.inicializarPlantillas(
+        String(empresa._id),
+        databaseConfig,
+        superadminId
+      );
+      console.log(`✅ Informes inicializados: ${resultadoInformes.insertados} plantillas creadas`);
+    } catch (error: any) {
+      console.error('⚠️ Error inicializando informes (no crítico):', error.message);
+      // No lanzamos error porque no es crítico para la creación de la empresa
+    }
+
+    // 3.2 Inicializar plantillas de documentos predefinidas
+    try {
+      const resultadoPlantillas = await plantillasDocumentoService.inicializarPlantillas(
+        String(empresa._id),
+        databaseConfig,
+        superadminId
+      );
+      console.log(`✅ Plantillas de documentos inicializadas: ${resultadoPlantillas.insertadas} plantillas creadas`);
+    } catch (error: any) {
+      console.error('⚠️ Error inicializando plantillas de documentos (no crítico):', error.message);
+      // No lanzamos error porque no es crítico para la creación de la empresa
     }
 
     // 4. Asignar superadmin a la empresa

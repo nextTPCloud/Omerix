@@ -75,8 +75,10 @@ const RECURSO_GRUPO_TO_MODULO: Record<string, string | null> = {
   'RRHH': 'rrhh',
   'Informes': 'informes',
   'Tesorería': 'tesoreria',
-  'Almacén': 'almacen',
+  'Almacén': 'inventario',
   'Proyectos': 'proyectos',
+  'CRM': 'crm',
+  'Contabilidad': 'contabilidad',
   'Sistema': null, // Siempre disponible
 }
 
@@ -107,6 +109,8 @@ const PERMISO_TO_MODULO: Record<string, string | null> = {
   'accesoAlmacen': 'almacen',
   'accesoContabilidad': 'contabilidad',
   'accesoTPV': 'tpv',
+  'accesoCobroVencimientosTPV': 'tpv',
+  'accesoPagoVencimientosTPV': 'tpv',
   'accesoRRHH': 'rrhh',
   'accesoInformes': 'informes',
   'accesoTesoreria': 'tesoreria',

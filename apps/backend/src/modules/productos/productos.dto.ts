@@ -97,6 +97,32 @@ const ComponenteKitSchema = z.object({
   orden: z.number().default(0),
 });
 
+// Info nutricional
+const InfoNutricionalSchema = z.object({
+  calorias: z.number().min(0).optional(),
+  proteinas: z.number().min(0).optional(),
+  carbohidratos: z.number().min(0).optional(),
+  grasas: z.number().min(0).optional(),
+}).optional();
+
+// Restauración
+const RestauracionSchema = z.object({
+  zonaPreparacionId: z.string().optional(),
+  impresoraId: z.string().optional(),
+  tiempoPreparacionMinutos: z.number().min(0).default(0),
+  alergenosIds: z.array(z.string()).default([]),
+  gruposModificadoresIds: z.array(z.string()).default([]),
+  permitirNotasCamarero: z.boolean().default(true),
+  prioridadPreparacion: z.enum(['baja', 'normal', 'alta', 'inmediata']).default('normal'),
+  mostrarEnKds: z.boolean().default(true),
+  requierePuntoCoccion: z.boolean().default(false),
+  puedeSerAcompanamiento: z.boolean().default(false),
+  requiereAcompanamiento: z.boolean().default(false),
+  esParaCompartir: z.boolean().default(false),
+  disponibleParaLlevar: z.boolean().default(true),
+  infoNutricional: InfoNutricionalSchema,
+}).optional();
+
 // Schema base
 const ProductoBaseSchema = z.object({
   nombre: z.string().min(1, 'Nombre requerido'),
@@ -152,6 +178,9 @@ const ProductoBaseSchema = z.object({
   activo: z.boolean().default(true),
   disponible: z.boolean().default(true),
   destacado: z.boolean().default(false),
+
+  // Restauración
+  restauracion: RestauracionSchema,
 
   // Notas
   notas: z.string().optional(),

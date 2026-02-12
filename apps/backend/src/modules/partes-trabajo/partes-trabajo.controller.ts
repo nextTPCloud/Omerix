@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { partesTrabajoService } from './partes-trabajo.service';
+import partesTrabajoPDFService from './partes-trabajo-pdf.service';
 import {
   CreateParteTrabajoDTO,
   UpdateParteTrabajoDTO,
@@ -17,6 +18,7 @@ import { EstadoParteTrabajo } from './ParteTrabajo';
 import { sendEmail, emailTemplates } from '../../utils/email';
 import { getEmpresa } from '../empresa/Empresa';
 import { JornadaCalendarSyncService } from './jornada-calendar-sync.service';
+import storageService from '@/services/storage.service';
 
 // ============================================
 // CONTROLADORES
@@ -976,6 +978,241 @@ export const partesTrabajoController = {
       return res.status(500).json({
         success: false,
         error: error.message || 'Error al obtener partes para planificación',
+      });
+    }
+  },
+
+  /**
+   * Generar PDF del parte de trabajo (visualización inline)
+   */
+  async generarPDF(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const { plantillaId, mostrarPrecios = 'true', incluirFirmas = 'true' } = req.query;
+
+      // Obtener parte con datos poblados
+      const parte = await partesTrabajoService.obtenerPorId(
+        req.empresaDbConfig,
+        id
+      );
+
+      if (!parte) {
+        return res.status(404).json({
+          success: false,
+          error: 'Parte de trabajo no encontrado',
+        });
+      }
+
+      // Generar PDF
+      const pdfBuffer = await partesTrabajoPDFService.generarPDF(
+        req.empresaDbConfig,
+        parte,
+        {
+          plantillaId: plantillaId as string,
+          mostrarPrecios: mostrarPrecios === 'true',
+          incluirFirmas: incluirFirmas === 'true',
+        }
+      );
+
+      // Configurar headers para visualización
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="parte-${parte.codigo}.pdf"`
+      );
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      return res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error('Error al generar PDF del parte de trabajo:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al generar PDF del parte de trabajo',
+      });
+    }
+  },
+
+  /**
+   * Descargar PDF del parte de trabajo
+   */
+  async descargarPDF(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const { plantillaId, mostrarPrecios = 'true', incluirFirmas = 'true' } = req.query;
+
+      // Obtener parte con datos poblados
+      const parte = await partesTrabajoService.obtenerPorId(
+        req.empresaDbConfig,
+        id
+      );
+
+      if (!parte) {
+        return res.status(404).json({
+          success: false,
+          error: 'Parte de trabajo no encontrado',
+        });
+      }
+
+      // Generar PDF
+      const pdfBuffer = await partesTrabajoPDFService.generarPDF(
+        req.empresaDbConfig,
+        parte,
+        {
+          plantillaId: plantillaId as string,
+          mostrarPrecios: mostrarPrecios === 'true',
+          incluirFirmas: incluirFirmas === 'true',
+        }
+      );
+
+      // Configurar headers para descarga
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="parte-${parte.codigo}.pdf"`
+      );
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      return res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error('Error al descargar PDF del parte de trabajo:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al descargar PDF del parte de trabajo',
+      });
+    }
+  },
+
+  // ============================================
+  // DOCUMENTOS ADJUNTOS
+  // ============================================
+
+  async subirDocumento(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({ success: false, error: 'No autenticado' });
+      }
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({ success: false, error: 'Error de configuración de base de datos' });
+      }
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: 'No se ha subido ningún archivo' });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+
+      const result = await storageService.uploadFile({
+        empresaId: req.empresaId,
+        modulo: 'partes-trabajo',
+        buffer: req.file.buffer,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        isPublic: false,
+      });
+
+      const parte = await partesTrabajoService.agregarDocumento(
+        req.empresaDbConfig,
+        req.params.id,
+        empresaId,
+        {
+          nombre: req.body.nombre || req.file.originalname,
+          url: result.url,
+          tipo: req.file.mimetype,
+          tamaño: result.size,
+          fechaSubida: new Date(),
+          subidoPor: new mongoose.Types.ObjectId(req.userId),
+        }
+      );
+
+      if (!parte) {
+        return res.status(404).json({ success: false, error: 'Parte de trabajo no encontrado' });
+      }
+
+      return res.json({
+        success: true,
+        data: parte,
+        message: 'Documento subido correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al subir documento al parte:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al subir documento',
+      });
+    }
+  },
+
+  async eliminarDocumento(req: Request, res: Response) {
+    try {
+      if (!req.empresaId || !req.userId) {
+        return res.status(401).json({ success: false, error: 'No autenticado' });
+      }
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({ success: false, error: 'Error de configuración de base de datos' });
+      }
+
+      const empresaId = new mongoose.Types.ObjectId(req.empresaId);
+
+      // Primero obtener el doc para borrar del storage
+      const parteActual = await partesTrabajoService.obtenerPorId(
+        req.params.id, empresaId, req.empresaDbConfig
+      );
+      if (!parteActual) {
+        return res.status(404).json({ success: false, error: 'Parte de trabajo no encontrado' });
+      }
+
+      const doc = parteActual.documentos?.find(
+        (d: any) => d._id?.toString() === req.params.docId
+      );
+
+      // Intentar eliminar del storage
+      if (doc?.url) {
+        try {
+          const urlParts = doc.url.split('/');
+          const idx = urlParts.indexOf('partes-trabajo');
+          if (idx > 0) {
+            const key = urlParts.slice(idx - 1).join('/');
+            await storageService.deleteFile(key);
+          }
+        } catch {
+          // Continuar aunque falle la eliminación del storage
+        }
+      }
+
+      const parte = await partesTrabajoService.eliminarDocumento(
+        req.empresaDbConfig,
+        req.params.id,
+        empresaId,
+        req.params.docId
+      );
+
+      if (!parte) {
+        return res.status(404).json({ success: false, error: 'Parte o documento no encontrado' });
+      }
+
+      return res.json({
+        success: true,
+        data: parte,
+        message: 'Documento eliminado correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al eliminar documento del parte:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al eliminar documento',
       });
     }
   },

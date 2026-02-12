@@ -468,6 +468,17 @@ class EmpresaService {
 
     return this.getPreferenciasPrecios(empresaId);
   }
+
+  // ============================================
+  // LOGO
+  // ============================================
+
+  async actualizarLogo(empresaId: string, logoUrl: string): Promise<void> {
+    await Empresa.updateOne(
+      { _id: empresaId },
+      { $set: { logo: logoUrl } }
+    );
+  }
 }
 
 export const empresaService = new EmpresaService();

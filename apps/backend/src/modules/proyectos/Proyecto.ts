@@ -81,6 +81,53 @@ export interface IDocumentoProyecto {
   categoria?: string; // 'contrato', 'plano', 'especificacion', 'entregable', 'otro'
 }
 
+// Línea de plantilla para generación recurrente
+export interface ILineaPlantilla {
+  _id?: mongoose.Types.ObjectId;
+  tipo: 'mano_obra' | 'material' | 'gasto' | 'maquinaria' | 'transporte';
+  descripcion: string;
+  cantidad: number;
+  unidad: string;
+  precioUnitario: number;
+  productoId?: mongoose.Types.ObjectId; // Si es un producto del catálogo
+  personalId?: mongoose.Types.ObjectId; // Si es mano de obra de personal específico
+  incluirEnAlbaran: boolean;
+}
+
+// Registro de generación de instancias recurrentes
+export interface IInstanciaGenerada {
+  _id?: mongoose.Types.ObjectId;
+  fechaGeneracion: Date;
+  periodoInicio: Date;
+  periodoFin: Date;
+  estado: EstadoGeneracion;
+  parteTrabajoId?: mongoose.Types.ObjectId;
+  albaranId?: mongoose.Types.ObjectId;
+  facturaId?: mongoose.Types.ObjectId;
+  observaciones?: string;
+}
+
+// Configuración de recurrencia
+export interface IConfiguracionRecurrencia {
+  activo: boolean;
+  frecuencia: FrecuenciaRecurrencia;
+  diaGeneracion: number; // 1-31 para el día del mes, 1-7 para día de la semana
+  fechaInicio: Date;
+  fechaFin?: Date; // Hasta cuándo generar (opcional)
+  proximaGeneracion?: Date;
+
+  // Acciones automáticas
+  generarParteTrabajo: boolean;
+  generarAlbaran: boolean;
+  generarFactura: boolean;
+
+  // Plantilla de líneas para cada instancia
+  lineasPlantilla: ILineaPlantilla[];
+
+  // Historial de generaciones
+  instanciasGeneradas: IInstanciaGenerada[];
+}
+
 export interface IDireccionProyecto {
   nombre?: string;
   calle: string;
@@ -155,6 +202,10 @@ export interface IProyecto extends Document {
   // Observaciones
   observaciones?: string;
 
+  // Recurrencia/Periodicidad (para proyectos de mantenimiento)
+  esRecurrente: boolean;
+  recurrencia?: IConfiguracionRecurrencia;
+
   // Control
   activo: boolean;
 
@@ -228,6 +279,61 @@ const DireccionProyectoSchema = new Schema<IDireccionProyecto>({
   latitud: { type: Number },
   longitud: { type: Number },
   notas: { type: String },
+}, { _id: false });
+
+// Schema para líneas de plantilla (generación recurrente)
+const LineaPlantillaSchema = new Schema<ILineaPlantilla>({
+  tipo: {
+    type: String,
+    enum: ['mano_obra', 'material', 'gasto', 'maquinaria', 'transporte'],
+    required: true,
+  },
+  descripcion: { type: String, required: true, trim: true },
+  cantidad: { type: Number, required: true, min: 0 },
+  unidad: { type: String, required: true, default: 'ud' },
+  precioUnitario: { type: Number, required: true, min: 0 },
+  productoId: { type: Schema.Types.ObjectId, ref: 'Producto' },
+  personalId: { type: Schema.Types.ObjectId, ref: 'Personal' },
+  incluirEnAlbaran: { type: Boolean, default: true },
+}, { _id: true });
+
+// Schema para instancias generadas
+const InstanciaGeneradaSchema = new Schema<IInstanciaGenerada>({
+  fechaGeneracion: { type: Date, required: true },
+  periodoInicio: { type: Date, required: true },
+  periodoFin: { type: Date, required: true },
+  estado: {
+    type: String,
+    enum: Object.values(EstadoGeneracion),
+    default: EstadoGeneracion.PENDIENTE,
+  },
+  parteTrabajoId: { type: Schema.Types.ObjectId, ref: 'ParteTrabajo' },
+  albaranId: { type: Schema.Types.ObjectId, ref: 'Albaran' },
+  facturaId: { type: Schema.Types.ObjectId, ref: 'Factura' },
+  observaciones: { type: String },
+}, { _id: true });
+
+// Schema de configuración de recurrencia
+const ConfiguracionRecurrenciaSchema = new Schema<IConfiguracionRecurrencia>({
+  activo: { type: Boolean, default: true },
+  frecuencia: {
+    type: String,
+    enum: Object.values(FrecuenciaRecurrencia),
+    required: true,
+  },
+  diaGeneracion: { type: Number, min: 1, max: 31, default: 1 },
+  fechaInicio: { type: Date, required: true },
+  fechaFin: { type: Date },
+  proximaGeneracion: { type: Date },
+
+  // Acciones automáticas
+  generarParteTrabajo: { type: Boolean, default: true },
+  generarAlbaran: { type: Boolean, default: false },
+  generarFactura: { type: Boolean, default: false },
+
+  // Plantilla e historial
+  lineasPlantilla: { type: [LineaPlantillaSchema], default: [] },
+  instanciasGeneradas: { type: [InstanciaGeneradaSchema], default: [] },
 }, { _id: false });
 
 // ============================================
@@ -359,6 +465,15 @@ const ProyectoSchema = new Schema<IProyecto, IProyectoModel>({
   // Observaciones
   observaciones: { type: String },
 
+  // Recurrencia/Periodicidad (para proyectos de mantenimiento)
+  esRecurrente: {
+    type: Boolean,
+    default: false,
+  },
+  recurrencia: {
+    type: ConfiguracionRecurrenciaSchema,
+  },
+
   // Control
   activo: {
     type: Boolean,
@@ -404,6 +519,9 @@ ProyectoSchema.index({ fechaInicio: 1 });
 ProyectoSchema.index({ fechaFinPrevista: 1 });
 ProyectoSchema.index({ nombre: 'text', descripcion: 'text' });
 ProyectoSchema.index({ tags: 1 });
+ProyectoSchema.index({ esRecurrente: 1 });
+ProyectoSchema.index({ 'recurrencia.proximaGeneracion': 1 });
+ProyectoSchema.index({ 'recurrencia.activo': 1 });
 
 // ============================================
 // VIRTUALS

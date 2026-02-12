@@ -27,6 +27,18 @@ export function TabWeb({ formData, setFormData, isEditing }: TabWebProps) {
             </Label>
           </div>
 
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="usarEnKiosk"
+              checked={formData.usarEnKiosk}
+              onCheckedChange={(checked) => setFormData({ ...formData, usarEnKiosk: !!checked })}
+              disabled={!isEditing}
+            />
+            <Label htmlFor="usarEnKiosk" className="cursor-pointer">
+              Usar en Kiosk
+            </Label>
+          </div>
+
           {formData.usarEnTPV && (
             <>
               <div className="flex items-center space-x-2">

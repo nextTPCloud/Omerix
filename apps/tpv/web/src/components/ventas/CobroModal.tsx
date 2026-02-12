@@ -12,6 +12,7 @@ import {
   Plus,
   Gift,
   Printer,
+  Heart,
 } from 'lucide-react';
 
 type MetodoPago = 'efectivo' | 'tarjeta' | 'bizum';
@@ -24,15 +25,18 @@ interface Pago {
 interface CobroModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (pagos: Pago[], cambio: number, opciones: { esTicketRegalo?: boolean; imprimir?: boolean }) => void;
+  onConfirm: (pagos: Pago[], cambio: number, opciones: { esTicketRegalo?: boolean; imprimir?: boolean; propina?: number }) => void;
   total: number;
+  permitirPropina?: boolean;
 }
 
-export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProps) {
+export function CobroModal({ isOpen, onClose, onConfirm, total, permitirPropina = false }: CobroModalProps) {
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [metodoPagoActual, setMetodoPagoActual] = useState<MetodoPago>('efectivo');
   const [importeActual, setImporteActual] = useState('');
   const [esTicketRegalo, setEsTicketRegalo] = useState(false);
+  const [propina, setPropina] = useState(0);
+  const [mostrarPropina, setMostrarPropina] = useState(false);
 
   // Reset al abrir
   useEffect(() => {
@@ -41,18 +45,23 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
       setMetodoPagoActual('efectivo');
       setImporteActual('');
       setEsTicketRegalo(false);
+      setPropina(0);
+      setMostrarPropina(false);
     }
   }, [isOpen]);
 
+  // Total incluyendo propina
+  const totalConPropina = total + propina;
+
   const importeNumerico = parseFloat(importeActual) || 0;
   const totalPagado = pagos.reduce((acc, p) => acc + p.importe, 0);
-  const pendiente = Math.max(0, total - totalPagado);
+  const pendiente = Math.max(0, totalConPropina - totalPagado);
 
   // Calcular cambio solo del efectivo
   const efectivoTotal = pagos
     .filter(p => p.metodo === 'efectivo')
     .reduce((acc, p) => acc + p.importe, 0) + (metodoPagoActual === 'efectivo' ? importeNumerico : 0);
-  const efectivoNecesario = Math.max(0, total - pagos.filter(p => p.metodo !== 'efectivo').reduce((acc, p) => acc + p.importe, 0));
+  const efectivoNecesario = Math.max(0, totalConPropina - pagos.filter(p => p.metodo !== 'efectivo').reduce((acc, p) => acc + p.importe, 0));
   const cambio = Math.max(0, efectivoTotal - efectivoNecesario);
 
   const metodosPago = [
@@ -107,91 +116,98 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
     }
 
     const totalFinal = pagosFinales.reduce((acc, p) => acc + p.importe, 0);
-    if (totalFinal < total) return;
+    if (totalFinal < totalConPropina) return;
 
-    onConfirm(pagosFinales, cambio, { esTicketRegalo, imprimir });
+    onConfirm(pagosFinales, cambio, { esTicketRegalo, imprimir, propina: propina > 0 ? propina : undefined });
   };
 
-  const puedeConfirmar = totalPagado + importeNumerico >= total;
+  // Aplicar propina por porcentaje
+  const aplicarPropinaPorcentaje = (porcentaje: number) => {
+    const importePropina = Math.round(total * porcentaje) / 100;
+    setPropina(importePropina);
+  };
+
+  const puedeConfirmar = totalPagado + importeNumerico >= totalConPropina;
   const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', '⌫'];
 
   const getMetodoInfo = (metodo: MetodoPago) => metodosPago.find(m => m.id === metodo)!;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Cobrar" size="3xl">
-      <div className="p-4">
-        {/* Header con total y pendiente */}
-        <div className="flex gap-4 mb-4">
-          <div className="flex-1 p-4 bg-primary-50 rounded-xl text-center">
-            <p className="text-xs text-primary-600">Total a cobrar</p>
-            <p className="text-3xl font-bold text-primary-700">{total.toFixed(2)} €</p>
-          </div>
-          {totalPagado > 0 && (
-            <div className={`flex-1 p-4 rounded-xl text-center ${pendiente > 0 ? 'bg-amber-50' : 'bg-green-50'}`}>
-              <p className="text-xs text-gray-600">{pendiente > 0 ? 'Pendiente' : 'Pagado'}</p>
-              <p className={`text-3xl font-bold ${pendiente > 0 ? 'text-amber-700' : 'text-green-700'}`}>
-                {pendiente > 0 ? pendiente.toFixed(2) : totalPagado.toFixed(2)} €
-              </p>
+    <Modal isOpen={isOpen} onClose={onClose} title="Cobrar" size="full">
+      <div className="p-3">
+        {/* Layout principal horizontal */}
+        <div className="flex gap-3">
+          {/* Columna 1 - Total + Pagos rápidos + Pagos registrados */}
+          <div className="w-[220px] flex-shrink-0 flex flex-col gap-3">
+            {/* Total a cobrar */}
+            <div className="p-3 bg-primary-50 rounded-xl text-center">
+              <p className="text-xs text-primary-600">Total a cobrar</p>
+              <p className="text-2xl font-bold text-primary-700">{totalConPropina.toFixed(2)} €</p>
+              {propina > 0 && (
+                <p className="text-xs text-pink-600">({total.toFixed(2)} + {propina.toFixed(2)} propina)</p>
+              )}
             </div>
-          )}
-          {cambio > 0 && (
-            <div className="flex-1 p-4 bg-green-100 rounded-xl text-center">
-              <p className="text-xs text-green-600">Cambio</p>
-              <p className="text-3xl font-bold text-green-700">{cambio.toFixed(2)} €</p>
-            </div>
-          )}
-        </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          {/* Columna 1 - Pagos rápidos por método */}
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Pago rápido (total)</p>
-            <div className="space-y-2">
-              {metodosPago.map((metodo) => {
-                const Icon = metodo.icon;
-                return (
-                  <button
-                    key={metodo.id}
-                    onClick={() => handlePagoRapido(metodo.id)}
-                    disabled={pendiente <= 0}
-                    className={`w-full p-3 rounded-xl border-2 flex items-center gap-3 transition-all ${
-                      pendiente <= 0
-                        ? 'opacity-50 cursor-not-allowed border-gray-200'
-                        : `${metodo.bgColor} ${metodo.borderColor} hover:opacity-80`
-                    }`}
-                  >
-                    <Icon className={`w-6 h-6 ${metodo.textColor}`} />
-                    <div className="flex-1 text-left">
+            {/* Pendiente / Cambio */}
+            {totalPagado > 0 && (
+              <div className={`p-3 rounded-xl text-center ${pendiente > 0 ? 'bg-amber-50' : 'bg-green-50'}`}>
+                <p className="text-xs text-gray-600">{pendiente > 0 ? 'Pendiente' : 'Pagado'}</p>
+                <p className={`text-xl font-bold ${pendiente > 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                  {pendiente > 0 ? pendiente.toFixed(2) : totalPagado.toFixed(2)} €
+                </p>
+              </div>
+            )}
+            {cambio > 0 && (
+              <div className="p-3 bg-green-100 rounded-xl text-center">
+                <p className="text-xs text-green-600">Cambio</p>
+                <p className="text-xl font-bold text-green-700">{cambio.toFixed(2)} €</p>
+              </div>
+            )}
+
+            {/* Pagos rápidos */}
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Pago rápido (total)</p>
+              <div className="space-y-1">
+                {metodosPago.map((metodo) => {
+                  const Icon = metodo.icon;
+                  return (
+                    <button
+                      key={metodo.id}
+                      onClick={() => handlePagoRapido(metodo.id)}
+                      disabled={pendiente <= 0}
+                      className={`w-full p-2 rounded-lg border-2 flex items-center gap-2 transition-all text-sm ${
+                        pendiente <= 0
+                          ? 'opacity-50 cursor-not-allowed border-gray-200'
+                          : `${metodo.bgColor} ${metodo.borderColor} hover:opacity-80`
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 ${metodo.textColor}`} />
                       <span className={`font-medium ${metodo.textColor}`}>{metodo.label}</span>
-                      <p className="text-xs text-gray-500">Pagar {pendiente.toFixed(2)} €</p>
-                    </div>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Pagos registrados */}
             {pagos.length > 0 && (
-              <div className="mt-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">Pagos registrados</p>
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Pagos</p>
                 <div className="space-y-1">
                   {pagos.map((pago, idx) => {
                     const info = getMetodoInfo(pago.metodo);
                     const Icon = info.icon;
                     return (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
-                      >
-                        <div className="flex items-center gap-2">
+                      <div key={idx} className="flex items-center justify-between p-1.5 bg-gray-50 rounded-lg text-sm">
+                        <div className="flex items-center gap-1.5">
                           <Icon className={`w-4 h-4 ${info.textColor}`} />
-                          <span className="text-sm">{info.label}</span>
+                          <span>{info.label}</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <span className="font-bold">{pago.importe.toFixed(2)} €</span>
                           <button
                             onClick={() => handleEliminarPago(idx)}
-                            className="w-6 h-6 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center"
+                            className="w-5 h-5 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center"
                           >
                             <X className="w-3 h-3 text-red-600" />
                           </button>
@@ -204,12 +220,12 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
             )}
           </div>
 
-          {/* Columna 2 - Pago parcial con importe */}
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Pago parcial / con importe</p>
+          {/* Columna 2 - Pago parcial */}
+          <div className="flex-1 flex flex-col gap-2">
+            <p className="text-xs font-medium text-gray-500">Pago parcial / con importe</p>
 
             {/* Selector de método */}
-            <div className="flex gap-1 mb-3">
+            <div className="flex gap-1">
               {metodosPago.map((metodo) => {
                 const Icon = metodo.icon;
                 const isActive = metodoPagoActual === metodo.id;
@@ -233,13 +249,13 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
             </div>
 
             {/* Display importe */}
-            <div className="text-3xl font-bold text-center p-3 bg-gray-50 rounded-xl mb-3">
+            <div className="text-3xl font-bold text-center p-2 bg-gray-50 rounded-xl">
               {importeActual || '0'} <span className="text-lg text-gray-400">€</span>
             </div>
 
             {/* Importes rápidos (solo efectivo) */}
             {metodoPagoActual === 'efectivo' && (
-              <div className="flex flex-wrap gap-1 mb-3">
+              <div className="flex flex-wrap gap-1">
                 <button
                   onClick={() => setImporteActual(pendiente.toFixed(2))}
                   className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200"
@@ -271,15 +287,15 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
             </Button>
           </div>
 
-          {/* Columna 3 - Numpad */}
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Teclado</p>
+          {/* Columna 3 - Teclado numérico */}
+          <div className="w-[180px] flex-shrink-0">
+            <p className="text-xs font-medium text-gray-500 mb-1">Teclado</p>
             <div className="grid grid-cols-3 gap-1">
               {keys.map((key) => (
                 <button
                   key={key}
                   onClick={() => handleKeyPress(key)}
-                  className="h-12 text-xl font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                  className="h-11 text-lg font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors"
                 >
                   {key}
                 </button>
@@ -287,42 +303,51 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
             </div>
             <button
               onClick={() => setImporteActual('')}
-              className="w-full h-10 mt-1 text-sm font-medium rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+              className="w-full h-9 mt-1 text-sm font-medium rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
             >
               Borrar
             </button>
           </div>
         </div>
 
-        {/* Ticket Regalo */}
-        <div className="flex items-center justify-between p-3 mt-4 bg-pink-50 rounded-xl border border-pink-200">
-          <div className="flex items-center gap-3">
-            <Gift className="w-5 h-5 text-pink-600" />
-            <div>
-              <p className="font-medium text-pink-700">Ticket Regalo</p>
-              <p className="text-xs text-pink-500">El ticket no mostrara precios</p>
-            </div>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+        {/* Fila inferior: Propina + Ticket Regalo + Acciones */}
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t">
+          {/* Propina */}
+          {permitirPropina && (
+            <button
+              onClick={() => setMostrarPropina(!mostrarPropina)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all text-sm ${
+                propina > 0
+                  ? 'bg-pink-50 border-pink-300 text-pink-700'
+                  : 'bg-gray-50 border-gray-200 hover:border-pink-300 text-gray-600'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${propina > 0 ? 'text-pink-600 fill-pink-600' : 'text-gray-400'}`} />
+              {propina > 0 ? `${propina.toFixed(2)} €` : 'Propina'}
+            </button>
+          )}
+
+          {/* Ticket Regalo */}
+          <label className="flex items-center gap-2 px-3 py-2 bg-pink-50 rounded-lg border border-pink-200 cursor-pointer text-sm">
+            <Gift className="w-4 h-4 text-pink-600" />
+            <span className="text-pink-700">Regalo</span>
             <input
               type="checkbox"
               checked={esTicketRegalo}
               onChange={(e) => setEsTicketRegalo(e.target.checked)}
-              className="sr-only peer"
+              className="w-4 h-4 accent-pink-600"
             />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
           </label>
-        </div>
 
-        {/* Acciones */}
-        <div className="flex gap-2 mt-4 pt-4 border-t">
-          <Button variant="secondary" size="lg" onClick={onClose}>
+          <div className="flex-1" />
+
+          {/* Botones de acción */}
+          <Button variant="secondary" size="md" onClick={onClose}>
             Cancelar
           </Button>
           <Button
             variant="primary"
             size="lg"
-            className="flex-1"
             onClick={() => handleConfirmar(false)}
             disabled={!puedeConfirmar}
             icon={<Check className="w-5 h-5" />}
@@ -332,7 +357,6 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
           <Button
             variant="success"
             size="lg"
-            className="flex-1"
             onClick={() => handleConfirmar(true)}
             disabled={!puedeConfirmar}
             icon={<Printer className="w-5 h-5" />}
@@ -340,6 +364,44 @@ export function CobroModal({ isOpen, onClose, onConfirm, total }: CobroModalProp
             Cobrar e Imprimir
           </Button>
         </div>
+
+        {/* Panel propina expandido */}
+        {permitirPropina && mostrarPropina && (
+          <div className="mt-2 p-3 bg-pink-50 rounded-xl border border-pink-200">
+            <div className="flex items-center gap-3">
+              <div className="flex gap-2">
+                {[5, 10, 15, 20].map((pct) => (
+                  <button
+                    key={pct}
+                    onClick={() => aplicarPropinaPorcentaje(pct)}
+                    className={`py-1.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                      propina === Math.round(total * pct) / 100
+                        ? 'bg-pink-500 text-white'
+                        : 'bg-white border border-pink-300 text-pink-700 hover:bg-pink-100'
+                    }`}
+                  >
+                    {pct}% ({(total * pct / 100).toFixed(2)}€)
+                  </button>
+                ))}
+              </div>
+              <input
+                type="number"
+                step="0.50"
+                min="0"
+                value={propina || ''}
+                onChange={(e) => setPropina(Math.max(0, parseFloat(e.target.value) || 0))}
+                placeholder="Importe"
+                className="w-28 px-3 py-1.5 border border-pink-300 rounded-lg focus:ring-2 focus:ring-pink-300 focus:border-pink-500 outline-none text-sm"
+              />
+              <button
+                onClick={() => { setPropina(0); setMostrarPropina(false); }}
+                className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+              >
+                Quitar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </Modal>
   );

@@ -16,6 +16,12 @@ import { ZonaPreparacion, IZonaPreparacion } from '../modules/zonas-preparacion/
 import { ModificadorProducto, IModificadorProducto } from '../modules/modificadores/ModificadorProducto';
 import { GrupoModificadores, IGrupoModificadores } from '../modules/grupos-modificadores/GrupoModificadores';
 import { Alergeno, IAlergeno } from '../modules/alergenos/Alergeno';
+import { Salon, ISalon } from '../modules/salones/Salon';
+import { Mesa, IMesa } from '../modules/salones/Mesa';
+import { ComandaCocina, IComandaCocina } from '../modules/comandas-cocina/ComandaCocina';
+import { Camarero, ICamarero } from '../modules/camareros/Camarero';
+import { Sugerencia, ISugerencia } from '../modules/sugerencias/Sugerencia';
+import { Reserva, IReserva } from '../modules/reservas/Reserva';
 import { TerminoPago, ITerminoPago } from '../modules/terminos-pago/TerminoPago';
 import { FormaPago, IFormaPago } from '../modules/formas-pago/FormaPago';
 import { Vencimiento, IVencimiento } from '../models/Vencimiento';
@@ -58,6 +64,23 @@ import Lead, { ILead } from '../modules/crm/Lead';
 import EtapaPipeline, { IEtapaPipeline } from '../modules/crm/EtapaPipeline';
 import Oportunidad, { IOportunidad } from '../modules/crm/Oportunidad';
 import Actividad, { IActividad } from '../modules/crm/Actividad';
+// Kiosk
+import { KioskRegistradoSchema, IKioskRegistrado } from '../modules/kiosk/KioskRegistrado';
+import { PedidoKioskSchema, IPedidoKiosk } from '../modules/kiosk/PedidoKiosk';
+import { SesionKioskSchema, ISesionKiosk } from '../modules/kiosk/SesionKiosk';
+// Plantillas Documento
+import PlantillaDocumentoModel, { IPlantillaDocumento } from '../modules/plantillas-documento/PlantillaDocumento';
+// Firmas
+import { FirmaSchema, IFirma } from '../modules/firmas/Firma';
+import { SolicitudFirmaSchema, ISolicitudFirma } from '../modules/firmas/SolicitudFirma';
+// Turnos Servicio (restauración)
+import { TurnoServicio, ITurnoServicio } from '../modules/turnos-servicio/TurnoServicio';
+// Restoo (integración reservas)
+import {
+  RestooConnection, IRestooConnection,
+  RestooSyncLog, IRestooSyncLog,
+  RestooMapeoSalon, IRestooMapeoSalon,
+} from '../modules/integraciones/restoo/RestooConnection';
 
 /**
  * Helper para obtener modelos dinámicos por empresa
@@ -301,6 +324,102 @@ export const getAlergenoModel = async (
     dbConfig,
     'Alergeno',
     AlergenoSchema
+  );
+};
+
+/**
+ * Obtener modelo de Salon para una empresa específica
+ */
+export const getSalonModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ISalon>> => {
+  const SalonSchema = Salon.schema;
+  return databaseManager.getModel<ISalon>(
+    empresaId,
+    dbConfig,
+    'Salon',
+    SalonSchema
+  );
+};
+
+/**
+ * Obtener modelo de Mesa para una empresa específica
+ */
+export const getMesaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IMesa>> => {
+  const MesaSchema = Mesa.schema;
+  return databaseManager.getModel<IMesa>(
+    empresaId,
+    dbConfig,
+    'Mesa',
+    MesaSchema
+  );
+};
+
+/**
+ * Obtener modelo de ComandaCocina para una empresa específica
+ */
+export const getComandaCocinaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IComandaCocina>> => {
+  const ComandaCocinaSchema = ComandaCocina.schema;
+  return databaseManager.getModel<IComandaCocina>(
+    empresaId,
+    dbConfig,
+    'ComandaCocina',
+    ComandaCocinaSchema
+  );
+};
+
+/**
+ * Obtener modelo de Camarero para una empresa específica
+ */
+export const getCamareroModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ICamarero>> => {
+  const CamareroSchema = Camarero.schema;
+  return databaseManager.getModel<ICamarero>(
+    empresaId,
+    dbConfig,
+    'Camarero',
+    CamareroSchema
+  );
+};
+
+/**
+ * Obtener modelo de Sugerencia para una empresa específica
+ */
+export const getSugerenciaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ISugerencia>> => {
+  const SugerenciaSchema = Sugerencia.schema;
+  return databaseManager.getModel<ISugerencia>(
+    empresaId,
+    dbConfig,
+    'Sugerencia',
+    SugerenciaSchema
+  );
+};
+
+/**
+ * Obtener modelo de Reserva para una empresa específica
+ */
+export const getReservaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IReserva>> => {
+  const ReservaSchema = Reserva.schema;
+  return databaseManager.getModel<IReserva>(
+    empresaId,
+    dbConfig,
+    'Reserva',
+    ReservaSchema
   );
 };
 
@@ -985,6 +1104,163 @@ export const getActividadCRMModel = async (
   );
 };
 
+// ============================================
+// KIOSK
+// ============================================
+
+/**
+ * Obtener modelo de KioskRegistrado para una empresa específica
+ */
+export const getKioskRegistradoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IKioskRegistrado>> => {
+  return databaseManager.getModel<IKioskRegistrado>(
+    empresaId,
+    dbConfig,
+    'KioskRegistrado',
+    KioskRegistradoSchema
+  );
+};
+
+/**
+ * Obtener modelo de PedidoKiosk para una empresa específica
+ */
+export const getPedidoKioskModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IPedidoKiosk>> => {
+  return databaseManager.getModel<IPedidoKiosk>(
+    empresaId,
+    dbConfig,
+    'PedidoKiosk',
+    PedidoKioskSchema
+  );
+};
+
+/**
+ * Obtener modelo de SesionKiosk para una empresa específica
+ */
+export const getSesionKioskModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ISesionKiosk>> => {
+  return databaseManager.getModel<ISesionKiosk>(
+    empresaId,
+    dbConfig,
+    'SesionKiosk',
+    SesionKioskSchema
+  );
+};
+
+// ============================================
+// PLANTILLAS DOCUMENTO
+// ============================================
+
+/**
+ * Obtener modelo de PlantillaDocumento para una empresa específica
+ */
+export const getPlantillaDocumentoModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IPlantillaDocumento>> => {
+  const PlantillaDocumentoSchema = PlantillaDocumentoModel.schema;
+  return databaseManager.getModel<IPlantillaDocumento>(
+    empresaId,
+    dbConfig,
+    'PlantillaDocumento',
+    PlantillaDocumentoSchema
+  );
+};
+
+// ============================================
+// FIRMAS
+// ============================================
+
+export const getFirmaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IFirma>> => {
+  return databaseManager.getModel<IFirma>(
+    empresaId,
+    dbConfig,
+    'Firma',
+    FirmaSchema
+  );
+};
+
+export const getSolicitudFirmaModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ISolicitudFirma>> => {
+  return databaseManager.getModel<ISolicitudFirma>(
+    empresaId,
+    dbConfig,
+    'SolicitudFirma',
+    SolicitudFirmaSchema
+  );
+};
+
+// ============================================
+// TURNOS SERVICIO (restauración)
+// ============================================
+
+export const getTurnoServicioModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<ITurnoServicio>> => {
+  const TurnoServicioSchema = TurnoServicio.schema;
+  return databaseManager.getModel<ITurnoServicio>(
+    empresaId,
+    dbConfig,
+    'TurnoServicio',
+    TurnoServicioSchema
+  );
+};
+
+// ============================================
+// RESTOO (integración reservas)
+// ============================================
+
+export const getRestooConnectionModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IRestooConnection>> => {
+  const schema = RestooConnection.schema;
+  return databaseManager.getModel<IRestooConnection>(
+    empresaId,
+    dbConfig,
+    'RestooConnection',
+    schema
+  );
+};
+
+export const getRestooSyncLogModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IRestooSyncLog>> => {
+  const schema = RestooSyncLog.schema;
+  return databaseManager.getModel<IRestooSyncLog>(
+    empresaId,
+    dbConfig,
+    'RestooSyncLog',
+    schema
+  );
+};
+
+export const getRestooMapeoSalonModel = async (
+  empresaId: string,
+  dbConfig: IDatabaseConfig
+): Promise<Model<IRestooMapeoSalon>> => {
+  const schema = RestooMapeoSalon.schema;
+  return databaseManager.getModel<IRestooMapeoSalon>(
+    empresaId,
+    dbConfig,
+    'RestooMapeoSalon',
+    schema
+  );
+};
+
 /**
  * Objeto con todos los modelos por empresa
  * Se puede extender con más modelos según sea necesario
@@ -1005,6 +1281,12 @@ export const EmpresaModels = {
   ModificadorProducto: getModificadorProductoModel,
   GrupoModificadores: getGrupoModificadoresModel,
   Alergeno: getAlergenoModel,
+  Salon: getSalonModel,
+  Mesa: getMesaModel,
+  ComandaCocina: getComandaCocinaModel,
+  Camarero: getCamareroModel,
+  Sugerencia: getSugerenciaModel,
+  Reserva: getReservaModel,
   TerminoPago: getTerminoPagoModel,
   FormaPago: getFormaPagoModel,
   Vencimiento: getVencimientoModel,
@@ -1047,6 +1329,21 @@ export const EmpresaModels = {
   EtapaPipeline: getEtapaPipelineModel,
   Oportunidad: getOportunidadModel,
   ActividadCRM: getActividadCRMModel,
+  // Kiosk
+  KioskRegistrado: getKioskRegistradoModel,
+  PedidoKiosk: getPedidoKioskModel,
+  SesionKiosk: getSesionKioskModel,
+  // Plantillas Documento
+  PlantillaDocumento: getPlantillaDocumentoModel,
+  // Firmas
+  Firma: getFirmaModel,
+  SolicitudFirma: getSolicitudFirmaModel,
+  // Turnos Servicio
+  TurnoServicio: getTurnoServicioModel,
+  // Restoo
+  RestooConnection: getRestooConnectionModel,
+  RestooSyncLog: getRestooSyncLogModel,
+  RestooMapeoSalon: getRestooMapeoSalonModel,
 };
 
 /**

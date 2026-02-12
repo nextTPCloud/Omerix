@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import empresaController from './empresa.controller';
 import { emailOAuthController } from './email-oauth.controller';
+import { uploadImages } from '@/middleware/upload.middleware';
 
 const router = Router();
 
@@ -365,5 +366,8 @@ router.get('/preferencias-precios', empresaController.getPreferenciasPrecios.bin
  *         description: Sin permisos
  */
 router.put('/preferencias-precios', empresaController.updatePreferenciasPrecios.bind(empresaController));
+
+// Subir logo de empresa
+router.post('/logo', uploadImages.single('logo'), empresaController.uploadLogo.bind(empresaController));
 
 export default router;

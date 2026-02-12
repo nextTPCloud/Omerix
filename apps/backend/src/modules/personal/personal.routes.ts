@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as controller from './personal.controller';
 import { authMiddleware, requireModuleAccess, requirePermission } from '../../middleware/auth.middleware';
 import { tenantMiddleware, requireBusinessDatabase } from '../../middleware/tenant.middleware';
+import { uploadImages, uploadDocuments } from '@/middleware/upload.middleware';
 
 const router = Router();
 
@@ -554,5 +555,18 @@ router.delete('/:id/ausencias/:ausenciaId', requirePermission('personal', 'updat
  *         description: Evaluación registrada
  */
 router.post('/:id/evaluaciones', requirePermission('personal', 'update'), controller.registrarEvaluacion);
+
+// ============================================
+// RUTAS DE ARCHIVOS
+// ============================================
+
+// Subir foto de empleado
+router.post('/:id/foto', requirePermission('personal', 'update'), uploadImages.single('foto'), controller.subirFoto);
+
+// Subir documento de empleado
+router.post('/:id/documentos', requirePermission('personal', 'update'), uploadDocuments.single('file'), controller.subirDocumento);
+
+// Eliminar documento de empleado
+router.delete('/:id/documentos/:docId', requirePermission('personal', 'update'), controller.eliminarDocumento);
 
 export default router;

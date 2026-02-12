@@ -404,6 +404,8 @@ export const ROLES_SISTEMA: Partial<IRol>[] = [
         accesoAlmacen: true,
         accesoContabilidad: true,
         accesoTPV: true,
+        accesoCobroVencimientosTPV: true,
+        accesoPagoVencimientosTPV: true,
         accesoRRHH: true,
         accesoInformes: true,
         accesoTesoreria: true,

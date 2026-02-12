@@ -1,7 +1,7 @@
 // backend/src/modules/logs/logs.routes.ts
 
 import { Router } from 'express';
-import { authMiddleware } from '../../middleware/auth.middleware';
+import { authMiddleware, requireRole, requireSpecialPermission } from '../../middleware/auth.middleware';
 import { tenantMiddleware } from '../../middleware/tenant.middleware';
 
 // Controladores de Audit Logs
@@ -115,7 +115,7 @@ router.use(tenantMiddleware);
  *       200:
  *         description: Lista de logs de auditoría
  */
-router.get('/audit', getAuditLogs);
+router.get('/audit', requireSpecialPermission('verHistorialCambios'), getAuditLogs);
 
 /**
  * @swagger
@@ -162,7 +162,7 @@ router.get('/audit/me', getMyLogs);
  *       200:
  *         description: Estadísticas de logs
  */
-router.get('/audit/stats', getStats);
+router.get('/audit/stats', requireSpecialPermission('verHistorialCambios'), getStats);
 
 /**
  * @swagger
@@ -189,7 +189,7 @@ router.get('/audit/stats', getStats);
  *       200:
  *         description: Actividad por usuario
  */
-router.get('/audit/activity', getUserActivity);
+router.get('/audit/activity', requireSpecialPermission('verHistorialCambios'), getUserActivity);
 
 /**
  * @swagger
@@ -214,7 +214,7 @@ router.get('/audit/activity', getUserActivity);
  *       200:
  *         description: Lista de errores
  */
-router.get('/audit/errors', getErrors);
+router.get('/audit/errors', requireSpecialPermission('verHistorialCambios'), getErrors);
 
 /**
  * @swagger
@@ -235,7 +235,7 @@ router.get('/audit/errors', getErrors);
  *       200:
  *         description: Archivo de exportación
  */
-router.get('/audit/export', exportAuditLogs);
+router.get('/audit/export', requireSpecialPermission('verHistorialCambios'), exportAuditLogs);
 
 /**
  * @swagger
@@ -260,7 +260,7 @@ router.get('/audit/export', exportAuditLogs);
  *       200:
  *         description: Logs de la entidad
  */
-router.get('/audit/entity/:tipo/:id', getLogsByEntity);
+router.get('/audit/entity/:tipo/:id', requireSpecialPermission('verHistorialCambios'), getLogsByEntity);
 
 /**
  * @swagger
@@ -285,7 +285,7 @@ router.get('/audit/entity/:tipo/:id', getLogsByEntity);
  *       200:
  *         description: Logs del usuario
  */
-router.get('/audit/user/:userId', getLogsByUser);
+router.get('/audit/user/:userId', requireSpecialPermission('verHistorialCambios'), getLogsByUser);
 
 /**
  * @swagger
@@ -310,7 +310,7 @@ router.get('/audit/user/:userId', getLogsByUser);
  *       200:
  *         description: Logs del módulo
  */
-router.get('/audit/module/:modulo', getLogsByModule);
+router.get('/audit/module/:modulo', requireSpecialPermission('verHistorialCambios'), getLogsByModule);
 
 /**
  * @swagger
@@ -332,7 +332,7 @@ router.get('/audit/module/:modulo', getLogsByModule);
  *       404:
  *         description: Log no encontrado
  */
-router.get('/audit/:id', getAuditLogById);
+router.get('/audit/:id', requireSpecialPermission('verHistorialCambios'), getAuditLogById);
 
 // ============================================
 // RUTAS DE SYSTEM LOGS (Solo Admin)
@@ -352,7 +352,7 @@ router.get('/audit/:id', getAuditLogById);
  *       503:
  *         description: Sistema en estado crítico
  */
-router.get('/system/health', checkHealth);
+router.get('/system/health', requireRole('admin', 'superadmin'), checkHealth);
 
 /**
  * @swagger
@@ -366,7 +366,7 @@ router.get('/system/health', checkHealth);
  *       200:
  *         description: Resumen de salud
  */
-router.get('/system/health/summary', getHealthSummary);
+router.get('/system/health/summary', requireRole('admin', 'superadmin'), getHealthSummary);
 
 /**
  * @swagger
@@ -396,7 +396,7 @@ router.get('/system/health/summary', getHealthSummary);
  *       200:
  *         description: Lista de logs de sistema
  */
-router.get('/system', getSystemLogs);
+router.get('/system', requireRole('admin', 'superadmin'), getSystemLogs);
 
 /**
  * @swagger
@@ -421,7 +421,7 @@ router.get('/system', getSystemLogs);
  *       200:
  *         description: Errores recientes
  */
-router.get('/system/errors/recent', getRecentErrors);
+router.get('/system/errors/recent', requireRole('admin', 'superadmin'), getRecentErrors);
 
 /**
  * @swagger
@@ -441,7 +441,7 @@ router.get('/system/errors/recent', getRecentErrors);
  *       200:
  *         description: Estadísticas de errores
  */
-router.get('/system/stats/errors', getErrorStats);
+router.get('/system/stats/errors', requireRole('admin', 'superadmin'), getErrorStats);
 
 /**
  * @swagger
@@ -455,7 +455,7 @@ router.get('/system/stats/errors', getErrorStats);
  *       200:
  *         description: Estadísticas por módulo
  */
-router.get('/system/stats/modules', getModuleStats);
+router.get('/system/stats/modules', requireRole('admin', 'superadmin'), getModuleStats);
 
 /**
  * @swagger
@@ -469,7 +469,7 @@ router.get('/system/stats/modules', getModuleStats);
  *       200:
  *         description: Estadísticas de retención
  */
-router.get('/system/retention/stats', getRetentionStats);
+router.get('/system/retention/stats', requireRole('admin', 'superadmin'), getRetentionStats);
 
 /**
  * @swagger
@@ -489,7 +489,7 @@ router.get('/system/retention/stats', getRetentionStats);
  *       200:
  *         description: Logs próximos a expirar
  */
-router.get('/system/retention/expiring', getExpiringLogs);
+router.get('/system/retention/expiring', requireRole('admin', 'superadmin'), getExpiringLogs);
 
 /**
  * @swagger
@@ -503,7 +503,7 @@ router.get('/system/retention/expiring', getExpiringLogs);
  *       200:
  *         description: Recomendaciones
  */
-router.get('/system/retention/recommendations', getCleanupRecommendations);
+router.get('/system/retention/recommendations', requireRole('admin', 'superadmin'), getCleanupRecommendations);
 
 /**
  * @swagger
@@ -519,7 +519,7 @@ router.get('/system/retention/recommendations', getCleanupRecommendations);
  *       403:
  *         description: Sin permisos
  */
-router.post('/system/retention/cleanup', executeCleanup);
+router.post('/system/retention/cleanup', requireRole('admin', 'superadmin'), executeCleanup);
 
 /**
  * @swagger
@@ -533,12 +533,12 @@ router.post('/system/retention/cleanup', executeCleanup);
  *       200:
  *         description: Archivo de exportación
  */
-router.get('/system/export', exportSystemLogs);
+router.get('/system/export', requireRole('admin', 'superadmin'), exportSystemLogs);
 
-router.get('/system/level/:nivel', getLogsByLevel);
-router.get('/system/module/:modulo', getSystemLogsByModule);
-router.get('/system/error-code/:code', getLogsByErrorCode);
-router.get('/system/:id', getSystemLogById);
+router.get('/system/level/:nivel', requireRole('admin', 'superadmin'), getLogsByLevel);
+router.get('/system/module/:modulo', requireRole('admin', 'superadmin'), getSystemLogsByModule);
+router.get('/system/error-code/:code', requireRole('admin', 'superadmin'), getLogsByErrorCode);
+router.get('/system/:id', requireRole('admin', 'superadmin'), getSystemLogById);
 
 // ============================================
 // NOTA: Rutas de Fiscal Logs se añadirán en el futuro
@@ -592,7 +592,7 @@ router.get('/system/:id', getSystemLogById);
  *       400:
  *         description: Datos inválidos
  */
-router.post('/fiscal', createFiscalLog);
+router.post('/fiscal', requireRole('admin', 'superadmin'), createFiscalLog);
 
 /**
  * @swagger
@@ -612,7 +612,7 @@ router.post('/fiscal', createFiscalLog);
  *       201:
  *         description: Log con TicketBAI creado
  */
-router.post('/fiscal/ticketbai', createWithTicketBAI);
+router.post('/fiscal/ticketbai', requireRole('admin', 'superadmin'), createWithTicketBAI);
 
 /**
  * @swagger
@@ -632,7 +632,7 @@ router.post('/fiscal/ticketbai', createWithTicketBAI);
  *       201:
  *         description: Log con Verifactu creado
  */
-router.post('/fiscal/verifactu', createWithVerifactu);
+router.post('/fiscal/verifactu', requireRole('admin', 'superadmin'), createWithVerifactu);
 
 /**
  * @swagger
@@ -680,7 +680,7 @@ router.post('/fiscal/verifactu', createWithVerifactu);
  *       200:
  *         description: Lista de logs fiscales
  */
-router.get('/fiscal', getFiscalLogs);
+router.get('/fiscal', requireRole('admin', 'superadmin'), getFiscalLogs);
 
 /**
  * @swagger
@@ -707,7 +707,7 @@ router.get('/fiscal', getFiscalLogs);
  *       200:
  *         description: Estadísticas fiscales
  */
-router.get('/fiscal/stats', getEstadisticas);
+router.get('/fiscal/stats', requireRole('admin', 'superadmin'), getEstadisticas);
 
 /**
  * @swagger
@@ -734,7 +734,7 @@ router.get('/fiscal/stats', getEstadisticas);
  *       200:
  *         description: Conteo por periodo
  */
-router.get('/fiscal/periodo', contarPorPeriodo);
+router.get('/fiscal/periodo', requireRole('admin', 'superadmin'), contarPorPeriodo);
 
 /**
  * @swagger
@@ -754,7 +754,7 @@ router.get('/fiscal/periodo', contarPorPeriodo);
  *       200:
  *         description: Logs próximos a expirar
  */
-router.get('/fiscal/expirando', getProximosAExpirar);
+router.get('/fiscal/expirando', requireRole('admin', 'superadmin'), getProximosAExpirar);
 
 /**
  * @swagger
@@ -768,7 +768,7 @@ router.get('/fiscal/expirando', getProximosAExpirar);
  *       200:
  *         description: Información de retención
  */
-router.get('/fiscal/retencion', consultarRetencion);
+router.get('/fiscal/retencion', requireRole('admin', 'superadmin'), consultarRetencion);
 
 /**
  * @swagger
@@ -782,7 +782,7 @@ router.get('/fiscal/retencion', consultarRetencion);
  *       200:
  *         description: Archivo de exportación
  */
-router.get('/fiscal/export', exportFiscalLogs);
+router.get('/fiscal/export', requireRole('admin', 'superadmin'), exportFiscalLogs);
 
 /**
  * @swagger
@@ -809,7 +809,7 @@ router.get('/fiscal/export', exportFiscalLogs);
  *       200:
  *         description: Archivo de auditoría
  */
-router.get('/fiscal/export/auditoria', exportarParaAuditoria);
+router.get('/fiscal/export/auditoria', requireRole('admin', 'superadmin'), exportarParaAuditoria);
 
 /**
  * @swagger
@@ -837,7 +837,7 @@ router.get('/fiscal/export/auditoria', exportarParaAuditoria);
  *       409:
  *         description: Cadena rota
  */
-router.post('/fiscal/verificar-cadena', verificarCadena);
+router.post('/fiscal/verificar-cadena', requireRole('admin', 'superadmin'), verificarCadena);
 
 /**
  * @swagger
@@ -857,7 +857,7 @@ router.post('/fiscal/verificar-cadena', verificarCadena);
  *       200:
  *         description: Resumen fiscal del año
  */
-router.get('/fiscal/resumen/:year', getResumenFiscal);
+router.get('/fiscal/resumen/:year', requireRole('admin', 'superadmin'), getResumenFiscal);
 
 /**
  * @swagger
@@ -879,7 +879,7 @@ router.get('/fiscal/resumen/:year', getResumenFiscal);
  *       404:
  *         description: Documento no encontrado
  */
-router.get('/fiscal/documento/:numero', getByNumeroDocumento);
+router.get('/fiscal/documento/:numero', requireRole('admin', 'superadmin'), getByNumeroDocumento);
 
 /**
  * @swagger
@@ -905,7 +905,7 @@ router.get('/fiscal/documento/:numero', getByNumeroDocumento);
  *       200:
  *         description: Logs por tipo
  */
-router.get('/fiscal/tipo/:tipo', getByDocumentType);
+router.get('/fiscal/tipo/:tipo', requireRole('admin', 'superadmin'), getByDocumentType);
 
 /**
  * @swagger
@@ -927,7 +927,7 @@ router.get('/fiscal/tipo/:tipo', getByDocumentType);
  *       409:
  *         description: Documento alterado
  */
-router.get('/fiscal/:id/verificar', verificarDocumento);
+router.get('/fiscal/:id/verificar', requireRole('admin', 'superadmin'), verificarDocumento);
 
 /**
  * @swagger
@@ -949,6 +949,6 @@ router.get('/fiscal/:id/verificar', verificarDocumento);
  *       404:
  *         description: Log no encontrado
  */
-router.get('/fiscal/:id', getFiscalLogById);
+router.get('/fiscal/:id', requireRole('admin', 'superadmin'), getFiscalLogById);
 
 export default router;

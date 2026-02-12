@@ -15,12 +15,15 @@
     "seed:clientes": "tsx src/scripts/seedClientes.ts",
     "seed:textos-legales": "tsx src/scripts/seedTextosLegales.ts",
     "migrate:multidb": "tsx src/scripts/migrateToMultiDB.ts",
-    "migrate:fichajes-personal": "tsx src/scripts/migrateFichajesPersonalData.ts"
+    "migrate:fichajes-personal": "tsx src/scripts/migrateFichajesPersonalData.ts",
+    "actualizar:informes": "tsx src/scripts/actualizar-informes-predefinidos.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.985.0",
+    "@aws-sdk/s3-request-presigner": "^3.985.0",
     "@azure/msal-node": "^3.8.4",
     "@heroicons/react": "^2.2.0",
     "@paypal/checkout-server-sdk": "^1.0.3",
@@ -44,6 +47,7 @@
     "pdfkit": "^0.17.2",
     "qrcode": "^1.5.4",
     "redsys-easy": "^5.2.11",
+    "sharp": "^0.34.5",
     "speakeasy": "^2.0.0",
     "stripe": "^19.2.0",
     "swagger-jsdoc": "^6.2.8",
@@ -67,6 +71,7 @@
     "@types/paypal__checkout-server-sdk": "^1.0.8",
     "@types/pdfkit": "^0.17.3",
     "@types/qrcode": "^1.5.5",
+    "@types/sharp": "^0.31.1",
     "@types/speakeasy": "^2.0.10",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",

@@ -143,6 +143,11 @@ const mapURLToAction = (method: string, url: string): LogAction | null => {
   if (url.includes('/api/auth/2fa/enable')) return LogAction.TWO_FACTOR_ENABLE;
   if (url.includes('/api/auth/2fa/disable')) return LogAction.TWO_FACTOR_DISABLE;
 
+  // Exportaciones (antes de las rutas específicas)
+  if (url.includes('/export')) return LogAction.DATA_EXPORT;
+  // Operaciones masivas
+  if (url.includes('/bulk')) return LogAction.BULK_OPERATION;
+
   // Usuarios
   if (url.includes('/api/users') || url.includes('/api/usuarios')) {
     if (method === 'POST') return LogAction.USER_CREATE;
@@ -151,43 +156,155 @@ const mapURLToAction = (method: string, url: string): LogAction | null => {
   }
 
   // Productos
-  if (url.includes('/api/products') || url.includes('/api/productos')) {
+  if (url.includes('/api/productos')) {
     if (method === 'POST') return LogAction.PRODUCT_CREATE;
     if (method === 'PUT' || method === 'PATCH') return LogAction.PRODUCT_UPDATE;
     if (method === 'DELETE') return LogAction.PRODUCT_DELETE;
   }
 
   // Clientes
-  if (url.includes('/api/clients') || url.includes('/api/clientes')) {
+  if (url.includes('/api/clientes')) {
     if (method === 'POST') return LogAction.CLIENT_CREATE;
     if (method === 'PUT' || method === 'PATCH') return LogAction.CLIENT_UPDATE;
     if (method === 'DELETE') return LogAction.CLIENT_DELETE;
   }
 
-  // Ventas
-  if (url.includes('/api/sales') || url.includes('/api/ventas')) {
-    if (method === 'POST') return LogAction.SALE_CREATE;
-    if (method === 'PUT' || method === 'PATCH') return LogAction.SALE_UPDATE;
-    if (method === 'DELETE') return LogAction.SALE_CANCEL;
-  }
-
-  // Facturas
-  if (url.includes('/api/invoices') || url.includes('/api/facturas')) {
+  // Facturas (ventas) - antes de facturas-compra
+  if (url.includes('/api/facturas') && !url.includes('/api/facturas-compra')) {
     if (method === 'POST') return LogAction.INVOICE_CREATE;
     if (method === 'PUT' || method === 'PATCH') return LogAction.INVOICE_RECTIFY;
     if (method === 'DELETE') return LogAction.INVOICE_CANCEL;
   }
 
+  // Albaranes (ventas) - antes de albaranes-compra
+  if (url.includes('/api/albaranes') && !url.includes('/api/albaranes-compra')) {
+    if (method === 'POST') return LogAction.DELIVERY_NOTE_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.DELIVERY_NOTE_UPDATE;
+    if (method === 'DELETE') return LogAction.DELIVERY_NOTE_DELETE;
+  }
+
+  // Pedidos (ventas) - antes de pedidos-compra
+  if (url.includes('/api/pedidos') && !url.includes('/api/pedidos-compra')) {
+    if (method === 'POST') return LogAction.ORDER_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.ORDER_UPDATE;
+    if (method === 'DELETE') return LogAction.ORDER_DELETE;
+  }
+
+  // Presupuestos (ventas) - antes de presupuestos-compra
+  if (url.includes('/api/presupuestos') && !url.includes('/api/presupuestos-compra')) {
+    if (method === 'POST') return LogAction.QUOTE_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.QUOTE_UPDATE;
+    if (method === 'DELETE') return LogAction.QUOTE_DELETE;
+  }
+
+  // Proveedores
+  if (url.includes('/api/proveedores')) {
+    if (method === 'POST') return LogAction.SUPPLIER_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.SUPPLIER_UPDATE;
+    if (method === 'DELETE') return LogAction.SUPPLIER_DELETE;
+  }
+
+  // Compras (facturas-compra, pedidos-compra, albaranes-compra, presupuestos-compra)
+  if (url.includes('/api/facturas-compra') || url.includes('/api/pedidos-compra') ||
+      url.includes('/api/albaranes-compra') || url.includes('/api/presupuestos-compra')) {
+    if (method === 'POST') return LogAction.PURCHASE_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.PURCHASE_UPDATE;
+    if (method === 'DELETE') return LogAction.PURCHASE_DELETE;
+  }
+
   // Empresa
-  if (url.includes('/api/company') || url.includes('/api/empresa')) {
+  if (url.includes('/api/empresa')) {
     if (method === 'PUT' || method === 'PATCH') return LogAction.COMPANY_UPDATE;
   }
 
-  // Exportaciones
-  if (url.includes('/export')) return LogAction.DATA_EXPORT;
+  // Roles
+  if (url.includes('/api/roles')) {
+    if (method === 'POST') return LogAction.ROLE_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.ROLE_UPDATE;
+    if (method === 'DELETE') return LogAction.ROLE_DELETE;
+  }
 
-  // Operaciones masivas
-  if (url.includes('/bulk')) return LogAction.BULK_OPERATION;
+  // Personal / RRHH
+  if (url.includes('/api/personal')) {
+    if (method === 'POST') return LogAction.EMPLOYEE_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.EMPLOYEE_UPDATE;
+    if (method === 'DELETE') return LogAction.EMPLOYEE_DELETE;
+  }
+  if (url.includes('/api/fichajes')) {
+    return LogAction.ATTENDANCE_CLOCK;
+  }
+
+  // Proyectos
+  if (url.includes('/api/proyectos')) {
+    if (method === 'POST') return LogAction.PROJECT_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.PROJECT_UPDATE;
+    if (method === 'DELETE') return LogAction.PROJECT_DELETE;
+  }
+
+  // Partes de trabajo
+  if (url.includes('/api/partes-trabajo')) {
+    if (method === 'POST') return LogAction.WORK_ORDER_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.WORK_ORDER_UPDATE;
+    if (method === 'DELETE') return LogAction.WORK_ORDER_DELETE;
+  }
+
+  // Stock / Inventario
+  if (url.includes('/api/stock')) return LogAction.STOCK_ADJUST;
+  if (url.includes('/api/traspasos')) {
+    if (method === 'POST') return LogAction.TRANSFER_CREATE;
+  }
+  if (url.includes('/api/inventarios')) {
+    if (method === 'POST') return LogAction.INVENTORY_CREATE;
+  }
+
+  // Tesorería
+  if (url.includes('/api/vencimientos') || url.includes('/api/pagares') ||
+      url.includes('/api/recibos') || url.includes('/api/movimientos-bancarios') ||
+      url.includes('/api/conciliacion') || url.includes('/api/previsiones') ||
+      url.includes('/api/cuentas-bancarias')) {
+    if (url.includes('/api/recibos') && method === 'POST') return LogAction.RECEIPT_CREATE;
+    if (method === 'POST') return LogAction.PAYMENT_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.PAYMENT_UPDATE;
+  }
+
+  // CRM
+  if (url.includes('/api/crm')) {
+    if (url.includes('/leads')) {
+      if (method === 'POST') return LogAction.LEAD_CREATE;
+      if (method === 'PUT' || method === 'PATCH') return LogAction.LEAD_UPDATE;
+    }
+    if (url.includes('/oportunidades')) {
+      if (method === 'POST') return LogAction.OPPORTUNITY_CREATE;
+      if (method === 'PUT' || method === 'PATCH') return LogAction.OPPORTUNITY_UPDATE;
+    }
+  }
+
+  // TPV
+  if (url.includes('/api/tpv')) {
+    if (method === 'POST') return LogAction.TPV_SALE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.TPV_CONFIG;
+  }
+
+  // Contabilidad
+  if (url.includes('/api/contabilidad')) {
+    if (method === 'POST') return LogAction.RECORD_CREATE;
+    if (method === 'PUT' || method === 'PATCH') return LogAction.RECORD_UPDATE;
+    if (method === 'DELETE') return LogAction.RECORD_DELETE;
+  }
+
+  // Configuración general (series-documentos, tipos-impuesto, estados, etc.)
+  if (url.includes('/api/series-documentos') || url.includes('/api/tipos-impuesto') ||
+      url.includes('/api/estados') || url.includes('/api/situaciones') ||
+      url.includes('/api/clasificaciones') || url.includes('/api/configuraciones') ||
+      url.includes('/api/plantillas-documento') || url.includes('/api/formas-pago') ||
+      url.includes('/api/terminos-pago')) {
+    return LogAction.CONFIG_UPDATE;
+  }
+
+  // Fallback genérico para escritura
+  if (method === 'POST') return LogAction.RECORD_CREATE;
+  if (method === 'PUT' || method === 'PATCH') return LogAction.RECORD_UPDATE;
+  if (method === 'DELETE') return LogAction.RECORD_DELETE;
 
   return null;
 };
@@ -198,13 +315,73 @@ const mapURLToAction = (method: string, url: string): LogAction | null => {
 const mapURLToModule = (url: string): LogModule | null => {
   if (url.includes('/api/auth')) return LogModule.AUTH;
   if (url.includes('/api/users') || url.includes('/api/usuarios')) return LogModule.USERS;
-  if (url.includes('/api/company') || url.includes('/api/empresa')) return LogModule.COMPANY;
-  if (url.includes('/api/products') || url.includes('/api/productos')) return LogModule.PRODUCTS;
-  if (url.includes('/api/clients') || url.includes('/api/clientes')) return LogModule.CLIENTS;
-  if (url.includes('/api/sales') || url.includes('/api/ventas')) return LogModule.SALES;
-  if (url.includes('/api/invoices') || url.includes('/api/facturas')) return LogModule.INVOICES;
-  if (url.includes('/api/inventory') || url.includes('/api/inventario')) return LogModule.INVENTORY;
-  if (url.includes('/api/reports') || url.includes('/api/reportes')) return LogModule.REPORTS;
+  if (url.includes('/api/empresa')) return LogModule.COMPANY;
+  if (url.includes('/api/productos') || url.includes('/api/familias') || url.includes('/api/variantes')) return LogModule.PRODUCTS;
+  if (url.includes('/api/clientes')) return LogModule.CLIENTS;
+
+  // Facturas de compra antes que facturas de venta
+  if (url.includes('/api/facturas-compra') || url.includes('/api/pedidos-compra') ||
+      url.includes('/api/albaranes-compra') || url.includes('/api/presupuestos-compra')) return LogModule.PURCHASES;
+  if (url.includes('/api/proveedores')) return LogModule.SUPPLIERS;
+
+  // Documentos de venta
+  if (url.includes('/api/facturas')) return LogModule.INVOICES;
+  if (url.includes('/api/albaranes')) return LogModule.DELIVERY_NOTES;
+  if (url.includes('/api/pedidos')) return LogModule.ORDERS;
+  if (url.includes('/api/presupuestos')) return LogModule.QUOTES;
+
+  // Stock / Inventario
+  if (url.includes('/api/stock') || url.includes('/api/almacenes') ||
+      url.includes('/api/traspasos') || url.includes('/api/inventarios')) return LogModule.STOCK;
+
+  // RRHH
+  if (url.includes('/api/personal') || url.includes('/api/departamentos') ||
+      url.includes('/api/turnos') || url.includes('/api/calendarios') ||
+      url.includes('/api/fichajes') || url.includes('/api/terminales')) return LogModule.HR;
+
+  // Tesorería
+  if (url.includes('/api/vencimientos') || url.includes('/api/pagares') ||
+      url.includes('/api/recibos') || url.includes('/api/movimientos-bancarios') ||
+      url.includes('/api/conciliacion') || url.includes('/api/previsiones') ||
+      url.includes('/api/cuentas-bancarias') || url.includes('/api/formas-pago') ||
+      url.includes('/api/terminos-pago')) return LogModule.TREASURY;
+
+  // Contabilidad
+  if (url.includes('/api/contabilidad')) return LogModule.ACCOUNTING;
+
+  // CRM
+  if (url.includes('/api/crm')) return LogModule.CRM;
+
+  // Proyectos y partes de trabajo
+  if (url.includes('/api/proyectos') || url.includes('/api/partes-trabajo') ||
+      url.includes('/api/tipos-gasto') || url.includes('/api/maquinaria')) return LogModule.PROJECTS;
+
+  // TPV y restauración
+  if (url.includes('/api/tpv') || url.includes('/api/kiosk')) return LogModule.TPV;
+  if (url.includes('/api/salones') || url.includes('/api/mesas') ||
+      url.includes('/api/comandas-cocina') || url.includes('/api/camareros') ||
+      url.includes('/api/reservas') || url.includes('/api/sugerencias') ||
+      url.includes('/api/zonas-preparacion') || url.includes('/api/impresoras') ||
+      url.includes('/api/alergenos') || url.includes('/api/modificadores') ||
+      url.includes('/api/grupos-modificadores')) return LogModule.RESTAURANT;
+
+  // Roles
+  if (url.includes('/api/roles')) return LogModule.ROLES;
+
+  // Informes
+  if (url.includes('/api/informes') || url.includes('/api/reports') ||
+      url.includes('/api/reportes')) return LogModule.REPORTS;
+
+  // Configuración general
+  if (url.includes('/api/series-documentos') || url.includes('/api/tipos-impuesto') ||
+      url.includes('/api/estados') || url.includes('/api/situaciones') ||
+      url.includes('/api/clasificaciones') || url.includes('/api/configuraciones') ||
+      url.includes('/api/plantillas-documento') || url.includes('/api/agentes-comerciales') ||
+      url.includes('/api/tarifas') || url.includes('/api/ofertas') ||
+      url.includes('/api/precios') || url.includes('/api/certificados') ||
+      url.includes('/api/verifactu') || url.includes('/api/facturae') ||
+      url.includes('/api/dashboard') || url.includes('/api/licencias') ||
+      url.includes('/api/pagos') || url.includes('/api/admin')) return LogModule.CONFIG;
 
   return LogModule.SYSTEM;
 };

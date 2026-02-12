@@ -142,6 +142,37 @@ router.post('/bulk/delete', facturasCompraController.eliminarMultiples.bind(fact
 
 /**
  * @swagger
+ * /api/facturas-compra/bulk/estado:
+ *   post:
+ *     summary: Cambiar estado de múltiples facturas de compra
+ *     tags: [Facturas de Compra]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - ids
+ *               - estado
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               estado:
+ *                 type: string
+ *                 enum: [borrador, pendiente_pago, parcialmente_pagada, pagada, vencida, anulada]
+ *     responses:
+ *       200:
+ *         description: Estados actualizados
+ */
+router.post('/bulk/estado', facturasCompraController.cambiarEstadoMasivo.bind(facturasCompraController));
+
+/**
+ * @swagger
  * /api/facturas-compra/{id}:
  *   get:
  *     summary: Obtener factura de compra por ID

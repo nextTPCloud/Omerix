@@ -640,6 +640,77 @@ export const emailTemplates = {
     </html>
   `,
 
+  // Solicitud de firma digital
+  solicitudFirma: (params: {
+    nombreDestinatario: string;
+    codigoDocumento: string;
+    tipoDocumento: string;
+    empresaNombre: string;
+    urlFirma: string;
+    mensajePersonalizado?: string;
+    fechaExpiracion: string;
+  }) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #7C3AED; }
+        .cta-button { display: inline-block; padding: 16px 40px; background: #7C3AED; color: white; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; font-size: 16px; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .mensaje-personalizado { background: #FEF3C7; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #F59E0B; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; background: #EDE9FE; color: #5B21B6; }
+        .expiracion { background: #FEF2F2; padding: 10px 15px; border-radius: 6px; margin-top: 15px; font-size: 13px; color: #991B1B; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Solicitud de Firma</h1>
+          <p style="margin: 0; opacity: 0.9;">Documento pendiente de firma</p>
+        </div>
+        <div class="content">
+          <p>Estimado/a <strong>${params.nombreDestinatario}</strong>,</p>
+          <p><strong>${params.empresaNombre}</strong> le solicita firmar el siguiente documento:</p>
+
+          ${params.mensajePersonalizado ? `
+          <div class="mensaje-personalizado">
+            <p style="margin: 0;">${params.mensajePersonalizado}</p>
+          </div>
+          ` : ''}
+
+          <div class="info-box">
+            <p><strong>Documento:</strong> ${params.codigoDocumento}</p>
+            <p><strong>Tipo:</strong> <span class="badge">${params.tipoDocumento}</span></p>
+          </div>
+
+          <p>Puede firmar el documento de forma digital haciendo clic en el siguiente boton:</p>
+
+          <center>
+            <a href="${params.urlFirma}" class="cta-button">Firmar Documento</a>
+          </center>
+
+          <p><small>O copie y pegue este enlace en su navegador:<br>${params.urlFirma}</small></p>
+
+          <div class="expiracion">
+            Este enlace de firma expira el <strong>${params.fechaExpiracion}</strong>. Por favor, firme el documento antes de esa fecha.
+          </div>
+
+          <p style="margin-top: 20px;">Saludos cordiales,<br><strong>${params.empresaNombre}</strong></p>
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} ${params.empresaNombre}. Todos los derechos reservados.</p>
+          <p style="font-size: 11px; color: #999;">Este es un mensaje automatico. Si no esperaba esta solicitud, puede ignorar este email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
+
   recordatorioAgente: (params: {
     agenteNombre: string;
     tipoRecordatorio: 'expiracion' | 'sin_respuesta';

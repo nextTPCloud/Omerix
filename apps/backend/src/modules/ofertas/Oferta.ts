@@ -97,6 +97,12 @@ export interface IOferta extends Document {
   fechaDesde: Date;
   fechaHasta?: Date;
 
+  // Restricción horaria (Happy Hours)
+  horaDesde?: string;        // "17:00" formato HH:mm
+  horaHasta?: string;        // "19:00" formato HH:mm
+  diasSemana?: number[];     // [1,2,3,4,5] = lun-vie (0=dom, 6=sáb)
+  esHappyHour: boolean;
+
   // Restricciones por cliente
   aplicaATodosClientes: boolean;
   clientesIncluidos?: Types.ObjectId[];
@@ -241,6 +247,25 @@ const OfertaSchema = new Schema<IOferta>(
     fechaHasta: {
       type: Date,
     },
+    horaDesde: {
+      type: String,
+      trim: true,
+      match: /^([01]\d|2[0-3]):[0-5]\d$/,
+    },
+    horaHasta: {
+      type: String,
+      trim: true,
+      match: /^([01]\d|2[0-3]):[0-5]\d$/,
+    },
+    diasSemana: [{
+      type: Number,
+      min: 0,
+      max: 6,
+    }],
+    esHappyHour: {
+      type: Boolean,
+      default: false,
+    },
     aplicaATodosClientes: {
       type: Boolean,
       default: true,
@@ -330,6 +355,45 @@ OfertaSchema.index({ productosIncluidos: 1 });
 OfertaSchema.index({ familiasIncluidas: 1 });
 
 // ============================================
+// HELPERS
+// ============================================
+
+/**
+ * Verifica si la fecha/hora actual cumple las restricciones horarias
+ */
+function estaEnHorario(
+  ahora: Date,
+  horaDesde?: string,
+  horaHasta?: string,
+  diasSemana?: number[]
+): boolean {
+  // Verificar día de la semana
+  if (diasSemana && diasSemana.length > 0) {
+    const diaActual = ahora.getDay(); // 0=dom, 6=sáb
+    if (!diasSemana.includes(diaActual)) return false;
+  }
+
+  // Verificar rango horario
+  if (horaDesde || horaHasta) {
+    const horaActual = ahora.getHours() * 60 + ahora.getMinutes();
+
+    if (horaDesde) {
+      const [h, m] = horaDesde.split(':').map(Number);
+      const minDesde = h * 60 + m;
+      if (horaActual < minDesde) return false;
+    }
+
+    if (horaHasta) {
+      const [h, m] = horaHasta.split(':').map(Number);
+      const minHasta = h * 60 + m;
+      if (horaActual > minHasta) return false;
+    }
+  }
+
+  return true;
+}
+
+// ============================================
 // VIRTUALS
 // ============================================
 
@@ -340,6 +404,10 @@ OfertaSchema.virtual('vigente').get(function () {
   if (this.fechaHasta && ahora > this.fechaHasta) return false;
   // Verificar limite de usos
   if (this.usosMaximos && this.usosActuales >= this.usosMaximos) return false;
+  // Verificar restricción horaria
+  if (this.horaDesde || this.horaHasta || (this.diasSemana && this.diasSemana.length > 0)) {
+    if (!estaEnHorario(ahora, this.horaDesde, this.horaHasta, this.diasSemana)) return false;
+  }
   return true;
 });
 

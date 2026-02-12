@@ -71,7 +71,7 @@ export function CobroVencimientosModal({
         busqueda: busqueda || undefined,
         limite: 50,
       });
-      setVencimientos(response.vencimientos || []);
+      setVencimientos(Array.isArray(response?.vencimientos) ? response.vencimientos : []);
     } catch (err: any) {
       setError(err.message || 'Error al cargar vencimientos');
       setVencimientos([]);
@@ -91,7 +91,7 @@ export function CobroVencimientosModal({
     setError(null);
     try {
       const response = await tpvApi.buscarVencimientoPorFactura(busqueda);
-      setVencimientos(response.vencimientos || []);
+      setVencimientos(Array.isArray(response?.vencimientos) ? response.vencimientos : []);
     } catch (err: any) {
       setError(err.message || 'Error al buscar factura');
       setVencimientos([]);
@@ -312,7 +312,7 @@ export function CobroVencimientosModal({
                 </p>
               </div>
             ) : (
-              vencimientos.map((venc) => (
+              (vencimientos || []).map((venc) => (
                 <div
                   key={venc._id}
                   className={`p-3 rounded-lg border transition-colors cursor-pointer ${

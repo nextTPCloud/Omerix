@@ -316,6 +316,29 @@ class InformesController {
   }
 
   /**
+   * GET /api/informes/debug
+   * Debug: ver informes directamente sin filtros (TEMPORAL)
+   */
+  async debug(req: Request, res: Response) {
+    try {
+      const empresaId = req.empresaId!;
+      const dbConfig = req.empresaDbConfig!;
+
+      const resultado = await informesService.debug(empresaId, dbConfig);
+
+      res.json({
+        success: true,
+        data: resultado,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
    * POST /api/informes/inicializar-plantillas
    * Inicializar plantillas predefinidas (admin)
    */
@@ -324,14 +347,26 @@ class InformesController {
       const empresaId = req.empresaId!;
       const dbConfig = req.empresaDbConfig!;
       const usuarioId = req.usuarioId!;
+      const forzar = req.body?.forzar === true || req.query?.forzar === 'true';
 
-      await informesService.inicializarPlantillas(empresaId, dbConfig, usuarioId);
+      const resultado = await informesService.inicializarPlantillas(empresaId, dbConfig, usuarioId, forzar);
+
+      let message = '';
+      if (resultado.eliminados && resultado.eliminados > 0) {
+        message = `${resultado.eliminados} plantillas eliminadas. ${resultado.insertados} nuevas plantillas creadas.`;
+      } else if (resultado.insertados > 0) {
+        message = `${resultado.insertados} plantillas inicializadas correctamente`;
+      } else {
+        message = `Ya existen ${resultado.existentes} plantillas. Use forzar=true para reinicializar.`;
+      }
 
       res.json({
         success: true,
-        message: 'Plantillas inicializadas correctamente',
+        message,
+        data: resultado,
       });
     } catch (error: any) {
+      console.error('Error inicializando plantillas de informes:', error);
       res.status(400).json({
         success: false,
         error: error.message,

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { productosController } from './productos.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware, requireBusinessDatabase } from '../../middleware/tenant.middleware';
+import { uploadImages } from '@/middleware/upload.middleware';
 
 const router = Router();
 
@@ -559,5 +560,28 @@ router.put('/:id/stock', productosController.actualizarStock.bind(productosContr
  *         description: No autorizado
  */
 router.delete('/:id', productosController.eliminar.bind(productosController));
+
+// ============================================
+// RUTAS DE IMAGENES
+// ============================================
+
+// Subir imagenes a producto (multiples)
+router.post(
+  '/:id/imagenes',
+  uploadImages.array('images', 10),
+  productosController.subirImagenes.bind(productosController)
+);
+
+// Cambiar imagen principal
+router.patch(
+  '/:id/imagen-principal',
+  productosController.setImagenPrincipal.bind(productosController)
+);
+
+// Eliminar imagen de producto
+router.delete(
+  '/:id/imagenes',
+  productosController.eliminarImagen.bind(productosController)
+);
 
 export default router;

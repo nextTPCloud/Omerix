@@ -66,6 +66,11 @@ import {
   Share2,
   Bell,
   Plug,
+  LayoutGrid,
+  Lightbulb,
+  Monitor,
+  ScrollText,
+  CalendarCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFavoritosContext } from '@/contexts/FavoritosContext'
@@ -79,6 +84,7 @@ interface MenuItem {
   href?: string
   icon: any
   adminOnly?: boolean
+  moduloLicencia?: string // Modulo de licencia requerido para ver este item
   children?: {
     title: string
     href: string
@@ -95,7 +101,7 @@ const iconMap: { [key: string]: any } = {
   Briefcase, UserCog, Star, FolderKanban, CalendarDays, Timer, Fingerprint,
   ArrowRightLeft, ClipboardList, Edit, CheckSquare, FileBarChart,
   Calculator, Download, PieChart, Target, UserPlus, Phone, Kanban,
-  Share2, Bell, Plug,
+  Share2, Bell, Plug, LayoutGrid, Lightbulb, Monitor, ScrollText, CalendarCheck,
 }
 
 // Tipo de permiso requerido para cada grupo
@@ -548,6 +554,12 @@ const menuGroups: MenuGroup[] = [
         href: '/recordatorios',
         icon: Bell,
       },
+      {
+        title: 'Restoo.me',
+        href: '/integraciones/restoo',
+        icon: CalendarCheck,
+        moduloLicencia: 'restoo',
+      },
     ],
   },
   {
@@ -574,6 +586,39 @@ const menuGroups: MenuGroup[] = [
         icon: Grid3X3,
       },
       {
+        title: 'Salones',
+        href: '/salones',
+        icon: LayoutGrid,
+      },
+      {
+        title: 'Mesas',
+        href: '/mesas',
+        icon: Grid3X3,
+      },
+      {
+        title: 'Camareros',
+        href: '/camareros',
+        icon: UserCog,
+      },
+      {
+        title: 'Turnos Servicio',
+        href: '/turnos-servicio',
+        icon: Timer,
+      },
+      {
+        title: 'Sugerencias',
+        href: '/sugerencias',
+        icon: Lightbulb,
+      },
+      {
+        title: 'Reservas',
+        icon: CalendarDays,
+        children: [
+          { title: 'Listado reservas', href: '/reservas' },
+          { title: 'Nueva reserva', href: '/reservas/nuevo' },
+        ],
+      },
+      {
         title: 'Zonas Preparación',
         href: '/zonas-preparacion',
         icon: ChefHat,
@@ -595,6 +640,11 @@ const menuGroups: MenuGroup[] = [
           { title: 'Modificadores', href: '/modificadores' },
           { title: 'Grupos', href: '/grupos-modificadores' },
         ],
+      },
+      {
+        title: 'Kioskos',
+        href: '/configuracion/kiosks',
+        icon: Monitor,
       },
     ],
   },
@@ -634,6 +684,18 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    group: 'Firmas',
+    icon: Fingerprint,
+    moduloLicencia: 'firmas',
+    items: [
+      {
+        title: 'Solicitudes de Firma',
+        href: '/firmas',
+        icon: Fingerprint,
+      },
+    ],
+  },
+  {
     group: 'Mi Empresa',
     icon: Building2,
     requiereAlgunModulo: true, // Solo visible si tiene al menos un módulo funcional
@@ -642,6 +704,17 @@ const menuGroups: MenuGroup[] = [
         title: 'Configuración',
         href: '/configuracion',
         icon: Settings,
+      },
+      {
+        title: 'Plantillas Documentos',
+        href: '/configuracion/plantillas-documento',
+        icon: Palette,
+      },
+      {
+        title: 'E-commerce',
+        href: '/configuracion/ecommerce',
+        icon: ShoppingCart,
+        moduloLicencia: 'ecommerce',
       },
     ],
   },
@@ -680,6 +753,14 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
 
   // Verificar si el usuario tiene empleado vinculado (para Mi Fichaje)
   const tienePersonalId = !!(user as any)?.personalId
+
+  // Debug: verificar personalId
+  console.log('[Sidebar] Usuario:', {
+    id: user?.id,
+    email: user?.email,
+    personalId: (user as any)?.personalId,
+    tienePersonalId,
+  })
 
   // Verificar si el usuario tiene acceso a algún módulo funcional
   // Esto determina si ve Dashboard/Informes o solo Mi Fichaje
@@ -812,32 +893,97 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-14 z-50 h-[calc(100vh-3.5rem)] border-r transition-all duration-300 ease-in-out",
+          "fixed left-0 top-0 z-50 h-screen border-r transition-all duration-300 ease-in-out",
           "bg-slate-900 dark:bg-slate-950",
           isCollapsed ? "w-16" : "w-64",
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
         <div className="flex h-full flex-col">
-          {/* Toggle button */}
+          {/* Logo + Toggle */}
           <div className={cn(
-            "flex items-center border-b border-slate-800 p-2",
-            isCollapsed ? "justify-center" : "justify-end"
+            "flex items-center h-14 border-b border-slate-800 flex-shrink-0",
+            isCollapsed ? "flex-col justify-center px-1 gap-0" : "justify-between px-3"
           )}>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleCollapse}
-              className="h-8 w-8 hidden lg:flex text-slate-400 hover:text-white hover:bg-slate-800"
-              title={isCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+            {/* Logo */}
+            <Link
+              href="/dashboard"
+              onClick={onClose}
+              className="flex items-center hover:opacity-80 transition-opacity"
             >
               {isCollapsed ? (
-                <ChevronsRight className="h-4 w-4" />
+                /* Icono solo */
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 48 48"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="text-white"
+                >
+                  <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2.5" fill="none" opacity="0.15"/>
+                  <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2.5" fill="none" strokeDasharray="95 31" strokeLinecap="round"/>
+                  <rect x="14" y="28" width="4" height="10" rx="1.5" fill="currentColor"/>
+                  <rect x="20" y="23" width="4" height="15" rx="1.5" fill="currentColor"/>
+                  <rect x="26" y="18" width="4" height="20" rx="1.5" fill="currentColor"/>
+                  <circle cx="34" cy="15" r="3" fill="currentColor"/>
+                </svg>
               ) : (
-                <ChevronsLeft className="h-4 w-4" />
+                /* Logo completo */
+                <svg
+                  width="130"
+                  height="32"
+                  viewBox="0 0 200 48"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-8 w-auto text-white"
+                >
+                  <style>{`
+                    @font-face {
+                      font-family: 'GameOfSquids';
+                      src: url('/fonts/GameOfSquids.woff2') format('woff2'),
+                          url('/fonts/GameOfSquids.woff') format('woff');
+                      font-weight: 700;
+                      font-style: bold;
+                    }
+                  `}</style>
+                  <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2.5" fill="none" opacity="0.15"/>
+                  <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="2.5" fill="none" strokeDasharray="95 31" strokeLinecap="round"/>
+                  <rect x="14" y="28" width="4" height="10" rx="1.5" fill="currentColor"/>
+                  <rect x="20" y="23" width="4" height="15" rx="1.5" fill="currentColor"/>
+                  <rect x="26" y="18" width="4" height="20" rx="1.5" fill="currentColor"/>
+                  <circle cx="34" cy="15" r="3" fill="currentColor"/>
+                  <text x="54" y="38" fontFamily="GameOfSquids" fontSize="36" fontWeight="700" fill="currentColor" letterSpacing="1">Tralok</text>
+                </svg>
               )}
-            </Button>
+            </Link>
+            {/* Toggle button - solo visible en desktop, oculto en colapsado (se usa doble-click en logo o hover) */}
+            {!isCollapsed && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggleCollapse}
+                className="h-8 w-8 hidden lg:flex text-slate-400 hover:text-white hover:bg-slate-800"
+                title="Colapsar sidebar"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+            )}
           </div>
+          {/* Botón expandir centrado debajo del icono en modo colapsado */}
+          {isCollapsed && (
+            <div className="flex justify-center py-1 border-b border-slate-800">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggleCollapse}
+                className="h-6 w-6 hidden lg:flex text-slate-400 hover:text-white hover:bg-slate-800"
+                title="Expandir sidebar"
+              >
+                <ChevronsRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
 
           {/* Menu */}
           <div className="flex-1 overflow-y-auto py-4">
@@ -896,6 +1042,25 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                 >
                   <FileBarChart className="h-4 w-4 flex-shrink-0" />
                   {!isCollapsed && <span>Informes</span>}
+                </Link>
+              )}
+
+              {/* Registro de Actividad - visible con permiso verHistorialCambios o admin/superadmin */}
+              {(can('verHistorialCambios') || isSuperadmin) && (
+                <Link
+                  href="/logs"
+                  onClick={onClose}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                    pathname.startsWith('/logs')
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                    isCollapsed && "justify-center"
+                  )}
+                  title={isCollapsed ? "Registro de Actividad" : undefined}
+                >
+                  <ScrollText className="h-4 w-4 flex-shrink-0" />
+                  {!isCollapsed && <span>Registro de Actividad</span>}
                 </Link>
               )}
 
@@ -987,7 +1152,11 @@ export function Sidebar({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                         "space-y-0.5",
                         !isCollapsed && "pl-2"
                       )}>
-                        {group.items.map((item) => {
+                        {group.items.filter(item => {
+                          // Filtrar items por moduloLicencia si está definido
+                          if (item.moduloLicencia && !isSuperadmin && !hasModule(item.moduloLicencia)) return false
+                          return true
+                        }).map((item) => {
                           const Icon = item.icon
                           const hasChildren = item.children && item.children.length > 0
                           const isItemExpanded = expandedItems.includes(item.title)

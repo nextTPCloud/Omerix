@@ -162,6 +162,9 @@ export interface IVenta {
   totalDescuento: number;
   total: number;
 
+  // Propina (restauración)
+  propina?: number;
+
   // Pagos
   pagos: IPago[];
   totalPagado: number;

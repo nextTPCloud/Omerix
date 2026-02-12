@@ -51,6 +51,12 @@ router.get('/plantillas', informesController.obtenerPlantillas.bind(informesCont
 router.post('/inicializar-plantillas', informesController.inicializarPlantillas.bind(informesController));
 
 /**
+ * GET /api/informes/debug
+ * Debug: ver informes directamente (TEMPORAL)
+ */
+router.get('/debug', informesController.debug.bind(informesController));
+
+/**
  * GET /api/informes
  * Listar informes
  */

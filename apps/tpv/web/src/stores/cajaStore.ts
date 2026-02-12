@@ -18,6 +18,8 @@ interface Movimiento {
   metodoPago?: MetodoPago;
   descripcion?: string;
   ventaId?: string;
+  ticketNumero?: string;
+  ticketSerie?: string;
   fecha: Date;
   usuarioId: string;
   usuarioNombre: string;
@@ -75,6 +77,8 @@ interface CajaState {
     metodoPago: MetodoPago;
     usuarioId: string;
     usuarioNombre: string;
+    ticketNumero?: string;
+    ticketSerie?: string;
   }) => void;
   registrarMovimiento: (params: {
     tipo: 'entrada' | 'salida';
@@ -191,7 +195,7 @@ export const useCajaStore = create<CajaState>()(
       },
 
       // Registrar venta (también agrega a cola de sincronización)
-      registrarVenta: ({ ventaId, importe, metodoPago, usuarioId, usuarioNombre }) => {
+      registrarVenta: ({ ventaId, importe, metodoPago, usuarioId, usuarioNombre, ticketNumero, ticketSerie }) => {
         const movimientoId = Date.now().toString();
         const movimiento: Movimiento = {
           id: movimientoId,
@@ -199,6 +203,8 @@ export const useCajaStore = create<CajaState>()(
           importe,
           metodoPago,
           ventaId,
+          ticketNumero,
+          ticketSerie,
           fecha: new Date(),
           usuarioId,
           usuarioNombre,

@@ -73,6 +73,12 @@ export interface IOferta {
   fechaDesde: string;
   fechaHasta?: string;
 
+  // Restricción horaria (Happy Hours)
+  horaDesde?: string;
+  horaHasta?: string;
+  diasSemana?: number[];
+  esHappyHour: boolean;
+
   // Restricciones cliente
   aplicaATodosClientes: boolean;
   clientesIncluidos?: string[];
@@ -114,6 +120,10 @@ export interface CreateOfertaDto {
   familiasExcluidas?: string[];
   fechaDesde: string;
   fechaHasta?: string;
+  horaDesde?: string;
+  horaHasta?: string;
+  diasSemana?: number[];
+  esHappyHour?: boolean;
   aplicaATodosClientes?: boolean;
   clientesIncluidos?: string[];
   clientesExcluidos?: string[];

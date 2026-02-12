@@ -448,6 +448,15 @@ export class AuthService {
       activo: true,
     });
 
+    // Debug: log de personalId
+    console.log('[Auth] Login - UsuarioEmpresa encontrado:', {
+      usuarioId: String(usuario._id),
+      empresaId: String(empresaIdFinal),
+      tieneRelacion: !!relacionEmpresa,
+      personalId: relacionEmpresa?.personalId ? String(relacionEmpresa.personalId) : null,
+      rol: relacionEmpresa?.rol,
+    });
+
     return {
       requires2FA: false,
       requiresEmpresaSelection: false,
@@ -515,6 +524,15 @@ export class AuthService {
       usuarioId: usuario._id,
       empresaId: new mongoose.Types.ObjectId(empresaId),
       activo: true,
+    });
+
+    // Debug: log de personalId
+    console.log('[Auth] SelectEmpresa - UsuarioEmpresa encontrado:', {
+      usuarioId: String(usuario._id),
+      empresaId,
+      tieneRelacion: !!relacionEmpresa,
+      personalId: relacionEmpresa?.personalId ? String(relacionEmpresa.personalId) : null,
+      rol: relacionEmpresa?.rol,
     });
 
     return {

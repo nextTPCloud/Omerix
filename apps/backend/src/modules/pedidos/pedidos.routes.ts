@@ -244,4 +244,74 @@ router.post('/:id/notas', pedidosController.addNotaSeguimiento.bind(pedidosContr
  */
 router.delete('/:id/notas/:notaId', pedidosController.deleteNotaSeguimiento.bind(pedidosController));
 
+// ============================================
+// RUTAS DE PDF
+// ============================================
+
+/**
+ * @swagger
+ * /api/pedidos/{id}/pdf:
+ *   get:
+ *     summary: Generar PDF del pedido (visualización)
+ *     tags: [Pedidos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del pedido
+ *       - in: query
+ *         name: plantillaId
+ *         schema:
+ *           type: string
+ *         description: ID de plantilla específica (opcional)
+ *     responses:
+ *       200:
+ *         description: PDF del pedido
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Pedido no encontrado
+ */
+router.get('/:id/pdf', pedidosController.generarPDF.bind(pedidosController));
+
+/**
+ * @swagger
+ * /api/pedidos/{id}/descargar:
+ *   get:
+ *     summary: Descargar PDF del pedido
+ *     tags: [Pedidos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del pedido
+ *       - in: query
+ *         name: plantillaId
+ *         schema:
+ *           type: string
+ *         description: ID de plantilla específica
+ *     responses:
+ *       200:
+ *         description: PDF del pedido para descarga
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Pedido no encontrado
+ */
+router.get('/:id/descargar', pedidosController.descargarPDF.bind(pedidosController));
+
 export default router;

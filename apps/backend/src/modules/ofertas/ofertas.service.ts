@@ -112,7 +112,7 @@ class OfertasService {
   }
 
   /**
-   * Obtener ofertas vigentes
+   * Obtener ofertas vigentes (filtra también por hora y día de la semana)
    */
   async getVigentes(
     empresaId: string,
@@ -134,7 +134,70 @@ class OfertasService {
       .sort({ prioridad: 1, nombre: 1 })
       .lean();
 
-    return ofertas;
+    // Filtrar por restricción horaria en memoria (HH:mm no es filtrable en MongoDB fácilmente)
+    const horaActual = ahora.getHours() * 60 + ahora.getMinutes();
+    const diaActual = ahora.getDay();
+
+    return ofertas.filter((oferta: any) => {
+      // Verificar día de la semana
+      if (oferta.diasSemana && oferta.diasSemana.length > 0) {
+        if (!oferta.diasSemana.includes(diaActual)) return false;
+      }
+      // Verificar rango horario
+      if (oferta.horaDesde) {
+        const [h, m] = oferta.horaDesde.split(':').map(Number);
+        if (horaActual < h * 60 + m) return false;
+      }
+      if (oferta.horaHasta) {
+        const [h, m] = oferta.horaHasta.split(':').map(Number);
+        if (horaActual > h * 60 + m) return false;
+      }
+      return true;
+    });
+  }
+
+  /**
+   * Obtener happy hours activas en este momento
+   */
+  async getHappyHoursActivas(
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ) {
+    const OfertaModel = await this.getModel(empresaId, dbConfig);
+    const ahora = new Date();
+
+    const ofertas = await OfertaModel.find({
+      empresaId: new Types.ObjectId(empresaId),
+      activo: true,
+      esHappyHour: true,
+      fechaDesde: { $lte: ahora },
+      $or: [
+        { fechaHasta: { $exists: false } },
+        { fechaHasta: null },
+        { fechaHasta: { $gte: ahora } },
+      ],
+    })
+      .sort({ prioridad: 1, nombre: 1 })
+      .lean();
+
+    // Filtrar por horario actual
+    const horaActual = ahora.getHours() * 60 + ahora.getMinutes();
+    const diaActual = ahora.getDay();
+
+    return ofertas.filter((oferta: any) => {
+      if (oferta.diasSemana && oferta.diasSemana.length > 0) {
+        if (!oferta.diasSemana.includes(diaActual)) return false;
+      }
+      if (oferta.horaDesde) {
+        const [h, m] = oferta.horaDesde.split(':').map(Number);
+        if (horaActual < h * 60 + m) return false;
+      }
+      if (oferta.horaHasta) {
+        const [h, m] = oferta.horaHasta.split(':').map(Number);
+        if (horaActual > h * 60 + m) return false;
+      }
+      return true;
+    });
   }
 
   /**

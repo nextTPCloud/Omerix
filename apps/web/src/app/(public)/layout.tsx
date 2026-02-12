@@ -161,7 +161,7 @@ function PublicFooter() {
             &copy; {new Date().getFullYear()} Tralok. Todos los derechos reservados.
           </p>
           <div className="flex space-x-4 mt-4 md:mt-0">
-            <span className="text-slate-500 text-xs">Hecho en Espana</span>
+            <span className="text-slate-500 text-xs">Creado en España</span>
           </div>
         </div>
       </div>
@@ -175,7 +175,7 @@ export default function PublicLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="public-light-theme min-h-screen flex flex-col bg-white">
       <PublicHeader />
       <main className="flex-grow">
         {children}

@@ -1,6 +1,5 @@
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
-import { Response } from 'express';
 
 /**
  * ============================================
@@ -29,9 +28,38 @@ interface ExportOptions {
 
 class ExportService {
   /**
-   * Exportar a CSV
+   * Helper para obtener valor de campo (maneja campos aplanados)
+   * Los campos anidados como "totales.totalFactura" se almacenan como "totales_totalFactura"
    */
-  async exportToCSV(options: ExportOptions): Promise<string> {
+  private obtenerValorCampo(item: any, key: string): any {
+    // Primero intentar con la clave directa
+    if (item.hasOwnProperty(key)) {
+      return item[key];
+    }
+    // Intentar con versión aplanada (por si la clave tiene puntos)
+    if (key.includes('.')) {
+      const keyAplanada = key.replace(/\./g, '_');
+      if (item.hasOwnProperty(keyAplanada)) {
+        return item[keyAplanada];
+      }
+    }
+    // Intentar acceso anidado como último recurso
+    const partes = key.split('.');
+    let valor: any = item;
+    for (const parte of partes) {
+      if (valor && typeof valor === 'object' && parte in valor) {
+        valor = valor[parte];
+      } else {
+        return undefined;
+      }
+    }
+    return valor;
+  }
+
+  /**
+   * Exportar a CSV - Devuelve Buffer
+   */
+  async exportToCSV(options: ExportOptions): Promise<Buffer> {
     const { columns, data } = options;
 
     // Headers
@@ -41,37 +69,37 @@ class ExportService {
     const rows = data.map((item) => {
       return columns
         .map((col) => {
-          let value = item[col.key];
-          
+          let value = this.obtenerValorCampo(item, col.key);
+
           // Aplicar formato si existe
           if (col.format && value !== null && value !== undefined) {
             value = col.format(value);
           }
-          
+
           // Escape commas and quotes
           if (value === null || value === undefined) {
             return '';
           }
-          
+
           const stringValue = String(value);
           if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
             return `"${stringValue.replace(/"/g, '""')}"`;
           }
-          
+
           return stringValue;
         })
         .join(',');
     });
 
-    return [headers, ...rows].join('\n');
+    const csvContent = [headers, ...rows].join('\n');
+    return Buffer.from(csvContent, 'utf-8');
   }
 
   /**
-   * Exportar a Excel con estilo profesional
+   * Exportar a Excel con estilo profesional - Devuelve Buffer
    */
-  async exportToExcel(options: ExportOptions, res: Response): Promise<void> {
+  async exportToExcel(options: ExportOptions): Promise<Buffer> {
     const {
-      filename,
       sheetName = 'Datos',
       title,
       subtitle,
@@ -118,11 +146,11 @@ class ExportService {
 
       for (let i = 0; i < statsRows; i++) {
         const rowStats = stats.slice(i * statsPerRow, (i + 1) * statsPerRow);
-        
+
         rowStats.forEach((stat, index) => {
           const colStart = index * 2 + 1;
           const colEnd = colStart + 1;
-          
+
           // Merge cells para cada estadística
           worksheet.mergeCells(currentRow, colStart, currentRow, colEnd);
           const cell = worksheet.getCell(currentRow, colStart);
@@ -141,11 +169,11 @@ class ExportService {
           };
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
         });
-        
+
         worksheet.getRow(currentRow).height = 25;
         currentRow += 1;
       }
-      
+
       currentRow += 1;
     }
 
@@ -178,13 +206,13 @@ class ExportService {
     // ===================================
     data.forEach((item, rowIndex) => {
       columns.forEach((col, colIndex) => {
-        let value = item[col.key];
-        
+        let value = this.obtenerValorCampo(item, col.key);
+
         // Aplicar formato si existe
         if (col.format && value !== null && value !== undefined) {
           value = col.format(value);
         }
-        
+
         const cell = worksheet.getCell(currentRow, colIndex + 1);
         cell.value = value;
         cell.border = {
@@ -193,7 +221,7 @@ class ExportService {
           bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
           right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
         };
-        
+
         // Alternar colores de fila
         if (rowIndex % 2 === 0) {
           cell.fill = {
@@ -203,7 +231,7 @@ class ExportService {
           };
         }
       });
-      
+
       worksheet.getRow(currentRow).height = 20;
       currentRow += 1;
     });
@@ -216,23 +244,17 @@ class ExportService {
     });
 
     // ===================================
-    // ENVIAR RESPUESTA
+    // DEVOLVER BUFFER
     // ===================================
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
-
-    await workbook.xlsx.write(res);
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 
   /**
-   * Exportar a PDF con tabla completa
+   * Exportar a PDF con tabla completa - Devuelve Buffer
    */
-  async exportToPDF(options: ExportOptions, res: Response): Promise<void> {
+  async exportToPDF(options: ExportOptions): Promise<Buffer> {
     const {
-      filename,
       title,
       subtitle,
       stats,
@@ -241,17 +263,18 @@ class ExportService {
       includeStats = true,
     } = options;
 
-    // Landscape para más espacio horizontal
-    const doc = new PDFDocument({
-      size: 'A4',
-      layout: 'landscape',
-      margin: 30
-    });
+    return new Promise((resolve, reject) => {
+      // Landscape para más espacio horizontal
+      const doc = new PDFDocument({
+        size: 'A4',
+        layout: 'landscape',
+        margin: 30,
+      });
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
-
-    doc.pipe(res);
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
 
     // ===================================
     // TÍTULO
@@ -371,7 +394,7 @@ class ExportService {
 
       columns.forEach((col, i) => {
         const x = 30 + i * colWidth;
-        let value = item[col.key];
+        let value = this.obtenerValorCampo(item, col.key);
 
         // Aplicar formato si existe
         if (col.format && value !== null && value !== undefined) {
@@ -424,6 +447,7 @@ class ExportService {
     });
 
     doc.end();
+    }); // Cierre del Promise
   }
 
   /**
@@ -440,4 +464,6 @@ class ExportService {
   }
 }
 
-export default new ExportService();
+const exportServiceInstance = new ExportService();
+export { exportServiceInstance as exportService };
+export default exportServiceInstance;

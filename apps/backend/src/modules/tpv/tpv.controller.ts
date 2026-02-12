@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { tpvService } from './tpv.service';
 import { tpvSyncService, ICrearTicketTPV } from './tpv-sync.service';
+import { tpvRestauracionService } from './tpv-restauracion.service';
+import ticketPDFService from './ticket-pdf.service';
+import { sseManager } from '../../services/sse-manager.service';
 
 /**
  * Genera token de activacion para registrar un nuevo TPV
@@ -536,6 +539,37 @@ export async function buscarVencimientoPorFactura(req: Request, res: Response) {
 }
 
 /**
+ * Busca tickets (facturas simplificadas) en todos los TPVs
+ * POST /api/tpv/sync/buscar-tickets
+ */
+export async function buscarTickets(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, busqueda, limite } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId y tpvSecret son requeridos',
+      });
+    }
+
+    // Verificar credenciales del TPV
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+
+    const tickets = await tpvSyncService.buscarTickets(
+      empresaId,
+      busqueda,
+      limite || 50
+    );
+
+    res.json({ ok: true, tickets });
+  } catch (error: any) {
+    console.error('[TPV Buscar Tickets] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
  * Registra el cobro/pago de un vencimiento desde TPV
  * POST /api/tpv/sync/cobrar-vencimiento
  */
@@ -604,6 +638,347 @@ export async function sincronizarMovimientoCaja(req: Request, res: Response) {
     res.json({ ok: true, ...resultado });
   } catch (error: any) {
     console.error('[TPV Movimiento Caja] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+// ===== ENDPOINTS DE RESTAURACIÓN =====
+
+/**
+ * Obtiene salones para el TPV
+ * POST /api/tpv/restauracion/salones
+ */
+export async function getSalonesTPV(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId y tpvSecret son requeridos',
+      });
+    }
+
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    const salones = await tpvRestauracionService.getSalones(empresaId);
+
+    res.json({ ok: true, data: salones });
+  } catch (error: any) {
+    console.error('[TPV Salones] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Obtiene mesas para el TPV
+ * POST /api/tpv/restauracion/mesas
+ */
+export async function getMesasTPV(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, salonId } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId y tpvSecret son requeridos',
+      });
+    }
+
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    const mesas = await tpvRestauracionService.getMesas(empresaId, salonId);
+
+    res.json({ ok: true, data: mesas });
+  } catch (error: any) {
+    console.error('[TPV Mesas] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Actualiza estado de mesa
+ * POST /api/tpv/restauracion/mesas/:mesaId/estado
+ */
+export async function actualizarEstadoMesaTPV(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, estado, ventaActualId, camareroId } = req.body;
+    const { mesaId } = req.params;
+
+    if (!empresaId || !tpvId || !tpvSecret || !estado) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId, tpvSecret y estado son requeridos',
+      });
+    }
+
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    const mesa = await tpvRestauracionService.actualizarEstadoMesa(
+      empresaId,
+      mesaId,
+      estado,
+      { ventaActualId, camareroId }
+    );
+
+    if (!mesa) {
+      return res.status(404).json({ ok: false, error: 'Mesa no encontrada' });
+    }
+
+    res.json({ ok: true, data: mesa });
+  } catch (error: any) {
+    console.error('[TPV Mesa Estado] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Obtiene camareros para el TPV
+ * POST /api/tpv/restauracion/camareros
+ */
+export async function getCamarerosTPV(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId y tpvSecret son requeridos',
+      });
+    }
+
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    const camareros = await tpvRestauracionService.getCamareros(empresaId);
+
+    res.json({ ok: true, data: camareros });
+  } catch (error: any) {
+    console.error('[TPV Camareros] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Login de comandero (camarero)
+ * POST /api/tpv/comandero/login
+ */
+export async function loginComandero(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, pin } = req.body;
+    if (!empresaId || !tpvId || !tpvSecret || !pin) {
+      return res.status(400).json({ ok: false, error: 'empresaId, tpvId, tpvSecret y pin son requeridos' });
+    }
+    const resultado = await tpvService.loginComandero(empresaId, tpvId, tpvSecret, pin);
+    res.json({ ok: true, ...resultado });
+  } catch (error: any) {
+    res.status(401).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Logout de comandero
+ * POST /api/tpv/comandero/logout
+ */
+export async function logoutComandero(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, sesionId } = req.body;
+    if (!empresaId || !tpvId || !sesionId) {
+      return res.status(400).json({ ok: false, error: 'empresaId, tpvId y sesionId son requeridos' });
+    }
+    await tpvService.logoutComandero(empresaId, tpvId, sesionId);
+    res.json({ ok: true });
+  } catch (error: any) {
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Registra propina para un camarero
+ * POST /api/tpv/restauracion/camareros/:camareroId/propina
+ */
+export async function registrarPropinaTPV(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, importe, ventaId } = req.body;
+    const { camareroId } = req.params;
+
+    if (!empresaId || !tpvId || !tpvSecret || !importe || !ventaId) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId, tpvSecret, importe y ventaId son requeridos',
+      });
+    }
+
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    const ok = await tpvRestauracionService.registrarPropina(
+      empresaId,
+      camareroId,
+      importe,
+      ventaId
+    );
+
+    res.json({ ok });
+  } catch (error: any) {
+    console.error('[TPV Propina] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Obtiene sugerencias para un producto
+ * POST /api/tpv/restauracion/sugerencias/:productoId
+ */
+export async function getSugerenciasTPV(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret } = req.body;
+    const { productoId } = req.params;
+
+    if (!empresaId || !tpvId || !tpvSecret) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId y tpvSecret son requeridos',
+      });
+    }
+
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    const sugerencias = await tpvRestauracionService.getSugerenciasProducto(empresaId, productoId);
+
+    res.json({ ok: true, data: sugerencias });
+  } catch (error: any) {
+    console.error('[TPV Sugerencias] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Registra aceptación de sugerencia
+ * POST /api/tpv/restauracion/sugerencias/:sugerenciaId/aceptar
+ */
+export async function aceptarSugerenciaTPV(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret } = req.body;
+    const { sugerenciaId } = req.params;
+
+    if (!empresaId || !tpvId || !tpvSecret) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId y tpvSecret son requeridos',
+      });
+    }
+
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    const ok = await tpvRestauracionService.aceptarSugerencia(empresaId, sugerenciaId);
+
+    res.json({ ok });
+  } catch (error: any) {
+    console.error('[TPV Aceptar Sugerencia] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Crea una comanda de cocina
+ * POST /api/tpv/restauracion/comandas
+ */
+export async function crearComandaTPV(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, comanda } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret || !comanda) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId, tpvSecret y comanda son requeridos',
+      });
+    }
+
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    const resultado = await tpvRestauracionService.crearComandaCocina(empresaId, comanda);
+
+    if (!resultado.comandaId) {
+      return res.status(500).json({ ok: false, error: 'Error creando comanda. No se encontró zona de preparación.' });
+    }
+
+    res.json({ ok: true, comandaId: resultado.comandaId, pdfBase64: resultado.pdfBase64 });
+  } catch (error: any) {
+    console.error('[TPV Comanda] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+/**
+ * Genera PDF del ticket para una venta
+ * POST /api/tpv/sync/ticket-pdf
+ */
+export async function generarTicketPDF(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret, venta, opciones } = req.body;
+
+    if (!empresaId || !tpvId || !tpvSecret || !venta) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId, tpvSecret y venta son requeridos',
+      });
+    }
+
+    // Verificar credenciales
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+
+    // Generar PDF del ticket
+    const pdfBuffer = await ticketPDFService.generarTicket(
+      empresaId,
+      venta,
+      opciones || {}
+    );
+
+    // Devolver PDF como base64 para que el TPV lo imprima
+    res.json({
+      ok: true,
+      pdf: pdfBuffer.toString('base64'),
+      contentType: 'application/pdf',
+    });
+  } catch (error: any) {
+    console.error('[TPV Ticket PDF] Error:', error.message);
+    res.status(400).json({ ok: false, error: error.message });
+  }
+}
+
+// ===== SSE (Server-Sent Events) =====
+
+/**
+ * Conexión SSE para recibir eventos en tiempo real
+ * GET /api/tpv/events/:empresaId/:tpvId
+ */
+export async function sseTPV(req: Request, res: Response) {
+  const { empresaId, tpvId } = req.params;
+
+  if (!empresaId || !tpvId) {
+    return res.status(400).json({ ok: false, error: 'empresaId y tpvId son requeridos' });
+  }
+
+  // Registrar la conexión SSE en el canal de la empresa
+  const channel = `tpv:${empresaId}`;
+  sseManager.addConnection(channel, res);
+
+  console.log(`[SSE] TPV ${tpvId} conectado al canal ${channel}`);
+}
+
+/**
+ * Obtiene las comandas activas de una mesa
+ * POST /api/tpv/restauracion/mesas/:mesaId/comandas
+ */
+export async function getComandasMesaTPV(req: Request, res: Response) {
+  try {
+    const { empresaId, tpvId, tpvSecret } = req.body;
+    const { mesaId } = req.params;
+
+    if (!empresaId || !tpvId || !tpvSecret) {
+      return res.status(400).json({
+        ok: false,
+        error: 'empresaId, tpvId y tpvSecret son requeridos',
+      });
+    }
+
+    await tpvService.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    const comandas = await tpvRestauracionService.getComandasMesa(empresaId, mesaId);
+
+    res.json({ ok: true, data: comandas });
+  } catch (error: any) {
+    console.error('[TPV Comandas Mesa] Error:', error.message);
     res.status(400).json({ ok: false, error: error.message });
   }
 }

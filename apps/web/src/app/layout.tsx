@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SkinProvider } from "@/contexts/SkinContext";
 import { PermissionsProvider } from "@/contexts/PermissionsContext";
+import { ChatwootWidget } from "@/components/ChatwootWidget";
 
 // Forzar renderizado dinamico para toda la aplicacion
 // ya que es un SaaS que siempre requiere datos de servidor
@@ -16,6 +17,18 @@ export const metadata: Metadata = {
   description: "Sistema de gestión empresarial multi-negocio",
   icons: {
     icon: '/tralok-icon.svg',
+  },
+  manifest: '/manifest.json',
+  themeColor: '#3B82F6',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Tralok ERP',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
   },
 };
 
@@ -40,7 +53,17 @@ export default function RootLayout({
               }}
             />
           </PermissionsProvider>
+          <ChatwootWidget />
         </SkinProvider>
+        <script dangerouslySetInnerHTML={{ __html: `
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('/sw.js').catch(function(err) {
+                console.log('SW registration failed:', err);
+              });
+            });
+          }
+        ` }} />
       </body>
     </html>
   );

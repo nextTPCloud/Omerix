@@ -6,11 +6,42 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { tpvApi } from '../services/api';
 
+// Permisos especiales del usuario (sincronizados con rol del backend)
+export interface PermisosTPV {
+  // Visibilidad
+  verCostes: boolean;
+  verMargenes: boolean;
+  // Precios y descuentos
+  modificarPVP: boolean;
+  aplicarDescuentos: boolean;
+  descuentoMaximo: number;
+  // Operaciones
+  anularDocumentos: boolean;
+  // Accesos TPV
+  accesoTPV: boolean;
+  accesoCobroVencimientosTPV: boolean;
+  accesoPagoVencimientosTPV: boolean;
+}
+
+// Permisos por defecto (vendedor básico)
+const PERMISOS_TPV_DEFAULT: PermisosTPV = {
+  verCostes: false,
+  verMargenes: false,
+  modificarPVP: false,
+  aplicarDescuentos: true,
+  descuentoMaximo: 15,
+  anularDocumentos: false,
+  accesoTPV: true,
+  accesoCobroVencimientosTPV: false,
+  accesoPagoVencimientosTPV: false,
+};
+
 // Tipos
 interface Usuario {
   id: string;
   nombre: string;
-  permisos: Record<string, boolean>;
+  rol?: string;
+  permisos: PermisosTPV;
 }
 
 interface TPVConfig {
@@ -24,6 +55,15 @@ interface TPVConfig {
   descuentoMaximo: number;
   permitirPrecioManual: boolean;
   modoOfflinePermitido: boolean;
+  pinPorTicket?: boolean;
+  // Vencimientos
+  permitirCobroVencimientos?: boolean;
+  permitirPagoVencimientos?: boolean;
+  // Restauración
+  permitirPropinas?: boolean;
+  tieneRestauracion?: boolean;
+  requiereMesaParaVenta?: boolean;
+  requiereCamareroParaVenta?: boolean;
 }
 
 interface AuthState {
@@ -95,6 +135,9 @@ export const useAuthStore = create<AuthState>()(
                 descuentoMaximo: response.config?.descuentoMaximo ?? 100,
                 permitirPrecioManual: response.config?.permitirPrecioManual ?? false,
                 modoOfflinePermitido: response.config?.modoOfflinePermitido ?? true,
+                // Restauración
+                permitirPropinas: response.config?.permitirPropinas ?? false,
+                tieneRestauracion: response.config?.tieneRestauracion ?? false,
               },
             });
             return true;
@@ -132,8 +175,27 @@ export const useAuthStore = create<AuthState>()(
           const response = await tpvApi.loginUsuario(pin);
 
           if (response.ok) {
+            // Mapear permisos del backend al formato local
+            const permisosRaw = response.usuario?.permisos || {};
+            const permisosMerged: PermisosTPV = {
+              verCostes: permisosRaw.verCostes ?? PERMISOS_TPV_DEFAULT.verCostes,
+              verMargenes: permisosRaw.verMargenes ?? PERMISOS_TPV_DEFAULT.verMargenes,
+              modificarPVP: permisosRaw.modificarPVP ?? PERMISOS_TPV_DEFAULT.modificarPVP,
+              aplicarDescuentos: permisosRaw.aplicarDescuentos ?? PERMISOS_TPV_DEFAULT.aplicarDescuentos,
+              descuentoMaximo: permisosRaw.descuentoMaximo ?? PERMISOS_TPV_DEFAULT.descuentoMaximo,
+              anularDocumentos: permisosRaw.anularDocumentos ?? PERMISOS_TPV_DEFAULT.anularDocumentos,
+              accesoTPV: permisosRaw.accesoTPV ?? PERMISOS_TPV_DEFAULT.accesoTPV,
+              accesoCobroVencimientosTPV: permisosRaw.accesoCobroVencimientosTPV ?? PERMISOS_TPV_DEFAULT.accesoCobroVencimientosTPV,
+              accesoPagoVencimientosTPV: permisosRaw.accesoPagoVencimientosTPV ?? PERMISOS_TPV_DEFAULT.accesoPagoVencimientosTPV,
+            };
+
             set({
-              usuario: response.usuario,
+              usuario: {
+                id: response.usuario.id,
+                nombre: response.usuario.nombre,
+                rol: response.usuario.rol,
+                permisos: permisosMerged,
+              },
               sesionId: response.sesionId,
               logueado: true,
             });

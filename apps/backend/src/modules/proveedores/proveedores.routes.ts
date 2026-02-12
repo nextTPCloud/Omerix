@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { proveedoresController } from './proveedores.controller';
 import { authMiddleware } from '@/middleware/auth.middleware';
 import { tenantMiddleware, requireBusinessDatabase } from '@/middleware/tenant.middleware';
+import { uploadSingle } from '@/middleware/upload.middleware';
 
 const router = Router();
 
@@ -381,5 +382,22 @@ router.post('/bulk/estado', proveedoresController.setEstadoMultiples.bind(provee
  *         description: Proveedor no encontrado
  */
 router.patch('/:id/toggle-estado', proveedoresController.toggleEstado.bind(proveedoresController));
+
+// ============================================
+// RUTAS DE ARCHIVOS
+// ============================================
+
+// Subir archivo a proveedor
+router.post(
+  '/:id/archivos',
+  uploadSingle,
+  proveedoresController.subirArchivo.bind(proveedoresController)
+);
+
+// Eliminar archivo de proveedor
+router.delete(
+  '/:id/archivos',
+  proveedoresController.eliminarArchivo.bind(proveedoresController)
+);
 
 export default router;

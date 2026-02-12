@@ -92,6 +92,28 @@ class OfertasController {
   }
 
   /**
+   * Obtener happy hours activas ahora
+   */
+  async getHappyHours(req: Request, res: Response) {
+    try {
+      const empresaId = req.empresaId!;
+      const dbConfig = req.dbConfig!;
+
+      const ofertas = await ofertasService.getHappyHoursActivas(empresaId, dbConfig);
+
+      res.json({
+        success: true,
+        data: ofertas,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Error al obtener happy hours',
+      });
+    }
+  }
+
+  /**
    * Crear oferta
    */
   async create(req: Request, res: Response) {

@@ -3,10 +3,16 @@ import { ZonaPreparacion, IZonaPreparacion } from './ZonaPreparacion';
 import { CreateZonaPreparacionDTO, UpdateZonaPreparacionDTO, SearchZonasPreparacionDTO } from './zonas-preparacion.dto';
 import { Types } from 'mongoose';
 import { IDatabaseConfig } from '../../types/express';
-import { getZonaPreparacionModel } from '../../utils/dynamic-models.helper';
+import { getZonaPreparacionModel, getFamiliaModel, getImpresoraModel, getAlmacenModel } from '../../utils/dynamic-models.helper';
 
 export class ZonasPreparacionService {
   private async getModelo(empresaId: string, dbConfig: IDatabaseConfig): Promise<Model<IZonaPreparacion>> {
+    // Registrar modelos referenciados para que populate funcione
+    await Promise.all([
+      getFamiliaModel(empresaId, dbConfig),
+      getImpresoraModel(empresaId, dbConfig),
+      getAlmacenModel(empresaId, dbConfig),
+    ]);
     return await getZonaPreparacionModel(empresaId, dbConfig);
   }
 

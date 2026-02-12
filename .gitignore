@@ -6,6 +6,8 @@
 /apps/web/node_modules
 /apps/tpv/node_modules
 /apps/tpv/web/node_modules
+/apps/kiosk/web/node_modules
+/apps/kiosk/web/.next
 /apps/tpv/web/.next
 
 /.pnp
@@ -44,3 +46,10 @@ yarn-error.log*
 # Logs
 apps/backend/logs/
 apps/backend/*.lognul
+
+# MinIO (almacenamiento local)
+minio/minio.exe
+minio/data/
+
+# Uploads locales
+apps/backend/uploads/

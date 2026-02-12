@@ -342,7 +342,7 @@ export class DashboardService {
           datos = await this.getGraficaComprasPeriodo(widget.config, empresaId, dbConfig);
           break;
         case TipoWidget.GRAFICA_TESORERIA_FLUJO:
-          datos = await tesoreriaDashboardService.getPrevisionCaja(30, 0, empresaId, dbConfig);
+          datos = await tesoreriaDashboardService.getPrevisionCaja(empresaId, 30, 0, dbConfig);
           break;
         case TipoWidget.GRAFICA_COMPARATIVA_ANUAL:
           datos = await this.getGraficaComparativaAnual(widget.config, empresaId, dbConfig);
@@ -1559,7 +1559,7 @@ export class DashboardService {
         completada: false,
       }),
       Oportunidad.aggregate([
-        { $match: { estado: { $ne: 'perdida' }, cerrada: false } },
+        { $match: { estado: 'abierta' } },
         { $group: { _id: null, total: { $sum: '$valorEstimado' } } },
       ]),
     ]);
@@ -1604,25 +1604,27 @@ export class DashboardService {
     const Oportunidad = await getOportunidadModel(empresaId, dbConfig);
 
     const oportunidades = await Oportunidad.aggregate([
-      { $match: { cerrada: false } },
+      { $match: { estado: 'abierta' } },
       {
-        $group: {
-          _id: '$etapa',
-          count: { $sum: 1 },
-          valor: { $sum: '$valorEstimado' },
-          oportunidades: {
-            $push: {
-              _id: '$_id',
-              nombre: '$nombre',
-              clienteNombre: '$clienteNombre',
-              valorEstimado: '$valorEstimado',
-              probabilidad: '$probabilidad',
-              fechaCierreEstimada: '$fechaCierreEstimada',
-            },
-          },
+        $lookup: {
+          from: 'etapas_pipeline',
+          localField: 'etapaId',
+          foreignField: '_id',
+          as: 'etapaInfo',
         },
       },
-      { $sort: { _id: 1 } },
+      { $unwind: { path: '$etapaInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: '$etapaId',
+          nombre: { $first: '$etapaInfo.nombre' },
+          color: { $first: '$etapaInfo.color' },
+          orden: { $first: '$etapaInfo.orden' },
+          count: { $sum: 1 },
+          valor: { $sum: '$valorEstimado' },
+        },
+      },
+      { $sort: { orden: 1 } },
     ]);
 
     return oportunidades;
@@ -1662,30 +1664,34 @@ export class DashboardService {
     const Oportunidad = await getOportunidadModel(empresaId, dbConfig);
 
     const datos = await Oportunidad.aggregate([
-      { $match: { cerrada: false } },
+      { $match: { estado: 'abierta' } },
+      {
+        $lookup: {
+          from: 'etapas_pipeline',
+          localField: 'etapaId',
+          foreignField: '_id',
+          as: 'etapaInfo',
+        },
+      },
+      { $unwind: { path: '$etapaInfo', preserveNullAndEmptyArrays: true } },
       {
         $group: {
-          _id: '$etapa',
+          _id: '$etapaId',
+          nombre: { $first: '$etapaInfo.nombre' },
+          color: { $first: '$etapaInfo.color' },
+          orden: { $first: '$etapaInfo.orden' },
           value: { $sum: '$valorEstimado' },
           count: { $sum: 1 },
         },
       },
-      { $sort: { _id: 1 } },
+      { $sort: { orden: 1 } },
     ]);
 
-    const colores: Record<string, string> = {
-      prospecto: '#94a3b8',
-      calificado: '#3b82f6',
-      propuesta: '#8b5cf6',
-      negociacion: '#f59e0b',
-      cierre: '#10b981',
-    };
-
     return datos.map((d) => ({
-      name: d._id || 'Sin etapa',
+      name: d.nombre || 'Sin etapa',
       value: d.value,
       count: d.count,
-      color: colores[d._id] || '#6b7280',
+      color: d.color || '#6b7280',
     }));
   }
 
@@ -1704,7 +1710,7 @@ export class DashboardService {
       Oportunidad.aggregate([
         {
           $match: {
-            cerrada: false,
+            estado: 'abierta',
             fechaCierreEstimada: { $gte: fechaDesde, $lte: fechaHasta },
           },
         },
@@ -1722,9 +1728,8 @@ export class DashboardService {
       Oportunidad.aggregate([
         {
           $match: {
-            cerrada: true,
             estado: 'ganada',
-            fechaCierre: { $gte: fechaDesde, $lte: fechaHasta },
+            fechaCierreReal: { $gte: fechaDesde, $lte: fechaHasta },
           },
         },
         {

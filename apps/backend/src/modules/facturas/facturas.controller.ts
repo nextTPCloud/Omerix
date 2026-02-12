@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import facturasService from './facturas.service';
+import facturasPDFService from './facturas-pdf.service';
 import {
   CreateFacturaDTO,
   UpdateFacturaDTO,
@@ -756,6 +757,117 @@ export const facturasController = {
       return res.status(500).json({
         success: false,
         error: error.message || 'Error al obtener alertas de facturas',
+      });
+    }
+  },
+
+  /**
+   * Generar PDF de factura
+   */
+  async generarPDF(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const { id } = req.params;
+
+      // Obtener factura
+      const factura = await facturasService.obtenerPorId(
+        id,
+        new mongoose.Types.ObjectId(empresaId),
+        req.empresaDbConfig
+      );
+
+      if (!factura) {
+        return res.status(404).json({
+          success: false,
+          error: 'Factura no encontrada',
+        });
+      }
+
+      // Opciones de impresión desde query
+      const opciones = {
+        plantillaId: req.query.plantillaId as string,
+        mostrarVencimientos: req.query.mostrarVencimientos !== 'false',
+        mostrarQRVerifactu: req.query.mostrarQRVerifactu !== 'false',
+        mostrarCondiciones: req.query.mostrarCondiciones !== 'false',
+        mostrarCuentaBancaria: req.query.mostrarCuentaBancaria !== 'false',
+        mostrarLOPD: req.query.mostrarLOPD !== 'false',
+      };
+
+      // Generar PDF con configuración de base de datos
+      const pdfBuffer = await facturasPDFService.generarPDF(
+        req.empresaDbConfig,
+        factura,
+        opciones
+      );
+
+      // Configurar headers para PDF
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="factura-${factura.codigo}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      return res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error('Error al generar PDF de factura:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al generar PDF de factura',
+      });
+    }
+  },
+
+  /**
+   * Descargar PDF de factura
+   */
+  async descargarPDF(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const { id } = req.params;
+
+      // Obtener factura
+      const factura = await facturasService.obtenerPorId(
+        id,
+        new mongoose.Types.ObjectId(empresaId),
+        req.empresaDbConfig
+      );
+
+      if (!factura) {
+        return res.status(404).json({
+          success: false,
+          error: 'Factura no encontrada',
+        });
+      }
+
+      // Generar PDF con configuración de base de datos
+      const pdfBuffer = await facturasPDFService.generarPDF(
+        req.empresaDbConfig,
+        factura
+      );
+
+      // Configurar headers para descarga
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="factura-${factura.codigo}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      return res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error('Error al descargar PDF de factura:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al descargar PDF de factura',
       });
     }
   },

@@ -391,6 +391,73 @@ export class FacturasCompraController {
   }
 
   // ============================================
+  // CAMBIAR ESTADO MASIVO
+  // ============================================
+
+  async cambiarEstadoMasivo(req: AuthRequest, res: Response) {
+    try {
+      const { ids, estado } = req.body;
+
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Debe proporcionar una lista de IDs',
+        });
+      }
+
+      if (!estado) {
+        return res.status(400).json({
+          success: false,
+          message: 'El estado es obligatorio',
+        });
+      }
+
+      const estadosValidos = Object.values(EstadoFacturaCompra);
+      if (!estadosValidos.includes(estado)) {
+        return res.status(400).json({
+          success: false,
+          message: `Estado no válido. Estados permitidos: ${estadosValidos.join(', ')}`,
+        });
+      }
+
+      let actualizados = 0;
+      const errores: string[] = [];
+
+      for (const id of ids) {
+        try {
+          if (!mongoose.Types.ObjectId.isValid(id)) {
+            errores.push(`ID ${id} no válido`);
+            continue;
+          }
+
+          const resultado = await facturasCompraService.actualizar(
+            id,
+            { estado },
+            req.empresaId!,
+            req.userId!,
+            req.dbConfig!
+          );
+          if (resultado) actualizados++;
+        } catch (e: any) {
+          errores.push(`Error en ${id}: ${e.message}`);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `${actualizados} facturas actualizadas a estado "${estado}"`,
+        data: { actualizados, errores: errores.length > 0 ? errores : undefined },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: 'Error cambiando estado masivo',
+        error: error.message,
+      });
+    }
+  }
+
+  // ============================================
   // ELIMINAR
   // ============================================
 

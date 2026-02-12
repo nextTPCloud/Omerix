@@ -252,6 +252,9 @@ router.get('/codigos', proyectosController.searchCodigos.bind(proyectosControlle
  */
 router.get('/estadisticas', proyectosController.obtenerEstadisticas.bind(proyectosController));
 
+// Dashboard de proyectos
+router.get('/dashboard', proyectosController.obtenerDashboard.bind(proyectosController));
+
 /**
  * @swagger
  * /api/proyectos/cliente/{clienteId}:
@@ -416,6 +419,152 @@ router.post('/', proyectosController.crear.bind(proyectosController));
  *         description: Proyectos eliminados
  */
 router.post('/bulk-delete', proyectosController.eliminarVarios.bind(proyectosController));
+
+// ============================================
+// RUTAS DE RECURRENCIA
+// ============================================
+
+/**
+ * @swagger
+ * /api/proyectos/recurrencia/pendientes:
+ *   get:
+ *     summary: Obtener proyectos recurrentes pendientes de generación
+ *     tags: [Proyectos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de proyectos pendientes de generación
+ */
+router.get('/recurrencia/pendientes', proyectosController.obtenerProyectosPendientesGeneracion.bind(proyectosController));
+
+/**
+ * @swagger
+ * /api/proyectos/recurrencia/generar-masivo:
+ *   post:
+ *     summary: Ejecutar generación masiva de partes/albaranes para proyectos recurrentes
+ *     tags: [Proyectos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Resumen de la generación masiva
+ */
+router.post('/recurrencia/generar-masivo', proyectosController.ejecutarGeneracionMasiva.bind(proyectosController));
+
+/**
+ * @swagger
+ * /api/proyectos/{id}/recurrencia:
+ *   put:
+ *     summary: Configurar recurrencia de un proyecto
+ *     tags: [Proyectos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - activo
+ *               - frecuencia
+ *               - diaGeneracion
+ *               - fechaInicio
+ *               - generarParteTrabajo
+ *               - generarAlbaran
+ *               - generarFactura
+ *             properties:
+ *               activo:
+ *                 type: boolean
+ *               frecuencia:
+ *                 type: string
+ *                 enum: [semanal, quincenal, mensual, bimestral, trimestral, semestral, anual]
+ *               diaGeneracion:
+ *                 type: number
+ *                 minimum: 1
+ *                 maximum: 31
+ *               fechaInicio:
+ *                 type: string
+ *                 format: date
+ *               fechaFin:
+ *                 type: string
+ *                 format: date
+ *               generarParteTrabajo:
+ *                 type: boolean
+ *               generarAlbaran:
+ *                 type: boolean
+ *               generarFactura:
+ *                 type: boolean
+ *               lineasPlantilla:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     tipo:
+ *                       type: string
+ *                       enum: [mano_obra, material, gasto, maquinaria, transporte]
+ *                     descripcion:
+ *                       type: string
+ *                     cantidad:
+ *                       type: number
+ *                     unidad:
+ *                       type: string
+ *                     precioUnitario:
+ *                       type: number
+ *                     incluirEnAlbaran:
+ *                       type: boolean
+ *     responses:
+ *       200:
+ *         description: Configuración de recurrencia actualizada
+ */
+router.put('/:id/recurrencia', proyectosController.configurarRecurrencia.bind(proyectosController));
+
+/**
+ * @swagger
+ * /api/proyectos/{id}/recurrencia/generar:
+ *   post:
+ *     summary: Generar parte/albarán para un proyecto recurrente específico
+ *     tags: [Proyectos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Resultado de la generación
+ */
+router.post('/:id/recurrencia/generar', proyectosController.procesarProyectoRecurrente.bind(proyectosController));
+
+/**
+ * @swagger
+ * /api/proyectos/{id}/recurrencia/historial:
+ *   get:
+ *     summary: Obtener historial de generaciones de un proyecto recurrente
+ *     tags: [Proyectos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Historial de generaciones
+ */
+router.get('/:id/recurrencia/historial', proyectosController.obtenerHistorialGeneraciones.bind(proyectosController));
 
 /**
  * @swagger

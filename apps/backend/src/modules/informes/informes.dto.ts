@@ -158,9 +158,10 @@ export type UpdateInformeDTO = z.infer<typeof UpdateInformeSchema>;
 export const SearchInformesSchema = z.object({
   modulo: z.nativeEnum(ModuloInforme).optional(),
   tipo: z.nativeEnum(TipoInforme).optional(),
-  esPlantilla: z.string().optional().transform(v => v === 'true'),
-  compartido: z.string().optional().transform(v => v === 'true'),
-  favorito: z.string().optional().transform(v => v === 'true'),
+  // Mantener undefined si no se proporciona, solo convertir si tiene valor
+  esPlantilla: z.string().optional().transform(v => v !== undefined ? v === 'true' : undefined),
+  compartido: z.string().optional().transform(v => v !== undefined ? v === 'true' : undefined),
+  favorito: z.string().optional().transform(v => v !== undefined ? v === 'true' : undefined),
   busqueda: z.string().optional(),
   page: z.string().optional().transform(v => v ? parseInt(v) : 1),
   limit: z.string().optional().transform(v => v ? parseInt(v) : 20),

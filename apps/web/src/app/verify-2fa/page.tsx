@@ -107,7 +107,7 @@ export default function Verify2FAPage() {
   }
 
   return (
-    <>
+    <div className="public-light-theme">
       <PublicHeader />
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
         <Card className="w-full max-w-md">
@@ -191,6 +191,6 @@ export default function Verify2FAPage() {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   )
 }

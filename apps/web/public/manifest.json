@@ -1,0 +1,18 @@
+{
+  "name": "Tralok ERP",
+  "short_name": "Tralok",
+  "description": "Fichajes y Partes de Trabajo",
+  "start_url": "/m/fichaje",
+  "display": "standalone",
+  "background_color": "#1e293b",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/tralok-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

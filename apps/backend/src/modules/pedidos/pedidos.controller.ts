@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { pedidosService } from './pedidos.service';
+import pedidosPDFService from './pedidos-pdf.service';
 import {
   CreatePedidoSchema,
   UpdatePedidoSchema,
@@ -1098,6 +1099,122 @@ export class PedidosController {
       res.status(500).json({
         success: false,
         message: error.message || 'Error al obtener KPIs',
+      });
+    }
+  }
+
+  // ============================================
+  // PDF
+  // ============================================
+
+  /**
+   * Generar PDF del pedido (visualización inline)
+   */
+  async generarPDF(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const { plantillaId } = req.query;
+
+      // Obtener pedido con datos poblados
+      const pedido = await pedidosService.obtenerPorId(
+        req.empresaId!,
+        req.empresaDbConfig,
+        id
+      );
+
+      if (!pedido) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pedido no encontrado',
+        });
+      }
+
+      // Generar PDF
+      const pdfBuffer = await pedidosPDFService.generarPDF(
+        req.empresaDbConfig,
+        pedido,
+        {
+          plantillaId: plantillaId as string,
+        }
+      );
+
+      // Configurar headers para visualización
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="pedido-${pedido.codigo}.pdf"`
+      );
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      return res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error('Error al generar PDF del pedido:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error al generar PDF del pedido',
+      });
+    }
+  }
+
+  /**
+   * Descargar PDF del pedido
+   */
+  async descargarPDF(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const { plantillaId } = req.query;
+
+      // Obtener pedido con datos poblados
+      const pedido = await pedidosService.obtenerPorId(
+        req.empresaId!,
+        req.empresaDbConfig,
+        id
+      );
+
+      if (!pedido) {
+        return res.status(404).json({
+          success: false,
+          message: 'Pedido no encontrado',
+        });
+      }
+
+      // Generar PDF
+      const pdfBuffer = await pedidosPDFService.generarPDF(
+        req.empresaDbConfig,
+        pedido,
+        {
+          plantillaId: plantillaId as string,
+        }
+      );
+
+      // Configurar headers para descarga
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="pedido-${pedido.codigo}.pdf"`
+      );
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      return res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error('Error al descargar PDF del pedido:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Error al descargar PDF del pedido',
       });
     }
   }

@@ -120,6 +120,18 @@ export const facturasCompraService = {
   },
 
   // ============================================
+  // CAMBIAR ESTADO MASIVO
+  // ============================================
+
+  cambiarEstadoMasivo: async (
+    ids: string[],
+    estado: EstadoFacturaCompra
+  ): Promise<{ success: boolean; message: string; data: { actualizados: number; errores?: string[] } }> => {
+    const response = await api.post('/facturas-compra/bulk/estado', { ids, estado })
+    return response.data
+  },
+
+  // ============================================
   // REGISTRAR PAGO
   // ============================================
 

@@ -149,22 +149,24 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <FavoritosProvider>
-      <div className="h-screen flex flex-col bg-background overflow-hidden">
-        <Header
-          onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          isMobileMenuOpen={isMobileMenuOpen}
+      <div className="h-screen flex bg-background overflow-hidden">
+        {/* Sidebar - full height, fixed */}
+        <Sidebar
+          isOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={handleToggleCollapse}
         />
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar
-            isOpen={isMobileMenuOpen}
-            onClose={() => setIsMobileMenuOpen(false)}
-            isCollapsed={isSidebarCollapsed}
-            onToggleCollapse={handleToggleCollapse}
+        {/* Contenedor header + main */}
+        <div className={cn(
+          "flex flex-col flex-1 min-w-0 transition-all duration-300",
+          isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
+        )}>
+          <Header
+            onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            isMobileMenuOpen={isMobileMenuOpen}
           />
-          <main className={cn(
-            "flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 transition-all duration-300 overflow-y-auto",
-            isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
-          )}>
+          <main className="flex-1 w-full min-w-0 p-3 sm:p-4 md:p-6 overflow-y-auto">
             <div className="w-full max-w-full">
               {children}
             </div>

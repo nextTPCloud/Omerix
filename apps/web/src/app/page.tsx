@@ -31,6 +31,11 @@ import {
   Share2,
   Bell,
   PieChart,
+  Globe,
+  Fingerprint,
+  CalendarCheck,
+  ClipboardList,
+  Tablet,
 } from 'lucide-react'
 
 // Header publico
@@ -150,7 +155,7 @@ function PublicFooter() {
             </Link>
             <p className="text-slate-400 text-sm max-w-md">
               El ERP completo para gestionar tu negocio. Ventas, compras, inventario,
-              recursos humanos y mucho mas en una sola plataforma.
+              RRHH, restauracion, e-commerce, firmas digitales y mucho mas en una sola plataforma.
             </p>
           </div>
 
@@ -203,8 +208,8 @@ function HeroSection() {
           </h1>
 
           <p className="text-lg md:text-xl text-slate-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Gestiona ventas, compras, inventario, recursos humanos, proyectos y mucho mas
-            desde una unica plataforma. Diseno moderno, facil de usar y 100% en la nube.
+            Gestiona ventas, compras, inventario, RRHH, proyectos, restauracion, e-commerce
+            y mucho mas desde una unica plataforma. Moderno, facil de usar y 100% en la nube.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -281,8 +286,11 @@ function ModulosSection() {
 
   const modulosExtra = [
     { icon: BarChart3, nombre: 'Informes', descripcion: 'Informes personalizables, graficos y exportacion a Excel/PDF.', disponible: true },
-    { icon: UtensilsCrossed, nombre: 'Restauracion', descripcion: 'Comandas, mesas, carta digital y gestion de cocina.', disponible: true, addon: true },
+    { icon: UtensilsCrossed, nombre: 'Restauracion', descripcion: 'Salones, comandas, reservas, Restoo.me, comandero digital y carta.', disponible: true, addon: true },
     { icon: Monitor, nombre: 'TPV', descripcion: 'Punto de venta tactil, tickets y cierre de caja.', disponible: true },
+    { icon: Globe, nombre: 'E-commerce', descripcion: 'Sincroniza con PrestaShop y WooCommerce. Productos, stock y pedidos.', disponible: true, addon: true },
+    { icon: Fingerprint, nombre: 'Firmas Digitales', descripcion: 'Firma documentos digitalmente con enlace publico y seguimiento.', disponible: true, addon: true },
+    { icon: Tablet, nombre: 'Kioskos', descripcion: 'Terminales de autoservicio para restaurantes. Totem, tablet o QR.', disponible: true, addon: true },
   ]
 
   const modulos = [...modulosCore, ...modulosPro, ...modulosExtra]
@@ -295,7 +303,7 @@ function ModulosSection() {
             Todo lo que necesitas en un solo lugar
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Modulos integrados que trabajan juntos para optimizar cada area de tu negocio.
+            Mas de 20 modulos integrados que trabajan juntos para optimizar cada area de tu negocio.
           </p>
         </div>
 
@@ -333,10 +341,10 @@ function BeneficiosSection() {
     { icon: Shield, titulo: 'Seguro y fiable', descripcion: 'Datos cifrados, backups automaticos y servidores en la Union Europea.' },
     { icon: Building2, titulo: 'Multi-empresa', descripcion: 'Gestiona varias empresas desde una unica cuenta. Perfecto para grupos.' },
     { icon: FileText, titulo: 'Integracion Hacienda', descripcion: 'Preparado para SII y TicketBAI. Cumple con la normativa fiscal espanola.' },
+    { icon: Globe, titulo: 'E-commerce integrado', descripcion: 'Conecta PrestaShop y WooCommerce. Sincroniza productos, stock y pedidos.' },
+    { icon: UtensilsCrossed, titulo: 'Hosteleria completa', descripcion: 'Salones, comandas, reservas con Restoo.me, kioskos y comandero digital.' },
+    { icon: Fingerprint, titulo: 'Firma digital', descripcion: 'Firma documentos online con validez legal. Envio y seguimiento integrado.' },
     { icon: Target, titulo: 'CRM integrado', descripcion: 'Pipeline de ventas, leads, oportunidades y seguimiento comercial completo.' },
-    { icon: Calendar, titulo: 'Sincronizacion calendario', descripcion: 'Google Calendar bidireccional. Tus citas y tareas siempre sincronizadas.' },
-    { icon: Share2, titulo: 'Redes sociales', descripcion: 'Publica en Facebook e Instagram. Programa contenido y analiza metricas.' },
-    { icon: Bell, titulo: 'Alertas inteligentes', descripcion: 'Recordatorios automaticos de vencimientos, seguimientos y tareas.' },
     { icon: Calculator, titulo: 'Contabilidad completa', descripcion: 'Plan de cuentas, asientos, balances, cuenta de resultados y libro mayor.' },
     { icon: Headphones, titulo: 'Soporte en espanol', descripcion: 'Equipo local que entiende tu negocio. Respuesta rapida y personalizada.' }
   ]
@@ -372,7 +380,7 @@ function PreciosSection() {
     { nombre: 'Starter', precio: 19, descripcion: 'Para autonomos que empiezan', features: ['1 sesion simultanea', '2 usuarios', '100 facturas/mes', 'Facturacion basica'], destacado: false },
     { nombre: 'Basico', precio: 35, descripcion: 'Para autonomos y microempresas', features: ['2 sesiones simultaneas', '10 usuarios totales', '200 facturas/mes', 'Compras e inventario'], destacado: false },
     { nombre: 'Profesional', precio: 99, descripcion: 'Para empresas en crecimiento', features: ['15 sesiones simultaneas', '30 usuarios totales', '1.000 facturas/mes', 'Todos los modulos'], destacado: true },
-    { nombre: 'Enterprise', precio: 249, descripcion: 'Para grandes organizaciones', features: ['Usuarios ilimitados', 'Facturas ilimitadas', 'API y integraciones', 'Soporte prioritario'], destacado: false }
+    { nombre: 'Enterprise', precio: 249, descripcion: 'Para grandes organizaciones', features: ['Usuarios ilimitados', 'Facturas ilimitadas', 'E-commerce, Restoo y firmas', 'API y soporte prioritario'], destacado: false }
   ]
 
   return (
@@ -459,7 +467,7 @@ function CTASection() {
 // Landing page component
 function LandingPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="public-light-theme min-h-screen flex flex-col bg-white">
       <PublicHeader />
       <main className="flex-grow">
         <HeroSection />

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { proyectosService } from './proyectos.service';
+import { proyectosRecurrenciaService } from './proyectos-recurrencia.service';
+import { proyectosDashboardService } from './proyectos-dashboard.service';
 import {
   CreateProyectoSchema,
   UpdateProyectoSchema,
@@ -10,7 +12,30 @@ import {
   ActualizarHitoSchema,
   AgregarParticipanteSchema,
 } from './proyectos.dto';
-import { EstadoProyecto } from './Proyecto';
+import { EstadoProyecto, FrecuenciaRecurrencia } from './Proyecto';
+import { z } from 'zod';
+
+// Schema de validación para configurar recurrencia
+const ConfigurarRecurrenciaSchema = z.object({
+  activo: z.boolean(),
+  frecuencia: z.enum(['semanal', 'quincenal', 'mensual', 'bimestral', 'trimestral', 'semestral', 'anual']),
+  diaGeneracion: z.number().min(1).max(31),
+  fechaInicio: z.string().or(z.date()),
+  fechaFin: z.string().or(z.date()).optional(),
+  generarParteTrabajo: z.boolean(),
+  generarAlbaran: z.boolean(),
+  generarFactura: z.boolean(),
+  lineasPlantilla: z.array(z.object({
+    tipo: z.enum(['mano_obra', 'material', 'gasto', 'maquinaria', 'transporte']),
+    descripcion: z.string(),
+    cantidad: z.number(),
+    unidad: z.string(),
+    precioUnitario: z.number(),
+    productoId: z.string().optional(),
+    personalId: z.string().optional(),
+    incluirEnAlbaran: z.boolean(),
+  })).optional(),
+});
 
 export class ProyectosController {
   // ============================================
@@ -822,6 +847,283 @@ export class ProyectosController {
       res.status(500).json({
         success: false,
         message: error.message || 'Error al obtener personal disponible',
+      });
+    }
+  }
+
+  // ============================================
+  // RECURRENCIA - Configurar recurrencia de proyecto
+  // ============================================
+
+  async configurarRecurrencia(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const empresaId = req.empresaId!;
+      const usuarioId = req.userId!;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID de proyecto inválido',
+        });
+      }
+
+      const validacion = ConfigurarRecurrenciaSchema.safeParse(req.body);
+      if (!validacion.success) {
+        return res.status(400).json({
+          success: false,
+          message: 'Datos inválidos',
+          errors: validacion.error.errors,
+        });
+      }
+
+      const proyecto = await proyectosRecurrenciaService.configurarRecurrencia(
+        id,
+        {
+          ...validacion.data,
+          frecuencia: validacion.data.frecuencia as FrecuenciaRecurrencia,
+          fechaInicio: new Date(validacion.data.fechaInicio),
+          fechaFin: validacion.data.fechaFin ? new Date(validacion.data.fechaFin) : undefined,
+        },
+        String(empresaId),
+        usuarioId,
+        req.empresaDbConfig
+      );
+
+      if (!proyecto) {
+        return res.status(404).json({
+          success: false,
+          message: 'Proyecto no encontrado',
+        });
+      }
+
+      res.json({
+        success: true,
+        data: proyecto,
+        message: 'Configuración de recurrencia actualizada correctamente',
+      });
+    } catch (error: any) {
+      console.error('Error al configurar recurrencia:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al configurar recurrencia',
+      });
+    }
+  }
+
+  // ============================================
+  // RECURRENCIA - Obtener proyectos pendientes de generación
+  // ============================================
+
+  async obtenerProyectosPendientesGeneracion(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+
+      const proyectos = await proyectosRecurrenciaService.obtenerProyectosPendientes(
+        String(empresaId),
+        req.empresaDbConfig
+      );
+
+      res.json({
+        success: true,
+        data: proyectos,
+        total: proyectos.length,
+      });
+    } catch (error: any) {
+      console.error('Error al obtener proyectos pendientes:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al obtener proyectos pendientes',
+      });
+    }
+  }
+
+  // ============================================
+  // RECURRENCIA - Ejecutar generación masiva
+  // ============================================
+
+  async ejecutarGeneracionMasiva(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const empresaId = req.empresaId!;
+      const usuarioId = req.userId!;
+
+      const resumen = await proyectosRecurrenciaService.ejecutarGeneracionMasiva(
+        String(empresaId),
+        usuarioId,
+        req.empresaDbConfig
+      );
+
+      res.json({
+        success: true,
+        data: resumen,
+        message: `Generación completada: ${resumen.totalExitos} éxitos, ${resumen.totalErrores} errores`,
+      });
+    } catch (error: any) {
+      console.error('Error en generación masiva:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error en generación masiva',
+      });
+    }
+  }
+
+  // ============================================
+  // RECURRENCIA - Procesar proyecto individual
+  // ============================================
+
+  async procesarProyectoRecurrente(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const empresaId = req.empresaId!;
+      const usuarioId = req.userId!;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID de proyecto inválido',
+        });
+      }
+
+      // Obtener proyecto
+      const proyecto = await proyectosService.findById(
+        id,
+        empresaId,
+        req.empresaDbConfig
+      );
+
+      if (!proyecto) {
+        return res.status(404).json({
+          success: false,
+          message: 'Proyecto no encontrado',
+        });
+      }
+
+      if (!proyecto.esRecurrente || !proyecto.recurrencia?.activo) {
+        return res.status(400).json({
+          success: false,
+          message: 'El proyecto no tiene recurrencia activa',
+        });
+      }
+
+      const resultado = await proyectosRecurrenciaService.procesarProyectoRecurrente(
+        proyecto,
+        String(empresaId),
+        usuarioId,
+        req.empresaDbConfig
+      );
+
+      res.json({
+        success: resultado.exito,
+        data: resultado,
+        message: resultado.exito
+          ? 'Generación completada correctamente'
+          : `Error: ${resultado.error}`,
+      });
+    } catch (error: any) {
+      console.error('Error al procesar proyecto recurrente:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al procesar proyecto recurrente',
+      });
+    }
+  }
+
+  // ============================================
+  // RECURRENCIA - Obtener historial de generaciones
+  // ============================================
+
+  async obtenerHistorialGeneraciones(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const empresaId = req.empresaId!;
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID de proyecto inválido',
+        });
+      }
+
+      const historial = await proyectosRecurrenciaService.obtenerHistorialGeneraciones(
+        id,
+        String(empresaId),
+        req.empresaDbConfig
+      );
+
+      res.json({
+        success: true,
+        data: historial,
+      });
+    } catch (error: any) {
+      console.error('Error al obtener historial de generaciones:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al obtener historial de generaciones',
+      });
+    }
+  }
+  // ============================================
+  // DASHBOARD
+  // ============================================
+
+  async obtenerDashboard(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          message: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const dashboardData = await proyectosDashboardService.getDashboardData(
+        req.empresaId!,
+        req.empresaDbConfig
+      );
+
+      res.json({
+        success: true,
+        data: dashboardData,
+      });
+    } catch (error: any) {
+      console.error('Error al obtener dashboard de proyectos:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Error al obtener dashboard',
       });
     }
   }

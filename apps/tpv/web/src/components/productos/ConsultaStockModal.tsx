@@ -11,6 +11,7 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Layers,
 } from 'lucide-react';
 import { useDataStore } from '@/stores/dataStore';
 
@@ -21,6 +22,14 @@ interface StockAlmacen {
   stockMinimo: number;
 }
 
+interface VarianteStock {
+  id: string;
+  sku: string;
+  combinacion: Record<string, string>;
+  stockTotal: number;
+  stocks: StockAlmacen[];
+}
+
 interface ProductoStock {
   id: string;
   codigo: string;
@@ -28,6 +37,8 @@ interface ProductoStock {
   imagen?: string;
   stocks: StockAlmacen[];
   stockTotal: number;
+  tieneVariantes?: boolean;
+  variantes?: VarianteStock[];
 }
 
 interface ConsultaStockModalProps {
@@ -76,13 +87,39 @@ export function ConsultaStockModal({
           };
         });
 
+        // Mapear variantes si existen
+        const variantes: VarianteStock[] = p.tieneVariantes && p.variantes
+          ? p.variantes.filter((v: any) => v.activo !== false).map((v: any) => {
+              const varStocks: StockAlmacen[] = almacenesSync.map((alm: any) => {
+                const stockVar = Array.isArray(v.stockPorAlmacen)
+                  ? v.stockPorAlmacen.find((s: any) => s.almacenId === alm._id)
+                  : null;
+                return {
+                  almacenId: alm._id,
+                  almacenNombre: alm.nombre,
+                  stock: stockVar?.cantidad ?? 0,
+                  stockMinimo: 0,
+                };
+              });
+              return {
+                id: v._id,
+                sku: v.sku || '',
+                combinacion: v.combinacion || {},
+                stockTotal: varStocks.reduce((acc, s) => acc + s.stock, 0),
+                stocks: varStocks,
+              };
+            })
+          : [];
+
         return {
           id: p._id,
           codigo: p.sku || p.codigo || '',
           nombre: p.nombre,
-          imagen: p.imagenes?.[0],
+          imagen: p.imagenPrincipal || p.imagenes?.[0],
           stocks,
           stockTotal: stocks.reduce((acc, s) => acc + s.stock, 0),
+          tieneVariantes: p.tieneVariantes || false,
+          variantes,
         };
       });
   }, [busqueda, productosSync, almacenesSync]);
@@ -224,6 +261,57 @@ export function ConsultaStockModal({
                   Volver
                 </Button>
               </div>
+
+              {/* Stock por variante (si tiene variantes) */}
+              {productoSeleccionado.tieneVariantes && productoSeleccionado.variantes && productoSeleccionado.variantes.length > 0 && (
+                <>
+                  <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <Layers className="w-5 h-5" />
+                    Stock por variante
+                  </h3>
+                  <div className="mb-6 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-gray-50">
+                          <th className="text-left p-2 font-medium text-gray-600">Variante</th>
+                          <th className="text-left p-2 font-medium text-gray-600">SKU</th>
+                          {almacenesSync.map((alm: any) => (
+                            <th key={alm._id} className="text-center p-2 font-medium text-gray-600">{alm.nombre}</th>
+                          ))}
+                          <th className="text-center p-2 font-medium text-gray-700">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {productoSeleccionado.variantes.map((variante) => {
+                          const combinacionStr = Object.entries(variante.combinacion)
+                            .map(([k, v]) => `${v}`)
+                            .join(' / ');
+                          const status = getStockStatus(variante.stockTotal, 0);
+                          const colors = {
+                            red: 'text-red-600',
+                            amber: 'text-amber-600',
+                            green: 'text-green-600',
+                          };
+                          return (
+                            <tr key={variante.id} className="border-b hover:bg-gray-50">
+                              <td className="p-2 font-medium">{combinacionStr}</td>
+                              <td className="p-2 text-gray-500">{variante.sku}</td>
+                              {variante.stocks.map((s) => (
+                                <td key={s.almacenId} className={`p-2 text-center font-medium ${s.stock === 0 ? 'text-red-500' : s.stock <= 3 ? 'text-amber-500' : 'text-green-600'}`}>
+                                  {s.stock}
+                                </td>
+                              ))}
+                              <td className={`p-2 text-center font-bold ${colors[status.color as keyof typeof colors]}`}>
+                                {variante.stockTotal}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
 
               {/* Stock por almacen */}
               <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">

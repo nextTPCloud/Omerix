@@ -5,7 +5,31 @@
 import { useSyncStore } from '../stores/syncStore';
 
 const BACKEND_LOCAL_URL = 'http://localhost:3011';
-const CLOUD_API_URL = process.env.NEXT_PUBLIC_CLOUD_API_URL || 'http://localhost:3001/api';
+const CLOUD_API_URL_ENV = process.env.NEXT_PUBLIC_CLOUD_API_URL || '';
+
+// Resolver URL del cloud API dinámicamente para acceso desde otros dispositivos
+function resolveCloudUrl(): string {
+  if (typeof window !== 'undefined') {
+    const currentHost = window.location.hostname;
+    const isRemote = currentHost !== 'localhost' && currentHost !== '127.0.0.1';
+
+    if (isRemote) {
+      // Acceso remoto (smartphone, tablet): usar el hostname actual con el puerto del backend
+      // Extraer el puerto del env si está definido, sino usar 5000
+      const envUrl = CLOUD_API_URL_ENV || 'http://localhost:5000/api';
+      const match = envUrl.match(/:(\d+)/);
+      const port = match ? match[1] : '5000';
+      return `http://${currentHost}:${port}/api`;
+    }
+  }
+  // Acceso local: usar la URL del env o default
+  return CLOUD_API_URL_ENV || 'http://localhost:5000/api';
+}
+
+// Exportar para otros servicios que necesiten la URL del cloud
+export function getCloudApiUrl(): string {
+  return resolveCloudUrl();
+}
 
 // Credenciales del TPV (se guardan tras activacion)
 let tpvCredentials: { tpvId: string; tpvSecret: string; empresaId: string } | null = null;
@@ -16,11 +40,10 @@ interface ApiOptions {
 
 class TPVApi {
   private localUrl: string;
-  private cloudUrl: string;
+  private _cloudUrl: string | null = null;
 
   constructor() {
     this.localUrl = BACKEND_LOCAL_URL;
-    this.cloudUrl = CLOUD_API_URL;
     // Cargar credenciales guardadas
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('tpv_credentials');
@@ -28,6 +51,14 @@ class TPVApi {
         tpvCredentials = JSON.parse(saved);
       }
     }
+  }
+
+  // Resolver URL del cloud de forma lazy (window disponible solo en cliente)
+  get cloudUrl(): string {
+    if (!this._cloudUrl) {
+      this._cloudUrl = resolveCloudUrl();
+    }
+    return this._cloudUrl;
   }
 
   // Guardar credenciales del TPV
@@ -87,7 +118,14 @@ class TPVApi {
     });
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
+      // Intentar extraer el mensaje de error del backend
+      try {
+        const errorBody = await response.json();
+        throw new Error(errorBody.error || errorBody.message || `API Error: ${response.status}`);
+      } catch (e) {
+        if (e instanceof Error && !e.message.startsWith('API Error')) throw e;
+        throw new Error(`API Error: ${response.status}`);
+      }
     }
 
     return response.json();
@@ -321,6 +359,11 @@ class TPVApi {
       usuarios: any[];
       config: any;
       ultimaActualizacion: Date;
+      // Datos de restauración (opcionales)
+      salones?: any[];
+      mesas?: any[];
+      camareros?: any[];
+      sugerencias?: any[];
     };
   }> {
     if (!tpvCredentials) {
@@ -488,6 +531,48 @@ class TPVApi {
     } catch {
       return false;
     }
+  }
+
+  // ===========================================
+  // HISTORIAL DE TICKETS
+  // ===========================================
+
+  /**
+   * Busca tickets (facturas simplificadas) en todos los TPVs
+   */
+  async buscarTickets(busqueda?: string, limite?: number): Promise<{
+    ok: boolean;
+    tickets: Array<{
+      id: string;
+      codigo: string;
+      serie: string;
+      numero: string;
+      fecha: string;
+      total: number;
+      clienteNombre?: string;
+      usuarioNombre: string;
+      tpvNombre: string;
+      metodoPago: string;
+      lineas: Array<{
+        nombre: string;
+        cantidad: number;
+        precioUnitario: number;
+        total: number;
+        componentesKit?: Array<{ nombre: string; cantidad: number }>;
+      }>;
+    }>;
+  }> {
+    if (!tpvCredentials) {
+      throw new Error('TPV no activado');
+    }
+
+    return this.post('/tpv/sync/buscar-tickets', {
+      empresaId: tpvCredentials.empresaId,
+      tpvId: tpvCredentials.tpvId,
+      tpvSecret: tpvCredentials.tpvSecret,
+      busqueda,
+      limite: limite || 50,
+    }, { useLocal: false });
   }
 
   // ===========================================

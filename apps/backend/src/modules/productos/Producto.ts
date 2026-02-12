@@ -234,9 +234,33 @@ export interface IProducto extends Document {
 
   // TPV
   usarEnTPV: boolean; // Si el producto está disponible en el TPV
+  usarEnKiosk: boolean; // Si el producto está disponible en el Kiosk
   permiteDescuento: boolean; // Si permite aplicar descuentos en TPV
   precioModificable: boolean; // Si el precio se puede modificar en TPV
   imprimirEnTicket: boolean; // Si aparece en el ticket
+
+  // Restauración
+  restauracion?: {
+    zonaPreparacionId?: Types.ObjectId;
+    impresoraId?: Types.ObjectId;
+    tiempoPreparacionMinutos?: number;
+    alergenosIds?: Types.ObjectId[];
+    gruposModificadoresIds?: Types.ObjectId[];
+    permitirNotasCamarero?: boolean;
+    prioridadPreparacion?: 'baja' | 'normal' | 'alta' | 'inmediata';
+    mostrarEnKds?: boolean;
+    requierePuntoCoccion?: boolean;
+    puedeSerAcompanamiento?: boolean;
+    requiereAcompanamiento?: boolean;
+    esParaCompartir?: boolean;
+    disponibleParaLlevar?: boolean;
+    infoNutricional?: {
+      calorias?: number;
+      proteinas?: number;
+      carbohidratos?: number;
+      grasas?: number;
+    };
+  };
 
   // E-commerce
   publicarWeb: boolean; // Publicar en tienda online
@@ -635,6 +659,10 @@ const ProductoSchema = new Schema<IProducto>(
       type: Boolean,
       default: true,
     },
+    usarEnKiosk: {
+      type: Boolean,
+      default: false,
+    },
     permiteDescuento: {
       type: Boolean,
       default: true,
@@ -646,6 +674,29 @@ const ProductoSchema = new Schema<IProducto>(
     imprimirEnTicket: {
       type: Boolean,
       default: true,
+    },
+
+    // Restauración
+    restauracion: {
+      zonaPreparacionId: { type: Schema.Types.ObjectId, ref: 'ZonaPreparacion' },
+      impresoraId: { type: Schema.Types.ObjectId, ref: 'Impresora' },
+      tiempoPreparacionMinutos: { type: Number, default: 0 },
+      alergenosIds: [{ type: Schema.Types.ObjectId, ref: 'Alergeno' }],
+      gruposModificadoresIds: [{ type: Schema.Types.ObjectId, ref: 'GrupoModificadores' }],
+      permitirNotasCamarero: { type: Boolean, default: true },
+      prioridadPreparacion: { type: String, enum: ['baja', 'normal', 'alta', 'inmediata'], default: 'normal' },
+      mostrarEnKds: { type: Boolean, default: true },
+      requierePuntoCoccion: { type: Boolean, default: false },
+      puedeSerAcompanamiento: { type: Boolean, default: false },
+      requiereAcompanamiento: { type: Boolean, default: false },
+      esParaCompartir: { type: Boolean, default: false },
+      disponibleParaLlevar: { type: Boolean, default: true },
+      infoNutricional: {
+        calorias: Number,
+        proteinas: Number,
+        carbohidratos: Number,
+        grasas: Number,
+      },
     },
 
     // E-commerce
@@ -750,15 +801,16 @@ ProductoSchema.virtual('stockTotal').get(function () {
   if (!this.tieneVariantes) {
     // Para productos simples, sumar stock de todos los almacenes
     if (this.stockPorAlmacen && this.stockPorAlmacen.length > 0) {
-      return this.stockPorAlmacen.reduce((total, almacen) => total + almacen.cantidad, 0);
+      return this.stockPorAlmacen.reduce((total, almacen) => total + (almacen.cantidad || 0), 0);
     }
-    return this.stock.cantidad;
+    // Verificar que stock existe antes de acceder a cantidad
+    return this.stock?.cantidad || 0;
   }
 
   // Para productos con variantes, sumar el stock de cada variante en cada almacén
   return this.variantes.reduce((total, variante) => {
     if (variante.stockPorAlmacen && variante.stockPorAlmacen.length > 0) {
-      return total + variante.stockPorAlmacen.reduce((sum, almacen) => sum + almacen.cantidad, 0);
+      return total + variante.stockPorAlmacen.reduce((sum, almacen) => sum + (almacen.cantidad || 0), 0);
     }
     return total;
   }, 0);

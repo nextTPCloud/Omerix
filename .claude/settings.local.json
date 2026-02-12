@@ -45,7 +45,28 @@
       "Bash(npx tsx:*)",
       "Bash(del \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend\\\\src\\\\scripts\\\\fix-plan-basico.ts\")",
       "Bash(npm run seed:addons:*)",
-      "Bash(del \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend\\\\src\\\\scripts\\\\check-partes-planificacion.ts\")"
+      "Bash(del \"C:\\\\Datos\\\\src\\\\omerix\\\\apps\\\\backend\\\\src\\\\scripts\\\\check-partes-planificacion.ts\")",
+      "Bash(npx dotenv:*)",
+      "Bash(node -r dotenv/config node_modules/.bin/ts-node:*)",
+      "Bash(npm run actualizar:informes:*)",
+      "Bash(taskkill:*)",
+      "Bash(find:*)",
+      "Bash(test -f:*)",
+      "Bash(grep:*)",
+      "WebFetch(domain:www.restoo.me)",
+      "WebSearch",
+      "Bash(git show:*)",
+      "Bash(netstat:*)",
+      "Bash(mongosh:*)",
+      "Bash(where:*)",
+      "Bash(npx -y typescript:*)",
+      "Bash(npx playwright install:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(npm ls:*)",
+      "Bash(tasklist:*)",
+      "Bash(wmic process where \"ProcessId=22416\" get Name,CommandLine)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

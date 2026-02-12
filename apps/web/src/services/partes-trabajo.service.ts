@@ -308,6 +308,25 @@ class PartesTrabajoService {
     const response = await api.post(`${BASE_URL}/verificar-disponibilidad`, data);
     return response.data;
   }
+
+  // ============================================
+  // DOCUMENTOS ADJUNTOS
+  // ============================================
+
+  async subirDocumento(id: string, file: File, nombre?: string): Promise<ParteTrabajoResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (nombre) formData.append('nombre', nombre);
+    const response = await api.post(`${BASE_URL}/${id}/documentos`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
+  async eliminarDocumento(id: string, docId: string): Promise<ParteTrabajoResponse> {
+    const response = await api.delete(`${BASE_URL}/${id}/documentos/${docId}`);
+    return response.data;
+  }
 }
 
 export const partesTrabajoService = new PartesTrabajoService();

@@ -24,6 +24,19 @@ export interface ITPVRegistrado extends Document {
     permitirPrecioManual: boolean;
     modoOfflinePermitido: boolean;
     diasCacheProductos: number;
+    pinPorTicket?: boolean; // Pedir PIN antes de cada cobro
+    requiereMesaParaVenta?: boolean; // Requiere mesa asignada (restauración)
+    requiereCamareroParaVenta?: boolean; // Requiere camarero asignado (restauración)
+
+    // Vencimientos
+    permitirCobroVencimientos?: boolean; // Permitir cobro de vencimientos desde TPV
+    permitirPagoVencimientos?: boolean;  // Permitir pago de vencimientos desde TPV
+
+    // Restauracion
+    tieneRestauracion?: boolean;
+    permitirPropinas?: boolean;
+    salonPorDefectoId?: mongoose.Types.ObjectId;
+    maxComanderos?: number; // 0 = deshabilitado
 
     // Impresora de tickets
     impresoraTicket?: {
@@ -132,6 +145,19 @@ const TPVRegistradoSchema = new Schema<ITPVRegistrado>(
       permitirPrecioManual: { type: Boolean, default: false },
       modoOfflinePermitido: { type: Boolean, default: true },
       diasCacheProductos: { type: Number, default: 7 },
+      pinPorTicket: { type: Boolean, default: false },
+      requiereMesaParaVenta: { type: Boolean, default: false },
+      requiereCamareroParaVenta: { type: Boolean, default: false },
+
+      // Vencimientos
+      permitirCobroVencimientos: { type: Boolean, default: false },
+      permitirPagoVencimientos: { type: Boolean, default: false },
+
+      // Restauracion
+      tieneRestauracion: { type: Boolean, default: false },
+      permitirPropinas: { type: Boolean, default: false },
+      salonPorDefectoId: { type: Schema.Types.ObjectId, ref: 'Salon' },
+      maxComanderos: { type: Number, default: 0 },
 
       // Impresora de tickets
       impresoraTicket: {

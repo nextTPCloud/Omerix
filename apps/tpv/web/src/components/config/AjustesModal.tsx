@@ -21,6 +21,9 @@ import {
   ChevronDown,
   Star,
   RotateCw,
+  UtensilsCrossed,
+  Split,
+  Merge,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useDataStore } from '@/stores/dataStore';
@@ -31,7 +34,7 @@ interface AjustesModalProps {
   onClose: () => void;
 }
 
-type TabType = 'general' | 'perfil' | 'perifericos' | 'seguridad' | 'sync';
+type TabType = 'general' | 'perfil' | 'restauracion' | 'perifericos' | 'seguridad' | 'sync';
 
 export function AjustesModal({ isOpen, onClose }: AjustesModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('general');
@@ -40,6 +43,12 @@ export function AjustesModal({ isOpen, onClose }: AjustesModalProps) {
   const [autoSync, setAutoSync] = useState(true);
   const [intervaloSync, setIntervaloSync] = useState(5);
   const [guardando, setGuardando] = useState(false);
+
+  // Configuración de restauración
+  const [permiteDividirMesas, setPermiteDividirMesas] = useState(true);
+  const [permiteUnirMesas, setPermiteUnirMesas] = useState(true);
+  const [requiereMesaParaVenta, setRequiereMesaParaVenta] = useState(false);
+  const [requiereCamareroParaVenta, setRequiereCamareroParaVenta] = useState(false);
 
   const tpvConfig = useAuthStore((state) => state.tpvConfig);
   const { sincronizarDatos, sincronizando, ultimaSync, familias, productos } = useDataStore();
@@ -90,6 +99,11 @@ export function AjustesModal({ isOpen, onClose }: AjustesModalProps) {
           setSonidosActivos(settings.sonidosActivos ?? true);
           setAutoSync(settings.autoSync ?? true);
           setIntervaloSync(settings.intervaloSync ?? 5);
+          // Restauración
+          setPermiteDividirMesas(settings.permiteDividirMesas ?? true);
+          setPermiteUnirMesas(settings.permiteUnirMesas ?? true);
+          setRequiereMesaParaVenta(settings.requiereMesaParaVenta ?? false);
+          setRequiereCamareroParaVenta(settings.requiereCamareroParaVenta ?? false);
         } catch (e) {
           console.error('Error cargando ajustes:', e);
         }
@@ -105,6 +119,11 @@ export function AjustesModal({ isOpen, onClose }: AjustesModalProps) {
         sonidosActivos,
         autoSync,
         intervaloSync,
+        // Restauración
+        permiteDividirMesas,
+        permiteUnirMesas,
+        requiereMesaParaVenta,
+        requiereCamareroParaVenta,
       };
       localStorage.setItem('tpv_settings', JSON.stringify(settings));
       // Simular guardado
@@ -129,12 +148,16 @@ export function AjustesModal({ isOpen, onClose }: AjustesModalProps) {
     setTimeout(() => setMensajeSync(null), 5000);
   };
 
+  // Detectar si tiene módulo de restauración
+  const tieneRestauracion = tpvConfig?.tieneRestauracion ?? false;
+
   const tabs = [
     { id: 'general', label: 'General', icon: Settings },
     { id: 'perfil', label: 'Perfil', icon: Layers },
-    { id: 'perifericos', label: 'Perifericos', icon: Printer },
+    ...(tieneRestauracion ? [{ id: 'restauracion', label: 'Restauración', icon: UtensilsCrossed }] : []),
+    { id: 'perifericos', label: 'Periféricos', icon: Printer },
     { id: 'seguridad', label: 'Seguridad', icon: Key },
-    { id: 'sync', label: 'Sincronizacion', icon: Database },
+    { id: 'sync', label: 'Sincronización', icon: Database },
   ] as const;
 
   return (
@@ -334,6 +357,121 @@ export function AjustesModal({ isOpen, onClose }: AjustesModalProps) {
                     Mantén pulsado un producto en la pantalla principal para añadirlo a favoritos.
                   </p>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Restauración */}
+          {activeTab === 'restauracion' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Configuración de Restauración</h3>
+
+                <div className="space-y-4">
+                  {/* Dividir Mesas */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Split className="w-5 h-5 text-amber-500" />
+                      <div>
+                        <p className="font-medium">Permitir dividir mesas</p>
+                        <p className="text-sm text-gray-500">
+                          Mover productos de una mesa a otra
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={permiteDividirMesas}
+                        onChange={(e) => setPermiteDividirMesas(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Unir Mesas */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Merge className="w-5 h-5 text-blue-500" />
+                      <div>
+                        <p className="font-medium">Permitir unir mesas</p>
+                        <p className="text-sm text-gray-500">
+                          Fusionar tickets de varias mesas en una
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={permiteUnirMesas}
+                        onChange={(e) => setPermiteUnirMesas(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Separador */}
+                  <div className="border-t pt-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3">Requisitos para ventas</h4>
+                  </div>
+
+                  {/* Requiere Mesa */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-5 h-5 bg-green-100 rounded flex items-center justify-center">
+                        <span className="text-green-600 text-xs font-bold">#</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">Requiere mesa asignada</p>
+                        <p className="text-sm text-gray-500">
+                          No permitir ventas sin seleccionar mesa
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={requiereMesaParaVenta}
+                        onChange={(e) => setRequiereMesaParaVenta(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Requiere Camarero */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-blue-600 text-xs font-bold">C</span>
+                      </div>
+                      <div>
+                        <p className="font-medium">Requiere camarero asignado</p>
+                        <p className="text-sm text-gray-500">
+                          No permitir ventas sin seleccionar camarero
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={requiereCamareroParaVenta}
+                        onChange={(e) => setRequiereCamareroParaVenta(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-3 bg-amber-50 rounded-lg">
+                    <p className="text-sm text-amber-700">
+                      Estas opciones solo aplican cuando el módulo de restauración está activo.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

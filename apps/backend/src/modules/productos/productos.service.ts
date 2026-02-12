@@ -829,6 +829,68 @@ export class ProductosService {
 
     return nuevoProducto;
   }
+
+  // ============================================
+  // IMAGENES
+  // ============================================
+
+  async agregarImagenes(
+    id: string,
+    urls: string[],
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ): Promise<IProducto | null> {
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+    const producto = await ProductoModel.findById(id);
+    if (!producto) return null;
+
+    // Añadir URLs al array de imagenes
+    const imagenesActuales = producto.imagenes || [];
+    producto.imagenes = [...imagenesActuales, ...urls];
+
+    // Si no tiene imagen principal, usar la primera
+    if (!producto.imagenPrincipal && producto.imagenes.length > 0) {
+      producto.imagenPrincipal = producto.imagenes[0];
+    }
+
+    await producto.save();
+    return producto;
+  }
+
+  async setImagenPrincipal(
+    id: string,
+    url: string,
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ): Promise<IProducto | null> {
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+    return ProductoModel.findOneAndUpdate(
+      { _id: id },
+      { imagenPrincipal: url },
+      { new: true }
+    );
+  }
+
+  async eliminarImagen(
+    id: string,
+    url: string,
+    empresaId: mongoose.Types.ObjectId,
+    dbConfig: IDatabaseConfig
+  ): Promise<IProducto | null> {
+    const ProductoModel = await this.getModeloProducto(String(empresaId), dbConfig);
+    const producto = await ProductoModel.findById(id);
+    if (!producto) return null;
+
+    producto.imagenes = (producto.imagenes || []).filter((img: string) => img !== url);
+
+    // Si la imagen eliminada era la principal, usar la primera disponible
+    if (producto.imagenPrincipal === url) {
+      producto.imagenPrincipal = producto.imagenes.length > 0 ? producto.imagenes[0] : undefined;
+    }
+
+    await producto.save();
+    return producto;
+  }
 }
 
 export const productosService = new ProductosService();

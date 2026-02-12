@@ -35,6 +35,7 @@ export interface IAddOn extends Document {
     almacenamientoGB?: number;
     tokensIA?: number;
     tpvs?: number;
+    kioskos?: number;
   };
 
   // Características para mostrar en UI
@@ -114,6 +115,7 @@ const AddOnSchema = new Schema<IAddOn>(
       almacenamientoGB: Number,
       tokensIA: Number,
       tpvs: Number,
+      kioskos: Number,
     },
     caracteristicas: [String],
     activo: {

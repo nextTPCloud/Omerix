@@ -42,6 +42,7 @@ export interface ILicencia extends Document {
     almacenesActuales: number;
     clientesActuales: number;
     tpvsActuales: number;
+    kioskosActuales: number;
     almacenamientoUsadoGB: number;
     llamadasAPIHoy: number;
     emailsEsteMes: number;
@@ -144,6 +145,7 @@ const LicenciaSchema = new Schema<ILicencia>(
       almacenesActuales: { type: Number, default: 0 },
       clientesActuales: { type: Number, default: 0 },
       tpvsActuales: { type: Number, default: 0 },
+      kioskosActuales: { type: Number, default: 0 },
       almacenamientoUsadoGB: { type: Number, default: 0 },
       llamadasAPIHoy: { type: Number, default: 0 },
       emailsEsteMes: { type: Number, default: 0 },

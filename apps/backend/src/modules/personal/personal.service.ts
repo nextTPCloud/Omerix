@@ -514,6 +514,40 @@ export class PersonalService {
       }
     ]);
   }
+
+  // ============================================
+  // ARCHIVOS Y FOTOS
+  // ============================================
+
+  async actualizarFoto(id: string, empresaId: string, dbConfig: IDatabaseConfig, fotoUrl: string) {
+    const PersonalModel = await this.getModeloPersonal(empresaId, dbConfig);
+    return PersonalModel.findOneAndUpdate(
+      { _id: id },
+      { $set: { foto: fotoUrl } },
+      { new: true }
+    );
+  }
+
+  async agregarDocumento(
+    id: string, empresaId: string, dbConfig: IDatabaseConfig,
+    documento: { nombre: string; tipo: string; url: string; fechaSubida: Date; subidoPor: string; confidencial?: boolean }
+  ) {
+    const PersonalModel = await this.getModeloPersonal(empresaId, dbConfig);
+    return PersonalModel.findOneAndUpdate(
+      { _id: id },
+      { $push: { documentos: documento } },
+      { new: true }
+    );
+  }
+
+  async eliminarDocumento(id: string, empresaId: string, dbConfig: IDatabaseConfig, docId: string) {
+    const PersonalModel = await this.getModeloPersonal(empresaId, dbConfig);
+    return PersonalModel.findOneAndUpdate(
+      { _id: id },
+      { $pull: { documentos: { _id: docId } } },
+      { new: true }
+    );
+  }
 }
 
 export const personalService = new PersonalService();

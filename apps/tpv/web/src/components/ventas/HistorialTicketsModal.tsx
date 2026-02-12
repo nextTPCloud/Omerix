@@ -67,19 +67,41 @@ export function HistorialTicketsModal({ isOpen, onClose }: HistorialTicketsModal
   // Cargar tickets de la sesion actual (desde movimientos de caja)
   useEffect(() => {
     if (isOpen) {
-      const ticketsVenta = movimientos
+      // Agrupar movimientos por ventaId para sumar pagos parciales
+      const ventasMap = new Map<string, { movimientos: typeof movimientos; total: number }>();
+      movimientos
         .filter((m) => m.tipo === 'venta')
-        .map((m, index) => ({
-          id: m.id,
-          numero: String(index + 1).padStart(4, '0'),
-          serie: tpvConfig?.serieFactura || 'FS',
-          fecha: new Date(m.fecha),
-          usuarioNombre: m.usuarioNombre,
-          tpvNombre: tpvConfig?.tpvNombre || 'TPV',
-          total: m.importe,
-          metodoPago: m.metodoPago || 'efectivo',
-          lineas: [], // No tenemos las lineas en el movimiento
-        }))
+        .forEach((m) => {
+          const key = m.ventaId || m.id;
+          if (ventasMap.has(key)) {
+            const existing = ventasMap.get(key)!;
+            existing.movimientos.push(m);
+            existing.total += m.importe;
+          } else {
+            ventasMap.set(key, { movimientos: [m], total: m.importe });
+          }
+        });
+
+      const ticketsVenta = Array.from(ventasMap.entries())
+        .map(([ventaId, data]) => {
+          const primerMov = data.movimientos[0];
+          // Extraer código del ticket (ej: FS2026-00001)
+          const ticketNumero = primerMov.ticketNumero || '';
+          // Parsear serie y numero del código
+          const partes = ticketNumero.match(/^([A-Z]+)(\d{4})-(\d+)$/);
+          return {
+            id: ventaId,
+            numero: partes ? partes[3] : ticketNumero,
+            serie: primerMov.ticketSerie || partes?.[1] || tpvConfig?.serieFactura || 'FS',
+            codigo: ticketNumero,
+            fecha: new Date(primerMov.fecha),
+            usuarioNombre: primerMov.usuarioNombre,
+            tpvNombre: tpvConfig?.tpvNombre || 'TPV',
+            total: data.total,
+            metodoPago: data.movimientos.length > 1 ? 'mixto' : (primerMov.metodoPago || 'efectivo'),
+            lineas: [],
+          };
+        })
         .reverse();
 
       setTicketsSesion(ticketsVenta);
@@ -88,19 +110,21 @@ export function HistorialTicketsModal({ isOpen, onClose }: HistorialTicketsModal
 
   // Buscar tickets en el backend
   const handleBuscarTickets = async () => {
-    if (!busqueda.trim()) return;
+    if (!busqueda.trim() && modoVista === 'busqueda') {
+      // Si no hay búsqueda, cargar los últimos tickets
+    }
 
     setCargandoBusqueda(true);
     try {
-      // TODO: Implementar llamada al backend para buscar tickets
-      // const response = await tpvApi.buscarTickets(busqueda);
-      // setTicketsBusqueda(response.tickets);
-
-      // Por ahora simulamos
-      console.log('Buscando tickets:', busqueda);
-      setTicketsBusqueda([]);
+      const response = await tpvApi.buscarTickets(busqueda.trim() || undefined);
+      const tickets = (response.tickets || []).map((t: any) => ({
+        ...t,
+        fecha: new Date(t.fecha),
+      }));
+      setTicketsBusqueda(tickets);
     } catch (error) {
       console.error('Error buscando tickets:', error);
+      setTicketsBusqueda([]);
     } finally {
       setCargandoBusqueda(false);
     }
@@ -191,7 +215,13 @@ export function HistorialTicketsModal({ isOpen, onClose }: HistorialTicketsModal
             Esta sesion
           </button>
           <button
-            onClick={() => setModoVista('busqueda')}
+            onClick={() => {
+              setModoVista('busqueda');
+              // Cargar últimos tickets al cambiar a modo búsqueda
+              if (ticketsBusqueda.length === 0) {
+                setTimeout(() => handleBuscarTickets(), 100);
+              }
+            }}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
               modoVista === 'busqueda'
                 ? 'bg-primary-100 text-primary-700'
@@ -199,7 +229,7 @@ export function HistorialTicketsModal({ isOpen, onClose }: HistorialTicketsModal
             }`}
           >
             <Globe className="w-4 h-4" />
-            Buscar ticket
+            Todos los TPVs
           </button>
         </div>
 
@@ -279,7 +309,7 @@ export function HistorialTicketsModal({ isOpen, onClose }: HistorialTicketsModal
                       <Receipt className="w-5 h-5 text-gray-500" />
                     </div>
                     <div>
-                      <p className="font-bold text-lg">{ticket.serie}-{ticket.numero}</p>
+                      <p className="font-bold text-lg">{(ticket as any).codigo || `${ticket.serie}-${ticket.numero}`}</p>
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />

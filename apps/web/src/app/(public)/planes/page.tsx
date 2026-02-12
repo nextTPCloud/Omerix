@@ -154,8 +154,40 @@ const modulosInfo: ModuloInfo[] = [
   { slug: 'proyectos', nombre: 'Proyectos / Servicios', addon: true },
   { slug: 'contabilidad', nombre: 'Contabilidad', addon: true },
   { slug: 'crm', nombre: 'CRM Completo', addon: true },
+  { slug: 'restauracion', nombre: 'Restauracion (Salones, Comandas, Reservas)', addon: true },
+  { slug: 'ecommerce', nombre: 'E-commerce (PrestaShop, WooCommerce)', addon: true },
+  { slug: 'firmas', nombre: 'Firmas Digitales', addon: true },
   { slug: 'redes-sociales', nombre: 'Redes Sociales (Meta)', addon: true },
   { slug: 'google-calendar', nombre: 'Google Calendar', addon: true },
+]
+
+// Detalle de add-ons para la seccion informativa
+const addonsDetalle = [
+  {
+    nombre: 'Restauracion',
+    precio: '25€/mes',
+    features: ['Gestion de salones y mesas', 'Comandas de cocina (KDS)', 'Comandero digital', 'Reservas + Restoo.me', 'Kioskos autoservicio', 'Alergenos y modificadores'],
+  },
+  {
+    nombre: 'E-commerce',
+    precio: '15€/mes',
+    features: ['Conector PrestaShop', 'Conector WooCommerce', 'Sync productos y stock', 'Importacion de pedidos'],
+  },
+  {
+    nombre: 'Firmas Digitales',
+    precio: '8€/mes',
+    features: ['Firma digital documentos', 'Solicitudes a terceros', 'Firma desde movil', 'Enlace publico para firmar'],
+  },
+  {
+    nombre: 'CRM',
+    precio: '12€/mes',
+    features: ['Pipeline de ventas', 'Seguimiento de leads', 'Actividades y tareas', 'Informes comerciales'],
+  },
+  {
+    nombre: 'Contabilidad',
+    precio: '15€/mes',
+    features: ['Plan General Contable', 'Asientos automaticos', 'Balances y libros', 'Modelo 303/390'],
+  },
 ]
 
 // FAQ
@@ -287,7 +319,7 @@ function PlanCard({ plan, anual }: { plan: typeof planes[0], anual: boolean }) {
               <X className="h-4 w-4 text-slate-300" />
             )}
             <span className={plan.integraciones ? 'text-slate-700' : 'text-slate-400'}>
-              Integraciones externas
+              {plan.integraciones ? 'PrestaShop, WooCommerce, Restoo.me' : 'Integraciones externas'}
             </span>
           </div>
           <div className="flex items-center gap-2 text-sm">
@@ -461,7 +493,7 @@ function TablaComparativa() {
             ))}
           </tr>
           <tr className="border-b border-slate-100">
-            <td className="py-3 px-4 text-slate-600">Integraciones externas</td>
+            <td className="py-3 px-4 text-slate-600">Integraciones (PrestaShop, WooCommerce, Restoo)</td>
             {planes.map(plan => (
               <td key={plan.slug} className="text-center py-3 px-4">
                 {plan.integraciones ? (
@@ -540,6 +572,38 @@ export default function PlanesPage() {
           </h2>
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <TablaComparativa />
+          </div>
+        </div>
+
+        {/* Add-ons destacados */}
+        <div className="mb-20">
+          <h2 className="text-2xl font-bold text-slate-900 text-center mb-4">
+            Amplia tu plan con add-ons
+          </h2>
+          <p className="text-center text-slate-600 mb-8 max-w-2xl mx-auto">
+            Anade funcionalidades avanzadas a cualquier plan. Activa y desactiva cuando quieras.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {addonsDetalle.map((addon) => (
+              <Card key={addon.nombre} className="border-purple-200 bg-purple-50/30">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{addon.nombre}</CardTitle>
+                    <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-xs">{addon.precio}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-1.5">
+                    {addon.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-xs text-slate-600">
+                        <Check className="h-3.5 w-3.5 text-purple-500 flex-shrink-0 mt-0.5" />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
 

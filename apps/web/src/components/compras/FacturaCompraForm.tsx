@@ -801,6 +801,58 @@ export function FacturaCompraForm({
   }
 
   // ============================================
+  // CALCULOS DE TOTALES
+  // ============================================
+
+  const calcularTotales = useCallback(() => {
+    const lineasIncluidas = lineas.filter(l => l.incluidoEnTotal && l.tipo === 'producto')
+
+    const subtotalBruto = lineasIncluidas.reduce((sum, l) => sum + (l.cantidad * l.precioUnitario), 0)
+    const totalDescuentosLineas = lineasIncluidas.reduce((sum, l) => sum + l.descuentoImporte, 0)
+    const subtotalNeto = subtotalBruto - totalDescuentosLineas
+
+    // Descuento global
+    const descuentoGlobalImporte = subtotalNeto * (descuentoGlobalPorcentaje / 100)
+    const subtotalConDescuento = subtotalNeto - descuentoGlobalImporte
+
+    // Desglose IVA
+    const desgloseIva: { [key: number]: { base: number; cuota: number } } = {}
+    lineasIncluidas.forEach(linea => {
+      const baseLinea = linea.subtotal * (1 - descuentoGlobalPorcentaje / 100)
+      if (!desgloseIva[linea.iva]) {
+        desgloseIva[linea.iva] = { base: 0, cuota: 0 }
+      }
+      desgloseIva[linea.iva].base += baseLinea
+      desgloseIva[linea.iva].cuota += baseLinea * (linea.iva / 100)
+    })
+
+    const totalIva = Object.values(desgloseIva).reduce((sum, d) => sum + d.cuota, 0)
+    const totalFactura = subtotalConDescuento + totalIva
+
+    // Totales de pago
+    const totalPagado = vencimientos.reduce((sum, v) => sum + (v.importePagado || 0), 0)
+    const totalPendiente = totalFactura - totalPagado
+
+    return {
+      subtotalBruto: Math.round(subtotalBruto * 100) / 100,
+      totalDescuentos: Math.round((totalDescuentosLineas + descuentoGlobalImporte) * 100) / 100,
+      subtotalNeto: Math.round(subtotalConDescuento * 100) / 100,
+      desgloseIva: Object.entries(desgloseIva).map(([tipo, valores]) => ({
+        tipo: Number(tipo),
+        base: Math.round(valores.base * 100) / 100,
+        cuota: Math.round(valores.cuota * 100) / 100,
+      })),
+      totalIva: Math.round(totalIva * 100) / 100,
+      totalFactura: Math.round(totalFactura * 100) / 100,
+      descuentoGlobalImporte: Math.round(descuentoGlobalImporte * 100) / 100,
+      totalPagado: Math.round(totalPagado * 100) / 100,
+      totalPendiente: Math.round(totalPendiente * 100) / 100,
+    }
+  }, [lineas, descuentoGlobalPorcentaje, vencimientos])
+
+  const totales = calcularTotales()
+
+  // ============================================
   // GESTION DE VENCIMIENTOS
   // ============================================
 
@@ -886,58 +938,6 @@ export function FacturaCompraForm({
 
     setVencimientos(nuevosVencimientos)
   }, [terminoPagoId, terminosPago, totales.totalFactura, fechaFacturaProveedor, fecha])
-
-  // ============================================
-  // CALCULOS DE TOTALES
-  // ============================================
-
-  const calcularTotales = useCallback(() => {
-    const lineasIncluidas = lineas.filter(l => l.incluidoEnTotal && l.tipo === 'producto')
-
-    const subtotalBruto = lineasIncluidas.reduce((sum, l) => sum + (l.cantidad * l.precioUnitario), 0)
-    const totalDescuentosLineas = lineasIncluidas.reduce((sum, l) => sum + l.descuentoImporte, 0)
-    const subtotalNeto = subtotalBruto - totalDescuentosLineas
-
-    // Descuento global
-    const descuentoGlobalImporte = subtotalNeto * (descuentoGlobalPorcentaje / 100)
-    const subtotalConDescuento = subtotalNeto - descuentoGlobalImporte
-
-    // Desglose IVA
-    const desgloseIva: { [key: number]: { base: number; cuota: number } } = {}
-    lineasIncluidas.forEach(linea => {
-      const baseLinea = linea.subtotal * (1 - descuentoGlobalPorcentaje / 100)
-      if (!desgloseIva[linea.iva]) {
-        desgloseIva[linea.iva] = { base: 0, cuota: 0 }
-      }
-      desgloseIva[linea.iva].base += baseLinea
-      desgloseIva[linea.iva].cuota += baseLinea * (linea.iva / 100)
-    })
-
-    const totalIva = Object.values(desgloseIva).reduce((sum, d) => sum + d.cuota, 0)
-    const totalFactura = subtotalConDescuento + totalIva
-
-    // Totales de pago
-    const totalPagado = vencimientos.reduce((sum, v) => sum + (v.importePagado || 0), 0)
-    const totalPendiente = totalFactura - totalPagado
-
-    return {
-      subtotalBruto: Math.round(subtotalBruto * 100) / 100,
-      totalDescuentos: Math.round((totalDescuentosLineas + descuentoGlobalImporte) * 100) / 100,
-      subtotalNeto: Math.round(subtotalConDescuento * 100) / 100,
-      desgloseIva: Object.entries(desgloseIva).map(([tipo, valores]) => ({
-        tipo: Number(tipo),
-        base: Math.round(valores.base * 100) / 100,
-        cuota: Math.round(valores.cuota * 100) / 100,
-      })),
-      totalIva: Math.round(totalIva * 100) / 100,
-      totalFactura: Math.round(totalFactura * 100) / 100,
-      descuentoGlobalImporte: Math.round(descuentoGlobalImporte * 100) / 100,
-      totalPagado: Math.round(totalPagado * 100) / 100,
-      totalPendiente: Math.round(totalPendiente * 100) / 100,
-    }
-  }, [lineas, descuentoGlobalPorcentaje, vencimientos])
-
-  const totales = calcularTotales()
 
   // ============================================
   // FORMATEO

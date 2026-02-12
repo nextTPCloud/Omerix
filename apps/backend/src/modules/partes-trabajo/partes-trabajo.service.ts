@@ -1465,6 +1465,46 @@ export class PartesTrabajoService {
       .populate('responsableId', 'nombre apellidos')
       .lean();
   }
+  // ============================================
+  // DOCUMENTOS ADJUNTOS
+  // ============================================
+
+  async agregarDocumento(
+    dbConfig: any,
+    parteId: string,
+    empresaId: mongoose.Types.ObjectId,
+    documento: {
+      nombre: string;
+      url: string;
+      tipo: string;
+      tamaño: number;
+      fechaSubida: Date;
+      subidoPor: mongoose.Types.ObjectId;
+    }
+  ): Promise<IParteTrabajo | null> {
+    const ParteTrabajoModel = await this.getModeloParteTrabajo(String(empresaId), dbConfig);
+
+    return ParteTrabajoModel.findByIdAndUpdate(
+      parteId,
+      { $push: { documentos: documento } },
+      { new: true }
+    ).lean();
+  }
+
+  async eliminarDocumento(
+    dbConfig: any,
+    parteId: string,
+    empresaId: mongoose.Types.ObjectId,
+    documentoId: string
+  ): Promise<IParteTrabajo | null> {
+    const ParteTrabajoModel = await this.getModeloParteTrabajo(String(empresaId), dbConfig);
+
+    return ParteTrabajoModel.findByIdAndUpdate(
+      parteId,
+      { $pull: { documentos: { _id: new mongoose.Types.ObjectId(documentoId) } } },
+      { new: true }
+    ).lean();
+  }
 }
 
 // Instancia singleton del servicio

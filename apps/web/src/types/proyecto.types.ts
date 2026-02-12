@@ -67,6 +67,49 @@ export interface IDireccionProyecto {
   notas?: string;
 }
 
+// Recurrencia/Periodicidad
+export type FrecuenciaRecurrencia = 'semanal' | 'quincenal' | 'mensual' | 'bimestral' | 'trimestral' | 'semestral' | 'anual';
+export type EstadoGeneracion = 'pendiente' | 'albaran_generado' | 'facturado' | 'cancelado';
+export type TipoLineaPlantilla = 'mano_obra' | 'material' | 'gasto' | 'maquinaria' | 'transporte';
+
+export interface ILineaPlantilla {
+  _id?: string;
+  tipo: TipoLineaPlantilla;
+  descripcion: string;
+  cantidad: number;
+  unidad: string;
+  precioUnitario: number;
+  productoId?: string;
+  personalId?: string;
+  incluirEnAlbaran: boolean;
+}
+
+export interface IInstanciaGenerada {
+  _id?: string;
+  fechaGeneracion: string | Date;
+  periodoInicio: string | Date;
+  periodoFin: string | Date;
+  estado: EstadoGeneracion;
+  parteTrabajoId?: string | { _id: string; numero: string; titulo?: string };
+  albaranId?: string | { _id: string; numero: string };
+  facturaId?: string | { _id: string; numero: string };
+  observaciones?: string;
+}
+
+export interface IConfiguracionRecurrencia {
+  activo: boolean;
+  frecuencia: FrecuenciaRecurrencia;
+  diaGeneracion: number;
+  fechaInicio: string | Date;
+  fechaFin?: string | Date;
+  proximaGeneracion?: string | Date;
+  generarParteTrabajo: boolean;
+  generarAlbaran: boolean;
+  generarFactura: boolean;
+  lineasPlantilla: ILineaPlantilla[];
+  instanciasGeneradas?: IInstanciaGenerada[];
+}
+
 export interface IProyecto {
   _id: string;
   codigo: string;
@@ -97,6 +140,10 @@ export interface IProyecto {
   partesTrabajoIds?: string[];
   tags?: string[];
   observaciones?: string;
+  // Recurrencia
+  esRecurrente?: boolean;
+  recurrencia?: IConfiguracionRecurrencia;
+  // Control
   activo: boolean;
   creadoPor?: string | { _id: string; nombre: string; email: string };
   modificadoPor?: string | { _id: string; nombre: string; email: string };

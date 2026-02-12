@@ -76,7 +76,9 @@ export function Select({
         setOpen,
       }}
     >
-      {children}
+      <div className="relative w-full">
+        {children}
+      </div>
     </SelectContext.Provider>
   )
 }

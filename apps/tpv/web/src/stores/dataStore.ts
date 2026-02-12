@@ -5,6 +5,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { tpvApi } from '../services/api';
+import { useRestauracionStore } from './restauracionStore';
+import { useAuthStore } from './authStore';
 
 // Tipos de datos
 
@@ -69,6 +71,7 @@ interface Producto {
   codigoBarras?: string;
   imagen?: string;
   imagenes?: string[];
+  imagenPrincipal?: string;
   unidadMedida: string;
   ventaPorPeso?: boolean;
   stockMinimo?: number;
@@ -85,6 +88,14 @@ interface Producto {
   // TPV
   permiteDescuento?: boolean;
   precioModificable?: boolean;
+  // Restauración
+  restauracion?: {
+    zonaPreparacionId?: string;
+    impresoraId?: string;
+    tiempoPreparacionMinutos?: number;
+    alergenosIds?: string[];
+    permitirNotasCamarero?: boolean;
+  };
 }
 
 interface Familia {
@@ -93,8 +104,10 @@ interface Familia {
   nombre: string;
   color?: string;
   orden?: number;
-  familiaId?: string; // Padre
+  familiaId?: string; // Padre (legacy)
+  familiaPadreId?: string; // Padre (campo real del modelo)
   imagen?: string;
+  imagenUrl?: string;
 }
 
 interface Cliente {
@@ -155,6 +168,11 @@ interface Oferta {
   fechaInicio: Date;
   fechaFin?: Date;
   prioridad?: number;
+  // Happy Hours
+  horaDesde?: string;   // "17:00" formato HH:mm
+  horaHasta?: string;   // "19:00" formato HH:mm
+  diasSemana?: number[]; // [1,2,3,4,5] = lun-vie (0=dom, 6=sáb)
+  esHappyHour?: boolean;
 }
 
 interface UsuarioTPV {
@@ -168,6 +186,50 @@ interface UsuarioTPV {
 interface StockItem {
   productoId: string;
   stock: number;
+}
+
+// Alérgeno
+interface Alergeno {
+  _id: string;
+  codigo?: string;
+  nombre: string;
+  icono?: string;
+  color?: string;
+  esObligatorioUE?: boolean;
+  orden?: number;
+}
+
+// Grupo de modificadores
+interface GrupoModificadores {
+  _id: string;
+  nombre: string;
+  color?: string;
+  tipoSeleccion?: 'unico' | 'multiple';
+  minimo?: number;
+  maximo?: number;
+  orden?: number;
+}
+
+// Modificador de producto
+interface Modificador {
+  _id: string;
+  grupoId?: string | { _id: string; nombre: string; color?: string; tipoSeleccion?: string; minimo?: number; maximo?: number };
+  nombre: string;
+  nombreCorto?: string;
+  codigo?: string;
+  tipo: 'gratis' | 'cargo' | 'descuento';
+  precioExtra: number;
+  porcentaje?: number;
+  aplicaA: 'todos' | 'familias' | 'productos';
+  familiasIds?: string[];
+  productosIds?: string[];
+  color?: string;
+  icono?: string;
+  orden?: number;
+  mostrarEnTPV?: boolean;
+  esMultiple?: boolean;
+  cantidadMaxima?: number;
+  obligatorio?: boolean;
 }
 
 // Configuración de empresa para tickets
@@ -185,6 +247,8 @@ interface EmpresaConfig {
     generarQR: boolean;
     sistemaFiscal?: string;
   } | null;
+  // Restauración
+  tieneRestauracion?: boolean;
 }
 
 interface DataState {
@@ -201,6 +265,11 @@ interface DataState {
   ofertas: Oferta[];
   usuarios: UsuarioTPV[];
   stock: StockItem[];
+  // Modificadores
+  modificadores: Modificador[];
+  gruposModificadores: GrupoModificadores[];
+  // Alérgenos
+  alergenos: Alergeno[];
 
   // Metadata
   ultimaSync: Date | null;
@@ -228,7 +297,13 @@ interface DataState {
     tarifaNombre?: string;
     ofertaNombre?: string;
     descuentoOferta?: number;
+    esHappyHour?: boolean;
   };
+  // Modificadores
+  obtenerModificadoresProducto: (producto: Producto) => Modificador[];
+  tieneModificadores: (producto: Producto) => boolean;
+  // Alérgenos
+  getAlergenosProducto: (productoId: string) => Alergeno[];
 }
 
 export const useDataStore = create<DataState>()(
@@ -246,6 +321,9 @@ export const useDataStore = create<DataState>()(
       ofertas: [],
       usuarios: [],
       stock: [],
+      modificadores: [],
+      gruposModificadores: [],
+      alergenos: [],
       ultimaSync: null,
       sincronizando: false,
       errorSync: null,
@@ -290,6 +368,9 @@ export const useDataStore = create<DataState>()(
                 tarifas: datos.tarifas,
                 ofertas: datos.ofertas,
                 usuarios: datos.usuarios,
+                modificadores: datos.modificadores || [],
+                gruposModificadores: datos.gruposModificadores || [],
+                alergenos: datos.alergenos || [],
                 // Guardar configuración de empresa para tickets
                 empresaConfig: datos.config ? {
                   empresaNombre: datos.config.empresaNombre || '',
@@ -301,10 +382,61 @@ export const useDataStore = create<DataState>()(
                   textoLOPD: datos.config.textoLOPD,
                   condicionesVenta: datos.config.condicionesVenta,
                   verifactu: datos.config.verifactu,
+                  tieneRestauracion: datos.config.tpvConfig?.tieneRestauracion,
                 } : null,
                 ultimaSync: new Date(datos.ultimaActualizacion),
                 sincronizando: false,
               });
+
+              // Actualizar la config del TPV en authStore (para mantener sincronizado)
+              if (datos.config?.tpvConfig) {
+                const authState = useAuthStore.getState();
+                if (authState.tpvConfig) {
+                  useAuthStore.setState({
+                    tpvConfig: {
+                      ...authState.tpvConfig,
+                      tieneRestauracion: datos.config.tpvConfig.tieneRestauracion ?? false,
+                      permitirPropinas: datos.config.tpvConfig.permitirPropinas ?? false,
+                      pinPorTicket: datos.config.tpvConfig.pinPorTicket ?? false,
+                      permitirDescuentos: datos.config.tpvConfig.permitirDescuentos ?? true,
+                      descuentoMaximo: datos.config.tpvConfig.descuentoMaximo ?? 100,
+                      permitirPrecioManual: datos.config.tpvConfig.permitirPrecioManual ?? false,
+                      permitirCobroVencimientos: datos.config.tpvConfig.permitirCobroVencimientos ?? false,
+                      permitirPagoVencimientos: datos.config.tpvConfig.permitirPagoVencimientos ?? false,
+                      requiereMesaParaVenta: datos.config.tpvConfig.requiereMesaParaVenta ?? false,
+                      requiereCamareroParaVenta: datos.config.tpvConfig.requiereCamareroParaVenta ?? false,
+                    },
+                  });
+                  console.log('[DataStore Sync] Config TPV actualizada:', {
+                    tieneRestauracion: datos.config.tpvConfig.tieneRestauracion,
+                    permitirPropinas: datos.config.tpvConfig.permitirPropinas,
+                    pinPorTicket: datos.config.tpvConfig.pinPorTicket,
+                  });
+                }
+              }
+
+              // Si hay datos de restauración, inicializar el store de restauración
+              if (datos.salones || datos.mesas || datos.camareros) {
+                useRestauracionStore.getState().inicializarDesdeSync({
+                  salones: datos.salones,
+                  mesas: datos.mesas,
+                  camareros: datos.camareros,
+                  sugerencias: datos.sugerencias,
+                });
+                console.log('[DataStore Sync] Datos restauración cargados:', {
+                  salones: datos.salones?.length || 0,
+                  mesas: datos.mesas?.length || 0,
+                  camareros: datos.camareros?.length || 0,
+                });
+              }
+
+              // Log de modificadores
+              if (datos.modificadores?.length > 0) {
+                console.log('[DataStore Sync] Modificadores cargados:', {
+                  modificadores: datos.modificadores.length,
+                  grupos: datos.gruposModificadores?.length || 0,
+                });
+              }
             }
 
             return true;
@@ -359,6 +491,9 @@ export const useDataStore = create<DataState>()(
           ofertas: [],
           usuarios: [],
           stock: [],
+          modificadores: [],
+          gruposModificadores: [],
+          alergenos: [],
           ultimaSync: null,
           errorSync: null,
         });
@@ -436,6 +571,7 @@ export const useDataStore = create<DataState>()(
         let tarifaNombre: string | undefined;
         let ofertaNombre: string | undefined;
         let descuentoOferta: number | undefined;
+        let esHappyHour = false;
 
         // Buscar tarifa del cliente
         if (clienteId) {
@@ -463,6 +599,9 @@ export const useDataStore = create<DataState>()(
 
         // Buscar ofertas aplicables
         const ahora = new Date();
+        const horaActualMin = ahora.getHours() * 60 + ahora.getMinutes();
+        const diaActual = ahora.getDay(); // 0=dom, 6=sáb
+
         const ofertasAplicables = ofertas
           .filter((o) => {
             const inicio = new Date(o.fechaInicio);
@@ -470,6 +609,21 @@ export const useDataStore = create<DataState>()(
 
             if (ahora < inicio) return false;
             if (fin && ahora > fin) return false;
+
+            // Verificar restricción por día de la semana
+            if (o.diasSemana && o.diasSemana.length > 0) {
+              if (!o.diasSemana.includes(diaActual)) return false;
+            }
+
+            // Verificar restricción horaria
+            if (o.horaDesde) {
+              const [h, m] = o.horaDesde.split(':').map(Number);
+              if (horaActualMin < h * 60 + m) return false;
+            }
+            if (o.horaHasta) {
+              const [h, m] = o.horaHasta.split(':').map(Number);
+              if (horaActualMin > h * 60 + m) return false;
+            }
 
             // Verificar si aplica al producto o familia
             if (o.productos?.includes(producto._id)) return true;
@@ -486,6 +640,7 @@ export const useDataStore = create<DataState>()(
           origen = 'oferta';
           ofertaNombre = oferta.nombre;
           descuentoOferta = oferta.descuento;
+          esHappyHour = !!oferta.esHappyHour;
         }
 
         return {
@@ -495,7 +650,47 @@ export const useDataStore = create<DataState>()(
           tarifaNombre,
           ofertaNombre,
           descuentoOferta,
+          esHappyHour,
         };
+      },
+
+      // Obtener modificadores aplicables a un producto
+      obtenerModificadoresProducto: (producto) => {
+        const { modificadores } = get();
+
+        return modificadores.filter((mod) => {
+          // Solo modificadores que deben mostrarse en TPV
+          if (mod.mostrarEnTPV === false) return false;
+
+          // Verificar aplicabilidad
+          if (mod.aplicaA === 'todos') return true;
+
+          if (mod.aplicaA === 'productos' && mod.productosIds) {
+            return mod.productosIds.includes(producto._id);
+          }
+
+          if (mod.aplicaA === 'familias' && mod.familiasIds && producto.familiaId) {
+            return mod.familiasIds.includes(producto.familiaId);
+          }
+
+          return false;
+        }).sort((a, b) => (a.orden || 0) - (b.orden || 0));
+      },
+
+      // Verificar si un producto tiene modificadores disponibles
+      tieneModificadores: (producto) => {
+        const modificadoresProducto = get().obtenerModificadoresProducto(producto);
+        return modificadoresProducto.length > 0;
+      },
+
+      // Obtener alérgenos de un producto resolviendo IDs a objetos
+      getAlergenosProducto: (productoId) => {
+        const { productos, alergenos } = get();
+        const producto = productos.find(p => p._id === productoId);
+        if (!producto?.restauracion?.alergenosIds?.length) return [];
+        return producto.restauracion.alergenosIds
+          .map(id => alergenos.find(a => a._id === id))
+          .filter(Boolean) as Alergeno[];
       },
     }),
     {
@@ -512,6 +707,9 @@ export const useDataStore = create<DataState>()(
         ofertas: state.ofertas,
         usuarios: state.usuarios,
         stock: state.stock,
+        modificadores: state.modificadores,
+        gruposModificadores: state.gruposModificadores,
+        alergenos: state.alergenos,
         ultimaSync: state.ultimaSync,
       }),
     }
@@ -519,7 +717,7 @@ export const useDataStore = create<DataState>()(
 );
 
 // Exportar tipos para uso en otros componentes
-export type { Producto, Variante, Atributo, ValorAtributo, ComponenteKit };
+export type { Producto, Variante, Atributo, ValorAtributo, ComponenteKit, Modificador, GrupoModificadores, Alergeno, Oferta };
 
 // Funcion auxiliar para merge de arrays por _id
 function mergeArrays<T extends { _id: string }>(existing: T[], updates: T[]): T[] {

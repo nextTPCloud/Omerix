@@ -1,0 +1,41 @@
+# docker-compose.yml - Servicios de desarrollo local
+# Uso: docker compose up -d
+
+services:
+  # MinIO - Almacenamiento S3-compatible (local)
+  # Consola web: http://localhost:9001
+  # API S3: http://localhost:9000
+  # Credenciales por defecto: minioadmin / minioadmin
+  minio:
+    image: minio/minio:latest
+    container_name: tralok-minio
+    ports:
+      - "9000:9000"  # API S3
+      - "9001:9001"  # Consola web
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+
+  # Crear bucket automaticamente al iniciar
+  minio-setup:
+    image: minio/mc:latest
+    container_name: tralok-minio-setup
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb local/tralok-dev --ignore-existing;
+      mc anonymous set download local/tralok-dev;
+      echo 'Bucket tralok-dev creado y configurado';
+      exit 0;
+      "
+
+volumes:
+  minio_data:
+    driver: local

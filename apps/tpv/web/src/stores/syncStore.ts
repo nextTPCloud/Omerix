@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getCloudApiUrl } from '../services/api';
 
 // Tipos
 type EstadoSync = 'pendiente' | 'sincronizando' | 'sincronizado' | 'error';
@@ -52,8 +53,8 @@ interface SyncState {
 const SYNC_INTERVAL = 30000;
 const MAX_INTENTOS = 5;
 
-// URL de la API Cloud
-const CLOUD_API_URL = process.env.NEXT_PUBLIC_CLOUD_API_URL || 'http://localhost:3001/api';
+// URL de la API Cloud (resuelta dinámicamente para acceso remoto)
+const getCloudUrl = () => getCloudApiUrl();
 
 // Obtener credenciales del TPV
 const getCredentials = (): { tpvId: string; tpvSecret: string; empresaId: string } | null => {
@@ -142,7 +143,7 @@ export const useSyncStore = create<SyncState>()(
             }
 
             // Enviar ventas al servidor
-            const response = await fetch(`${CLOUD_API_URL}/tpv/sync/subir`, {
+            const response = await fetch(`${getCloudUrl()}/tpv/sync/subir`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -208,7 +209,7 @@ export const useSyncStore = create<SyncState>()(
               ),
             }));
 
-            const response = await fetch(`${CLOUD_API_URL}/tpv/sync/movimiento-caja`, {
+            const response = await fetch(`${getCloudUrl()}/tpv/sync/movimiento-caja`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

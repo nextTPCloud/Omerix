@@ -70,6 +70,69 @@ const DireccionProyectoSchema = z.object({
 });
 
 // ============================================
+// SCHEMAS DE RECURRENCIA
+// ============================================
+
+export const FrecuenciaRecurrenciaEnum = z.enum([
+  'semanal',
+  'quincenal',
+  'mensual',
+  'bimestral',
+  'trimestral',
+  'semestral',
+  'anual',
+]);
+
+export const EstadoGeneracionEnum = z.enum([
+  'pendiente',
+  'albaran_generado',
+  'facturado',
+  'cancelado',
+]);
+
+const LineaPlantillaSchema = z.object({
+  _id: z.string().optional(),
+  tipo: z.enum(['mano_obra', 'material', 'gasto', 'maquinaria', 'transporte']),
+  descripcion: z.string().min(1, 'Descripción requerida'),
+  cantidad: z.number().min(0),
+  unidad: z.string().default('ud'),
+  precioUnitario: z.number().min(0),
+  productoId: z.string().optional(),
+  personalId: z.string().optional(),
+  incluirEnAlbaran: z.boolean().default(true),
+});
+
+const InstanciaGeneradaSchema = z.object({
+  _id: z.string().optional(),
+  fechaGeneracion: z.string().or(z.date()),
+  periodoInicio: z.string().or(z.date()),
+  periodoFin: z.string().or(z.date()),
+  estado: EstadoGeneracionEnum.default('pendiente'),
+  parteTrabajoId: z.string().optional(),
+  albaranId: z.string().optional(),
+  facturaId: z.string().optional(),
+  observaciones: z.string().optional(),
+});
+
+const ConfiguracionRecurrenciaSchema = z.object({
+  activo: z.boolean().default(true),
+  frecuencia: FrecuenciaRecurrenciaEnum,
+  diaGeneracion: z.number().min(1).max(31).default(1),
+  fechaInicio: z.string().or(z.date()),
+  fechaFin: z.string().or(z.date()).optional(),
+  proximaGeneracion: z.string().or(z.date()).optional(),
+
+  // Acciones automáticas
+  generarParteTrabajo: z.boolean().default(true),
+  generarAlbaran: z.boolean().default(false),
+  generarFactura: z.boolean().default(false),
+
+  // Plantilla e historial
+  lineasPlantilla: z.array(LineaPlantillaSchema).default([]),
+  instanciasGeneradas: z.array(InstanciaGeneradaSchema).default([]),
+});
+
+// ============================================
 // SCHEMAS PRINCIPALES
 // ============================================
 
@@ -127,6 +190,10 @@ export const CreateProyectoSchema = z.object({
   // Observaciones
   observaciones: z.string().optional(),
 
+  // Recurrencia/Periodicidad
+  esRecurrente: z.boolean().default(false),
+  recurrencia: ConfiguracionRecurrenciaSchema.optional(),
+
   // Control
   activo: z.boolean().default(true),
 });
@@ -159,6 +226,10 @@ export const SearchProyectosSchema = z.object({
 
   // Filtro de retraso
   retrasados: z.enum(['true', 'false']).optional(),
+
+  // Filtro de recurrencia
+  esRecurrente: z.enum(['true', 'false']).optional(),
+  pendienteGeneracion: z.enum(['true', 'false']).optional(), // Proyectos con próxima generación pendiente
 
   // Tags
   tags: z.string().optional(), // Lista separada por comas
@@ -213,3 +284,8 @@ export type AgregarParticipanteDTO = z.infer<typeof AgregarParticipanteSchema>;
 export type HitoDTO = z.infer<typeof HitoSchema>;
 export type ParticipanteDTO = z.infer<typeof ParticipanteSchema>;
 export type DireccionProyectoDTO = z.infer<typeof DireccionProyectoSchema>;
+export type LineaPlantillaDTO = z.infer<typeof LineaPlantillaSchema>;
+export type InstanciaGeneradaDTO = z.infer<typeof InstanciaGeneradaSchema>;
+export type ConfiguracionRecurrenciaDTO = z.infer<typeof ConfiguracionRecurrenciaSchema>;
+export type FrecuenciaRecurrencia = z.infer<typeof FrecuenciaRecurrenciaEnum>;
+export type EstadoGeneracion = z.infer<typeof EstadoGeneracionEnum>;

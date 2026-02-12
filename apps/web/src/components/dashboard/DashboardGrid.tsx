@@ -31,6 +31,7 @@ import {
   IDashboard,
   IWidget,
   TipoWidget,
+  TipoGrafica,
   TamanoWidget,
   WidgetDataResult,
 } from '@/services/dashboard.service'
@@ -419,6 +420,7 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
         return (
           <ChartWidget
             {...commonProps}
+            widget={{ ...widget, config: { ...widget.config, tipoGrafica: TipoGrafica.COMBINADO, formato: 'moneda' } }}
             titulo="Flujo de Caja"
             data={data?.datos?.prevision}
             dataKeys={[
@@ -793,11 +795,12 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
         return (
           <ChartWidget
             {...commonProps}
+            widget={{ ...widget, config: { ...widget.config, tipoGrafica: TipoGrafica.BARRAS_HORIZONTALES, formato: 'moneda' } }}
             titulo="Pipeline de Oportunidades"
             data={data?.datos?.map((etapa: any) => ({
-              name: etapa._id || 'Sin etapa',
-              value: etapa.valor,
-              count: etapa.count,
+              name: etapa.nombre || 'Sin etapa',
+              value: etapa.valor || 0,
+              count: etapa.count || 0,
             }))}
             dataKeys={[{ key: 'value', name: 'Valor', color: '#8b5cf6' }]}
             xAxisKey="name"
@@ -829,6 +832,7 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
         return (
           <ChartWidget
             {...commonProps}
+            widget={{ ...widget, config: { ...widget.config, tipoGrafica: TipoGrafica.BARRAS_HORIZONTALES, formato: 'moneda' } }}
             titulo="Distribución Pipeline"
             data={data?.datos}
             dataKeys={[{ key: 'value', name: 'Valor', color: '#8b5cf6' }]}

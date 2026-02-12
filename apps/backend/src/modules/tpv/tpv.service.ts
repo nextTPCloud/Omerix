@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcryptjs';
 import { ITPVRegistrado } from './TPVRegistrado';
 import TPVActivationToken, { ITPVActivationToken } from './TPVActivationToken';
 import { ISesionTPV } from './SesionTPV';
@@ -7,8 +8,9 @@ import Licencia from '../licencias/Licencia';
 import Empresa, { IDatabaseConfig } from '../empresa/Empresa';
 import Usuario from '../usuarios/Usuario';
 import UsuarioEmpresa from '../usuarios/UsuarioEmpresa';
+import Rol, { ROLES_SISTEMA, PERMISOS_ESPECIALES_DEFAULT, PERMISOS_ESPECIALES_ADMIN, IPermisosEspeciales } from '../roles/Rol';
 import mongoose, { Model } from 'mongoose';
-import { getTPVRegistradoModel, getSesionTPVModel } from '../../utils/dynamic-models.helper';
+import { getTPVRegistradoModel, getSesionTPVModel, getCamareroModel } from '../../utils/dynamic-models.helper';
 
 // Generar token corto (8 caracteres alfanumericos, facil de escribir)
 function generarTokenCorto(): string {
@@ -239,7 +241,7 @@ export class TPVService {
     pin: string,
     deviceInfo: { ip: string }
   ): Promise<{
-    usuario: { id: string; nombre: string; permisos: any };
+    usuario: { id: string; nombre: string; rol: string; permisos: IPermisosEspeciales };
     sesionId: string;
   }> {
     // Obtener modelos dinamicos
@@ -302,11 +304,20 @@ export class TPVService {
     tpv.ultimaIP = deviceInfo.ip;
     await tpv.save();
 
+    // 7. Calcular permisos efectivos del usuario (rol base → rol custom → usuario)
+    const permisosEfectivos = await this.calcularPermisosEfectivosTPV(
+      usuarioEmpresa.rol,
+      usuarioEmpresa.rolId?.toString(),
+      empresaId,
+      usuario.permisos
+    );
+
     return {
       usuario: {
         id: usuario._id.toString(),
         nombre: usuario.nombre,
-        permisos: usuario.permisos || {},
+        rol: usuarioEmpresa.rol,
+        permisos: permisosEfectivos,
       },
       sesionId: sesion._id.toString(),
     };
@@ -356,6 +367,106 @@ export class TPVService {
       id: usuario._id.toString(),
       nombre: usuario.nombre,
     };
+  }
+
+  /**
+   * Login de camarero en comandero (dispositivo de camarero)
+   */
+  async loginComandero(
+    empresaId: string,
+    tpvId: string,
+    tpvSecret: string,
+    pin: string
+  ): Promise<{
+    camarero: { id: string; nombre: string; alias?: string; permisos?: any; salonesAsignados?: string[]; mesasAsignadas?: string[] };
+    sesionId: string;
+  }> {
+    // 1. Verificar credenciales del TPV
+    console.log('[Comandero Login] Verificando TPV:', { empresaId, tpvId });
+    const tpv = await this.verificarCredencialesTPV(empresaId, tpvId, tpvSecret);
+    console.log('[Comandero Login] TPV verificado:', tpv.nombre, 'maxComanderos:', tpv.config?.maxComanderos);
+
+    // 2. Verificar limite de comanderos (0 = sin limite)
+    const maxComanderos = tpv.config?.maxComanderos || 0;
+
+    // 3. Obtener modelo de camarero
+    const dbConfig = await this.getDbConfig(empresaId);
+    const Camarero = await getCamareroModel(empresaId, dbConfig);
+
+    // 4. Buscar camarero por PIN
+    const camareros = await Camarero.find({ activo: true }).select('+pin');
+    console.log('[Comandero Login] Camareros activos encontrados:', camareros.length, 'con PIN:', camareros.filter(c => !!c.pin).length);
+    let camarero: any = null;
+
+    for (const cam of camareros) {
+      if (cam.pin && await bcrypt.compare(pin, cam.pin)) {
+        camarero = cam;
+        break;
+      }
+    }
+
+    if (!camarero) {
+      console.log('[Comandero Login] PIN no coincide con ningun camarero activo');
+      throw new Error('PIN de camarero incorrecto');
+    }
+    console.log('[Comandero Login] Camarero encontrado:', camarero.nombre);
+
+    // 5. Verificar limite de comanderos simultaneos
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+    const sesionesComanderoActivas = await SesionTPV.countDocuments({
+      tpvId,
+      activa: true,
+      heartbeatUltimo: { $gte: new Date(Date.now() - 60000) },
+      // Filtrar sesiones de comandero (podrías agregar un campo tipo: 'comandero')
+    });
+
+    if (maxComanderos > 0 && sesionesComanderoActivas >= maxComanderos) {
+      throw new Error(`Limite de ${maxComanderos} comanderos alcanzado`);
+    }
+
+    // 6. Crear sesion de comandero
+    const sesion = await SesionTPV.create({
+      usuarioId: camarero._id,
+      tpvId: tpv._id,
+      ip: 'comandero',
+      tpvNombre: tpv.nombre,
+      usuarioNombre: camarero.nombre,
+      inicioSesion: new Date(),
+      ultimaActividad: new Date(),
+      heartbeatUltimo: new Date(),
+      activa: true,
+    });
+
+    return {
+      camarero: {
+        id: camarero._id.toString(),
+        nombre: camarero.nombre,
+        alias: camarero.alias,
+        permisos: camarero.permisos,
+        salonesAsignados: camarero.salonesAsignados?.map((s: any) => s.toString()),
+        mesasAsignadas: camarero.mesasAsignadas?.map((m: any) => m.toString()),
+      },
+      sesionId: sesion._id.toString(),
+    };
+  }
+
+  /**
+   * Logout de comandero
+   */
+  async logoutComandero(empresaId: string, tpvId: string, sesionId: string): Promise<void> {
+    const dbConfig = await this.getDbConfig(empresaId);
+    const SesionTPV = await getSesionTPVModel(empresaId, dbConfig);
+
+    await SesionTPV.updateOne(
+      { _id: sesionId, tpvId },
+      {
+        activa: false,
+        finSesion: new Date(),
+        motivoFin: 'logout',
+      }
+    );
+
+    console.log('[Comandero] Logout sesion:', sesionId);
   }
 
   /**
@@ -697,6 +808,56 @@ export class TPVService {
     }
 
     return tpv;
+  }
+
+  /**
+   * Calcula permisos efectivos para un usuario de TPV
+   * Prioridad: permisos del usuario > permisos del rol personalizado > permisos del rol base
+   */
+  private async calcularPermisosEfectivosTPV(
+    rol: string,
+    rolId: string | undefined,
+    empresaId: string,
+    permisosUsuario: any
+  ): Promise<IPermisosEspeciales> {
+    // Superadmin/admin tienen todos los permisos
+    if (rol === 'superadmin' || rol === 'admin') {
+      // Aplicar overrides del usuario si los hay
+      if (permisosUsuario?.especiales) {
+        return { ...PERMISOS_ESPECIALES_ADMIN, ...permisosUsuario.especiales };
+      }
+      return { ...PERMISOS_ESPECIALES_ADMIN };
+    }
+
+    // Obtener permisos del rol base del sistema
+    const rolSistema = ROLES_SISTEMA.find(r => r.codigo === rol);
+    let permisosBase: IPermisosEspeciales = rolSistema?.permisos?.especiales
+      ? { ...rolSistema.permisos.especiales } as IPermisosEspeciales
+      : { ...PERMISOS_ESPECIALES_DEFAULT };
+
+    // Si tiene rol personalizado, cargar y mezclar
+    if (rolId) {
+      try {
+        const rolCustom = await Rol.findOne({
+          _id: new mongoose.Types.ObjectId(rolId),
+          empresaId: new mongoose.Types.ObjectId(empresaId),
+          activo: true,
+        }).lean();
+
+        if (rolCustom?.permisos?.especiales) {
+          permisosBase = { ...permisosBase, ...rolCustom.permisos.especiales };
+        }
+      } catch (error) {
+        console.error('Error cargando rol personalizado:', error);
+      }
+    }
+
+    // Aplicar permisos específicos del usuario (sobrescriben todo)
+    if (permisosUsuario?.especiales) {
+      return { ...permisosBase, ...permisosUsuario.especiales };
+    }
+
+    return permisosBase;
   }
 }
 

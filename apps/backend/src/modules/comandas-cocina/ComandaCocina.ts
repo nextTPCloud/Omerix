@@ -17,6 +17,7 @@ export interface ILineaComanda {
     precioExtra: number;
   }[];
   comentario?: string;                          // Comentario libre del cliente
+  alergenosNombres?: string[];                   // Nombres de alérgenos del producto
   estado: 'pendiente' | 'en_preparacion' | 'listo' | 'servido' | 'cancelado';
   tiempoEstimado?: number;                      // Minutos estimados
   prioridad: 'normal' | 'urgente' | 'baja';
@@ -94,6 +95,7 @@ const LineaComandaSchema = new Schema<ILineaComanda>({
     precioExtra: { type: Number, default: 0 },
   }],
   comentario: String,
+  alergenosNombres: [String],
   estado: {
     type: String,
     enum: ['pendiente', 'en_preparacion', 'listo', 'servido', 'cancelado'],

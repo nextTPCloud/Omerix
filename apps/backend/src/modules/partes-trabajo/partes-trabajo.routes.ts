@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { partesTrabajoController } from './partes-trabajo.controller';
 import { authMiddleware } from '@/middleware/auth.middleware';
 import { tenantMiddleware } from '@/middleware/tenant.middleware';
+import { uploadSingle } from '@/middleware/upload.middleware';
 
 const router = Router();
 
@@ -669,5 +670,109 @@ router.post('/:id/sync-calendar', partesTrabajoController.sincronizarJornadasCal
  *         description: Jornada sincronizada con Google Calendar
  */
 router.post('/:id/jornadas/:jornadaIndex/sync-calendar', partesTrabajoController.sincronizarJornadaCalendar);
+
+// ============================================
+// RUTAS DE PDF
+// ============================================
+
+/**
+ * @swagger
+ * /api/partes-trabajo/{id}/pdf:
+ *   get:
+ *     summary: Generar PDF del parte de trabajo (visualización)
+ *     tags: [PartesTrabajo]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del parte de trabajo
+ *       - in: query
+ *         name: plantillaId
+ *         schema:
+ *           type: string
+ *         description: ID de plantilla específica (opcional)
+ *       - in: query
+ *         name: mostrarPrecios
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Mostrar precios en el parte
+ *       - in: query
+ *         name: incluirFirmas
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Incluir sección de firmas
+ *     responses:
+ *       200:
+ *         description: PDF del parte de trabajo
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Parte de trabajo no encontrado
+ */
+router.get('/:id/pdf', partesTrabajoController.generarPDF);
+
+/**
+ * @swagger
+ * /api/partes-trabajo/{id}/descargar:
+ *   get:
+ *     summary: Descargar PDF del parte de trabajo
+ *     tags: [PartesTrabajo]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del parte de trabajo
+ *       - in: query
+ *         name: plantillaId
+ *         schema:
+ *           type: string
+ *         description: ID de plantilla específica
+ *       - in: query
+ *         name: mostrarPrecios
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Mostrar precios en el parte
+ *       - in: query
+ *         name: incluirFirmas
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Incluir sección de firmas
+ *     responses:
+ *       200:
+ *         description: PDF del parte de trabajo para descarga
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Parte de trabajo no encontrado
+ */
+router.get('/:id/descargar', partesTrabajoController.descargarPDF);
+
+// ============================================
+// RUTAS DE DOCUMENTOS ADJUNTOS
+// ============================================
+
+// Subir documento adjunto al parte
+router.post('/:id/documentos', uploadSingle, partesTrabajoController.subirDocumento);
+
+// Eliminar documento adjunto del parte
+router.delete('/:id/documentos/:docId', partesTrabajoController.eliminarDocumento);
 
 export default router;

@@ -36,6 +36,14 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().email().optional(),
+
+  // DigitalOcean Spaces (almacenamiento de archivos)
+  DO_SPACES_ENDPOINT: z.string().optional(),
+  DO_SPACES_REGION: z.string().optional(),
+  DO_SPACES_BUCKET: z.string().optional(),
+  DO_SPACES_ACCESS_KEY: z.string().optional(),
+  DO_SPACES_SECRET_KEY: z.string().optional(),
+  DO_SPACES_CDN_ENDPOINT: z.string().optional(),
 });
 
 /**
@@ -99,6 +107,26 @@ export const config = {
     pass: env.SMTP_PASS,
     from: env.SMTP_FROM || 'noreply@tralok.com',
   },
+  // Almacenamiento de archivos (DigitalOcean Spaces / local)
+  storage: {
+    provider: (env.DO_SPACES_BUCKET ? 'spaces' : 'local') as 'spaces' | 'local',
+    endpoint: env.DO_SPACES_ENDPOINT || '',
+    region: env.DO_SPACES_REGION || '',
+    bucket: env.DO_SPACES_BUCKET || '',
+    accessKey: env.DO_SPACES_ACCESS_KEY || '',
+    secretKey: env.DO_SPACES_SECRET_KEY || '',
+    cdnEndpoint: env.DO_SPACES_CDN_ENDPOINT || '',
+    limits: {
+      maxFileSize: 50 * 1024 * 1024, // 50MB
+      maxImageSize: 10 * 1024 * 1024, // 10MB
+    },
+    thumbnails: {
+      thumb: { width: 150, height: 150 },
+      small: { width: 300, height: 300 },
+      medium: { width: 600, height: 600 },
+    },
+  },
+
   // Stripe
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || '',

@@ -498,4 +498,86 @@ router.patch('/:id/estado', albaranesController.cambiarEstado);
  */
 router.post('/:id/duplicar', albaranesController.duplicar);
 
+// ============================================
+// RUTAS DE PDF
+// ============================================
+
+/**
+ * @swagger
+ * /api/albaranes/{id}/pdf:
+ *   get:
+ *     summary: Generar PDF del albarán (visualización)
+ *     tags: [Albaranes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del albarán
+ *       - in: query
+ *         name: plantillaId
+ *         schema:
+ *           type: string
+ *         description: ID de plantilla específica (opcional, usa predeterminada si no se especifica)
+ *       - in: query
+ *         name: mostrarPrecios
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Mostrar precios en el albarán
+ *     responses:
+ *       200:
+ *         description: PDF del albarán
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Albarán no encontrado
+ */
+router.get('/:id/pdf', albaranesController.generarPDF);
+
+/**
+ * @swagger
+ * /api/albaranes/{id}/descargar:
+ *   get:
+ *     summary: Descargar PDF del albarán
+ *     tags: [Albaranes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del albarán
+ *       - in: query
+ *         name: plantillaId
+ *         schema:
+ *           type: string
+ *         description: ID de plantilla específica
+ *       - in: query
+ *         name: mostrarPrecios
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Mostrar precios en el albarán
+ *     responses:
+ *       200:
+ *         description: PDF del albarán para descarga
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Albarán no encontrado
+ */
+router.get('/:id/descargar', albaranesController.descargarPDF);
+
 export default router;

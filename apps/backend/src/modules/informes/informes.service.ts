@@ -9,6 +9,7 @@ import InformeModel, {
   OperadorFiltro,
   CATALOGO_COLECCIONES,
 } from './Informe';
+import { obtenerInformesPredefinidos } from './informes-predefinidos';
 import {
   CreateInformeDTO,
   UpdateInformeDTO,
@@ -80,7 +81,8 @@ class InformesService {
   ): Promise<{ data: IInforme[]; pagination: any }> {
     const InformeM = await this.getModelo(empresaId, dbConfig);
 
-    const query: any = { empresaId };
+    // No filtramos por empresaId porque cada empresa tiene su propia BD
+    const query: any = {};
 
     // Validar usuarioId
     const usuarioIdValido = usuarioId && Types.ObjectId.isValid(usuarioId);
@@ -106,17 +108,8 @@ class InformesService {
       ];
     }
 
-    // Si no es plantilla, filtrar por usuario o compartidos
-    if (!params.esPlantilla) {
-      const orConditions: any[] = [
-        { compartido: true },
-        { esPlantilla: true },
-      ];
-      if (usuarioIdValido) {
-        orConditions.push({ creadoPor: new Types.ObjectId(usuarioId) });
-      }
-      query.$or = orConditions;
-    }
+    // Nota: Ya no filtramos por compartido/esPlantilla/creadoPor
+    // porque cada empresa tiene su propia BD y todos los informes son accesibles
 
     const page = params.page || 1;
     const limit = params.limit || 20;
@@ -158,10 +151,8 @@ class InformesService {
     }
 
     const InformeM = await this.getModelo(empresaId, dbConfig);
-    const informe = await InformeM.findOne({
-      _id: new Types.ObjectId(id),
-      empresaId,
-    }).lean();
+    // No filtramos por empresaId porque cada empresa tiene su propia BD
+    const informe = await InformeM.findById(id).lean();
 
     if (!informe) {
       throw new Error('Informe no encontrado');
@@ -297,10 +288,10 @@ class InformesService {
     const original = await this.obtenerPorId(empresaId, dbConfig, id);
     const InformeM = await this.getModelo(empresaId, dbConfig);
 
-    // Buscar nombre único
+    // Buscar nombre único (sin filtrar por empresaId, cada empresa tiene su BD)
     let nuevoNombre = `${original.nombre} (copia)`;
     let contador = 1;
-    while (await InformeM.findOne({ empresaId, nombre: nuevoNombre })) {
+    while (await InformeM.findOne({ nombre: nuevoNombre })) {
       contador++;
       nuevoNombre = `${original.nombre} (copia ${contador})`;
     }
@@ -385,8 +376,8 @@ class InformesService {
     // Construir pipeline de agregación
     const pipeline: any[] = [];
 
-    // Match inicial con empresaId
-    const matchStage: any = { empresaId };
+    // Match inicial (sin empresaId, cada empresa tiene su propia BD)
+    const matchStage: any = {};
 
     // Aplicar filtros definidos
     if (informe.filtros && informe.filtros.length > 0) {
@@ -411,7 +402,7 @@ class InformesService {
     // Aplicar parámetros adicionales
     if (params.parametros) {
       for (const [key, value] of Object.entries(params.parametros)) {
-        if (value !== undefined && value !== null && !matchStage[key]) {
+        if (value !== undefined && value !== null && value !== '') {
           // Detectar si es fecha
           if (key.toLowerCase().includes('fecha')) {
             if (key.toLowerCase().includes('desde') || key.toLowerCase().includes('inicio')) {
@@ -419,12 +410,35 @@ class InformesService {
             } else if (key.toLowerCase().includes('hasta') || key.toLowerCase().includes('fin')) {
               matchStage.fecha = { ...matchStage.fecha, $lte: new Date(value) };
             }
+          } else {
+            // Otros parámetros (estado, serie, etc.) se aplican directamente
+            // Solo aplicar si el campo no está ya filtrado
+            if (!matchStage[key]) {
+              // Buscar definición del parámetro para saber si es texto (búsqueda parcial)
+              const paramDef = informe.parametros?.find(p => p.nombre === key);
+              if (paramDef?.tipo === 'texto' && typeof value === 'string') {
+                // Para campos de texto usar búsqueda parcial (regex)
+                matchStage[key] = { $regex: value, $options: 'i' };
+              } else {
+                matchStage[key] = value;
+              }
+            }
           }
         }
       }
     }
 
     pipeline.push({ $match: matchStage });
+
+    // Unwind de array embebido (útil para líneas de facturas, etc.)
+    if (informe.fuente?.unwindArray) {
+      pipeline.push({
+        $unwind: {
+          path: `$${informe.fuente.unwindArray}`,
+          preserveNullAndEmptyArrays: false,
+        },
+      });
+    }
 
     // Joins (lookups)
     if (informe.fuente?.joins && informe.fuente.joins.length > 0) {
@@ -452,14 +466,20 @@ class InformesService {
       const groupFields: any = {};
 
       for (const agrup of informe.agrupaciones) {
-        groupId[agrup.campo] = `$${agrup.campo}`;
+        // Aplanar campo de agrupación si contiene puntos
+        const campoAplanado = agrup.campo.includes('.') ? agrup.campo.replace(/\./g, '_') : agrup.campo;
+        groupId[campoAplanado] = `$${agrup.campo}`;
       }
 
       // Campos con agregaciones
+      // IMPORTANTE: MongoDB no permite crear campos con puntos en el nombre
+      // Por eso usamos campoAplanado como key, pero el valor referencia el campo original
       for (const campo of informe.campos || []) {
         if (campo.agregacion && campo.agregacion !== TipoAgregacion.NINGUNA) {
           const agregFunc = this.obtenerFuncionAgregacion(campo.agregacion);
-          groupFields[campo.campo] = { [agregFunc]: `$${campo.campo}` };
+          // Usar campo aplanado como key (sin puntos) pero referencia al campo original
+          const campoAplanado = campo.campo.includes('.') ? campo.campo.replace(/\./g, '_') : campo.campo;
+          groupFields[campoAplanado] = { [agregFunc]: `$${campo.campo}` };
         }
       }
 
@@ -471,27 +491,50 @@ class InformesService {
             count: { $sum: 1 },
           },
         });
+
+        // Si hubo agrupación, necesitamos proyectar los campos aplanados con sus nombres originales
+        // para que la proyección posterior funcione correctamente
+        const projectAfterGroup: any = { _id: 0 };
+        for (const agrup of informe.agrupaciones) {
+          const campoAplanado = agrup.campo.includes('.') ? agrup.campo.replace(/\./g, '_') : agrup.campo;
+          projectAfterGroup[agrup.campo] = `$_id.${campoAplanado}`;
+        }
+        for (const campo of informe.campos || []) {
+          if (campo.agregacion && campo.agregacion !== TipoAgregacion.NINGUNA) {
+            const campoAplanado = campo.campo.includes('.') ? campo.campo.replace(/\./g, '_') : campo.campo;
+            projectAfterGroup[campo.campo] = `$${campoAplanado}`;
+          }
+        }
+        projectAfterGroup.count = 1;
+        pipeline.push({ $project: projectAfterGroup });
       }
     }
 
-    // Proyección de campos
+    // Proyección de campos (aplanando campos anidados)
     if (informe.campos && informe.campos.length > 0) {
-      const project: any = {};
+      const project: any = { _id: 0 };
       for (const campo of informe.campos) {
         if (campo.visible) {
-          project[campo.campo] = 1;
+          // Si el campo contiene punto, es un campo anidado - usamos alias para aplanarlo
+          if (campo.campo.includes('.')) {
+            project[campo.campo.replace(/\./g, '_')] = `$${campo.campo}`;
+          } else {
+            project[campo.campo] = 1;
+          }
         }
       }
-      if (Object.keys(project).length > 0) {
+      if (Object.keys(project).length > 1) {
         pipeline.push({ $project: project });
       }
     }
 
-    // Ordenamiento
+    // Ordenamiento (usando campos aplanados si contienen puntos)
     if (informe.ordenamiento && informe.ordenamiento.length > 0) {
       const sort: any = {};
       for (const ord of informe.ordenamiento) {
-        sort[ord.campo] = ord.direccion === 'desc' ? -1 : 1;
+        // Aplanar nombre del campo si contiene puntos (después de $project)
+        const campoOrden = ord.campo.includes('.') ? ord.campo.replace(/\./g, '_') : ord.campo;
+        sort[campoOrden] = ord.direccion === 'desc' ? -1 : 1;
       }
       pipeline.push({ $sort: sort });
     }
@@ -522,7 +565,9 @@ class InformesService {
     const totales: Record<string, number> = {};
     for (const campo of informe.campos || []) {
       if (campo.agregacion && campo.agregacion !== TipoAgregacion.NINGUNA) {
-        totales[campo.campo] = totalesRaw[`total_${campo.campo}`] || 0;
+        // Usar clave aplanada para acceder a los totales
+        const campoAplanado = campo.campo.replace(/\./g, '_');
+        totales[campo.campo] = totalesRaw[`total_${campoAplanado}`] || 0;
       }
     }
 
@@ -603,6 +648,8 @@ class InformesService {
 
   /**
    * Construir pipeline para totales
+   * IMPORTANTE: Este pipeline se ejecuta después de la proyección que aplana campos anidados
+   * Por lo tanto, debemos usar el nombre aplanado del campo (con _ en lugar de .)
    */
   private construirPipelineTotales(campos: any[]): any[] {
     const totalesGroup: any = { _id: null };
@@ -610,12 +657,19 @@ class InformesService {
     for (const campo of campos) {
       if (campo.agregacion && campo.agregacion !== TipoAgregacion.NINGUNA) {
         const func = this.obtenerFuncionAgregacion(campo.agregacion);
-        totalesGroup[`total_${campo.campo}`] = { [func]: `$${campo.campo}` };
+        // Aplanar nombre del campo - tanto para la clave como para la referencia
+        // porque el $facet opera sobre datos ya proyectados donde los campos
+        // con puntos fueron renombrados a guiones bajos
+        const campoAplanado = campo.campo.replace(/\./g, '_');
+        // Usar el campo aplanado en la referencia $ también
+        totalesGroup[`total_${campoAplanado}`] = { [func]: `$${campoAplanado}` };
       }
     }
 
     if (Object.keys(totalesGroup).length <= 1) {
-      return [{ $limit: 0 }];
+      // No hay campos con agregación - retornar pipeline que no devuelve documentos
+      // Usamos $limit: 1 y $group para devolver un documento vacío
+      return [{ $group: { _id: null } }];
     }
 
     return [{ $group: totalesGroup }];
@@ -639,10 +693,11 @@ class InformesService {
     });
 
     // Preparar columnas para exportación
+    // Usar claves aplanadas para campos anidados (dot -> underscore)
     const columns = (informe.campos || [])
       .filter(c => c.visible)
       .map(c => ({
-        key: c.campo,
+        key: c.campo.includes('.') ? c.campo.replace(/\./g, '_') : c.campo,
         label: c.etiqueta,
         format: (value: any) => this.formatearValor(value, c.tipo),
       }));
@@ -721,7 +776,8 @@ class InformesService {
       case TipoCampo.NUMERO:
         return new Intl.NumberFormat('es-ES').format(valor);
       case TipoCampo.PORCENTAJE:
-        return `${(valor * 100).toFixed(2)}%`;
+        // El valor ya viene como porcentaje (ej: 35.07 = 35.07%), no multiplicar por 100
+        return `${Number(valor).toFixed(2)}%`;
       case TipoCampo.FECHA:
         return new Date(valor).toLocaleDateString('es-ES');
       case TipoCampo.BOOLEAN:
@@ -764,171 +820,98 @@ class InformesService {
   }
 
   /**
+   * Debug: obtener info directa de la colección (TEMPORAL)
+   */
+  async debug(
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<any> {
+    const InformeM = await this.getModelo(empresaId, dbConfig);
+
+    // Contar documentos (cada empresa tiene su propia BD, no necesita filtrar por empresaId)
+    const total = await InformeM.countDocuments({});
+    const plantillas = await InformeM.countDocuments({ esPlantilla: true });
+    const compartidos = await InformeM.countDocuments({ compartido: true });
+
+    // Obtener un ejemplo de documento
+    const ejemplo = await InformeM.findOne({}).lean();
+
+    // Obtener los primeros 5 informes
+    const primeros5 = await InformeM.find({}).limit(5).lean();
+
+    return {
+      total,
+      plantillas,
+      compartidos,
+      ejemplo: ejemplo ? {
+        _id: ejemplo._id,
+        nombre: ejemplo.nombre,
+        modulo: ejemplo.modulo,
+        esPlantilla: ejemplo.esPlantilla,
+        compartido: ejemplo.compartido,
+      } : null,
+      primeros5: primeros5.map(i => ({
+        _id: i._id,
+        nombre: i.nombre,
+        modulo: i.modulo,
+        esPlantilla: i.esPlantilla,
+        compartido: i.compartido,
+      })),
+    };
+  }
+
+  /**
    * Inicializar plantillas predefinidas para una empresa
+   * Se llama automáticamente cuando se crea una empresa nueva
    */
   async inicializarPlantillas(
     empresaId: string,
     dbConfig: IDatabaseConfig,
-    usuarioId: string
-  ): Promise<void> {
+    usuarioId?: string,
+    forzar: boolean = false
+  ): Promise<{ insertados: number; existentes: number; eliminados?: number }> {
     const InformeM = await this.getModelo(empresaId, dbConfig);
 
-    // Verificar si ya existen plantillas
-    const existentes = await InformeM.countDocuments({ empresaId, esPlantilla: true });
-    if (existentes > 0) return;
+    // Verificar cuántas plantillas ya existen (sin filtrar por empresaId, cada empresa tiene su BD)
+    const existentes = await InformeM.countDocuments({ esPlantilla: true });
 
-    // Crear plantillas básicas
-    const plantillas = this.obtenerPlantillasBase(usuarioId, empresaId);
-    await InformeM.insertMany(plantillas);
-  }
+    // Si se fuerza, eliminar las plantillas existentes primero
+    let eliminados = 0;
+    if (forzar && existentes > 0) {
+      const resultadoEliminacion = await InformeM.deleteMany({ esPlantilla: true });
+      eliminados = resultadoEliminacion.deletedCount || 0;
+    } else if (existentes > 0) {
+      return { insertados: 0, existentes };
+    }
 
-  /**
-   * Obtener plantillas base para inicialización
-   */
-  private obtenerPlantillasBase(usuarioId: string, empresaId: string): any[] {
-    return [
-      // Ventas por período
-      {
-        empresaId,
-        nombre: 'Ventas por Período',
-        descripcion: 'Resumen de ventas agrupadas por fecha',
-        modulo: ModuloInforme.VENTAS,
-        tipo: 'mixto',
-        icono: 'TrendingUp',
-        fuente: { coleccion: 'facturas' },
-        campos: [
-          { campo: 'fecha', etiqueta: 'Fecha', tipo: TipoCampo.FECHA, visible: true, agregacion: TipoAgregacion.NINGUNA },
-          { campo: 'total', etiqueta: 'Total', tipo: TipoCampo.MONEDA, visible: true, agregacion: TipoAgregacion.SUMA },
-          { campo: 'baseImponible', etiqueta: 'Base', tipo: TipoCampo.MONEDA, visible: true, agregacion: TipoAgregacion.SUMA },
-        ],
-        filtros: [],
-        parametros: [
-          { nombre: 'fechaDesde', etiqueta: 'Desde', tipo: 'fecha', requerido: true },
-          { nombre: 'fechaHasta', etiqueta: 'Hasta', tipo: 'fecha', requerido: true },
-        ],
-        agrupaciones: [{ campo: 'fecha', orden: 'asc' }],
-        ordenamiento: [{ campo: 'fecha', direccion: 'asc' }],
-        grafico: { tipo: 'linea', ejeX: 'fecha', ejeY: ['total'], mostrarLeyenda: true },
-        config: { paginacion: true, mostrarTotales: true, exportable: true, formatos: ['pdf', 'excel', 'csv'] },
-        esPlantilla: true,
-        compartido: true,
-        favorito: false,
-        orden: 1,
-        creadoPor: new Types.ObjectId(usuarioId),
-      },
-      // Top Clientes
-      {
-        empresaId,
-        nombre: 'Top Clientes',
-        descripcion: 'Ranking de clientes por volumen de facturación',
-        modulo: ModuloInforme.CLIENTES,
-        tipo: 'tabla',
-        icono: 'Users',
-        fuente: { coleccion: 'facturas' },
-        campos: [
-          { campo: 'clienteNombre', etiqueta: 'Cliente', tipo: TipoCampo.TEXTO, visible: true, agregacion: TipoAgregacion.NINGUNA },
-          { campo: 'total', etiqueta: 'Total Facturado', tipo: TipoCampo.MONEDA, visible: true, agregacion: TipoAgregacion.SUMA },
-          { campo: '_id', etiqueta: 'Nº Facturas', tipo: TipoCampo.NUMERO, visible: true, agregacion: TipoAgregacion.CONTEO },
-        ],
-        filtros: [],
-        parametros: [
-          { nombre: 'fechaDesde', etiqueta: 'Desde', tipo: 'fecha', requerido: false },
-          { nombre: 'fechaHasta', etiqueta: 'Hasta', tipo: 'fecha', requerido: false },
-        ],
-        agrupaciones: [{ campo: 'clienteNombre', orden: 'desc' }],
-        ordenamiento: [{ campo: 'total', direccion: 'desc' }],
-        config: { paginacion: true, mostrarTotales: true, exportable: true, formatos: ['pdf', 'excel', 'csv'], limite: 20 },
-        esPlantilla: true,
-        compartido: true,
-        favorito: false,
-        orden: 2,
-        creadoPor: new Types.ObjectId(usuarioId),
-      },
-      // Stock Valorado
-      {
-        empresaId,
-        nombre: 'Stock Valorado',
-        descripcion: 'Inventario actual con valoración',
-        modulo: ModuloInforme.STOCK,
-        tipo: 'tabla',
-        icono: 'Package',
-        fuente: { coleccion: 'productos' },
-        campos: [
-          { campo: 'sku', etiqueta: 'SKU', tipo: TipoCampo.TEXTO, visible: true, agregacion: TipoAgregacion.NINGUNA },
-          { campo: 'nombre', etiqueta: 'Producto', tipo: TipoCampo.TEXTO, visible: true, agregacion: TipoAgregacion.NINGUNA },
-          { campo: 'stockActual', etiqueta: 'Stock', tipo: TipoCampo.NUMERO, visible: true, agregacion: TipoAgregacion.SUMA },
-          { campo: 'precioCoste', etiqueta: 'Coste Unit.', tipo: TipoCampo.MONEDA, visible: true, agregacion: TipoAgregacion.NINGUNA },
-          { campo: 'valorStock', etiqueta: 'Valor Total', tipo: TipoCampo.MONEDA, visible: true, agregacion: TipoAgregacion.SUMA },
-        ],
-        filtros: [{ campo: 'activo', operador: OperadorFiltro.IGUAL, valor: true }],
-        parametros: [],
-        agrupaciones: [],
-        ordenamiento: [{ campo: 'valorStock', direccion: 'desc' }],
-        config: { paginacion: true, mostrarTotales: true, exportable: true, formatos: ['pdf', 'excel', 'csv'] },
-        esPlantilla: true,
-        compartido: true,
-        favorito: false,
-        orden: 3,
-        creadoPor: new Types.ObjectId(usuarioId),
-      },
-      // Horas por Empleado
-      {
-        empresaId,
-        nombre: 'Horas por Empleado',
-        descripcion: 'Resumen de horas trabajadas por empleado',
-        modulo: ModuloInforme.PERSONAL,
-        tipo: 'mixto',
-        icono: 'Clock',
-        fuente: { coleccion: 'partes_trabajo' },
-        campos: [
-          { campo: 'empleadoNombre', etiqueta: 'Empleado', tipo: TipoCampo.TEXTO, visible: true, agregacion: TipoAgregacion.NINGUNA },
-          { campo: 'horas', etiqueta: 'Horas', tipo: TipoCampo.NUMERO, visible: true, agregacion: TipoAgregacion.SUMA },
-          { campo: 'coste', etiqueta: 'Coste', tipo: TipoCampo.MONEDA, visible: true, agregacion: TipoAgregacion.SUMA },
-        ],
-        filtros: [],
-        parametros: [
-          { nombre: 'fechaDesde', etiqueta: 'Desde', tipo: 'fecha', requerido: true },
-          { nombre: 'fechaHasta', etiqueta: 'Hasta', tipo: 'fecha', requerido: true },
-        ],
-        agrupaciones: [{ campo: 'empleadoNombre', orden: 'asc' }],
-        ordenamiento: [{ campo: 'horas', direccion: 'desc' }],
-        grafico: { tipo: 'barra_horizontal', ejeX: 'empleadoNombre', ejeY: ['horas'], mostrarLeyenda: false },
-        config: { paginacion: true, mostrarTotales: true, exportable: true, formatos: ['pdf', 'excel', 'csv'] },
-        esPlantilla: true,
-        compartido: true,
-        favorito: false,
-        orden: 4,
-        creadoPor: new Types.ObjectId(usuarioId),
-      },
-      // Compras por Proveedor
-      {
-        empresaId,
-        nombre: 'Compras por Proveedor',
-        descripcion: 'Ranking de proveedores por volumen de compras',
-        modulo: ModuloInforme.COMPRAS,
-        tipo: 'tabla',
-        icono: 'ShoppingCart',
-        fuente: { coleccion: 'facturas_compra' },
-        campos: [
-          { campo: 'proveedorNombre', etiqueta: 'Proveedor', tipo: TipoCampo.TEXTO, visible: true, agregacion: TipoAgregacion.NINGUNA },
-          { campo: 'total', etiqueta: 'Total Comprado', tipo: TipoCampo.MONEDA, visible: true, agregacion: TipoAgregacion.SUMA },
-          { campo: '_id', etiqueta: 'Nº Facturas', tipo: TipoCampo.NUMERO, visible: true, agregacion: TipoAgregacion.CONTEO },
-        ],
-        filtros: [],
-        parametros: [
-          { nombre: 'fechaDesde', etiqueta: 'Desde', tipo: 'fecha', requerido: false },
-          { nombre: 'fechaHasta', etiqueta: 'Hasta', tipo: 'fecha', requerido: false },
-        ],
-        agrupaciones: [{ campo: 'proveedorNombre', orden: 'desc' }],
-        ordenamiento: [{ campo: 'total', direccion: 'desc' }],
-        config: { paginacion: true, mostrarTotales: true, exportable: true, formatos: ['pdf', 'excel', 'csv'], limite: 20 },
-        esPlantilla: true,
-        compartido: true,
-        favorito: false,
-        orden: 5,
-        creadoPor: new Types.ObjectId(usuarioId),
-      },
-    ];
+    // Obtener todos los informes predefinidos (sin empresaId, cada empresa tiene su BD)
+    const informesPredefinidos = obtenerInformesPredefinidos();
+
+    // Añadir creadoPor si se proporciona
+    const informesParaInsertar = informesPredefinidos.map(informe => ({
+      ...informe,
+      creadoPor: usuarioId && Types.ObjectId.isValid(usuarioId)
+        ? new Types.ObjectId(usuarioId)
+        : undefined,
+    }));
+
+    // Insertar todos los informes
+    try {
+      const resultado = await InformeM.insertMany(informesParaInsertar);
+      return { insertados: resultado.length, existentes: 0, eliminados };
+    } catch (error: any) {
+      // Si falla inserción masiva, intentar uno a uno
+      let insertados = 0;
+      for (const informe of informesParaInsertar) {
+        try {
+          await InformeM.create(informe);
+          insertados++;
+        } catch (err: any) {
+          // Ignorar errores individuales
+        }
+      }
+      return { insertados, existentes: 0, eliminados };
+    }
   }
 }
 

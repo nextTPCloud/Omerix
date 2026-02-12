@@ -199,6 +199,18 @@ export class ProyectosService {
       filter.tags = { $in: tagsArray };
     }
 
+    // Filtro de recurrencia
+    if (query.esRecurrente !== undefined) {
+      filter.esRecurrente = query.esRecurrente === 'true';
+    }
+
+    // Proyectos pendientes de generación
+    if (query.pendienteGeneracion === 'true') {
+      filter.esRecurrente = true;
+      filter['recurrencia.activo'] = true;
+      filter['recurrencia.proximaGeneracion'] = { $lte: new Date() };
+    }
+
     // Ordenamiento
     const sort: any = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;

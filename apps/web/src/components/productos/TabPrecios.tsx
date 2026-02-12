@@ -281,7 +281,7 @@ export function TabPrecios({ formData, setFormData, isEditing }: TabPreciosProps
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Precios Base</h3>
-          {isEditing && aiAvailable && (
+          {isEditing && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -290,13 +290,13 @@ export function TabPrecios({ formData, setFormData, isEditing }: TabPreciosProps
                     variant="outline"
                     size="sm"
                     onClick={handleSuggestPrice}
-                    disabled={loadingAI || !formData.nombre}
+                    disabled={loadingAI || !formData.nombre || !aiAvailable}
                     className="gap-2"
                   >
                     {loadingAI ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Sparkles className="h-4 w-4 text-purple-500" />
+                      <Sparkles className={`h-4 w-4 ${aiAvailable ? 'text-purple-500' : 'text-muted-foreground'}`} />
                     )}
                     <span className="hidden sm:inline">
                       {loadingAI ? 'Analizando...' : 'Sugerir precio con IA'}
@@ -304,7 +304,13 @@ export function TabPrecios({ formData, setFormData, isEditing }: TabPreciosProps
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Analiza precios de mercado y sugiere un PVP competitivo</p>
+                  {!aiAvailable ? (
+                    <p>IA no disponible. Configura una API key de IA en los ajustes de la empresa.</p>
+                  ) : !formData.nombre ? (
+                    <p>Introduce primero el nombre del producto</p>
+                  ) : (
+                    <p>Analiza precios de mercado y sugiere un PVP competitivo</p>
+                  )}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

@@ -899,6 +899,122 @@ export const FICHAJES_FILTERABLE_FIELDS: FilterableField[] = [
 ];
 
 // ============================================
+// MÓDULOS DE RESTAURACIÓN
+// ============================================
+
+// Campos filtrables para el módulo de salones
+export const SALONES_FILTERABLE_FIELDS: FilterableField[] = [
+  {
+    key: 'nombre',
+    label: 'Nombre',
+    type: 'text',
+    placeholder: 'Nombre del salón',
+  },
+  {
+    key: 'codigo',
+    label: 'Código',
+    type: 'text',
+    placeholder: 'Ej: SAL-001',
+  },
+  {
+    key: 'capacidadTotal',
+    label: 'Capacidad',
+    type: 'number',
+    placeholder: 'Ej: 50',
+  },
+  {
+    key: 'activo',
+    label: 'Activo',
+    type: 'boolean',
+  },
+];
+
+// Campos filtrables para el módulo de mesas
+export const MESAS_FILTERABLE_FIELDS: FilterableField[] = [
+  {
+    key: 'numero',
+    label: 'Número',
+    type: 'text',
+    placeholder: 'Ej: 1, 2, 3...',
+  },
+  {
+    key: 'nombre',
+    label: 'Nombre',
+    type: 'text',
+    placeholder: 'Nombre de la mesa',
+  },
+  {
+    key: 'capacidadMaxima',
+    label: 'Capacidad Máxima',
+    type: 'number',
+    placeholder: 'Ej: 4',
+  },
+  {
+    key: 'estado',
+    label: 'Estado',
+    type: 'select',
+    options: [
+      { value: 'libre', label: 'Libre' },
+      { value: 'ocupada', label: 'Ocupada' },
+      { value: 'reservada', label: 'Reservada' },
+      { value: 'cuenta_pedida', label: 'Cuenta pedida' },
+      { value: 'por_limpiar', label: 'Por limpiar' },
+      { value: 'fuera_servicio', label: 'Fuera de servicio' },
+    ],
+  },
+  {
+    key: 'forma',
+    label: 'Forma',
+    type: 'select',
+    options: [
+      { value: 'cuadrada', label: 'Cuadrada' },
+      { value: 'rectangular', label: 'Rectangular' },
+      { value: 'redonda', label: 'Redonda' },
+      { value: 'ovalada', label: 'Ovalada' },
+      { value: 'irregular', label: 'Irregular' },
+    ],
+  },
+  {
+    key: 'activo',
+    label: 'Activa',
+    type: 'boolean',
+  },
+];
+
+// Campos filtrables para el módulo de camareros
+export const CAMAREROS_FILTERABLE_FIELDS: FilterableField[] = [
+  {
+    key: 'codigo',
+    label: 'Código',
+    type: 'text',
+    placeholder: 'Ej: CAM-001',
+  },
+  {
+    key: 'nombre',
+    label: 'Nombre',
+    type: 'text',
+    placeholder: 'Nombre',
+  },
+  {
+    key: 'apellidos',
+    label: 'Apellidos',
+    type: 'text',
+    placeholder: 'Apellidos',
+  },
+  {
+    key: 'alias',
+    label: 'Alias',
+    type: 'text',
+    placeholder: 'Alias en TPV',
+  },
+  {
+    key: 'activo',
+    label: 'Activo',
+    type: 'boolean',
+  },
+];
+
+// ============================================
 // MÓDULOS DE TESORERÍA
 // ============================================
 

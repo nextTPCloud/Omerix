@@ -40,6 +40,12 @@ import zonasPreparacionRoutes from './modules/zonas-preparacion/zonas-preparacio
 import modificadoresRoutes from './modules/modificadores/modificadores.routes';
 import gruposModificadoresRoutes from './modules/grupos-modificadores/grupos-modificadores.routes';
 import alergenosRoutes from './modules/alergenos/alergenos.routes';
+import { salonesRouter, mesasRouter } from './modules/salones/salones.routes';
+import comandasCocinaRoutes from './modules/comandas-cocina/comandas-cocina.routes';
+import camarerosRoutes from './modules/camareros/camareros.routes';
+import turnosServicioRoutes from './modules/turnos-servicio/turnos-servicio.routes';
+import sugerenciasRoutes from './modules/sugerencias/sugerencias.routes';
+import reservasRoutes from './modules/reservas/reservas.routes';
 import terminosPagoRoutes from './modules/terminos-pago/terminos-pago.routes';
 import formasPagoRoutes from './modules/formas-pago/formas-pago.routes';
 import vencimientosRoutes from './modules/tesoreria/vencimientos.routes';
@@ -48,6 +54,7 @@ import recibosRoutes from './modules/tesoreria/recibos.routes';
 import movimientosBancariosRoutes from './modules/tesoreria/movimientos-bancarios.routes';
 import conciliacionRoutes from './modules/tesoreria/conciliacion.routes';
 import previsionesRoutes from './modules/tesoreria/previsiones.routes';
+import tesoreriaRoutes from './modules/tesoreria/tesoreria.routes';
 import cuentasBancariasRoutes from './modules/cuentas-bancarias/cuentas-bancarias.routes';
 
 // Importar rutas de contabilidad
@@ -130,8 +137,17 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes';
 // Informes personalizados
 import informesRoutes from './modules/informes/informes.routes';
 
+// Plantillas de documentos (diseño de facturas, presupuestos, etc.)
+import plantillasDocumentoRoutes from './modules/plantillas-documento/plantillas-documento.routes';
+
 // TPV - Punto de Venta
 import tpvRoutes from './modules/tpv/tpv.routes';
+
+// Kiosk - Autoservicio
+import kioskRoutes from './modules/kiosk/kiosk.routes';
+
+// Archivos (gestión centralizada de archivos)
+import archivosRoutes from './modules/archivos/archivos.routes';
 
 // Recordatorios unificados
 import recordatoriosRoutes from './modules/recordatorios/recordatorios.routes';
@@ -144,6 +160,15 @@ import googleCalendarRoutes from './modules/google-calendar/google-calendar.rout
 
 // Google OAuth unificado (Calendar + Gmail por usuario)
 import googleOAuthRoutes from './modules/google-oauth/google-oauth.routes';
+
+// Firmas de documentos
+import firmasRoutes from './modules/firmas/firmas.routes';
+
+// E-commerce sync (PrestaShop, WooCommerce)
+import ecommerceRoutes from './modules/ecommerce/ecommerce.routes';
+
+// Restoo.me (integración reservas)
+import restooRoutes from './modules/integraciones/restoo/restoo.routes';
 
 // Importar middlewares de logs
 import { logCaptureMiddleware } from './modules/logs/middleware/log-capture.middleware'; // 🆕 NUEVO
@@ -185,12 +210,19 @@ app.use(cors({
     if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
       return callback(null, true);
     }
+    // Permitir acceso desde red local (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    if (/^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin)) {
+      return callback(null, true);
+    }
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Servir archivos estáticos subidos (fallback local cuando no hay DO Spaces)
+app.use('/uploads', express.static('uploads'));
 
 app.use(generalLimiter);
 
@@ -199,6 +231,13 @@ app.use(generalLimiter);
 // ============================================
 // 🆕 NUEVO: Logging HTTP con Winston
 app.use(httpLoggerMiddleware);
+
+// ============================================
+// MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS
+// ============================================
+// Intercepta res.json para registrar audit logs automáticamente
+// Debe ir ANTES de las rutas para poder interceptar las respuestas
+app.use(logCaptureMiddleware);
 
 // ============================================
 // SWAGGER DOCUMENTATION
@@ -370,10 +409,18 @@ app.use('/api/zonas-preparacion', zonasPreparacionRoutes);
 app.use('/api/modificadores', modificadoresRoutes);
 app.use('/api/grupos-modificadores', gruposModificadoresRoutes);
 app.use('/api/alergenos', alergenosRoutes);
+app.use('/api/salones', salonesRouter);
+app.use('/api/mesas', mesasRouter);
+app.use('/api/comandas-cocina', comandasCocinaRoutes);
+app.use('/api/camareros', camarerosRoutes);
+app.use('/api/turnos-servicio', turnosServicioRoutes);
+app.use('/api/sugerencias', sugerenciasRoutes);
+app.use('/api/reservas', reservasRoutes);
 app.use('/api/terminos-pago', terminosPagoRoutes);
 app.use('/api/formas-pago', formasPagoRoutes);
 
 // Rutas de tesorería
+app.use('/api/tesoreria', tesoreriaRoutes);
 app.use('/api/vencimientos', vencimientosRoutes);
 app.use('/api/pagares', pagaresRoutes);
 app.use('/api/recibos', recibosRoutes);
@@ -460,8 +507,17 @@ app.use('/api/dashboard', dashboardRoutes);
 // Informes personalizados
 app.use('/api/informes', informesRoutes);
 
+// Plantillas de documentos
+app.use('/api/plantillas-documento', plantillasDocumentoRoutes);
+
 // TPV - Punto de Venta
 app.use('/api/tpv', tpvRoutes);
+
+// Kiosk - Autoservicio
+app.use('/api/kiosk', kioskRoutes);
+
+// Archivos (gestión centralizada)
+app.use('/api/archivos', archivosRoutes);
 
 // Recordatorios
 app.use('/api/recordatorios', recordatoriosRoutes);
@@ -475,12 +531,14 @@ app.use('/api/google/oauth', googleOAuthRoutes);
 // Google Calendar
 app.use('/api/google-calendar', googleCalendarRoutes);
 
-// ============================================
-// MIDDLEWARE DE CAPTURA AUTOMÁTICA DE LOGS
-// ============================================
-// 🆕 NUEVO: Este middleware debe ir DESPUÉS de las rutas
-// Captura automáticamente todas las operaciones
-app.use(logCaptureMiddleware);
+// Firmas de documentos
+app.use('/api/firmas', firmasRoutes);
+
+// E-commerce sync (PrestaShop, WooCommerce)
+app.use('/api/ecommerce', ecommerceRoutes);
+
+// Restoo.me (integración reservas)
+app.use('/api/integraciones/restoo', restooRoutes);
 
 // ============================================
 // RUTA 404

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { albaranesService } from './albaranes.service';
+import albaranesPDFService from './albaranes-pdf.service';
 import {
   CreateAlbaranDTO,
   UpdateAlbaranDTO,
@@ -784,6 +785,118 @@ export const albaranesController = {
       return res.status(500).json({
         success: false,
         error: error.message || 'Error al generar URLs de WhatsApp',
+      });
+    }
+  },
+
+  /**
+   * Generar PDF del albarán (visualización inline)
+   */
+  async generarPDF(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const { plantillaId, mostrarPrecios = 'true' } = req.query;
+
+      // Obtener albarán con datos poblados
+      const albaran = await albaranesService.obtenerPorId(
+        req.empresaDbConfig,
+        id
+      );
+
+      if (!albaran) {
+        return res.status(404).json({
+          success: false,
+          error: 'Albarán no encontrado',
+        });
+      }
+
+      // Generar PDF
+      const pdfBuffer = await albaranesPDFService.generarPDF(
+        req.empresaDbConfig,
+        albaran,
+        {
+          plantillaId: plantillaId as string,
+          mostrarPrecios: mostrarPrecios === 'true',
+        }
+      );
+
+      // Configurar headers para visualización
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="albaran-${albaran.codigo}.pdf"`
+      );
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      return res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error('Error al generar PDF del albarán:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al generar PDF del albarán',
+      });
+    }
+  },
+
+  /**
+   * Descargar PDF del albarán
+   */
+  async descargarPDF(req: Request, res: Response) {
+    try {
+      if (!req.empresaDbConfig) {
+        return res.status(500).json({
+          success: false,
+          error: 'Configuración de base de datos no disponible',
+        });
+      }
+
+      const { id } = req.params;
+      const { plantillaId, mostrarPrecios = 'true' } = req.query;
+
+      // Obtener albarán con datos poblados
+      const albaran = await albaranesService.obtenerPorId(
+        req.empresaDbConfig,
+        id
+      );
+
+      if (!albaran) {
+        return res.status(404).json({
+          success: false,
+          error: 'Albarán no encontrado',
+        });
+      }
+
+      // Generar PDF
+      const pdfBuffer = await albaranesPDFService.generarPDF(
+        req.empresaDbConfig,
+        albaran,
+        {
+          plantillaId: plantillaId as string,
+          mostrarPrecios: mostrarPrecios === 'true',
+        }
+      );
+
+      // Configurar headers para descarga
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="albaran-${albaran.codigo}.pdf"`
+      );
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      return res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error('Error al descargar PDF del albarán:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Error al descargar PDF del albarán',
       });
     }
   },

@@ -77,7 +77,7 @@ export interface ResumenCliente {
 // ============================================
 
 class TesoreriaService {
-  private baseUrl = '/api/tesoreria'
+  private baseUrl = '/tesoreria'
 
   /**
    * Obtener estadísticas generales de tesorería

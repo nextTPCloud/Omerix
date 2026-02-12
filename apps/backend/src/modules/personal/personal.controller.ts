@@ -10,6 +10,7 @@ import {
   RegistrarVacacionesSchema,
   RegistrarEvaluacionSchema
 } from './personal.dto';
+import storageService from '@/services/storage.service';
 
 // ============================================
 // CREAR EMPLEADO
@@ -897,5 +898,120 @@ export const getCalendarioAusencias = async (req: Request, res: Response) => {
       success: false,
       message: error.message || 'Error al obtener calendario'
     });
+  }
+};
+
+// ============================================
+// SUBIR FOTO
+// ============================================
+export const subirFoto = async (req: Request, res: Response) => {
+  try {
+    if (!req.empresaId || !req.userId) {
+      return res.status(401).json({ success: false, message: 'No autenticado' });
+    }
+    if (!req.empresaDbConfig) {
+      return res.status(500).json({ success: false, message: 'Error de configuración de base de datos' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No se ha subido ningún archivo' });
+    }
+
+    const result = await storageService.uploadFile({
+      empresaId: req.empresaId,
+      modulo: 'personal',
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      isPublic: false,
+      generateThumbnails: true,
+    });
+
+    const empleado = await personalService.actualizarFoto(
+      req.params.id, req.empresaId, req.empresaDbConfig, result.url
+    );
+
+    if (!empleado) {
+      return res.status(404).json({ success: false, message: 'Empleado no encontrado' });
+    }
+
+    res.json({ success: true, data: empleado, message: 'Foto actualizada exitosamente' });
+  } catch (error: any) {
+    console.error('Error al subir foto:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al subir foto' });
+  }
+};
+
+// ============================================
+// SUBIR DOCUMENTO
+// ============================================
+export const subirDocumento = async (req: Request, res: Response) => {
+  try {
+    if (!req.empresaId || !req.userId) {
+      return res.status(401).json({ success: false, message: 'No autenticado' });
+    }
+    if (!req.empresaDbConfig) {
+      return res.status(500).json({ success: false, message: 'Error de configuración de base de datos' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No se ha subido ningún archivo' });
+    }
+
+    const result = await storageService.uploadFile({
+      empresaId: req.empresaId,
+      modulo: 'personal',
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      isPublic: false,
+    });
+
+    const { tipo, nombre: nombreDoc, confidencial } = req.body;
+
+    const empleado = await personalService.agregarDocumento(
+      req.params.id, req.empresaId, req.empresaDbConfig, {
+        nombre: nombreDoc || req.file.originalname,
+        tipo: tipo || 'otro',
+        url: result.url,
+        fechaSubida: new Date(),
+        subidoPor: req.userId!,
+        confidencial: confidencial === 'true' || confidencial === true,
+      }
+    );
+
+    if (!empleado) {
+      return res.status(404).json({ success: false, message: 'Empleado no encontrado' });
+    }
+
+    res.json({ success: true, data: empleado, message: 'Documento subido exitosamente' });
+  } catch (error: any) {
+    console.error('Error al subir documento:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al subir documento' });
+  }
+};
+
+// ============================================
+// ELIMINAR DOCUMENTO
+// ============================================
+export const eliminarDocumento = async (req: Request, res: Response) => {
+  try {
+    if (!req.empresaId || !req.userId) {
+      return res.status(401).json({ success: false, message: 'No autenticado' });
+    }
+    if (!req.empresaDbConfig) {
+      return res.status(500).json({ success: false, message: 'Error de configuración de base de datos' });
+    }
+
+    const empleado = await personalService.eliminarDocumento(
+      req.params.id, req.empresaId, req.empresaDbConfig, req.params.docId
+    );
+
+    if (!empleado) {
+      return res.status(404).json({ success: false, message: 'Empleado no encontrado' });
+    }
+
+    res.json({ success: true, data: empleado, message: 'Documento eliminado exitosamente' });
+  } catch (error: any) {
+    console.error('Error al eliminar documento:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al eliminar documento' });
   }
 };

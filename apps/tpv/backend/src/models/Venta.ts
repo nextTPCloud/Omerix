@@ -75,6 +75,7 @@ export interface IVenta extends Document {
   totalIva: number;
   totalDescuento: number;
   total: number;
+  propina?: number;
   pagos: IPago[];
   totalPagado: number;
   cambio: number;
@@ -150,6 +151,7 @@ const VentaSchema = new Schema<IVenta>(
     totalIva: { type: Number, required: true },
     totalDescuento: { type: Number, default: 0 },
     total: { type: Number, required: true },
+    propina: { type: Number, default: 0 },
     pagos: [PagoSchema],
     totalPagado: { type: Number, required: true },
     cambio: { type: Number, default: 0 },

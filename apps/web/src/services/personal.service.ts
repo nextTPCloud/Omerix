@@ -165,6 +165,36 @@ export const personalService = {
   },
 
   // ============================================
+  // ARCHIVOS
+  // ============================================
+
+  async subirFoto(id: string, file: File): Promise<PersonalDetailResponse> {
+    const formData = new FormData();
+    formData.append('foto', file);
+    const response = await api.post(`${BASE_URL}/${id}/foto`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  async subirDocumento(id: string, file: File, opts?: { tipo?: string; nombre?: string; confidencial?: boolean }): Promise<PersonalDetailResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (opts?.tipo) formData.append('tipo', opts.tipo);
+    if (opts?.nombre) formData.append('nombre', opts.nombre);
+    if (opts?.confidencial) formData.append('confidencial', 'true');
+    const response = await api.post(`${BASE_URL}/${id}/documentos`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  async eliminarDocumento(id: string, docId: string): Promise<PersonalDetailResponse> {
+    const response = await api.delete(`${BASE_URL}/${id}/documentos/${docId}`);
+    return response.data;
+  },
+
+  // ============================================
   // HELPERS
   // ============================================
 

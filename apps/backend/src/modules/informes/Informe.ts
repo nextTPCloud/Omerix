@@ -15,6 +15,12 @@ export enum ModuloInforme {
   CLIENTES = 'clientes',
   PROVEEDORES = 'proveedores',
   PROYECTOS = 'proyectos',
+  CRM = 'crm',
+  CONTABILIDAD = 'contabilidad',
+  TPV = 'tpv',
+  PRESUPUESTOS = 'presupuestos',
+  PEDIDOS = 'pedidos',
+  ALBARANES = 'albaranes',
   GENERAL = 'general',
 }
 
@@ -114,6 +120,8 @@ export interface IJoinInforme {
 export interface IFuenteInforme {
   coleccion: string;
   joins?: IJoinInforme[];
+  // Campo array a desplegar (útil para líneas de facturas, etc.)
+  unwindArray?: string;
 }
 
 export interface IGraficoConfigInforme {
@@ -280,7 +288,8 @@ const ParametroSchema = new Schema({
 }, { _id: false });
 
 const InformeSchema = new Schema<IInforme>({
-  empresaId: { type: String, required: true, index: true },
+  // empresaId no es necesario porque cada empresa tiene su propia BD
+  empresaId: { type: String, required: false },
 
   nombre: { type: String, required: true },
   descripcion: { type: String },

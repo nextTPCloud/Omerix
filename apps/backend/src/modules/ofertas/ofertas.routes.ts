@@ -15,6 +15,9 @@ router.get('/', ofertasController.getAll.bind(ofertasController));
 // GET /api/ofertas/vigentes - Obtener ofertas vigentes
 router.get('/vigentes', ofertasController.getVigentes.bind(ofertasController));
 
+// GET /api/ofertas/happy-hours - Obtener happy hours activas ahora
+router.get('/happy-hours', ofertasController.getHappyHours.bind(ofertasController));
+
 // GET /api/ofertas/:id - Obtener oferta por ID
 router.get('/:id', ofertasController.getById.bind(ofertasController));
 

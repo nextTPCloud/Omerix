@@ -134,7 +134,7 @@ export function WidgetWrapper({
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 overflow-auto px-4 pb-4 pt-0">
+      <CardContent className="flex-1 min-h-0 overflow-hidden px-4 pb-4 pt-0">
         {error ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[100px] text-center">
             <p className="text-sm text-red-500 mb-2">{error}</p>

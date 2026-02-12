@@ -105,6 +105,10 @@ export function useLicense(): UseLicenseReturn {
     'crm': ['crm'],
     'restauracion': ['restauracion', 'tpv'], // Restauración también incluido si tiene TPV
     'redes-sociales': ['redes-sociales'],
+    'ia': ['tokens-ia-5000', 'tokens-ia-20000', 'tokens-ia-50000', 'tokens-ia-ilimitados'],
+    'restoo': ['restoo-integration', 'restauracion'],
+    'ecommerce': ['ecommerce'],
+    'firmas': ['firmas-digitales'],
   }
 
   // Verificar si tiene un modulo
