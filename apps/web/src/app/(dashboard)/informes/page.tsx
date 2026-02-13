@@ -90,7 +90,7 @@ const MODULO_TO_PLAN: Record<ModuloInforme, string | null> = {
   [ModuloInforme.PROVEEDORES]: 'proveedores',
   [ModuloInforme.PROYECTOS]: 'proyectos',
   [ModuloInforme.CRM]: 'crm',
-  [ModuloInforme.CONTABILIDAD]: 'contabilidad',
+  [ModuloInforme.CONTABILIDAD]: null, // Siempre disponible (informes fiscales obligatorios)
   [ModuloInforme.TPV]: 'tpv',
   [ModuloInforme.PRESUPUESTOS]: 'ventas',
   [ModuloInforme.PEDIDOS]: 'ventas',

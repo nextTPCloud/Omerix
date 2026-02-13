@@ -21,24 +21,12 @@
 
 # misc
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-/apps/web/.env.local
-/apps/web/.env.development.local
-/apps/web/.env.test.local
-/apps/web/.env.production.local
-/apps/backend/.env
-/apps/backend/.env.local
-/apps/backend/.env.development
-/apps/backend/.env.production
-/apps/backend/.env.*.local
-/apps/tpv/backend/.env
-/apps/tpv/backend/.env.local
-/apps/tpv/backend/.env.development
-/apps/tpv/backend/.env.production
-/apps/tpv/backend/.env.*.local
+
+# env - proteger credenciales (solo commitear *.env.example)
+.env
+.env.*
+!.env.example
+!.env.*.example
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

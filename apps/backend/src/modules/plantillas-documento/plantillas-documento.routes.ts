@@ -20,20 +20,44 @@ router.use(tenantMiddleware);
  */
 
 /**
- * GET /api/plantillas-documento/estilos
- * Obtener estilos disponibles (moderno, clásico, minimalista, etc.)
+ * @swagger
+ * /api/plantillas-documento/estilos:
+ *   get:
+ *     summary: Obtener estilos disponibles (moderno, clásico, minimalista, etc.)
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de estilos
  */
 router.get('/estilos', plantillasDocumentoController.obtenerEstilos.bind(plantillasDocumentoController));
 
 /**
- * GET /api/plantillas-documento/tipos-documento
- * Obtener tipos de documento disponibles (factura, presupuesto, albaran, etc.)
+ * @swagger
+ * /api/plantillas-documento/tipos-documento:
+ *   get:
+ *     summary: Obtener tipos de documento disponibles
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de tipos de documento
  */
 router.get('/tipos-documento', plantillasDocumentoController.obtenerTiposDocumento.bind(plantillasDocumentoController));
 
 /**
- * POST /api/plantillas-documento/inicializar
- * Inicializar plantillas predefinidas
+ * @swagger
+ * /api/plantillas-documento/inicializar:
+ *   post:
+ *     summary: Inicializar plantillas predefinidas
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Plantillas inicializadas
  */
 router.post(
   '/inicializar',
@@ -42,8 +66,22 @@ router.post(
 );
 
 /**
- * GET /api/plantillas-documento/tipo/:tipoDocumento
- * Obtener plantillas por tipo de documento
+ * @swagger
+ * /api/plantillas-documento/tipo/{tipoDocumento}:
+ *   get:
+ *     summary: Obtener plantillas por tipo de documento
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tipoDocumento
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Plantillas del tipo indicado
  */
 router.get(
   '/tipo/:tipoDocumento',
@@ -51,8 +89,22 @@ router.get(
 );
 
 /**
- * GET /api/plantillas-documento/predeterminada/:tipoDocumento
- * Obtener plantilla predeterminada por tipo de documento
+ * @swagger
+ * /api/plantillas-documento/predeterminada/{tipoDocumento}:
+ *   get:
+ *     summary: Obtener plantilla predeterminada por tipo de documento
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tipoDocumento
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Plantilla predeterminada
  */
 router.get(
   '/predeterminada/:tipoDocumento',
@@ -60,8 +112,16 @@ router.get(
 );
 
 /**
- * GET /api/plantillas-documento
- * Listar plantillas con filtros y paginación
+ * @swagger
+ * /api/plantillas-documento:
+ *   get:
+ *     summary: Listar plantillas con filtros y paginación
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de plantillas
  */
 router.get(
   '/',
@@ -69,8 +129,22 @@ router.get(
 );
 
 /**
- * GET /api/plantillas-documento/:id
- * Obtener plantilla por ID
+ * @swagger
+ * /api/plantillas-documento/{id}:
+ *   get:
+ *     summary: Obtener plantilla por ID
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Detalle de la plantilla
  */
 router.get(
   '/:id',
@@ -78,8 +152,22 @@ router.get(
 );
 
 /**
- * POST /api/plantillas-documento
- * Crear nueva plantilla
+ * @swagger
+ * /api/plantillas-documento:
+ *   post:
+ *     summary: Crear nueva plantilla
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Plantilla creada
  */
 router.post(
   '/',
@@ -88,8 +176,28 @@ router.post(
 );
 
 /**
- * PUT /api/plantillas-documento/:id
- * Actualizar plantilla
+ * @swagger
+ * /api/plantillas-documento/{id}:
+ *   put:
+ *     summary: Actualizar plantilla
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Plantilla actualizada
  */
 router.put(
   '/:id',
@@ -98,8 +206,22 @@ router.put(
 );
 
 /**
- * DELETE /api/plantillas-documento/:id
- * Eliminar plantilla
+ * @swagger
+ * /api/plantillas-documento/{id}:
+ *   delete:
+ *     summary: Eliminar plantilla
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Plantilla eliminada
  */
 router.delete(
   '/:id',
@@ -108,8 +230,22 @@ router.delete(
 );
 
 /**
- * POST /api/plantillas-documento/:id/duplicar
- * Duplicar plantilla
+ * @swagger
+ * /api/plantillas-documento/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar plantilla
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       201:
+ *         description: Plantilla duplicada
  */
 router.post(
   '/:id/duplicar',
@@ -118,8 +254,22 @@ router.post(
 );
 
 /**
- * POST /api/plantillas-documento/:id/predeterminada
- * Establecer plantilla como predeterminada
+ * @swagger
+ * /api/plantillas-documento/{id}/predeterminada:
+ *   post:
+ *     summary: Establecer plantilla como predeterminada
+ *     tags: [Plantillas de Documento]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Plantilla establecida como predeterminada
  */
 router.post(
   '/:id/predeterminada',

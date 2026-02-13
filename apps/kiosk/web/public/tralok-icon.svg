@@ -1,0 +1,13 @@
+<svg width="64" height="64" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Anillo exterior - O estilizada -->
+  <circle cx="24" cy="24" r="20" stroke="#3B82F6" stroke-width="2.5" fill="none" opacity="0.15"/>
+  <circle cx="24" cy="24" r="20" stroke="#3B82F6" stroke-width="2.5" fill="none" stroke-dasharray="95 31" stroke-linecap="round"/>
+
+  <!-- Barras de datos ascendentes -->
+  <rect x="14" y="28" width="4" height="10" rx="1.5" fill="#3B82F6"/>
+  <rect x="20" y="23" width="4" height="15" rx="1.5" fill="#3B82F6"/>
+  <rect x="26" y="18" width="4" height="20" rx="1.5" fill="#3B82F6"/>
+
+  <!-- Punto destacado (metrica/KPI) -->
+  <circle cx="34" cy="15" r="3" fill="#3B82F6"/>
+</svg>

@@ -16,7 +16,7 @@ import { CheckoutModal } from './CheckoutModal';
  * Gestiona la interfaz segun el tipo de kiosk
  */
 export function KioskMain() {
-  const { kioskConfig } = useAuthStore();
+  const { kioskConfig, empresaLogo } = useAuthStore();
   const { familias, isLoading: isDataLoading } = useDataStore();
   const { items, total } = useCartStore();
 
@@ -106,6 +106,7 @@ export function KioskMain() {
       <WelcomeScreen
         onStart={handleStartOrder}
         kioskConfig={kioskConfig}
+        empresaLogo={empresaLogo}
       />
     );
   }
@@ -118,6 +119,7 @@ export function KioskMain() {
       {/* Header */}
       <Header
         kioskConfig={kioskConfig}
+        empresaLogo={empresaLogo}
         onBackToWelcome={() => setShowWelcome(true)}
       />
 

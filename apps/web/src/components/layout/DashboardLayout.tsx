@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuthStore } from '@/stores/authStore'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
@@ -9,9 +9,13 @@ import { cn } from '@/lib/utils'
 import { isTokenExpired } from '@/utils/jwt.utils'
 import { FavoritosProvider } from '@/contexts/FavoritosContext'
 import { AIChat } from '@/components/ai/AIChat'
+import { dashboardService } from '@/services/dashboard.service'
 
 // Intervalo de verificación del token (cada 60 segundos)
 const TOKEN_CHECK_INTERVAL = 60 * 1000
+
+// Rutas excluidas del tracking de navegación
+const RUTAS_EXCLUIDAS = ['/dashboard', '/login', '/register', '/']
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -19,6 +23,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { isAuthenticated, isHydrated, accessToken, checkAndRefreshToken } = useAuthStore()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
@@ -125,6 +130,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       }
     }
   }, [isMounted])
+
+  // Tracking de navegación real (con debounce de 1s)
+  useEffect(() => {
+    if (!isTokenVerified || !isAuthenticated || !pathname) return
+    if (RUTAS_EXCLUIDAS.includes(pathname)) return
+
+    const timer = setTimeout(() => {
+      dashboardService.trackVisit(pathname).catch(() => {})
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [pathname, isTokenVerified, isAuthenticated])
 
   // Guardar estado del sidebar en localStorage
   const handleToggleCollapse = () => {

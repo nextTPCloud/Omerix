@@ -75,6 +75,7 @@ class StorageService {
 
   /**
    * Sube un archivo al almacenamiento
+   * Si Spaces/MinIO falla, cae a almacenamiento local como fallback
    */
   async uploadFile(options: UploadOptions): Promise<UploadResult> {
     const { empresaId, modulo, buffer, originalName, mimeType, isPublic = false, generateThumbnails = false, subfolder } = options;
@@ -88,7 +89,13 @@ class StorageService {
     }
 
     if (this.provider === 'spaces' && this.s3Client) {
-      return this.uploadToSpaces(key, processedBuffer, mimeType, isPublic, isImage && generateThumbnails);
+      try {
+        return await this.uploadToSpaces(key, processedBuffer, mimeType, isPublic, isImage && generateThumbnails);
+      } catch (error: any) {
+        // Fallback a almacenamiento local si Spaces/MinIO no esta disponible
+        console.warn(`[Storage] Error subiendo a Spaces/MinIO: ${error.message}. Usando almacenamiento local como fallback.`);
+        return this.uploadToLocal(key, processedBuffer, mimeType, isImage && generateThumbnails);
+      }
     }
     return this.uploadToLocal(key, processedBuffer, mimeType, isImage && generateThumbnails);
   }

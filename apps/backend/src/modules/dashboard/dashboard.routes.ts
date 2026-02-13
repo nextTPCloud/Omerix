@@ -11,6 +11,8 @@ import {
   getWidgetData,
   getCatalogo,
   resetDashboard,
+  trackVisit,
+  getFrecuentes,
 } from './dashboard.controller';
 import { authMiddleware } from '../../middleware/auth.middleware';
 import { tenantMiddleware, requireBusinessDatabase } from '../../middleware/tenant.middleware';
@@ -25,6 +27,10 @@ router.use(requireBusinessDatabase);
 // Dashboard del usuario
 router.get('/', getDashboard);
 router.get('/catalogo', getCatalogo);
+
+// Tracking de navegación
+router.post('/track-visit', trackVisit);
+router.get('/frecuentes', getFrecuentes);
 
 // Operaciones sobre dashboard específico
 router.put('/:id', updateDashboard);

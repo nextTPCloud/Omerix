@@ -483,7 +483,7 @@ export function DashboardGrid({ refreshInterval = 60 }: DashboardGridProps) {
         )
 
       case TipoWidget.ACCESOS_RAPIDOS:
-        return <QuickLinksWidget {...commonProps} />
+        return <QuickLinksWidget {...commonProps} frecuentes={data?.datos} />
 
       case TipoWidget.ALERTAS:
         return (

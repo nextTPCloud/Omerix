@@ -264,6 +264,21 @@ class DashboardService {
   }
 
   /**
+   * Registrar visita a una página (fire-and-forget)
+   */
+  async trackVisit(path: string): Promise<void> {
+    await api.post(`${this.baseUrl}/track-visit`, { path })
+  }
+
+  /**
+   * Obtener páginas más frecuentes del usuario
+   */
+  async getFrecuentes(): Promise<{ success: boolean; data: { path: string; count: number; lastVisit: string }[] }> {
+    const response = await api.get(`${this.baseUrl}/frecuentes`)
+    return response.data
+  }
+
+  /**
    * Restablecer dashboard a valores por defecto
    */
   async resetDashboard(

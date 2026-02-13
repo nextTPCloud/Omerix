@@ -478,7 +478,7 @@ class EmpresaController {
 
       res.json({
         success: true,
-        data: { url: result.url, thumbnails: result.thumbnails },
+        data: { logoUrl: result.url, url: result.url, thumbnails: result.thumbnails },
         message: 'Logo actualizado exitosamente',
       });
     } catch (error: any) {

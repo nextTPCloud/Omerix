@@ -21,98 +21,332 @@ router.use(tenantMiddleware);
  */
 
 /**
- * POST /api/informes/ai/generar
- * Generar informe con IA desde comando de voz/texto
+ * @swagger
+ * /api/informes/ai/generar:
+ *   post:
+ *     summary: Generar informe con IA desde comando de voz/texto
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comando:
+ *                 type: string
+ *                 description: Comando en lenguaje natural
+ *     responses:
+ *       200:
+ *         description: Informe generado
  */
 router.post('/ai/generar', informesController.generarConIA.bind(informesController));
 
 /**
- * GET /api/informes/ai/sugerencias
- * Obtener sugerencias de comandos para IA
+ * @swagger
+ * /api/informes/ai/sugerencias:
+ *   get:
+ *     summary: Obtener sugerencias de comandos para IA
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de sugerencias
  */
 router.get('/ai/sugerencias', informesController.obtenerSugerenciasIA.bind(informesController));
 
 /**
- * GET /api/informes/catalogo
- * Obtener catálogo de colecciones y campos
+ * @swagger
+ * /api/informes/catalogo:
+ *   get:
+ *     summary: Obtener catálogo de colecciones y campos disponibles
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Catálogo de colecciones
  */
 router.get('/catalogo', informesController.obtenerCatalogo.bind(informesController));
 
 /**
- * GET /api/informes/plantillas
- * Obtener plantillas predefinidas
+ * @swagger
+ * /api/informes/plantillas:
+ *   get:
+ *     summary: Obtener plantillas predefinidas
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de plantillas
  */
 router.get('/plantillas', informesController.obtenerPlantillas.bind(informesController));
 
 /**
- * POST /api/informes/inicializar-plantillas
- * Inicializar plantillas predefinidas
+ * @swagger
+ * /api/informes/inicializar-plantillas:
+ *   post:
+ *     summary: Inicializar plantillas predefinidas
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               forzar:
+ *                 type: boolean
+ *                 description: Forzar reinicialización de plantillas existentes
+ *     responses:
+ *       200:
+ *         description: Plantillas inicializadas
  */
 router.post('/inicializar-plantillas', informesController.inicializarPlantillas.bind(informesController));
 
 /**
- * GET /api/informes/debug
- * Debug: ver informes directamente (TEMPORAL)
+ * @swagger
+ * /api/informes/debug:
+ *   get:
+ *     summary: Debug - ver informes directamente (TEMPORAL)
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Datos de debug
  */
 router.get('/debug', informesController.debug.bind(informesController));
 
 /**
- * GET /api/informes
- * Listar informes
+ * @swagger
+ * /api/informes:
+ *   get:
+ *     summary: Listar informes
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: modulo
+ *         schema:
+ *           type: string
+ *         description: Filtrar por módulo
+ *       - in: query
+ *         name: favorito
+ *         schema:
+ *           type: boolean
+ *         description: Solo favoritos
+ *       - in: query
+ *         name: busqueda
+ *         schema:
+ *           type: string
+ *         description: Texto de búsqueda
+ *     responses:
+ *       200:
+ *         description: Lista de informes
  */
 router.get('/', requirePermission('informes', 'read'), informesController.listar.bind(informesController));
 
 /**
- * GET /api/informes/nuevo
- * Obtener datos iniciales para crear un nuevo informe (catálogo + plantillas)
+ * @swagger
+ * /api/informes/nuevo:
+ *   get:
+ *     summary: Obtener datos iniciales para crear un nuevo informe
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Catálogo y plantillas para nuevo informe
  */
 router.get('/nuevo', requirePermission('informes', 'create'), informesController.datosNuevoInforme.bind(informesController));
 
 /**
- * GET /api/informes/:id
- * Obtener informe por ID
+ * @swagger
+ * /api/informes/{id}:
+ *   get:
+ *     summary: Obtener informe por ID
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Detalle del informe
+ *       404:
+ *         description: Informe no encontrado
  */
 router.get('/:id', requirePermission('informes', 'read'), informesController.obtenerPorId.bind(informesController));
 
 /**
- * POST /api/informes
- * Crear nuevo informe
+ * @swagger
+ * /api/informes:
+ *   post:
+ *     summary: Crear nuevo informe
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Informe creado
  */
 router.post('/', requirePermission('informes', 'create'), informesController.crear.bind(informesController));
 
 /**
- * PUT /api/informes/:id
- * Actualizar informe
+ * @swagger
+ * /api/informes/{id}:
+ *   put:
+ *     summary: Actualizar informe
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Informe actualizado
  */
 router.put('/:id', requirePermission('informes', 'update'), informesController.actualizar.bind(informesController));
 
 /**
- * DELETE /api/informes/:id
- * Eliminar informe
+ * @swagger
+ * /api/informes/{id}:
+ *   delete:
+ *     summary: Eliminar informe
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Informe eliminado
  */
 router.delete('/:id', requirePermission('informes', 'delete'), informesController.eliminar.bind(informesController));
 
 /**
- * POST /api/informes/:id/duplicar
- * Duplicar informe
+ * @swagger
+ * /api/informes/{id}/duplicar:
+ *   post:
+ *     summary: Duplicar informe
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       201:
+ *         description: Informe duplicado
  */
 router.post('/:id/duplicar', requirePermission('informes', 'create'), informesController.duplicar.bind(informesController));
 
 /**
- * POST /api/informes/:id/favorito
- * Toggle favorito
+ * @swagger
+ * /api/informes/{id}/favorito:
+ *   post:
+ *     summary: Toggle favorito de un informe
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Favorito actualizado
  */
 router.post('/:id/favorito', requirePermission('informes', 'update'), informesController.toggleFavorito.bind(informesController));
 
 /**
- * POST /api/informes/:id/ejecutar
- * Ejecutar informe y obtener datos
+ * @swagger
+ * /api/informes/{id}/ejecutar:
+ *   post:
+ *     summary: Ejecutar informe y obtener datos
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: Parámetros de ejecución del informe
+ *     responses:
+ *       200:
+ *         description: Datos del informe ejecutado
  */
 router.post('/:id/ejecutar', requirePermission('informes', 'read'), informesController.ejecutar.bind(informesController));
 
 /**
- * POST /api/informes/:id/exportar
- * Exportar informe
+ * @swagger
+ * /api/informes/{id}/exportar:
+ *   post:
+ *     summary: Exportar informe a Excel, PDF o CSV
+ *     tags: [Informes]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               formato:
+ *                 type: string
+ *                 enum: [excel, pdf, csv]
+ *     responses:
+ *       200:
+ *         description: Archivo exportado
  */
 router.post('/:id/exportar', requirePermission('informes', 'export'), informesController.exportar.bind(informesController));
 

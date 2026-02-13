@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { kioskService } from './kiosk.service';
 import { kioskSyncService } from './kiosk-sync.service';
+import Empresa from '../empresa/Empresa';
 
 // ============================================
 // RUTAS PUBLICAS (para el kiosk/cliente)
@@ -19,6 +20,9 @@ export const activarKiosk = async (req: Request, res: Response) => {
 
     const kiosk = await kioskService.verificarCredencialesKiosk(empresaId, kioskId, kioskSecret);
 
+    // Obtener logo de la empresa
+    const empresa = await Empresa.findById(empresaId).select('logo nombre').lean();
+
     res.json({
       success: true,
       kiosk: {
@@ -32,6 +36,8 @@ export const activarKiosk = async (req: Request, res: Response) => {
         tema: kiosk.tema,
         config: kiosk.config,
       },
+      empresaLogo: empresa?.logo || null,
+      empresaNombre: empresa?.nombre || null,
     });
   } catch (error: any) {
     console.error('[Kiosk] Error activando:', error.message);

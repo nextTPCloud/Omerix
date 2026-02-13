@@ -20,92 +20,316 @@ router.use(requireModuleAccess('accesoRRHH'));
  */
 
 /**
- * GET /api/planificacion/sugerir-codigo
- * Obtener sugerencia de proximo codigo
+ * @swagger
+ * /api/planificacion/sugerir-codigo:
+ *   get:
+ *     summary: Obtener sugerencia de próximo código
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Código sugerido
  */
 router.get('/sugerir-codigo', planificacionController.sugerirCodigo.bind(planificacionController));
 
 /**
- * GET /api/planificacion/resumen-semanal
- * Obtener resumen semanal de planificacion
+ * @swagger
+ * /api/planificacion/resumen-semanal:
+ *   get:
+ *     summary: Obtener resumen semanal de planificación
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: fecha
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Fecha de referencia para la semana
+ *     responses:
+ *       200:
+ *         description: Resumen semanal
  */
 router.get('/resumen-semanal', planificacionController.obtenerResumenSemanal.bind(planificacionController));
 
 /**
- * GET /api/planificacion/vista-completa
- * Obtener vista completa de la semana con partes de trabajo y tareas
+ * @swagger
+ * /api/planificacion/vista-completa:
+ *   get:
+ *     summary: Obtener vista completa de la semana con partes de trabajo y tareas
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Vista completa semanal
  */
 router.get('/vista-completa', planificacionController.obtenerVistaCompleta.bind(planificacionController));
 
 /**
- * GET /api/planificacion/empleado/:personalId
- * Obtener planificacion de un empleado
+ * @swagger
+ * /api/planificacion/empleado/{personalId}:
+ *   get:
+ *     summary: Obtener planificación de un empleado
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: personalId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Planificación del empleado
  */
 router.get('/empleado/:personalId', planificacionController.obtenerPlanificacionEmpleado.bind(planificacionController));
 
 /**
- * GET /api/planificacion
- * Listar planificaciones
+ * @swagger
+ * /api/planificacion:
+ *   get:
+ *     summary: Listar planificaciones
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de planificaciones
  */
 router.get('/', planificacionController.listar.bind(planificacionController));
 
 /**
- * GET /api/planificacion/:id
- * Obtener planificacion por ID
+ * @swagger
+ * /api/planificacion/{id}:
+ *   get:
+ *     summary: Obtener planificación por ID
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Detalle de la planificación
  */
 router.get('/:id', planificacionController.obtenerPorId.bind(planificacionController));
 
 /**
- * POST /api/planificacion
- * Crear nueva planificacion
+ * @swagger
+ * /api/planificacion:
+ *   post:
+ *     summary: Crear nueva planificación
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Planificación creada
  */
 router.post('/', planificacionController.crear.bind(planificacionController));
 
 /**
- * PUT /api/planificacion/:id
- * Actualizar planificacion
+ * @swagger
+ * /api/planificacion/{id}:
+ *   put:
+ *     summary: Actualizar planificación
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Planificación actualizada
  */
 router.put('/:id', planificacionController.actualizar.bind(planificacionController));
 
 /**
- * POST /api/planificacion/:id/asignaciones
- * Agregar asignaciones
+ * @swagger
+ * /api/planificacion/{id}/asignaciones:
+ *   post:
+ *     summary: Agregar asignaciones a planificación
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Asignaciones agregadas
  */
 router.post('/:id/asignaciones', planificacionController.agregarAsignaciones.bind(planificacionController));
 
 /**
- * PUT /api/planificacion/:id/asignaciones/:asignacionId
- * Actualizar asignacion
+ * @swagger
+ * /api/planificacion/{id}/asignaciones/{asignacionId}:
+ *   put:
+ *     summary: Actualizar asignación
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: asignacionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Asignación actualizada
  */
 router.put('/:id/asignaciones/:asignacionId', planificacionController.actualizarAsignacion.bind(planificacionController));
 
 /**
- * DELETE /api/planificacion/:id/asignaciones/:asignacionId
- * Eliminar asignacion
+ * @swagger
+ * /api/planificacion/{id}/asignaciones/{asignacionId}:
+ *   delete:
+ *     summary: Eliminar asignación
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: asignacionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Asignación eliminada
  */
 router.delete('/:id/asignaciones/:asignacionId', planificacionController.eliminarAsignacion.bind(planificacionController));
 
 /**
- * POST /api/planificacion/:id/estado
- * Cambiar estado
+ * @swagger
+ * /api/planificacion/{id}/estado:
+ *   post:
+ *     summary: Cambiar estado de planificación
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               estado:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Estado cambiado
  */
 router.post('/:id/estado', planificacionController.cambiarEstado.bind(planificacionController));
 
 /**
- * POST /api/planificacion/:id/copiar-semana
- * Copiar semana
+ * @swagger
+ * /api/planificacion/{id}/copiar-semana:
+ *   post:
+ *     summary: Copiar planificación de una semana
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       201:
+ *         description: Semana copiada
  */
 router.post('/:id/copiar-semana', planificacionController.copiarSemana.bind(planificacionController));
 
 /**
- * DELETE /api/planificacion/:id
- * Eliminar planificacion
+ * @swagger
+ * /api/planificacion/{id}:
+ *   delete:
+ *     summary: Eliminar planificación
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Planificación eliminada
  */
 router.delete('/:id', planificacionController.eliminar.bind(planificacionController));
 
 /**
- * POST /api/planificacion/enviar-email
- * Enviar planificacion por email a empleados
+ * @swagger
+ * /api/planificacion/enviar-email:
+ *   post:
+ *     summary: Enviar planificación por email a empleados
+ *     tags: [Planificacion]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Email enviado
  */
 router.post('/enviar-email', planificacionController.enviarPorEmail.bind(planificacionController));
 

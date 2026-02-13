@@ -27,6 +27,8 @@ export default function RootLayout({
         <title>Kiosk - Autoservicio</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <meta name="theme-color" content="#3B82F6" />
+        <link rel="icon" href="/tralok-icon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/tralok-icon.svg" />
       </head>
       <body className="bg-gray-100">
         <QueryClientProvider client={queryClient}>

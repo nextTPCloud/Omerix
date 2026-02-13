@@ -98,14 +98,50 @@ export const removeWidget = asyncHandler(async (req: Request, res: Response) => 
 });
 
 /**
+ * Registrar visita a una página (fire-and-forget)
+ */
+export const trackVisit = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.userId!;
+  const empresaId = req.empresaId!;
+  const dbConfig = req.dbConfig!;
+  const { path } = req.body;
+
+  if (!path || typeof path !== 'string') {
+    return res.status(400).json({ success: false, message: 'path es requerido' });
+  }
+
+  // Fire-and-forget: no esperamos al resultado para no bloquear
+  dashboardService.trackVisit(userId, empresaId, path, dbConfig).catch(() => {});
+
+  res.json({ success: true });
+});
+
+/**
+ * Obtener páginas más frecuentes del usuario
+ */
+export const getFrecuentes = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.userId!;
+  const empresaId = req.empresaId!;
+  const dbConfig = req.dbConfig!;
+
+  const frecuentes = await dashboardService.getFrecuentes(userId, empresaId, dbConfig);
+
+  res.json({
+    success: true,
+    data: frecuentes,
+  });
+});
+
+/**
  * Obtener datos de todos los widgets
  */
 export const getWidgetsData = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
+  const userId = req.userId!;
   const empresaId = req.empresaId!;
   const dbConfig = req.dbConfig!;
 
-  const data = await dashboardService.getAllWidgetsData(id, empresaId, dbConfig);
+  const data = await dashboardService.getAllWidgetsData(id, empresaId, dbConfig, userId);
 
   res.json({
     success: true,
@@ -137,7 +173,7 @@ export const getWidgetData = asyncHandler(async (req: Request, res: Response) =>
     });
   }
 
-  const data = await dashboardService.getWidgetData(widget, empresaId, dbConfig);
+  const data = await dashboardService.getWidgetData(widget, empresaId, dbConfig, req.userId);
 
   res.json({
     success: true,

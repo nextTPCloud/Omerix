@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -35,10 +35,17 @@ interface QuickLink {
   categoria?: string
 }
 
+interface FrecuenteData {
+  path: string
+  count: number
+  lastVisit: string
+}
+
 interface QuickLinksWidgetProps {
   widget: IWidget
   isLoading?: boolean
   error?: string
+  frecuentes?: FrecuenteData[]
   onRefresh?: () => void
   onConfigure?: () => void
   onRemove?: () => void
@@ -65,97 +72,111 @@ const ICONOS_MAP: Record<string, LucideIcon> = {
   clock: Clock,
 }
 
-// Enlaces por defecto ampliados con mas opciones utiles
+// Catálogo de páginas conocidas: path → título + icono
+const CATALOGO_PAGINAS: Record<string, { titulo: string; icono: string }> = {
+  '/presupuestos/nuevo': { titulo: 'Nuevo Presupuesto', icono: 'plus' },
+  '/presupuestos': { titulo: 'Presupuestos', icono: 'document' },
+  '/facturas/nuevo': { titulo: 'Nueva Factura', icono: 'receipt' },
+  '/facturas': { titulo: 'Facturas', icono: 'receipt' },
+  '/pedidos/nuevo': { titulo: 'Nuevo Pedido', icono: 'clipboard' },
+  '/pedidos': { titulo: 'Pedidos', icono: 'clipboard' },
+  '/albaranes/nuevo': { titulo: 'Nuevo Albarán', icono: 'document' },
+  '/albaranes': { titulo: 'Albaranes', icono: 'document' },
+  '/clientes': { titulo: 'Clientes', icono: 'users' },
+  '/productos': { titulo: 'Productos', icono: 'package' },
+  '/proveedores': { titulo: 'Proveedores', icono: 'truck' },
+  '/tesoreria/cobros': { titulo: 'Cobros', icono: 'euro' },
+  '/tesoreria/pagos': { titulo: 'Pagos', icono: 'credit' },
+  '/tesoreria': { titulo: 'Tesorería', icono: 'wallet' },
+  '/partes-trabajo/nuevo': { titulo: 'Nuevo Parte', icono: 'briefcase' },
+  '/partes-trabajo': { titulo: 'Partes Trabajo', icono: 'clipboard' },
+  '/personal': { titulo: 'Personal', icono: 'users' },
+  '/calendario': { titulo: 'Calendario', icono: 'calendar' },
+  '/contabilidad': { titulo: 'Contabilidad', icono: 'chart' },
+  '/contabilidad/asientos': { titulo: 'Asientos', icono: 'document' },
+  '/crm': { titulo: 'CRM', icono: 'trending' },
+  '/crm/leads': { titulo: 'Leads', icono: 'users' },
+  '/crm/oportunidades': { titulo: 'Oportunidades', icono: 'trending' },
+  '/proyectos': { titulo: 'Proyectos', icono: 'briefcase' },
+  '/inventarios': { titulo: 'Inventarios', icono: 'package' },
+  '/fichajes': { titulo: 'Fichajes', icono: 'clock' },
+  '/informes': { titulo: 'Informes', icono: 'chart' },
+  '/configuracion': { titulo: 'Configuración', icono: 'settings' },
+  '/familias': { titulo: 'Familias', icono: 'package' },
+  '/tarifas': { titulo: 'Tarifas', icono: 'euro' },
+  '/ofertas': { titulo: 'Ofertas', icono: 'trending' },
+  '/pedidos-compra': { titulo: 'Pedidos Compra', icono: 'cart' },
+  '/albaranes-compra': { titulo: 'Albaranes Compra', icono: 'document' },
+  '/facturas-compra': { titulo: 'Facturas Compra', icono: 'receipt' },
+  '/maquinaria': { titulo: 'Maquinaria', icono: 'building' },
+}
+
+// Enlaces por defecto para usuarios nuevos sin historial
 const ENLACES_DEFAULT: QuickLink[] = [
-  // Ventas
   { titulo: 'Nuevo Presupuesto', url: '/presupuestos/nuevo', icono: 'plus', categoria: 'ventas' },
   { titulo: 'Nueva Factura', url: '/facturas/nuevo', icono: 'receipt', categoria: 'ventas' },
-  { titulo: 'Nuevo Pedido', url: '/pedidos/nuevo', icono: 'clipboard', categoria: 'ventas' },
   { titulo: 'Presupuestos', url: '/presupuestos', icono: 'document', categoria: 'ventas' },
   { titulo: 'Facturas', url: '/facturas', icono: 'receipt', categoria: 'ventas' },
-  // Maestros
   { titulo: 'Clientes', url: '/clientes', icono: 'users', categoria: 'maestros' },
   { titulo: 'Productos', url: '/productos', icono: 'package', categoria: 'maestros' },
-  { titulo: 'Proveedores', url: '/proveedores', icono: 'truck', categoria: 'maestros' },
-  // Tesoreria
   { titulo: 'Cobros', url: '/tesoreria/cobros', icono: 'euro', categoria: 'tesoreria' },
-  { titulo: 'Pagos', url: '/tesoreria/pagos', icono: 'credit', categoria: 'tesoreria' },
-  // RRHH
-  { titulo: 'Nuevo Parte', url: '/partes-trabajo/nuevo', icono: 'briefcase', categoria: 'rrhh' },
-  { titulo: 'Partes Trabajo', url: '/partes-trabajo', icono: 'clipboard', categoria: 'rrhh' },
-  { titulo: 'Personal', url: '/personal', icono: 'users', categoria: 'rrhh' },
-  // Calendario
   { titulo: 'Calendario', url: '/calendario', icono: 'calendar', categoria: 'otros' },
 ]
 
-const STORAGE_KEY = 'quicklinks_usage'
 const MAX_LINKS_DISPLAY = 8
 
-// Obtener contadores de uso desde localStorage
-function getUsageStats(): Record<string, number> {
-  if (typeof window === 'undefined') return {}
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : {}
-  } catch {
-    return {}
-  }
-}
-
-// Guardar contador de uso
-function incrementUsage(url: string) {
-  if (typeof window === 'undefined') return
-  try {
-    const stats = getUsageStats()
-    stats[url] = (stats[url] || 0) + 1
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stats))
-  } catch {
-    // Ignorar errores de localStorage
-  }
+/**
+ * Genera título legible a partir de un path desconocido
+ */
+function tituloDesdePath(path: string): string {
+  const segmentos = path.split('/').filter(Boolean)
+  const ultimo = segmentos[segmentos.length - 1] || path
+  return ultimo
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
 }
 
 export function QuickLinksWidget({
   widget,
   isLoading,
   error,
+  frecuentes,
   onRefresh,
   onConfigure,
   onRemove,
 }: QuickLinksWidgetProps) {
   const router = useRouter()
-  const [usageStats, setUsageStats] = useState<Record<string, number>>({})
 
-  // Cargar estadisticas de uso al montar
-  useEffect(() => {
-    setUsageStats(getUsageStats())
-  }, [])
-
-  // Usar enlaces configurados o por defecto
-  // Verificar que hay enlaces y que no estan vacios
-  const enlacesBase = (widget.config?.enlaces && widget.config.enlaces.length > 0)
-    ? widget.config.enlaces
-    : ENLACES_DEFAULT
-
-  // Ordenar por uso y limitar cantidad
+  // Construir lista de enlaces: frecuentes del backend + fallback a defaults
   const enlacesOrdenados = useMemo(() => {
-    const conUso = enlacesBase.map(enlace => ({
-      ...enlace,
-      uso: usageStats[enlace.url] || 0,
-    }))
+    // Si hay frecuentes del backend, mapear a QuickLink con título e icono
+    if (frecuentes && frecuentes.length > 0) {
+      const fromBackend: (QuickLink & { uso: number })[] = frecuentes
+        .filter(f => f.path && !f.path.includes('/[')) // Excluir rutas dinámicas internas
+        .map(f => {
+          const conocido = CATALOGO_PAGINAS[f.path]
+          return {
+            titulo: conocido?.titulo || tituloDesdePath(f.path),
+            url: f.path,
+            icono: conocido?.icono || 'document',
+            uso: f.count,
+          }
+        })
 
-    // Ordenar por uso descendente
-    conUso.sort((a, b) => b.uso - a.uso)
+      // Si hay menos del máximo, completar con defaults que no estén ya
+      const urlsPresentes = new Set(fromBackend.map(e => e.url))
+      const complemento = ENLACES_DEFAULT
+        .filter(e => !urlsPresentes.has(e.url))
+        .map(e => ({ ...e, uso: 0 }))
 
-    // Retornar solo los primeros MAX_LINKS_DISPLAY
-    return conUso.slice(0, MAX_LINKS_DISPLAY)
-  }, [enlacesBase, usageStats])
+      return [...fromBackend, ...complemento].slice(0, MAX_LINKS_DISPLAY)
+    }
+
+    // Fallback: enlaces por defecto para usuarios sin historial
+    return ENLACES_DEFAULT.slice(0, MAX_LINKS_DISPLAY).map(e => ({ ...e, uso: 0 }))
+  }, [frecuentes])
 
   const handleClick = (enlace: QuickLink) => {
-    incrementUsage(enlace.url)
-    setUsageStats(prev => ({
-      ...prev,
-      [enlace.url]: (prev[enlace.url] || 0) + 1,
-    }))
     router.push(enlace.url)
   }
 
@@ -171,7 +192,7 @@ export function QuickLinksWidget({
     >
       <div className="h-full overflow-auto">
         <div className="grid grid-cols-2 gap-2">
-          {enlacesOrdenados.map((enlace, index) => {
+          {enlacesOrdenados.map((enlace) => {
             const Icono = enlace.icono ? ICONOS_MAP[enlace.icono] || FileText : FileText
             const esFrecuente = enlace.uso >= 3
 
@@ -195,9 +216,9 @@ export function QuickLinksWidget({
             )
           })}
         </div>
-        {enlacesOrdenados.length > 0 && (
+        {enlacesOrdenados.some(e => e.uso > 0) && (
           <p className="text-[10px] text-muted-foreground text-center mt-2">
-            Los accesos mas usados aparecen primero
+            Basado en tu navegacion real
           </p>
         )}
       </div>

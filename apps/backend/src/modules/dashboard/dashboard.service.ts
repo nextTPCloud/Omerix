@@ -1,7 +1,8 @@
 // apps/backend/src/modules/dashboard/dashboard.service.ts
 
-import { Model, Types } from 'mongoose';
+import mongoose, { Model, Schema, Types } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
+import { databaseManager } from '../../services/database-manager.service';
 import {
   Dashboard,
   IDashboard,
@@ -36,6 +37,29 @@ import {
 } from '../../utils/dynamic-models.helper';
 import { getModeloFichaje } from '../fichajes/Fichaje';
 import { tesoreriaDashboardService } from '../tesoreria/tesoreria-dashboard.service';
+
+// ============================================
+// SCHEMA PARA VISITAS DE PÁGINAS
+// ============================================
+
+interface IPageVisit extends mongoose.Document {
+  userId: Types.ObjectId;
+  path: string;
+  count: number;
+  lastVisit: Date;
+}
+
+const PageVisitSchema = new Schema<IPageVisit>(
+  {
+    userId: { type: Schema.Types.ObjectId, required: true, index: true },
+    path: { type: String, required: true },
+    count: { type: Number, default: 1 },
+    lastVisit: { type: Date, default: Date.now },
+  },
+  { timestamps: false }
+);
+
+PageVisitSchema.index({ userId: 1, path: 1 }, { unique: true });
 
 // ============================================
 // INTERFACES
@@ -85,6 +109,55 @@ export class DashboardService {
     dbConfig: IDatabaseConfig
   ): Promise<Model<IDashboard>> {
     return await getDashboardModel(empresaId, dbConfig);
+  }
+
+  /**
+   * Obtener modelo PageVisit para una empresa
+   */
+  private async getPageVisitModel(
+    empresaId: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<Model<IPageVisit>> {
+    return databaseManager.getModel<IPageVisit>(
+      empresaId,
+      dbConfig,
+      'PageVisit',
+      PageVisitSchema
+    );
+  }
+
+  /**
+   * Registrar visita a una página (upsert)
+   */
+  async trackVisit(
+    userId: string,
+    empresaId: string,
+    path: string,
+    dbConfig: IDatabaseConfig
+  ): Promise<void> {
+    const PageVisit = await this.getPageVisitModel(empresaId, dbConfig);
+    await PageVisit.updateOne(
+      { userId: new Types.ObjectId(userId), path },
+      { $inc: { count: 1 }, $set: { lastVisit: new Date() } },
+      { upsert: true }
+    );
+  }
+
+  /**
+   * Obtener páginas más frecuentes de un usuario
+   */
+  async getFrecuentes(
+    userId: string,
+    empresaId: string,
+    dbConfig: IDatabaseConfig,
+    limit: number = 10
+  ): Promise<{ path: string; count: number; lastVisit: Date }[]> {
+    const PageVisit = await this.getPageVisitModel(empresaId, dbConfig);
+    return PageVisit.find({ userId: new Types.ObjectId(userId) })
+      .sort({ count: -1, lastVisit: -1 })
+      .limit(limit)
+      .select('path count lastVisit -_id')
+      .lean();
   }
 
   /**
@@ -311,7 +384,8 @@ export class DashboardService {
   async getWidgetData(
     widget: IWidget,
     empresaId: string,
-    dbConfig: IDatabaseConfig
+    dbConfig: IDatabaseConfig,
+    userId?: string
   ): Promise<WidgetDataResult> {
     try {
       let datos: any = null;
@@ -364,7 +438,11 @@ export class DashboardService {
           datos = await this.getDocumentosPendientes(widget.config, empresaId, dbConfig);
           break;
         case TipoWidget.ACCESOS_RAPIDOS:
-          datos = widget.config.enlaces || [];
+          if (userId) {
+            datos = await this.getFrecuentes(userId, empresaId, dbConfig);
+          } else {
+            datos = widget.config.enlaces || [];
+          }
           break;
         case TipoWidget.ALERTAS:
           datos = await this.getAlertas(empresaId, dbConfig);
@@ -456,7 +534,8 @@ export class DashboardService {
   async getAllWidgetsData(
     dashboardId: string,
     empresaId: string,
-    dbConfig: IDatabaseConfig
+    dbConfig: IDatabaseConfig,
+    userId?: string
   ): Promise<Record<string, WidgetDataResult>> {
     const DashboardModel = await this.getModelo(empresaId, dbConfig);
     const dashboard = await DashboardModel.findById(dashboardId);
@@ -470,7 +549,7 @@ export class DashboardService {
     // Ejecutar en paralelo para mejor rendimiento
     await Promise.all(
       dashboard.widgets.filter((w) => w.visible).map(async (widget) => {
-        results[widget.id] = await this.getWidgetData(widget, empresaId, dbConfig);
+        results[widget.id] = await this.getWidgetData(widget, empresaId, dbConfig, userId);
       })
     );
 

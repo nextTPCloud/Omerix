@@ -44,6 +44,7 @@ interface AuthState {
   kioskSecret: string | null;
   empresaNombre: string | null;
   kioskNombre: string | null;
+  empresaLogo: string | null;
 
   // Config del kiosk
   kioskConfig: KioskConfig | null;
@@ -70,6 +71,7 @@ export const useAuthStore = create<AuthState>()(
       kioskSecret: null,
       empresaNombre: null,
       kioskNombre: null,
+      empresaLogo: null,
       kioskConfig: null,
       isActivated: false,
       isLoading: false,
@@ -97,6 +99,7 @@ export const useAuthStore = create<AuthState>()(
             set({
               isActivated: true,
               kioskConfig: response.data.kiosk,
+              empresaLogo: response.data.empresaLogo || null,
               isLoading: false,
             });
           } else {
@@ -130,6 +133,7 @@ export const useAuthStore = create<AuthState>()(
               kioskId,
               kioskSecret,
               kioskConfig: response.data.kiosk,
+              empresaLogo: response.data.empresaLogo || null,
               isActivated: true,
               isLoading: false,
             });
@@ -174,6 +178,7 @@ export const useAuthStore = create<AuthState>()(
               kioskSecret,
               empresaNombre,
               kioskNombre,
+              empresaLogo: configResponse.data.empresaLogo || null,
               kioskConfig: configResponse.data.kiosk,
               isActivated: true,
               isLoading: false,
@@ -199,6 +204,7 @@ export const useAuthStore = create<AuthState>()(
           kioskSecret: null,
           empresaNombre: null,
           kioskNombre: null,
+          empresaLogo: null,
           kioskConfig: null,
           isActivated: false,
           error: null,
@@ -216,6 +222,7 @@ export const useAuthStore = create<AuthState>()(
         kioskSecret: state.kioskSecret,
         empresaNombre: state.empresaNombre,
         kioskNombre: state.kioskNombre,
+        empresaLogo: state.empresaLogo,
       }),
     }
   )
